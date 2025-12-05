@@ -5,6 +5,8 @@ import { GridBackground } from "@/components/GridBackground";
 import { AIWidget } from "@/components/AIWidget";
 import { NotificationBar } from "@/components/NotificationBar";
 import { FuturisticPanel } from "@/components/FuturisticPanel";
+import { SystemeIntegration } from "@/components/SystemeIntegration";
+import { externalApps } from "@/config/systeme";
 import { GraduationCap, Cpu, FileCheck, TrendingUp, Sparkles, Zap, Globe, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -108,26 +110,34 @@ const Index = () => {
               <HologramCard
                 title="Systeme.io Portal"
                 description="CRM sync, automation workflows, and client management"
-                url="https://nexumsuum-clientportal.systeme.io/nxs-main-dash"
+                url={externalApps.find(a => a.id === "systeme")?.url || ""}
+                healthEndpoint={externalApps.find(a => a.id === "systeme")?.healthEndpoint}
                 icon={<Users className="w-6 h-6" />}
                 colorTheme="primary"
               />
               <HologramCard
                 title="Same.new Dashboard"
                 description="Auto-posting, content scheduling, and social automation"
-                url="https://same.new/portal/nexum"
+                url={externalApps.find(a => a.id === "same")?.url || ""}
+                healthEndpoint={externalApps.find(a => a.id === "same")?.healthEndpoint}
                 icon={<Zap className="w-6 h-6" />}
                 colorTheme="secondary"
               />
               <HologramCard
                 title="Admin Portal (AWS)"
                 description="Equipment library, user management, and system configuration"
-                url="https://portal.nexumsuum.com/login"
+                url={externalApps.find(a => a.id === "admin")?.url || ""}
+                healthEndpoint={externalApps.find(a => a.id === "admin")?.healthEndpoint}
                 icon={<Globe className="w-6 h-6" />}
                 colorTheme="accent"
               />
             </div>
           </FuturisticPanel>
+        </section>
+
+        {/* Systeme.io Integration Module */}
+        <section>
+          <SystemeIntegration />
         </section>
 
         {/* System Feed */}
