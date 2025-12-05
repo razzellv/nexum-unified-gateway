@@ -1,71 +1,51 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Video, FileText, Award } from "lucide-react";
+import { ArrowLeft, BookOpen, Video, Award, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
+import { GridBackground } from "@/components/GridBackground";
+import { FuturisticPanel } from "@/components/FuturisticPanel";
 
 const Courses = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
+    <div className="min-h-screen bg-background relative">
+      <GridBackground />
+      
+      <header className="relative z-10 border-b border-border/30 bg-card/30 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-6">
-          <Link to="/">
-            <Button variant="ghost" className="mb-4 hover:bg-primary/10 hover:text-primary">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+          <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-4 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Dashboard
           </Link>
           <h1 className="text-3xl font-bold text-glow-primary">Courses (LMS)</h1>
           <p className="text-muted-foreground mt-1">Learning management and course delivery platform</p>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="border-border bg-card hover:border-primary/50 transition-all">
-            <CardHeader>
-              <BookOpen className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Active Courses</CardTitle>
-              <CardDescription>12 courses in progress</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-primary">12</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card hover:border-primary/50 transition-all">
-            <CardHeader>
-              <Video className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Video Lessons</CardTitle>
-              <CardDescription>148 lessons available</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-primary">148</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card hover:border-primary/50 transition-all">
-            <CardHeader>
-              <Award className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Certifications</CardTitle>
-              <CardDescription>8 certificates earned</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-primary">8</p>
-            </CardContent>
-          </Card>
+      <main className="relative z-10 container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {[
+            { icon: BookOpen, title: "Active Courses", desc: "12 courses in progress", value: "12" },
+            { icon: Video, title: "Video Lessons", desc: "148 lessons available", value: "148" },
+            { icon: Award, title: "Certifications", desc: "8 certificates earned", value: "8" },
+          ].map((item, i) => (
+            <FuturisticPanel key={i} className="p-6" glowColor="primary">
+              <item.icon className="w-8 h-8 text-primary mb-3" />
+              <h3 className="font-semibold text-foreground">{item.title}</h3>
+              <p className="text-sm text-muted-foreground mb-2">{item.desc}</p>
+              <p className="text-4xl font-bold text-primary">{item.value}</p>
+            </FuturisticPanel>
+          ))}
         </div>
 
-        <Card className="mt-8 border-border bg-card">
-          <CardHeader>
-            <CardTitle>Course Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Full LMS features coming soon. This module will include course creation, student enrollment,
-              progress tracking, and certification management.
-            </p>
-          </CardContent>
-        </Card>
+        <FuturisticPanel className="p-6" glowColor="primary">
+          <h3 className="text-xl font-semibold mb-4">Launch Full LMS</h3>
+          <p className="text-muted-foreground mb-4">Access the complete Learning Management System with AI-powered recommendations.</p>
+          <Button asChild className="bg-primary hover:bg-primary-glow text-primary-foreground">
+            <a href="https://nexum-optimize-learn.lovable.app" target="_blank" rel="noopener noreferrer">
+              Open LMS Portal <ExternalLink className="w-4 h-4 ml-2" />
+            </a>
+          </Button>
+        </FuturisticPanel>
       </main>
     </div>
   );
