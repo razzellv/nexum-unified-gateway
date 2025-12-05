@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
 import { ExternalLink, Wifi, WifiOff, Clock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
 
 interface HologramCardProps {
   title: string;
   description: string;
   url: string;
+  healthEndpoint?: string;
   icon: React.ReactNode;
   colorTheme?: "primary" | "secondary" | "accent";
 }
@@ -16,30 +17,12 @@ export const HologramCard = ({
   title, 
   description, 
   url, 
+  healthEndpoint,
   icon,
   colorTheme = "primary" 
 }: HologramCardProps) => {
-  const [status, setStatus] = useState<"connected" | "syncing" | "offline">("syncing");
-  const [ping, setPing] = useState<number | null>(null);
-  const [lastSync, setLastSync] = useState<Date>(new Date());
-
-  // Simulate ping check
-  useEffect(() => {
-    const checkStatus = () => {
-      const startTime = Date.now();
-      // Simulate network check
-      setTimeout(() => {
-        const latency = Math.floor(Math.random() * 80) + 20;
-        setPing(latency);
-        setStatus(latency < 150 ? "connected" : "offline");
-        setLastSync(new Date());
-      }, 100);
-    };
-
-    checkStatus();
-    const interval = setInterval(checkStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  // Use real health check with the provided endpoint or fall back to main URL
+  const { status, ping, lastSync } = useHealthCheck(healthEndpoint || url, 5000);
 
   const colorClasses = {
     primary: {
