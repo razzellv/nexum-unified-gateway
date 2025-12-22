@@ -7,7 +7,7 @@ import { NotificationBar } from "@/components/NotificationBar";
 import { FuturisticPanel } from "@/components/FuturisticPanel";
 import { SystemeIntegration } from "@/components/SystemeIntegration";
 import { externalApps } from "@/config/systeme";
-import { GraduationCap, Cpu, FileCheck, TrendingUp, Sparkles, Zap, Globe, Users } from "lucide-react";
+import { GraduationCap, Cpu, FileCheck, TrendingUp, Sparkles, Zap, Globe, Users, ScrollText, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
@@ -106,7 +106,7 @@ const Index = () => {
               <h3 className="text-2xl font-bold text-foreground text-glow-secondary">External Portals</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <HologramCard
                 title="Systeme.io Portal"
                 description="CRM sync, automation workflows, and client management"
@@ -122,6 +122,22 @@ const Index = () => {
                 healthEndpoint={externalApps.find(a => a.id === "admin")?.healthEndpoint}
                 icon={<Globe className="w-6 h-6" />}
                 colorTheme="accent"
+              />
+              <HologramCard
+                title="Nexus Log Keeper"
+                description="Centralized event, audit, and operational log tracking"
+                url={externalApps.find(a => a.id === "log-keeper")?.url || ""}
+                healthEndpoint={externalApps.find(a => a.id === "log-keeper")?.healthEndpoint}
+                icon={<ScrollText className="w-6 h-6" />}
+                colorTheme="secondary"
+              />
+              <HologramCard
+                title="Facility Intelligence"
+                description="Facility performance analytics and system intelligence views"
+                url={externalApps.find(a => a.id === "facility-intelligence")?.url || ""}
+                healthEndpoint={externalApps.find(a => a.id === "facility-intelligence")?.healthEndpoint}
+                icon={<BarChart3 className="w-6 h-6" />}
+                colorTheme="primary"
               />
             </div>
           </FuturisticPanel>
