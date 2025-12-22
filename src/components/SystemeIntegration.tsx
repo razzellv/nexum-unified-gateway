@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FuturisticPanel } from "./FuturisticPanel";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { systemeConfig } from "@/config/systeme";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   Users, 
   Zap, 
@@ -20,7 +21,8 @@ import {
   Flame,
   Snowflake,
   AlertTriangle,
-  Wrench
+  Wrench,
+  Shield
 } from "lucide-react";
 
 interface ToggleState {
@@ -45,6 +47,8 @@ interface ToggleState {
 }
 
 export const SystemeIntegration = () => {
+  const { authEvents } = useAuth();
+  
   const [toggles, setToggles] = useState<ToggleState>({
     crm_sync: systemeConfig.systeme_io.enabled_features.crm_sync,
     automation_workflows: systemeConfig.systeme_io.enabled_features.automation_workflows,
@@ -68,6 +72,20 @@ export const SystemeIntegration = () => {
     `[${new Date().toISOString()}] System initialized`,
     `[${new Date().toISOString()}] Systeme.io connection established`,
   ]);
+
+  // Add auth events to connection logs
+  useEffect(() => {
+    if (authEvents.length > 0) {
+      const latestEvent = authEvents[0];
+      const logEntry = `[${latestEvent.timestamp.toISOString()}] [Auth] ${latestEvent.message}`;
+      setConnectionLogs(prev => {
+        if (prev[prev.length - 1] !== logEntry) {
+          return [...prev, logEntry];
+        }
+        return prev;
+      });
+    }
+  }, [authEvents]);
 
   const handleToggle = (key: keyof ToggleState) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
@@ -283,7 +301,10 @@ export const SystemeIntegration = () => {
       {/* Connection Logs */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-muted-foreground">Connection Logs</span>
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-muted-foreground">Connection Logs</span>
+          </div>
           <Button 
             size="sm" 
             variant="ghost" 
@@ -295,7 +316,13 @@ export const SystemeIntegration = () => {
         </div>
         <div className="h-32 overflow-y-auto rounded-lg bg-background/50 border border-border/30 p-3 font-mono text-xs">
           {connectionLogs.map((log, i) => (
-            <div key={i} className="text-muted-foreground py-0.5">
+            <div 
+              key={i} 
+              className={cn(
+                "py-0.5",
+                log.includes("[Auth]") ? "text-primary" : "text-muted-foreground"
+              )}
+            >
               {log}
             </div>
           ))}

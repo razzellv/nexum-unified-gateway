@@ -106,7 +106,7 @@ const Index = () => {
               <h3 className="text-2xl font-bold text-foreground text-glow-secondary">External Portals</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <HologramCard
                 title="Systeme.io Portal"
                 description="CRM sync, automation workflows, and client management"
@@ -114,14 +114,6 @@ const Index = () => {
                 healthEndpoint={externalApps.find(a => a.id === "systeme")?.healthEndpoint}
                 icon={<Users className="w-6 h-6" />}
                 colorTheme="primary"
-              />
-              <HologramCard
-                title="Same.new Dashboard"
-                description="Auto-posting, content scheduling, and social automation"
-                url={externalApps.find(a => a.id === "same")?.url || ""}
-                healthEndpoint={externalApps.find(a => a.id === "same")?.healthEndpoint}
-                icon={<Zap className="w-6 h-6" />}
-                colorTheme="secondary"
               />
               <HologramCard
                 title="Admin Portal (AWS)"
