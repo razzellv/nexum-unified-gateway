@@ -144,14 +144,8 @@ export const externalApps = [
     healthEndpoint: "https://nexumsuum-clientportal.systeme.io"
   },
   {
-    id: "same",
-    name: "Same.new Dashboard",
-    url: "https://same.new/portal/nexum",
-    healthEndpoint: "https://same.new"
-  },
-  {
     id: "admin",
-    name: "Admin Portal",
+    name: "Admin Portal (AWS)",
     url: "https://portal.nexumsuum.com/login",
     healthEndpoint: "https://portal.nexumsuum.com"
   }
