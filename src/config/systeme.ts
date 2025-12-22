@@ -148,5 +148,21 @@ export const externalApps = [
     name: "Admin Portal (AWS)",
     url: "https://portal.nexumsuum.com/login",
     healthEndpoint: "https://portal.nexumsuum.com"
+  },
+  {
+    id: "log-keeper",
+    name: "Nexus Log Keeper",
+    url: "https://nexus-log-keeper.lovable.app",
+    healthEndpoint: "https://nexus-log-keeper.lovable.app",
+    description: "Centralized event, audit, and operational log tracking",
+    accessLevel: "Admin / Internal"
+  },
+  {
+    id: "facility-intelligence",
+    name: "Facility Intelligence Dashboard",
+    url: "https://nexumsuum-facilityintelligence-dash.lovable.app",
+    healthEndpoint: "https://nexumsuum-facilityintelligence-dash.lovable.app",
+    description: "Facility performance analytics and system intelligence views",
+    accessLevel: "Licensed Client + Admin"
   }
 ];
