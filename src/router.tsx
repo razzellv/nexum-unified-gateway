@@ -1,33 +1,28 @@
-import { createBrowserRouter } from "react-router-dom";
-import App from "./App";
-import ProtectedRoute from "./auth/ProtectedRoute";
-
-import Index from "./pages/Index";
-import Courses from "./pages/Courses";
-import Equipment from "./pages/Equipment";
-import Compliance from "./pages/Compliance";
-import Virtuous from "./pages/Virtuous";
-import Login from "./pages/Login";
-import NotFound from "./pages/NotFound";
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import Login from "./pages/login";
+import Dashboard from "./pages/Dashboard";
+import AuthCallback from "./pages/AuthCallback";
+import ProtectedRoute from "./auth/protectedroute";
 
 export const router = createBrowserRouter([
   {
-    element: <App />,
-    children: [
-      { path: "/", element: <Index /> },
-      { path: "/login", element: <Login /> },
-
-      {
-        element: <ProtectedRoute />,
-        children: [
-          { path: "/courses", element: <Courses /> },
-          { path: "/equipment", element: <Equipment /> },
-          { path: "/compliance", element: <Compliance /> },
-          { path: "/virtuous", element: <Virtuous /> },
-        ],
-      },
-
-      { path: "*", element: <NotFound /> },
-    ],
+    path: "/",
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/auth/callback",
+    element: <AuthCallback />,
+  },
+  {
+    path: "/dashboard",
+    element: (
+      <ProtectedRoute>
+        <Dashboard />
+      </ProtectedRoute>
+    ),
   },
 ]);
