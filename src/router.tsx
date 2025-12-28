@@ -1,13 +1,17 @@
 import { createBrowserRouter } from "react-router-dom";
-import ProtectedRoute from "./auth/ProtectedRoute";
-
 import Login from "./pages/login";
-import Index from "./pages/Index"; // ✅ this already exists in your repo
+import Index from "./pages/Index";
+import AuthCallback from "./pages/AuthCallback";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/auth/callback",
+    element: <AuthCallback />,
   },
   {
     path: "/",
