@@ -152,8 +152,8 @@ export const externalApps = [
   {
     id: "log-keeper",
     name: "Nexus Log Keeper",
-    url: "https://nexus-log-keeper.lovable.app",
-    healthEndpoint: "https://nexus-log-keeper.lovable.app",
+    url: "https://nexumsuum-compliance-log.lovable.app",
+    healthEndpoint: "https://nexumsuum-compliance-log.lovable.app",
     description: "Centralized event, audit, and operational log tracking",
     accessLevel: "Admin / Internal"
   },
