@@ -237,7 +237,7 @@ const Index = () => {
             <ModuleCard
               title="Nexus Log Keeper"
               description="Centralized event, audit, and operational log tracking"
-              url="https://nexus-log-keeper.lovable.app"
+              url="https://nexumsuum-compliance-log.lovable.app"
               icon={<ScrollText className="w-5 h-5" />}
               colorTheme="secondary"
             />
