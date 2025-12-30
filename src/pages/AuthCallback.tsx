@@ -1,10 +1,7 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { setTokens } from "../auth/token";
 
 export default function AuthCallback() {
-  const navigate = useNavigate();
-
   useEffect(() => {
     console.log("🔵 AuthCallback: Starting");
     console.log("🔵 Full URL:", window.location.href);
@@ -16,7 +13,7 @@ export default function AuthCallback() {
 
     if (!code) {
       console.log("❌ No code found, redirecting to login");
-      navigate("/login");
+      window.location.href = "/login";
       return;
     }
 
@@ -26,9 +23,7 @@ export default function AuthCallback() {
         const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
         const redirectUri = import.meta.env.VITE_REDIRECT_URI;
 
-        console.log("🔵 Cognito Domain:", cognitoDomain);
-        console.log("🔵 Client ID:", clientId);
-        console.log("🔵 Redirect URI:", redirectUri);
+        console.log("🔵 Exchanging code for tokens...");
 
         const response = await fetch(`${cognitoDomain}/oauth2/token`, {
           method: "POST",
@@ -54,24 +49,28 @@ export default function AuthCallback() {
         const data = await response.json();
         console.log("✅ Tokens received!");
         
+        // Store tokens
         setTokens(data.access_token, data.id_token, data.refresh_token);
         console.log("✅ Tokens stored in localStorage");
         
-        console.log("🔵 Redirecting to /");
-        navigate("/");
+        // IMPORTANT: Use window.location.href for full page reload
+        // This ensures AuthProvider re-checks auth status with fresh localStorage
+        console.log("🔵 Redirecting to / with full page reload");
+        window.location.href = "/";
+        
       } catch (error) {
         console.error("❌ Auth error:", error);
-        navigate("/login");
+        window.location.href = "/login";
       }
     };
 
     exchangeCodeForTokens();
-  }, [navigate]);
+  }, []);
 
   return (
     <div style={{ padding: "2rem", textAlign: "center" }}>
       <p>Signing you in...</p>
-      <p style={{ fontSize: "0.8rem", color: "#666" }}>Check browser console for logs</p>
+      <p style={{ fontSize: "0.8rem", color: "#666" }}>Processing authentication...</p>
     </div>
   );
 }
