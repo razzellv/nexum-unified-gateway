@@ -1,31 +1,61 @@
-import jwtDecode from "jwt-decode";
+// Token storage and management
 
-export interface DecodedToken {
-  exp: number;
-  email?: string;
-  sub?: string;
-  [key: string]: any;
+const ACCESS_TOKEN_KEY = 'nexum_access_token';
+const REFRESH_TOKEN_KEY = 'nexum_refresh_token';
+const ID_TOKEN_KEY = 'nexum_id_token';
+
+export interface Tokens {
+  access_token: string;
+  refresh_token: string;
+  id_token: string;
+  expires_in: number;
 }
 
-export function isTokenValid(token: string): boolean {
-  try {
-    const decoded = jwtDecode<DecodedToken>(token);
-    return decoded.exp * 1000 > Date.now();
-  } catch {
-    return false;
+export function setTokens(access: string, id: string, refresh?: string): void {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(ID_TOKEN_KEY, id);
+  if (refresh) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
   }
 }
 
 export function getAccessToken(): string | null {
-  return localStorage.getItem("access_token");
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-export function setTokens(access: string, id: string) {
-  localStorage.setItem("access_token", access);
-  localStorage.setItem("id_token", id);
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
-export function clearTokens() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("id_token");
+export function getIdToken(): string | null {
+  return localStorage.getItem(ID_TOKEN_KEY);
+}
+
+export function clearTokens(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ID_TOKEN_KEY);
+}
+
+export function isTokenValid(token: string): boolean {
+  if (!token) return false;
+  
+  try {
+    // JWT tokens have 3 parts separated by dots
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    
+    // Decode the payload (middle part)
+    const payload = JSON.parse(atob(parts[1]));
+    
+    // Check expiration
+    if (payload.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      return payload.exp > now;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
