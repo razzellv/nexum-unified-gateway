@@ -4,7 +4,7 @@ import App from "./App";
 import Login from "./pages/login";
 import Index from "./pages/Index";
 
-import ProtectedRoute from "./auth/protectedroute";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
