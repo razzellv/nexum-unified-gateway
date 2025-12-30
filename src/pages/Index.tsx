@@ -1,10 +1,8 @@
-import { ToolCard } from "@/components/ToolCard";
 import { SystemFeed } from "@/components/SystemFeed";
 import { 
   GraduationCap, 
   Cpu, 
   FileCheck, 
-  TrendingUp, 
   Sparkles, 
   Database, 
   Command, 
@@ -13,7 +11,10 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  ScrollText
+  ScrollText,
+  BookOpen,
+  ShieldCheck,
+  Gauge
 } from "lucide-react";
 import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { Badge } from "@/components/ui/badge";
@@ -131,8 +132,8 @@ const ModuleCard = ({
             "transition-all duration-200"
           )}
         >
-          <a href={url}>
-            Open App
+          <a href={url} target="_blank" rel="noopener noreferrer" title="Opens in new tab">
+            Launch Module
             <ExternalLink className="w-3.5 h-3.5 ml-2" />
           </a>
         </Button>
@@ -162,83 +163,70 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-10">
-        {/* System Tools Grid */}
-        <section>
-          <div className="flex items-center gap-2 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-primary/50 to-transparent" />
-            <h2 className="text-lg font-semibold text-foreground px-3">System Tools</h2>
-            <div className="h-px flex-1 bg-gradient-to-l from-primary/50 to-transparent" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <ToolCard
-              title="Courses (LMS)"
-              description="Learning management and course delivery platform"
-              route="/courses"
-              status="connected"
-              icon={<GraduationCap className="w-6 h-6" />}
-              colorTheme="secondary"
-            />
-            <ToolCard
-              title="Equipment Intelligence"
-              description="Asset tracking and predictive maintenance"
-              route="/equipment"
-              status="connected"
-              icon={<Cpu className="w-6 h-6" />}
-              colorTheme="primary"
-            />
-            <ToolCard
-              title="Compliance Analyzer"
-              description="Automated compliance checking and reporting"
-              route="/compliance"
-              status="maintenance"
-              icon={<FileCheck className="w-6 h-6" />}
-              colorTheme="accent"
-            />
-            <ToolCard
-              title="Virtuous Risk Analyzer"
-              description="Risk assessment and mitigation strategies"
-              route="/virtuous"
-              status="connected"
-              icon={<TrendingUp className="w-6 h-6" />}
-              colorTheme="accent"
-            />
-          </div>
-        </section>
 
         {/* Facility Modules */}
         <section className="rounded-xl border border-border/50 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <div className="h-px flex-1 bg-gradient-to-r from-secondary/50 to-transparent" />
             <h2 className="text-lg font-semibold text-foreground px-3">Facility Modules</h2>
+            <p className="text-xs text-muted-foreground">(opens external apps)</p>
             <div className="h-px flex-1 bg-gradient-to-l from-secondary/50 to-transparent" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <ModuleCard
               title="Facility Data Source"
-              description="Centralized facility data management and synchronization"
+              description="Raw facility data intake, logging, and uploads"
               url="https://facility-data-source.lovable.app"
               icon={<Database className="w-5 h-5" />}
               colorTheme="primary"
             />
             <ModuleCard
               title="Facility Command Center"
-              description="Real-time facility operations and control hub"
+              description="Supervisory control and executive visibility"
               url="https://nexumsuum-facility-command-center.lovable.app"
               icon={<Command className="w-5 h-5" />}
               colorTheme="secondary"
             />
             <ModuleCard
               title="Facility Intelligence Dashboard"
-              description="Analytics Core - Facility performance and system intelligence"
+              description="Facility Nexus Engine - Analytics and system intelligence"
               url="https://nexumsuum-facilityintelligence-dash.lovable.app"
               icon={<BarChart3 className="w-5 h-5" />}
               colorTheme="primary"
             />
             <ModuleCard
-              title="Nexus Log Keeper"
-              description="Centralized event, audit, and operational log tracking"
+              title="Equipment Intelligence"
+              description="Asset tracking and predictive maintenance"
+              url="https://equipment-intelligence.lovable.app"
+              icon={<Gauge className="w-5 h-5" />}
+              colorTheme="primary"
+            />
+            <ModuleCard
+              title="Compliance Analyzer"
+              description="Compliance evaluation and risk visibility"
+              url="https://virtuous-compliance-auditor.lovable.app"
+              icon={<ShieldCheck className="w-5 h-5" />}
+              colorTheme="accent"
+            />
+            <ModuleCard
+              title="Compliance Log"
+              description="Compliance event logging and audit trail"
               url="https://nexumsuum-compliance-log.lovable.app"
               icon={<ScrollText className="w-5 h-5" />}
+              colorTheme="accent"
+            />
+            <ModuleCard
+              title="Optimize & Learn"
+              description="Training and optimization guidance"
+              url="https://nexumsuum-optimize-learn.lovable.app"
+              icon={<BookOpen className="w-5 h-5" />}
+              colorTheme="secondary"
+            />
+            <ModuleCard
+              title="Facility Instructor"
+              description="Instructor-led content and delivery"
+              url="https://nexumsuum-facility-instructor.lovable.app"
+              icon={<GraduationCap className="w-5 h-5" />}
               colorTheme="secondary"
             />
           </div>
