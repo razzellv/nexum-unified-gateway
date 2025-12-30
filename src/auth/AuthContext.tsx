@@ -1,11 +1,18 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { getAccessToken, isTokenValid, clearTokens } from './token';
 
-interface AuthContextType {
+interface AuthEvent {
+  type: string;
+  message: string;
+  timestamp: Date;
+}
+
+export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   login: () => void;
   logout: () => void;
+  authEvents: AuthEvent[];
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -13,6 +20,7 @@ export const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: () => {},
   logout: () => {},
+  authEvents: [],
 });
 
 interface AuthProviderProps {
@@ -22,9 +30,15 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
+
+  const addAuthEvent = (type: string, message: string) => {
+    setAuthEvents(prev => [{ type, message, timestamp: new Date() }, ...prev.slice(0, 49)]);
+  };
 
   useEffect(() => {
     console.log("🟢 AuthProvider: Checking auth status");
+    addAuthEvent("init", "Checking authentication status");
     
     const token = getAccessToken();
     console.log("🟢 Access token exists:", !!token);
@@ -35,14 +49,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (valid) {
         setIsAuthenticated(true);
+        addAuthEvent("success", "User authenticated");
         console.log("✅ User is authenticated");
       } else {
         setIsAuthenticated(false);
         clearTokens();
+        addAuthEvent("expired", "Token invalid, cleared");
         console.log("❌ Token invalid, cleared");
       }
     } else {
       setIsAuthenticated(false);
+      addAuthEvent("info", "No token found");
       console.log("❌ No token found");
     }
     
@@ -52,6 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = () => {
     console.log("🟡 Login clicked");
+    addAuthEvent("login", "Redirecting to login");
     
     const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
@@ -69,6 +87,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     console.log("🔴 Logout called");
+    addAuthEvent("logout", "User logged out");
     clearTokens();
     setIsAuthenticated(false);
     
@@ -82,7 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, authEvents }}>
       {children}
     </AuthContext.Provider>
   );

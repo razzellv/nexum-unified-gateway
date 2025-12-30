@@ -1,7 +1,52 @@
 import { ToolCard } from "@/components/ToolCard";
-import { PortalButton } from "@/components/PortalButton";
 import { SystemFeed } from "@/components/SystemFeed";
-import { GraduationCap, Cpu, FileCheck, TrendingUp, Sparkles } from "lucide-react";
+import { GraduationCap, Cpu, FileCheck, TrendingUp, Sparkles, Database, Command, BarChart3, ExternalLink, CheckCircle } from "lucide-react";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
+
+const ModuleCard = ({ 
+  title, 
+  description, 
+  url, 
+  icon 
+}: { 
+  title: string; 
+  description: string; 
+  url: string; 
+  icon: React.ReactNode;
+}) => {
+  const { status } = useHealthCheck(url);
+  
+  return (
+    <a 
+      href={url} 
+      rel="noopener noreferrer" 
+      className="block group"
+    >
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card p-6 transition-all hover:shadow-lg hover:border-primary/50 hover:shadow-primary/10">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold group-hover:text-primary transition-colors truncate">
+                {title}
+              </h3>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">
+                <CheckCircle className="w-3 h-3" />
+                <span>{status === "connected" ? "Online" : status === "syncing" ? "Connecting" : "Offline"}</span>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {description}
+            </p>
+          </div>
+          <ExternalLink className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+        </div>
+      </div>
+    </a>
+  );
+};
 
 const Index = () => {
   return (
@@ -60,24 +105,27 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Portal Integration Bar */}
+        {/* Facility Modules */}
         <section className="bg-card border border-border rounded-lg p-6">
-          <h3 className="text-2xl font-bold mb-6 text-foreground">External Portals</h3>
-          <div className="flex flex-col md:flex-row gap-4">
-            <PortalButton
-              label="View in Systeme Portal"
-              url="https://nexumsuum-clientportal.systeme.io/nxs-main-dash"
-              variant="primary"
+          <h3 className="text-2xl font-bold mb-6 text-foreground">Facility Modules</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ModuleCard
+              title="Facility Data Source"
+              description="Centralized facility data management and synchronization"
+              url="https://facility-data-source.lovable.app"
+              icon={<Database className="w-6 h-6" />}
             />
-            <PortalButton
-              label="Open Same.new Dashboard"
-              url="https://same.new/portal/nexum"
-              variant="secondary"
+            <ModuleCard
+              title="Facility Command Center"
+              description="Real-time facility operations and control hub"
+              url="https://nexumsuum-facility-command-center.lovable.app"
+              icon={<Command className="w-6 h-6" />}
             />
-            <PortalButton
-              label="Admin Login (AWS Cognito)"
-              url="https://portal.nexumsuum.com/login"
-              variant="default"
+            <ModuleCard
+              title="Facility Intelligence Dashboard (Analytics Core)"
+              description="Facility performance analytics and system intelligence views"
+              url="https://nexumsuum-facilityintelligence-dash.lovable.app"
+              icon={<BarChart3 className="w-6 h-6" />}
             />
           </div>
         </section>
