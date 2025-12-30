@@ -1,7 +1,13 @@
 import { getUserProfile } from "../auth/profile";
 
+interface UserProfile {
+  email?: string;
+  sub?: string;
+  [key: string]: unknown;
+}
+
 export default function Dashboard() {
-  const user = getUserProfile();
+  const user = getUserProfile() as UserProfile | null;
 
   return (
     <div style={{ padding: "2rem" }}>
