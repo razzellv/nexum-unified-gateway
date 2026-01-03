@@ -46,71 +46,65 @@ const UploadSection = () => {
       const base64Full = await base64Promise;
       const base64 = base64Full.split(',')[1];
 
-      // Call instructor-chat Lambda for AI analysis
-      const response = await fetch('https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/instructor/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('cognito_token') || 'mock-token'}`,
-        },
-        body: JSON.stringify({
-          message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
+      // TEMPORARY: Mock AI analysis until API Gateway route is added
+      // TODO: Replace with actual instructor-chat Lambda call once API Gateway is configured
+      
+      console.log('Image uploaded:', file.name, 'Size:', file.size, 'bytes');
+      
+      // Simulate AI analysis (remove this when Lambda is connected)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const mockAnalysis = `## Equipment Analysis
 
-Extract and provide:
-1. Equipment Type (boiler, chiller, pump, etc.)
-2. Manufacturer/Brand
-3. Model Number
-4. Serial Number
-5. Capacity/Size
-6. Power Rating
-7. Voltage
-8. All other technical specifications visible
+**Equipment Type:** ${file.name.includes('boiler') ? 'Boiler' : file.name.includes('chiller') ? 'Chiller' : 'HVAC Equipment'}
 
-Format the response clearly with labeled sections.`,
-          type: 'equipment_analysis',
-          images: [{
-            base64: base64,
-            mimeType: file.type,
-          }],
-        }),
+**Detected Information:**
+- Manufacturer: [Analysis in progress]
+- Model: [Analysis in progress]
+- Serial Number: [Analysis in progress]
+- Capacity: [Analysis in progress]
+
+**Note:** This is a placeholder response. Full AI analysis will be available once the instructor-chat endpoint is configured in API Gateway.
+
+**Next Steps:**
+1. Add /instructor/chat route to API Gateway
+2. Configure CORS for the route
+3. Connect to instructor-chat Lambda
+
+Upload detected successfully. File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+
+      // Set mock results
+      setAnalysisResult({
+        success: true,
+        analysis: mockAnalysis,
+        confidence: 75,
+        warnings: ['Using placeholder analysis - API Gateway route needed'],
       });
 
-      const data = await response.json();
+      const specs: any = {
+        Equipment_Type: 'Pending Analysis',
+        Brand: 'Pending',
+        Model: 'Pending',
+        raw_analysis: mockAnalysis,
+      };
 
-      if (data.response) {
-        // Set analysis result
-        setAnalysisResult({
-          success: true,
-          analysis: data.response,
-          confidence: 85,
-          warnings: [],
-        });
+      setSpecsResult({
+        success: true,
+        data: specs,
+        confidence: 75,
+      });
 
-        // Parse specs from response (basic parsing)
-        const specs: any = {
-          raw_analysis: data.response,
-        };
-
-        setSpecsResult({
-          success: true,
-          data: specs,
-          confidence: 85,
-        });
-
-        setUploadStatus('success');
-        
-        toast({
-          title: "✅ Analysis Complete",
-          description: "Equipment nameplate analyzed successfully.",
-        });
-      } else {
-        throw new Error('No response from AI');
-      }
+      setUploadStatus('success');
+      
+      toast({
+        title: "✅ Upload Successful",
+        description: "Using placeholder analysis. Configure API Gateway to enable AI analysis.",
+      });
 
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('Upload error:', error);
       toast({
-        title: "Analysis Failed",
+        title: "Upload Failed",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
@@ -160,13 +154,13 @@ Format the response clearly with labeled sections.`,
               <div className="space-y-4">
                 <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Analyzing {lastFileName}...
+                  Processing {lastFileName}...
                 </p>
               </div>
             ) : uploadStatus === 'success' ? (
               <div className="space-y-4">
                 <CheckCircle2 className="w-12 h-12 mx-auto text-green-500" />
-                <p className="text-sm font-medium">Analysis complete!</p>
+                <p className="text-sm font-medium">Upload complete!</p>
               </div>
             ) : (
               <label className="cursor-pointer">
