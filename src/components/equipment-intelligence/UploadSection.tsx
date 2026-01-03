@@ -1,4 +1,4 @@
-import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
@@ -46,66 +46,82 @@ const UploadSection = () => {
       const base64Full = await base64Promise;
       const base64 = base64Full.split(',')[1];
 
-      // TEMPORARY: Mock AI analysis until API Gateway route is added
-      // TODO: Replace with actual instructor-chat Lambda call once API Gateway is configured
-      
-      console.log('Image uploaded:', file.name, 'Size:', file.size, 'bytes');
-      
-      // Simulate AI analysis (remove this when Lambda is connected)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockAnalysis = `## Equipment Analysis
+      console.log('Calling instructor-chat API...');
 
-**Equipment Type:** ${file.name.includes('boiler') ? 'Boiler' : file.name.includes('chiller') ? 'Chiller' : 'HVAC Equipment'}
+      // Call instructor-chat Lambda
+      const response = await fetch('https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/instructor/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
 
-**Detected Information:**
-- Manufacturer: [Analysis in progress]
-- Model: [Analysis in progress]
-- Serial Number: [Analysis in progress]
-- Capacity: [Analysis in progress]
+Extract and provide:
+1. Equipment Type (boiler, chiller, pump, AHU, compressor, cooling tower, etc.)
+2. Manufacturer/Brand
+3. Model Number
+4. Serial Number
+5. Capacity/Size/HP/Tons
+6. Power Rating (kW or HP)
+7. Voltage
+8. Pressure rating (if applicable)
+9. Flow rate (if applicable)
+10. All other technical specifications visible
 
-**Note:** This is a placeholder response. Full AI analysis will be available once the instructor-chat endpoint is configured in API Gateway.
-
-**Next Steps:**
-1. Add /instructor/chat route to API Gateway
-2. Configure CORS for the route
-3. Connect to instructor-chat Lambda
-
-Upload detected successfully. File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-
-      // Set mock results
-      setAnalysisResult({
-        success: true,
-        analysis: mockAnalysis,
-        confidence: 75,
-        warnings: ['Using placeholder analysis - API Gateway route needed'],
+Provide a detailed analysis with clear sections.`,
+          type: 'equipment_analysis',
+          images: [{
+            base64: base64,
+            mimeType: file.type,
+          }],
+        }),
       });
 
-      const specs: any = {
-        Equipment_Type: 'Pending Analysis',
-        Brand: 'Pending',
-        Model: 'Pending',
-        raw_analysis: mockAnalysis,
-      };
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
 
-      setSpecsResult({
-        success: true,
-        data: specs,
-        confidence: 75,
-      });
+      const data = await response.json();
+      console.log('API Response:', data);
 
-      setUploadStatus('success');
-      
-      toast({
-        title: "✅ Upload Successful",
-        description: "Using placeholder analysis. Configure API Gateway to enable AI analysis.",
-      });
+      if (data.response) {
+        // Set analysis result
+        setAnalysisResult({
+          success: true,
+          analysis: data.response,
+          confidence: 90,
+          warnings: [],
+        });
+
+        // Parse basic specs from response
+        const specs: any = {
+          Equipment_Type: 'See analysis for details',
+          raw_analysis: data.response,
+          conversationId: data.conversationId,
+        };
+
+        setSpecsResult({
+          success: true,
+          data: specs,
+          confidence: 90,
+        });
+
+        setUploadStatus('success');
+        
+        toast({
+          title: "✅ Analysis Complete",
+          description: "Equipment analyzed successfully by Claude AI.",
+        });
+      } else {
+        throw new Error('No response from AI');
+      }
 
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Analysis error:', error);
       toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
       setUploadStatus('warning');
@@ -138,7 +154,7 @@ Upload detected successfully. File: ${file.name} (${(file.size / 1024).toFixed(2
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-2">Upload Equipment Nameplate</h2>
             <p className="text-muted-foreground">
-              Upload a photo or PDF of equipment nameplate for AI analysis
+              Upload a photo or PDF of equipment nameplate for AI-powered analysis
             </p>
           </div>
 
@@ -154,13 +170,16 @@ Upload detected successfully. File: ${file.name} (${(file.size / 1024).toFixed(2
               <div className="space-y-4">
                 <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Processing {lastFileName}...
+                  Analyzing {lastFileName} with Claude AI...
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  This may take 10-30 seconds
                 </p>
               </div>
             ) : uploadStatus === 'success' ? (
               <div className="space-y-4">
                 <CheckCircle2 className="w-12 h-12 mx-auto text-green-500" />
-                <p className="text-sm font-medium">Upload complete!</p>
+                <p className="text-sm font-medium">Analysis complete!</p>
               </div>
             ) : (
               <label className="cursor-pointer">
@@ -186,7 +205,10 @@ Upload detected successfully. File: ${file.name} (${(file.size / 1024).toFixed(2
             <div className="mt-4 text-center">
               <Button
                 variant="outline"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  setUploadStatus('idle');
+                  fileInputRef.current?.click();
+                }}
               >
                 Upload Another
               </Button>
