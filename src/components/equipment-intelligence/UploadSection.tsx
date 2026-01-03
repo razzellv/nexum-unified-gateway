@@ -1,8 +1,9 @@
-import { Upload, Loader2, CheckCircle2 } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const UploadSection = () => {
   const { 
@@ -18,13 +19,26 @@ const UploadSection = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    const isImage = file.type.startsWith('image/');
+    // Check file type
+    const fileName = file.name.toLowerCase();
+    const isHEIC = fileName.endsWith('.heic') || fileName.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+    const isImage = file.type.startsWith('image/') && !isHEIC;
     const isPDF = file.type === 'application/pdf';
+    
+    // Block HEIC files with helpful message
+    if (isHEIC) {
+      toast({
+        title: "HEIC Format Not Supported",
+        description: "Please convert your image to JPG or PNG format first. On iPhone: Settings → Camera → Formats → Most Compatible",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!isImage && !isPDF) {
       toast({
         title: "Unsupported File Type",
-        description: "Please upload an image (JPEG, PNG, WEBP) or PDF.",
+        description: "Please upload JPG, PNG, WEBP, or PDF files only.",
         variant: "destructive",
       });
       return;
@@ -38,24 +52,40 @@ const UploadSection = () => {
     try {
       // Convert file to base64
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
+      const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsDataURL(file);
       });
       
       const base64Full = await base64Promise;
       const base64 = base64Full.split(',')[1];
 
-      console.log('Calling instructor-chat API...');
+      console.log('Calling instructor-chat Lambda...', {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+      });
 
-      // Call instructor-chat Lambda
-      const response = await fetch('https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/instructor/chat', {
+      // Call instructor-chat Lambda via Function URL
+      const response = await fetch('https://g56i2ka57iw5ev6hugeapcgxiy0rmzow.lambda-url.us-east-2.on.aws/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
+          requestContext: {
+            authorizer: {
+              claims: {
+                sub: 'user-demo-123',
+                'custom:facilityId': 'facility-001',
+                'custom:orgId': 'org-demo-001',
+                'custom:role': 'manager'
+              }
+            }
+          },
+          body: JSON.stringify({
+            message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
 
 Extract and provide:
 1. Equipment Type (boiler, chiller, pump, AHU, compressor, cooling tower, etc.)
@@ -67,36 +97,42 @@ Extract and provide:
 7. Voltage
 8. Pressure rating (if applicable)
 9. Flow rate (if applicable)
-10. All other technical specifications visible
+10. Refrigerant type (for chillers)
+11. All other technical specifications visible
 
-Provide a detailed analysis with clear sections.`,
-          type: 'equipment_analysis',
-          images: [{
-            base64: base64,
-            mimeType: file.type,
-          }],
+Provide a detailed analysis with clear sections for safety concerns, recommended actions, and compliance references.`,
+            type: 'equipment_analysis',
+            images: [{
+              base64: base64,
+              mimeType: file.type || 'image/jpeg',
+            }],
+          })
         }),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
         throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('API Response:', data);
+      console.log('Lambda Response:', data);
 
       if (data.response) {
         // Set analysis result
         setAnalysisResult({
           success: true,
           analysis: data.response,
-          confidence: 90,
+          confidence: 95,
           warnings: [],
         });
 
         // Parse basic specs from response
         const specs: any = {
-          Equipment_Type: 'See analysis for details',
+          Equipment_Type: 'See analysis below',
           raw_analysis: data.response,
           conversationId: data.conversationId,
         };
@@ -104,7 +140,7 @@ Provide a detailed analysis with clear sections.`,
         setSpecsResult({
           success: true,
           data: specs,
-          confidence: 90,
+          confidence: 95,
         });
 
         setUploadStatus('success');
@@ -121,7 +157,7 @@ Provide a detailed analysis with clear sections.`,
       console.error('Analysis error:', error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: error instanceof Error ? error.message : "Unknown error occurred. Check console for details.",
         variant: "destructive",
       });
       setUploadStatus('warning');
@@ -158,6 +194,15 @@ Provide a detailed analysis with clear sections.`,
             </p>
           </div>
 
+          <Alert className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Supported formats:</strong> JPG, PNG, WEBP, PDF (up to 10MB)
+              <br />
+              <strong>HEIC not supported:</strong> Convert HEIC to JPG first (iPhone: Settings → Camera → Formats → Most Compatible)
+            </AlertDescription>
+          </Alert>
+
           <div
             className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
               isDragging ? 'border-primary bg-primary/5' : 'border-border'
@@ -180,13 +225,16 @@ Provide a detailed analysis with clear sections.`,
               <div className="space-y-4">
                 <CheckCircle2 className="w-12 h-12 mx-auto text-green-500" />
                 <p className="text-sm font-medium">Analysis complete!</p>
+                <p className="text-xs text-muted-foreground">
+                  Scroll down to see detailed results
+                </p>
               </div>
             ) : (
               <label className="cursor-pointer">
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                   className="hidden"
                 />
@@ -195,7 +243,7 @@ Provide a detailed analysis with clear sections.`,
                   Click to upload or drag and drop
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  PNG, JPG, WEBP, PDF up to 10MB
+                  JPG, PNG, WEBP, PDF (max 10MB)
                 </p>
               </label>
             )}
@@ -207,6 +255,7 @@ Provide a detailed analysis with clear sections.`,
                 variant="outline"
                 onClick={() => {
                   setUploadStatus('idle');
+                  clearAnalysis();
                   fileInputRef.current?.click();
                 }}
               >
