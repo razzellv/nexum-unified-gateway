@@ -18,7 +18,6 @@ const UploadSection = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    // Block HEIC files
     const isHEIC = file.name.toLowerCase().endsWith('.heic') || 
                    file.name.toLowerCase().endsWith('.heif') ||
                    file.type === 'image/heic' || 
@@ -27,7 +26,7 @@ const UploadSection = () => {
     if (isHEIC) {
       toast({
         title: "HEIC Format Not Supported",
-        description: "Please convert to JPG/PNG first. Most phones allow exporting photos as JPG.",
+        description: "Please convert to JPG/PNG first.",
         variant: "destructive",
       });
       return;
@@ -57,7 +56,6 @@ const UploadSection = () => {
         fileSize: file.size,
       });
 
-      // Convert file to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
         reader.onloadend = () => resolve(reader.result as string);
@@ -67,14 +65,17 @@ const UploadSection = () => {
       const base64Full = await base64Promise;
       const base64 = base64Full.split(',')[1];
 
+      // Get the correct access token
+      const accessToken = localStorage.getItem('nexum_access_token');
+      
       console.log('Calling instructor-chat via API Gateway...');
+      console.log('Token exists:', !!accessToken);
 
-      // Call instructor-chat Lambda via API Gateway
       const response = await fetch('https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/instructor/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('cognito_token') || 'mock-token'}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
@@ -112,7 +113,6 @@ Format the response with clear labels and values.`,
       console.log('Analysis response:', data);
 
       if (data.response) {
-        // Set analysis result
         setAnalysisResult({
           success: true,
           analysis: data.response,
@@ -120,7 +120,6 @@ Format the response with clear labels and values.`,
           warnings: [],
         });
 
-        // Parse specs from response
         const specs: any = {
           raw_analysis: data.response,
         };
