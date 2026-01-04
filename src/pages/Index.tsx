@@ -1,75 +1,91 @@
+import { useNavigate } from "react-router-dom";
 import { SystemFeed } from "@/components/SystemFeed";
 import { 
   GraduationCap, 
   Cpu, 
-  FileCheck, 
   Sparkles, 
   Database, 
   Command, 
   BarChart3, 
-  ExternalLink, 
   CheckCircle,
-  XCircle,
-  RefreshCw,
+  Clock,
   ScrollText,
   BookOpen,
   ShieldCheck,
-  Gauge
+  Gauge,
+  Camera,
+  Activity,
+  MessageSquare,
+  Upload,
+  FileText
 } from "lucide-react";
-import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+type ModuleStatus = "active" | "in-progress";
+
+interface ModuleCardProps {
+  title: string;
+  subtitle?: string;
+  description: string;
+  route: string;
+  icon: React.ReactNode;
+  status: ModuleStatus;
+  colorTheme?: "primary" | "secondary" | "accent";
+}
 
 const ModuleCard = ({ 
   title, 
+  subtitle,
   description, 
-  url, 
+  route, 
   icon,
+  status,
   colorTheme = "primary"
-}: { 
-  title: string; 
-  description: string; 
-  url: string; 
-  icon: React.ReactNode;
-  colorTheme?: "primary" | "secondary" | "accent";
-}) => {
-  const { status } = useHealthCheck(url);
+}: ModuleCardProps) => {
+  const navigate = useNavigate();
   
   const colorClasses = {
     primary: {
       glow: "group-hover:shadow-[0_0_40px_hsl(168_92%_55%/0.25)]",
       border: "border-primary/20 group-hover:border-primary/50",
       icon: "text-primary",
-      badge: status === "connected" 
-        ? "bg-primary/10 text-primary border-primary/30" 
-        : "bg-destructive/10 text-destructive border-destructive/30",
     },
     secondary: {
       glow: "group-hover:shadow-[0_0_40px_hsl(210_100%_54%/0.25)]",
       border: "border-secondary/20 group-hover:border-secondary/50",
       icon: "text-secondary",
-      badge: status === "connected"
-        ? "bg-secondary/10 text-secondary border-secondary/30"
-        : "bg-destructive/10 text-destructive border-destructive/30",
     },
     accent: {
       glow: "group-hover:shadow-[0_0_40px_hsl(24_100%_55%/0.25)]",
       border: "border-accent/20 group-hover:border-accent/50",
       icon: "text-accent",
-      badge: status === "connected"
-        ? "bg-accent/10 text-accent border-accent/30"
-        : "bg-destructive/10 text-destructive border-destructive/30",
     },
   };
+
+  const statusConfig = {
+    active: {
+      label: "Active",
+      className: "bg-green-500/10 text-green-500 border-green-500/30",
+      icon: <CheckCircle className="w-3 h-3" />,
+    },
+    "in-progress": {
+      label: "Integration in Progress",
+      className: "bg-blue-500/10 text-blue-500 border-blue-500/30",
+      icon: <Clock className="w-3 h-3" />,
+    },
+  };
+
+  const currentStatus = statusConfig[status];
   
   return (
     <div 
+      onClick={() => navigate(route)}
       className={cn(
-        "group relative rounded-xl overflow-hidden",
+        "group relative rounded-xl overflow-hidden cursor-pointer",
         "bg-card/50 backdrop-blur-xl",
         "border transition-all duration-300",
-        "hover:-translate-y-1",
+        "hover:-translate-y-1 hover:scale-[1.02]",
         colorClasses[colorTheme].border,
         colorClasses[colorTheme].glow
       )}
@@ -81,7 +97,7 @@ const ModuleCard = ({
         {/* Header with icon and status */}
         <div className="flex items-start justify-between mb-4">
           <div className={cn(
-            "p-3 rounded-lg bg-muted/50 transition-transform duration-300 group-hover:scale-105",
+            "p-3 rounded-lg bg-muted/50 transition-transform duration-300 group-hover:scale-110",
             colorClasses[colorTheme].icon
           )}>
             {icon}
@@ -91,26 +107,11 @@ const ModuleCard = ({
             variant="outline"
             className={cn(
               "flex items-center gap-1.5 text-xs font-medium",
-              colorClasses[colorTheme].badge,
-              status === "connected" && "pulse-glow"
+              currentStatus.className
             )}
           >
-            {status === "connected" ? (
-              <>
-                <CheckCircle className="w-3 h-3" />
-                Online
-              </>
-            ) : status === "syncing" ? (
-              <>
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                Connecting
-              </>
-            ) : (
-              <>
-                <XCircle className="w-3 h-3" />
-                Offline
-              </>
-            )}
+            {currentStatus.icon}
+            {currentStatus.label}
           </Badge>
         </div>
         
@@ -118,25 +119,12 @@ const ModuleCard = ({
         <h3 className="text-lg font-semibold mb-1 group-hover:text-glow-primary transition-all">
           {title}
         </h3>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+        {subtitle && (
+          <p className="text-xs text-muted-foreground/70 mb-1">{subtitle}</p>
+        )}
+        <p className="text-sm text-muted-foreground line-clamp-2">
           {description}
         </p>
-        
-        {/* Launch Button */}
-        <Button
-          asChild
-          size="sm"
-          className={cn(
-            "w-full font-medium",
-            "bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30",
-            "transition-all duration-200"
-          )}
-        >
-          <a href={url} target="_blank" rel="noopener noreferrer" title="Opens in new tab">
-            Launch Module
-            <ExternalLink className="w-3.5 h-3.5 ml-2" />
-          </a>
-        </Button>
       </div>
     </div>
   );
@@ -164,71 +152,117 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-10">
 
-        {/* Facility Modules */}
-        <section className="rounded-xl border border-border/50 bg-card/30 backdrop-blur-xl p-6">
+        {/* Active Modules */}
+        <section className="rounded-xl border border-green-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-secondary/50 to-transparent" />
-            <h2 className="text-lg font-semibold text-foreground px-3">Facility Modules</h2>
-            <p className="text-xs text-muted-foreground">(opens external apps)</p>
-            <div className="h-px flex-1 bg-gradient-to-l from-secondary/50 to-transparent" />
+            <div className="h-px flex-1 bg-gradient-to-r from-green-500/50 to-transparent" />
+            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              Active Modules
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-green-500/50 to-transparent" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <ModuleCard
-              title="Facility Data Source"
-              description="Raw facility data intake, logging, and uploads"
-              url="https://facility-data-source.lovable.app"
-              icon={<Database className="w-5 h-5" />}
+              title="Equipment Intelligence"
+              description="AI-powered nameplate analysis and equipment specs extraction"
+              route="/equipment-intelligence"
+              icon={<Camera className="w-5 h-5" />}
+              status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Facility Command Center"
-              description="Supervisory control and executive visibility"
-              url="https://nexumsuum-facility-command-center.lovable.app"
-              icon={<Command className="w-5 h-5" />}
+              title="Equipment Metrics"
+              description="Real-time equipment performance and operational data"
+              route="/equipment"
+              icon={<Activity className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
+            />
+          </div>
+        </section>
+
+        {/* Modules In Progress */}
+        <section className="rounded-xl border border-blue-500/20 bg-card/30 backdrop-blur-xl p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent" />
+            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-500" />
+              Modules In Progress
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <ModuleCard
+              title="Facility Intelligence Dashboard"
+              subtitle="(Facility Nexus Engine)"
+              description="Manager, Supervisor, Executive, and Energy analytics dashboards"
+              route="/dashboard"
+              icon={<BarChart3 className="w-5 h-5" />}
+              status="in-progress"
               colorTheme="secondary"
             />
             <ModuleCard
-              title="Facility Intelligence Dashboard"
-              description="Facility Nexus Engine - Analytics and system intelligence"
-              url="https://nexumsuum-facilityintelligence-dash.lovable.app"
-              icon={<BarChart3 className="w-5 h-5" />}
-              colorTheme="primary"
+              title="Facility Data Source"
+              description="Log daily operational readings and equipment data"
+              route="/data-source"
+              icon={<Upload className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="secondary"
             />
             <ModuleCard
-              title="Equipment Intelligence"
-              description="Asset tracking and predictive maintenance"
-              url="https://equipment-intelligence.lovable.app"
-              icon={<Gauge className="w-5 h-5" />}
-              colorTheme="primary"
-            />
-            <ModuleCard
-              title="Compliance Analyzer"
-              description="Compliance evaluation and risk visibility"
-              url="https://virtuous-compliance-auditor.lovable.app"
-              icon={<ShieldCheck className="w-5 h-5" />}
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Compliance Log"
-              description="Compliance event logging and audit trail"
-              url="https://nexumsuum-compliance-log.lovable.app"
-              icon={<ScrollText className="w-5 h-5" />}
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Optimize & Learn"
-              description="Training and optimization guidance"
-              url="https://nexumsuum-optimize-learn.lovable.app"
-              icon={<BookOpen className="w-5 h-5" />}
+              title="Facility Command Center"
+              description="Work orders, maintenance scheduling, and operations management"
+              route="/command-center"
+              icon={<Command className="w-5 h-5" />}
+              status="in-progress"
               colorTheme="secondary"
             />
             <ModuleCard
               title="Facility Instructor"
-              description="Instructor-led content and delivery"
-              url="https://nexumsuum-facility-instructor.lovable.app"
+              description="AI chat assistant for technical, safety, and HR questions"
+              route="/instructor"
+              icon={<MessageSquare className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="accent"
+            />
+            <ModuleCard
+              title="Compliance Analyzer"
+              description="Automated compliance analysis and regulatory tracking"
+              route="/compliance-analyzer"
+              icon={<ShieldCheck className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="accent"
+            />
+            <ModuleCard
+              title="Compliance Log"
+              description="Compliance event logging and record keeping"
+              route="/compliance-log"
+              icon={<FileText className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="accent"
+            />
+            <ModuleCard
+              title="Optimize & Learn"
+              description="Training modules and continuous improvement programs"
+              route="/optimize-learn"
               icon={<GraduationCap className="w-5 h-5" />}
+              status="in-progress"
               colorTheme="secondary"
             />
+          </div>
+        </section>
+
+        {/* Live Facility Telemetry */}
+        <section className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 backdrop-blur-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-muted-foreground">Live Facility Telemetry</h2>
+          </div>
+          <div className="h-[150px] flex items-center justify-center overflow-x-auto">
+            <p className="text-sm text-muted-foreground/60 italic">
+              Real-time telemetry stream (integration in progress)
+            </p>
           </div>
         </section>
 

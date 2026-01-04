@@ -6,8 +6,19 @@ import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
+import Dashboard from "./pages/dashboard";
 
 import ProtectedRoute from "./auth/ProtectedRoute";
+
+// Placeholder component for modules in progress
+const ComingSoon = ({ title }: { title: string }) => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="text-center p-8">
+      <h1 className="text-2xl font-bold text-foreground mb-2">{title}</h1>
+      <p className="text-muted-foreground">Integration in progress</p>
+    </div>
+  </div>
+);
 
 export const router = createBrowserRouter([
   {
@@ -37,6 +48,34 @@ export const router = createBrowserRouter([
             path: "equipment-intelligence",
             element: <EquipmentIntelligence />,
           },
+          {
+            path: "dashboard",
+            element: <Dashboard />,
+          },
+          {
+            path: "data-source",
+            element: <ComingSoon title="Facility Data Source" />,
+          },
+          {
+            path: "command-center",
+            element: <ComingSoon title="Facility Command Center" />,
+          },
+          {
+            path: "instructor",
+            element: <ComingSoon title="Facility Instructor" />,
+          },
+          {
+            path: "compliance-analyzer",
+            element: <ComingSoon title="Compliance Analyzer" />,
+          },
+          {
+            path: "compliance-log",
+            element: <ComingSoon title="Compliance Log" />,
+          },
+          {
+            path: "optimize-learn",
+            element: <ComingSoon title="Optimize & Learn" />,
+          },
         ],
       },
       {
@@ -46,3 +85,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

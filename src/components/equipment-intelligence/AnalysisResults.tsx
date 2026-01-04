@@ -116,29 +116,17 @@ const AnalysisResults = () => {
       return;
     }
     
-    // Try to merge with existing equipment
-    const merged = mergeEquipment(specs);
+    // Add as new equipment
+    addToLibrary({
+      specs,
+      confidence,
+      documentType: sections['EQUIPMENT IDENTIFICATION']?.includes('Certificate') ? 'Certificate' : 'Nameplate',
+    });
     
-    if (merged) {
-      toast({
-        title: "✅ Equipment Updated",
-        description: "Merged with existing equipment record.",
-      });
-    } else {
-      // Add as new
-      addToLibrary({
-        specs,
-        analysis: analysisResult?.analysis || null,
-        confidence,
-        warnings,
-        documentType: sections['EQUIPMENT IDENTIFICATION']?.includes('Certificate') ? 'Certificate' : 'Nameplate',
-      });
-      
-      toast({
-        title: "✅ Saved to Library",
-        description: "Equipment profile added to session library.",
-      });
-    }
+    toast({
+      title: "✅ Saved to Library",
+      description: "Equipment profile added to session library.",
+    });
   };
   
   const handleExportPDF = () => {
@@ -208,10 +196,10 @@ ${warnings.length > 0 ? warnings.join('\n') : 'None'}
                   <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/50 flex items-center justify-center">
                     <Brain className="w-6 h-6 text-primary" />
                   </div>
-                  <div>
+                <div>
                     <CardTitle className="text-2xl">Analysis Results</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {analysisResult?.rawExtraction?.fileName || 'Document analyzed'}
+                      Document analyzed
                     </p>
                   </div>
                 </div>
