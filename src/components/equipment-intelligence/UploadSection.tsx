@@ -1,9 +1,8 @@
-import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const UploadSection = () => {
   const { 
@@ -19,26 +18,28 @@ const UploadSection = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    // Check file type
-    const fileName = file.name.toLowerCase();
-    const isHEIC = fileName.endsWith('.heic') || fileName.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
-    const isImage = file.type.startsWith('image/') && !isHEIC;
-    const isPDF = file.type === 'application/pdf';
+    // Block HEIC files
+    const isHEIC = file.name.toLowerCase().endsWith('.heic') || 
+                   file.name.toLowerCase().endsWith('.heif') ||
+                   file.type === 'image/heic' || 
+                   file.type === 'image/heif';
     
-    // Block HEIC files with helpful message
     if (isHEIC) {
       toast({
         title: "HEIC Format Not Supported",
-        description: "Please convert your image to JPG or PNG format first. On iPhone: Settings → Camera → Formats → Most Compatible",
+        description: "Please convert to JPG/PNG first. Most phones allow exporting photos as JPG.",
         variant: "destructive",
       });
       return;
     }
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
     
     if (!isImage && !isPDF) {
       toast({
         title: "Unsupported File Type",
-        description: "Please upload JPG, PNG, WEBP, or PDF files only.",
+        description: "Please upload an image (JPEG, PNG, WEBP) or PDF.",
         variant: "destructive",
       });
       return;
@@ -50,104 +51,91 @@ const UploadSection = () => {
     setLastFileName(file.name);
 
     try {
+      console.log('Converting file to base64...', {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+      });
+
       // Convert file to base64
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
+      const base64Promise = new Promise<string>((resolve) => {
         reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsDataURL(file);
       });
       
       const base64Full = await base64Promise;
       const base64 = base64Full.split(',')[1];
 
-      console.log('Calling instructor-chat Lambda...', {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-      });
+      console.log('Calling instructor-chat via API Gateway...');
 
-      // Call instructor-chat Lambda via Function URL
-      const response = await fetch('https://g56i2ka57iw5ev6hugeapcgxiy0rmzow.lambda-url.us-east-2.on.aws/', {
+      // Call instructor-chat Lambda via API Gateway
+      const response = await fetch('https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/instructor/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognito_token') || 'mock-token'}`,
         },
         body: JSON.stringify({
-          requestContext: {
-            authorizer: {
-              claims: {
-                sub: 'user-demo-123',
-                'custom:facilityId': 'facility-001',
-                'custom:orgId': 'org-demo-001',
-                'custom:role': 'manager'
-              }
-            }
-          },
-          body: JSON.stringify({
-            message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
+          message: `Analyze this equipment nameplate/document and extract ALL specifications in a structured format.
 
 Extract and provide:
 1. Equipment Type (boiler, chiller, pump, AHU, compressor, cooling tower, etc.)
 2. Manufacturer/Brand
 3. Model Number
 4. Serial Number
-5. Capacity/Size/HP/Tons
-6. Power Rating (kW or HP)
-7. Voltage
-8. Pressure rating (if applicable)
-9. Flow rate (if applicable)
-10. Refrigerant type (for chillers)
-11. All other technical specifications visible
+5. Capacity/Size (tons, BTU, GPM, CFM, etc.)
+6. Power Rating (HP, kW)
+7. Voltage and Phase
+8. Refrigerant Type (if applicable)
+9. Pressure Ratings (PSI, if applicable)
+10. All other technical specifications visible on the nameplate
 
-Provide a detailed analysis with clear sections for safety concerns, recommended actions, and compliance references.`,
-            type: 'equipment_analysis',
-            images: [{
-              base64: base64,
-              mimeType: file.type || 'image/jpeg',
-            }],
-          })
+Format the response with clear labels and values.`,
+          type: 'equipment_analysis',
+          images: [{
+            base64: base64,
+            mimeType: file.type,
+          }],
         }),
       });
 
       console.log('Response status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error:', errorText);
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        const errorData = await response.json();
+        console.log('API Error:', errorData);
+        throw new Error(`API returned ${response.status}: ${errorData.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
-      console.log('Lambda Response:', data);
+      console.log('Analysis response:', data);
 
       if (data.response) {
         // Set analysis result
         setAnalysisResult({
           success: true,
           analysis: data.response,
-          confidence: 95,
+          confidence: 85,
           warnings: [],
         });
 
-        // Parse basic specs from response
+        // Parse specs from response
         const specs: any = {
-          Equipment_Type: 'See analysis below',
           raw_analysis: data.response,
-          conversationId: data.conversationId,
         };
 
         setSpecsResult({
           success: true,
           data: specs,
-          confidence: 95,
+          confidence: 85,
         });
 
         setUploadStatus('success');
         
         toast({
           title: "✅ Analysis Complete",
-          description: "Equipment analyzed successfully by Claude AI.",
+          description: "Equipment nameplate analyzed successfully.",
         });
       } else {
         throw new Error('No response from AI');
@@ -157,7 +145,7 @@ Provide a detailed analysis with clear sections for safety concerns, recommended
       console.error('Analysis error:', error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred. Check console for details.",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
       setUploadStatus('warning');
@@ -190,18 +178,9 @@ Provide a detailed analysis with clear sections for safety concerns, recommended
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold mb-2">Upload Equipment Nameplate</h2>
             <p className="text-muted-foreground">
-              Upload a photo or PDF of equipment nameplate for AI-powered analysis
+              Upload a photo or PDF of equipment nameplate for AI analysis
             </p>
           </div>
-
-          <Alert className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Supported formats:</strong> JPG, PNG, WEBP, PDF (up to 10MB)
-              <br />
-              <strong>HEIC not supported:</strong> Convert HEIC to JPG first (iPhone: Settings → Camera → Formats → Most Compatible)
-            </AlertDescription>
-          </Alert>
 
           <div
             className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
@@ -215,19 +194,13 @@ Provide a detailed analysis with clear sections for safety concerns, recommended
               <div className="space-y-4">
                 <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Analyzing {lastFileName} with Claude AI...
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  This may take 10-30 seconds
+                  Analyzing {lastFileName}...
                 </p>
               </div>
             ) : uploadStatus === 'success' ? (
               <div className="space-y-4">
                 <CheckCircle2 className="w-12 h-12 mx-auto text-green-500" />
                 <p className="text-sm font-medium">Analysis complete!</p>
-                <p className="text-xs text-muted-foreground">
-                  Scroll down to see detailed results
-                </p>
               </div>
             ) : (
               <label className="cursor-pointer">
@@ -243,7 +216,10 @@ Provide a detailed analysis with clear sections for safety concerns, recommended
                   Click to upload or drag and drop
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  JPG, PNG, WEBP, PDF (max 10MB)
+                  PNG, JPG, WEBP, PDF up to 10MB
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-2">
+                  (HEIC not supported - please convert to JPG)
                 </p>
               </label>
             )}
@@ -253,11 +229,7 @@ Provide a detailed analysis with clear sections for safety concerns, recommended
             <div className="mt-4 text-center">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setUploadStatus('idle');
-                  clearAnalysis();
-                  fileInputRef.current?.click();
-                }}
+                onClick={() => fileInputRef.current?.click()}
               >
                 Upload Another
               </Button>
