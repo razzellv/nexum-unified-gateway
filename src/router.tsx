@@ -7,6 +7,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
+import ManagerDashboard from "./pages/ManagerDashboard";
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
             element: <Dashboard />,
           },
           {
+            path: "dashboard/manager",
+            element: <ManagerDashboard />,
+          },
+          {
             path: "data-source",
             element: <ComingSoon title="Facility Data Source" />,
           },
@@ -85,4 +90,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-
