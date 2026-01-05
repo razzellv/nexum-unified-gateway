@@ -188,7 +188,7 @@ export default function SupervisorDashboard() {
             {/* KPI Row */}
             {stats && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '0ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '0ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <ClipboardList className="h-5 w-5 text-primary" />
@@ -200,7 +200,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '50ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '50ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -212,7 +212,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '100ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '100ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <TrendingUp className="h-5 w-5 text-green-400" />
@@ -227,7 +227,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '150ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '150ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Clock className="h-5 w-5 text-yellow-400" />
@@ -239,7 +239,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '200ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '200ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Bell className="h-5 w-5 text-yellow-400" />
@@ -251,7 +251,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border opacity-0 slide-up" style={{ animationDelay: '250ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '250ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Activity className="h-5 w-5 text-primary" />
@@ -266,7 +266,7 @@ export default function SupervisorDashboard() {
             )}
 
             {/* Employee Compliance Summary */}
-            <Card className="neon-border opacity-0 fade-scale-in" style={{ animationDelay: '300ms' }}>
+            <Card className="neon-border" style={{ animationDelay: '300ms' }}>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
@@ -305,7 +305,7 @@ export default function SupervisorDashboard() {
             </Card>
 
             {/* Work Order Summary (Read-Only) */}
-            <Card className="neon-border opacity-0 fade-scale-in" style={{ animationDelay: '400ms' }}>
+            <Card className="neon-border" style={{ animationDelay: '400ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-primary" />
@@ -345,7 +345,7 @@ export default function SupervisorDashboard() {
             </Card>
 
             {/* Department Risk Leaderboard */}
-            <Card className="neon-border opacity-0 fade-scale-in" style={{ animationDelay: '500ms' }}>
+            <Card className="neon-border" style={{ animationDelay: '500ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
@@ -382,7 +382,7 @@ export default function SupervisorDashboard() {
             </Card>
 
             {/* Supervisor Insights */}
-            <Card className="neon-border border-primary/30 opacity-0 fade-scale-in" style={{ animationDelay: '600ms' }}>
+            <Card className="neon-border border-primary/30" style={{ animationDelay: '600ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-yellow-400" />
