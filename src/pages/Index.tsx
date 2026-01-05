@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import { ParticleBackground } from "@/components/ParticleBackground";
+
 import { SystemFeed } from "@/components/SystemFeed";
 import { 
   GraduationCap, 
@@ -133,6 +135,7 @@ const ModuleCard = ({
 const Index = () => {
   return (
     <div className="min-h-screen bg-background grid-bg">
+      <ParticleBackground />
       {/* Header */}
       <header className="border-b border-border/50 bg-card/30 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 py-5">
