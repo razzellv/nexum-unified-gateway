@@ -54,3 +54,21 @@ export async function getExecutiveDashboard() {
 export async function getEnergyDashboard() {
   return apiRequest<any>('/dashboard/energy');
 }
+
+export interface ViolationSummary {
+  id: string;
+  type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  count: number;
+  equipmentType?: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface VirtuousMetrics {
+  category: string;
+  score: number;
+  trend: 'up' | 'down' | 'stable';
+  target: number;
+  description: string;
+}

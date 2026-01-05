@@ -9,6 +9,8 @@ import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
+import SupervisorDashboard from "./pages/SupervisorDashboard";
+
 
 
 import ProtectedRoute from "./auth/ProtectedRoute";
@@ -62,6 +64,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/energy",
             element: <EnergyDashboard />,
+          },
+          {
+            path: "dashboard/supervisor",
+            element: <SupervisorDashboard />,
           },
           {
             path: "data-source",
