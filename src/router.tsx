@@ -11,6 +11,8 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import ExecutiveDashboard from "./pages/ExecutiveDashboard";
+
 
 
 
@@ -74,6 +76,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/employee",
             element: <EmployeeDashboard />,
+          },
+          {
+            path: "dashboard/executive",
+            element: <ExecutiveDashboard />,
           },
           {
             path: "data-source",

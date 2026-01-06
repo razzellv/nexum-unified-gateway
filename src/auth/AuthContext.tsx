@@ -1,4 +1,22 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+// Decode JWT to get role
+function decodeJWT(token: string): any {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error("Error decoding JWT:", error);
+    return null;
+  }
+}
+
 import { getAccessToken, isTokenValid, clearTokens } from './token';
 
 interface AuthEvent {
@@ -10,12 +28,14 @@ interface AuthEvent {
 export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
+  userRole: string | null;
   login: () => void;
   logout: () => void;
   authEvents: AuthEvent[];
 }
 
 export const AuthContext = createContext<AuthContextType>({
+  userRole: null,
   isAuthenticated: false,
   loading: true,
   login: () => {},
@@ -31,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const addAuthEvent = (type: string, message: string) => {
     setAuthEvents(prev => [{ type, message, timestamp: new Date() }, ...prev.slice(0, 49)]);
@@ -49,6 +70,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (valid) {
         setIsAuthenticated(true);
+        
+        // Decode JWT to get role
+        const decoded = decodeJWT(token);
+        console.log("🔍 Decoded JWT:", decoded);
+        const role = decoded?.["custom:role"] || decoded?.role || "employee";
+        setUserRole(role);
+        addAuthEvent("role_detected", `User role: ${role}`);
         addAuthEvent("success", "User authenticated");
         console.log("✅ User is authenticated");
       } else {
@@ -101,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, authEvents }}>
+    <AuthContext.Provider value={{ isAuthenticated, loading, userRole, login, logout, authEvents }}>
       {children}
     </AuthContext.Provider>
   );
