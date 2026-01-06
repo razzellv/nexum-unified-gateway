@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/contexts/RoleContext';
+import { ParticleBackground } from "@/components/ParticleBackground";
+
 import { MainLayout } from '@/components/MainLayout';
 import { Loader2, Calendar, Download, AlertCircle } from 'lucide-react';
 import { format, subDays } from 'date-fns';
@@ -168,6 +170,7 @@ export default function EnergyDashboard() {
 
   return (
     <MainLayout>
+      <ParticleBackground />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { ParticleBackground } from "@/components/ParticleBackground";
+
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -141,6 +143,7 @@ export default function SupervisorDashboard() {
   console.log("🎨 Rendering with:", { stats, isLoading, error });
   return (
     <MainLayout>
+      <ParticleBackground />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

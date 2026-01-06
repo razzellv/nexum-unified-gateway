@@ -10,6 +10,8 @@ import Dashboard from "./pages/dashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
+import EmployeeDashboard from "./pages/EmployeeDashboard";
+
 
 
 
@@ -68,6 +70,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/supervisor",
             element: <SupervisorDashboard />,
+          },
+          {
+            path: "dashboard/employee",
+            element: <EmployeeDashboard />,
           },
           {
             path: "data-source",

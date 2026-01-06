@@ -72,3 +72,24 @@ export interface VirtuousMetrics {
   target: number;
   description: string;
 }
+
+export interface EmployeePortalData {
+  employeeId: string;
+  employeeName: string;
+  role: string;
+  department: string;
+  certifications: string[];
+  complianceScore: number;
+  assignedWorkOrders: WorkOrder[];
+  recentViolations: ViolationSummary[];
+  performanceMetrics: {
+    tasksCompleted: number;
+    avgCompletionTime: number;
+    safetyScore: number;
+  };
+}
+
+export async function getEmployeeDashboard(employeeId?: string) {
+  const params = employeeId ? `?employeeId=${employeeId}` : '';
+  return apiRequest<any>(`/dashboard/employee${params}`);
+}
