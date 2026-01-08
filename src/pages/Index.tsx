@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+
 import { ParticleBackground } from "@/components/ParticleBackground";
 
 import { SystemFeed } from "@/components/SystemFeed";
@@ -19,7 +21,12 @@ import {
   Activity,
   MessageSquare,
   Upload,
-  FileText
+  FileText,
+  Briefcase,
+  TrendingUp,
+  Users,
+  User,
+  Zap
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -133,6 +140,7 @@ const ModuleCard = ({
 };
 
 const Index = () => {
+  const { userRole } = useAuth();
   return (
     <div className="min-h-screen bg-background grid-bg">
       <ParticleBackground />
@@ -153,8 +161,8 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-10">
 
+      <main className="container mx-auto px-4 py-8 space-y-10">
         {/* Active Modules */}
         <section className="rounded-xl border border-green-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
@@ -166,6 +174,14 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-green-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <ModuleCard
+              title="Facility Intelligence"
+              description="Real-time dashboards for energy, operations, and performance analytics"
+              route="/facility-intelligence"
+              icon={<BarChart3 className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
+            />
             <ModuleCard
               title="Equipment Intelligence"
               description="AI-powered nameplate analysis and equipment specs extraction"
@@ -185,6 +201,7 @@ const Index = () => {
           </div>
         </section>
 
+
         {/* Modules In Progress */}
         <section className="rounded-xl border border-blue-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
@@ -197,17 +214,8 @@ const Index = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <ModuleCard
-              title="Facility Intelligence Dashboard"
-              subtitle="(Facility Nexus Engine)"
-              description="Manager, Supervisor, Executive, and Energy analytics dashboards"
-              route="/dashboard"
-              icon={<BarChart3 className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="secondary"
-            />
-            <ModuleCard
-              title="Facility Data Source"
               description="Log daily operational readings and equipment data"
+              title="Facility Data Source"
               route="/data-source"
               icon={<Upload className="w-5 h-5" />}
               status="in-progress"
