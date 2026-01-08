@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { getSupervisorDashboard } from "@/lib/nexum-api";
+
 import { ParticleBackground } from "@/components/ParticleBackground";
 
 import { MainLayout } from '@/components/MainLayout';
@@ -54,7 +56,14 @@ export default function SupervisorDashboard() {
     setError(null);
 
     try {
-      // Using mock data - TODO: Connect to supervisor-dash Lambda
+      // Call real supervisor-dash Lambda
+      const apiData = await getSupervisorDashboard();
+      console.log("✅ Supervisor API data:", apiData);
+      
+      // Transform API data to match component expectations
+      // TODO: Map apiData to violations, departments, workOrders
+      // For now, use mock data as fallback
+      
       const violations: any[] = [
         { employeeId: 'E001', employeeName: 'John Smith', violationCount: 1, avgWeight: 0.3, avgSeverity: 25 },
         { employeeId: 'E002', employeeName: 'Jane Doe', violationCount: 3, avgWeight: 0.5, avgSeverity: 55 },
@@ -67,19 +76,26 @@ export default function SupervisorDashboard() {
         { department: 'Maintenance', avgSeverity: 45, trend: 'stable' as const, violationCount: 8, complianceRate: 78 },
       ];
       
-      const orders: WorkOrder[] = [
-        { id: 'WO001', title: 'Boiler Inspection', description: 'Routine check', status: 'Open', priority: 'High', assignedTo: 'John Smith', equipment: 'B-01', dueDate: '2025-01-30', createdAt: '2025-01-20' },
-        { id: 'WO002', title: 'Pump Seal Replacement', description: 'Leaking seal', status: 'In Progress', priority: 'Critical', assignedTo: 'Jane Doe', equipment: 'P-03', dueDate: '2025-01-28', createdAt: '2025-01-22' },
-        { id: 'WO003', title: 'Chiller Maintenance', description: 'Scheduled PM', status: 'Open', priority: 'Medium', assignedTo: '', equipment: 'CH-02', dueDate: '2025-02-05', createdAt: '2025-01-24' },
-      ];
+      // Use real work orders from API
+      const orders: WorkOrder[] = apiData.work_orders?.map((wo: any) => ({
+        id: wo.id,
+        title: `Work Order ${wo.id}`,
+        description: wo.type || 'Work order',
+        status: 'Open',
+        priority: wo.priority || 'Medium',
+        assignedTo: wo.assigned_to || 'Unassigned',
+        equipment: wo.equipment,
+        dueDate: wo.due_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdAt: wo.created || new Date().toISOString().split('T')[0],
+      })) || [];
       
       setViolationsSummary(violations);
-      console.log("✅ Supervisor data loaded:", { violations, departments, orders });
       setDepartmentMetrics(departments);
       setWorkOrders(orders);
       
+      // Use real stats from API
       const highSeverity = violations.filter(v => v.avgSeverity >= 70).length;
-      const openWO = orders.filter(o => o.status === 'Open').length;
+      const openWO = apiData.summary?.open_work_orders || 0;
       const unassignedWO = orders.filter(o => !o.assignedTo || o.assignedTo === 'Unassigned').length;
       const avgCompliance = Math.round((100 - violations.reduce((acc, v) => acc + v.avgSeverity, 0) / violations.length));
 
