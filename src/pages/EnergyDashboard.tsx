@@ -1,365 +1,429 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRole } from '@/contexts/RoleContext';
 import { ParticleBackground } from "@/components/ParticleBackground";
-
 import { MainLayout } from '@/components/MainLayout';
-import { Loader2, Calendar, Download, AlertCircle } from 'lucide-react';
-import { format, subDays } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { EfficiencyGauge } from '@/components/energy/EfficiencyGauge';
-import { CostAnalyticsCard } from '@/components/energy/CostAnalyticsCard';
-import { SavingsScoreWidget } from '@/components/energy/SavingsScoreWidget';
-import { EmptyDataMessage } from '@/components/global/EmptyDataMessage';
-import { ScopeFilters } from '@/components/global/ScopeFilters';
-import { calculateBoilerEfficiency, calculateChillerPerformance, calculateDailyEnergyCost, calculateSavingsScore, type UtilityRates } from '@/lib/energy-calculations';
-import { mockBoilerLogs, mockChillerLogs } from '@/lib/mock-data';
-import { ROLE_DEFINITIONS } from '@/lib/role-filters';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
+import { NexumError } from '@/components/global/NexumError';
+import { getEnergyDashboard } from "@/lib/nexum-api";
+import { 
+  Zap, 
+  DollarSign, 
+  Clock,
+  RefreshCw,
+  Flame,
+  Snowflake,
+  Wind,
+  Droplets
+} from 'lucide-react';
+
+interface EnergyData {
+  facility_id: string;
+  generated_at: string;
+  period_days: number;
+  rates: {
+    electric: number;
+    gas: number;
+    water: number;
+  };
+  summary: {
+    total_kwh_consumed: number;
+    estimated_electric_cost: number;
+    total_therms_consumed: number;
+    total_ccf_consumed: number;
+    total_btus_consumed: number;
+    estimated_gas_cost: number;
+    gas_equivalent_kwh: number;
+    total_gallons_consumed: number;
+    estimated_water_cost: number;
+    total_energy_equivalent_kwh: number;
+    estimated_total_utility_cost: number;
+    total_runtime_hours: number;
+    average_kwh_per_day: number;
+  };
+  by_utility: {
+    electric: Array<{
+      system_type: string;
+      kwh: number;
+      estimated_cost: number;
+      runtime_hours: number;
+      percentage_of_electric: number;
+    }>;
+    gas: Array<{
+      system_type: string;
+      therms: number;
+      btus: number;
+      estimated_cost: number;
+      percentage_of_gas: number;
+    }>;
+    water: Array<{
+      system_type: string;
+      gallons: number;
+      estimated_cost: number;
+      percentage_of_water: number;
+    }>;
+  };
+  equipment_breakdown: Array<{
+    equipment_id: string;
+    type: string;
+    name: string;
+    total_kwh: number;
+    estimated_cost: number;
+  }>;
+}
 
 export default function EnergyDashboard() {
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { currentRole, roleScope, canAccessApp } = useRole();
-  const [boilerLogs, setBoilerLogs] = useState<any[]>([]);
-  const [chillerLogs, setChillerLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<EnergyData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  
-  // Selection context
-  const [selectedFacility, setSelectedFacility] = useState<string>('all');
-  const [selectedBuilding, setSelectedBuilding] = useState<string>('all');
-  const [selectedSystem, setSelectedSystem] = useState<string>('all');
 
-  // Default utility rates (could be made configurable)
-  const utilityRates: UtilityRates = {
-    naturalGas: 1.2, // $/therm
-    electricity: 0.12, // $/kWh
-    water: 4.5, // $/1000 gal
-    sewer: 5.2, // $/1000 gal
-  };
-
-  // Role-based content visibility
-  const showCostAnalytics = currentRole === 'executive' || currentRole === 'manager';
-  const showDetailedCharts = currentRole !== 'operator';
-  const showBenchmarks = currentRole === 'executive' || currentRole === 'manager';
-  const showOperationalIssues = currentRole === 'supervisor' || currentRole === 'manager';
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const apiData = await getEnergyDashboard();
+      console.log('✅ Energy data from API:', apiData);
+      setData(apiData);
+    } catch (err: any) {
+      console.error('Error loading energy data:', err);
+      setError(err.message || 'Unable to load energy data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
+      const interval = setInterval(fetchData, 60000);
+      return () => clearInterval(interval);
     }
-  }, [isAuthenticated, startDate, endDate]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Using mock data for now - TODO: Connect to energy-dash Lambda
-      setBoilerLogs(mockBoilerLogs);
-      setChillerLogs(mockChillerLogs);
-    } catch (err) {
-      console.error('Error loading energy data:', err);
-      setError('Unable to load energy data. Please try again.');
-      setBoilerLogs(mockBoilerLogs);
-      setChillerLogs(mockChillerLogs);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAuthenticated, fetchData]);
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-neon-cyan" />
-      </div>
-    );
+    return <NexumPageLoader message="Authenticating..." />;
   }
 
-  // Check if we have valid data to display
-  const hasEnergyData = boilerLogs.length > 0 || chillerLogs.length > 0;
-
-  // Calculate current boiler performance
-  const latestBoiler = boilerLogs[0];
-  const boilerMetrics = latestBoiler ? {
-    supplyTemp: Number(latestBoiler.supply_temp) || Number(latestBoiler.water_temperature) || 0,
-    returnTemp: Number(latestBoiler.return_temp) || 0,
-    steamPressure: Number(latestBoiler.steam_pressure),
-    fuelPressure: Number(latestBoiler.fuel_pressure) || 0,
-    flueGasTemp: Number(latestBoiler.flue_gas_temp),
-    o2Level: Number(latestBoiler.o2_level),
-    co2Level: Number(latestBoiler.co2_level),
-  } : null;
-
-  const boilerPerformance = boilerMetrics ? calculateBoilerEfficiency(boilerMetrics) : null;
-
-  // Calculate current chiller performance
-  const latestChiller = chillerLogs[0];
-  const chillerMetrics = latestChiller ? {
-    evapSupplyTemp: Number(latestChiller.evap_supply_temp) || 0,
-    evapReturnTemp: Number(latestChiller.evap_return_temp) || 0,
-    condSupplyTemp: Number(latestChiller.cond_supply_temp) || 0,
-    condReturnTemp: Number(latestChiller.cond_return_temp) || 0,
-    amperage: Number(latestChiller.amperage) || 0,
-    voltage: Number(latestChiller.voltage) || 0,
-    flowRate: Number(latestChiller.flow_rate) || 0,
-  } : null;
-
-  const chillerPerformance = chillerMetrics ? calculateChillerPerformance(chillerMetrics) : null;
-
-  // Calculate cost analytics (simplified estimates)
-  const dailyGasUsage = 150; // therms/day estimate
-  const dailyElectricUsage = 2400; // kWh/day estimate
-  const dailyWaterUsage = 5000; // gallons/day estimate
-
-  const costAnalytics = calculateDailyEnergyCost(
-    dailyGasUsage,
-    dailyElectricUsage,
-    dailyWaterUsage,
-    utilityRates
-  );
-
-  // Calculate savings score
-  const avgEfficiency = boilerPerformance ? boilerPerformance.efficiency : 80;
-  const baselineEfficiency = 80;
-  const savingsData = calculateSavingsScore(
-    avgEfficiency,
-    baselineEfficiency,
-    costAnalytics.annualProjection
-  );
-
-  // Prepare trend data
-  const trendData = boilerLogs.slice(0, 14).reverse().map((log, index) => {
-    const chillerLog = chillerLogs[index];
-    const boilerEff = calculateBoilerEfficiency({
-      supplyTemp: Number(log.supply_temp) || Number(log.water_temperature) || 0,
-      returnTemp: Number(log.return_temp) || 0,
-      fuelPressure: Number(log.fuel_pressure) || 0,
-      flueGasTemp: Number(log.flue_gas_temp),
-      o2Level: Number(log.o2_level),
-    });
-
-    return {
-      date: format(new Date(log.date), 'MM/dd'),
-      boilerEff: boilerEff.efficiency,
-      chillerKW: chillerLog ? calculateChillerPerformance({
-        evapSupplyTemp: Number(chillerLog.evap_supply_temp) || 0,
-        evapReturnTemp: Number(chillerLog.evap_return_temp) || 0,
-        condSupplyTemp: Number(chillerLog.cond_supply_temp) || 0,
-        condReturnTemp: Number(chillerLog.cond_return_temp) || 0,
-        amperage: Number(chillerLog.amperage) || 0,
-        voltage: Number(chillerLog.voltage) || 0,
-        flowRate: Number(chillerLog.flow_rate) || 0,
-      }).kwPerTon : 0,
-    };
-  });
-
-  // Benchmark radar data
-  const radarData = [
-    { metric: 'Boiler Efficiency', value: boilerPerformance ? (boilerPerformance.efficiency / 95) * 100 : 0, optimal: 90 },
-    { metric: 'Chiller kW/ton', value: chillerPerformance ? (1 - (chillerPerformance.kwPerTon / 1.2)) * 100 : 0, optimal: 90 },
-    { metric: 'Combustion', value: boilerMetrics?.o2Level ? (1 - Math.abs(boilerMetrics.o2Level - 4) / 10) * 100 : 0, optimal: 90 },
-    { metric: 'Heat Transfer', value: 75, optimal: 90 },
-    { metric: 'Runtime Efficiency', value: 82, optimal: 90 },
-  ];
+  const getSystemIcon = (type: string) => {
+    switch(type) {
+      case 'boiler': return <Flame className="h-5 w-5 text-orange-500" />;
+      case 'chiller': return <Snowflake className="h-5 w-5 text-blue-500" />;
+      case 'ahu': return <Wind className="h-5 w-5 text-cyan-500" />;
+      case 'pump': return <Droplets className="h-5 w-5 text-indigo-500" />;
+      default: return <Zap className="h-5 w-5 text-yellow-500" />;
+    }
+  };
 
   return (
     <MainLayout>
       <ParticleBackground />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-neon-cyan mb-2">
-              {currentRole === 'executive' ? 'Energy Intelligence Overview' :
-               currentRole === 'manager' ? 'Energy Performance Analytics' :
-               'Energy Operations Dashboard'}
-            </h1>
-            <p className="text-lg text-neon-teal">
-              {currentRole === 'executive' ? 'Portfolio energy spend and efficiency trends' :
-               currentRole === 'manager' ? 'System performance and cost contributors' :
-               'Real-time operational monitoring'}
+            <h1 className="text-3xl font-bold text-foreground">Energy Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              {data ? `${data.period_days} Day Multi-Utility Analysis` : 'Loading...'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {format(startDate, 'MM/dd/yy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 pointer-events-auto" align="end">
-                <CalendarComponent mode="single" selected={startDate} onSelect={(date) => date && setStartDate(date)} />
-              </PopoverContent>
-            </Popover>
-            <span className="self-center text-muted-foreground text-sm">to</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {format(endDate, 'MM/dd/yy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 pointer-events-auto" align="end">
-                <CalendarComponent mode="single" selected={endDate} onSelect={(date) => date && setEndDate(date)} />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={fetchData}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Scope Filters */}
-        <Card className="p-4 border-border/50">
-          <ScopeFilters
-            selectedFacility={selectedFacility}
-            selectedBuilding={selectedBuilding}
-            selectedSystem={selectedSystem}
-            onFacilityChange={setSelectedFacility}
-            onBuildingChange={setSelectedBuilding}
-            onSystemChange={setSelectedSystem}
-            showSystem={false}
-          />
-        </Card>
+        {error && <NexumError message={error} onRetry={fetchData} />}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-neon-cyan" />
-            <span className="ml-3 text-muted-foreground">Loading energy data...</span>
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <NexumLoader message="Loading energy data..." />
           </div>
-        ) : error && !hasEnergyData ? (
-          <EmptyDataMessage 
-            type="energy" 
-            context={selectedBuilding !== 'all' ? selectedBuilding : selectedFacility !== 'all' ? selectedFacility : undefined}
-          />
-        ) : (
+        ) : data ? (
           <>
-            {/* Efficiency Gauges - Always show for all roles */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {boilerPerformance && (
-                <EfficiencyGauge
-                  title="Boiler Efficiency"
-                  value={boilerPerformance.efficiency}
-                  unit="%"
-                  target={85}
-                  status={boilerPerformance.status}
-                  subtitle={currentRole === 'executive' ? 'Portfolio average' : `${boilerPerformance.issues.length} operational notes`}
-                />
-              )}
-              {chillerPerformance && (
-                <EfficiencyGauge
-                  title="Chiller Performance"
-                  value={chillerPerformance.kwPerTon}
-                  unit=" kW/ton"
-                  target={0.6}
-                  status={chillerPerformance.status}
-                  subtitle={currentRole === 'executive' ? 'Portfolio average' : `COP: ${chillerPerformance.cop.toFixed(2)}`}
-                />
-              )}
+            {/* Total Summary Cards */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="neon-border">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Energy Equivalent</p>
+                      <p className="text-2xl font-bold">{data.summary.total_energy_equivalent_kwh.toLocaleString()} kWh</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Electric + Gas (as kWh)
+                      </p>
+                    </div>
+                    <Zap className="h-12 w-12 text-yellow-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="neon-border">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Estimated Total Cost</p>
+                      <p className="text-2xl font-bold">${data.summary.estimated_total_utility_cost.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        All utilities combined
+                      </p>
+                    </div>
+                    <DollarSign className="h-12 w-12 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="neon-border">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Runtime</p>
+                      <p className="text-2xl font-bold">{data.summary.total_runtime_hours.toFixed(1)} hrs</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Last {data.period_days} days
+                      </p>
+                    </div>
+                    <Clock className="h-12 w-12 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Cost Analytics & Savings Score - Executive and Manager only */}
-            {showCostAnalytics && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <CostAnalyticsCard {...costAnalytics} />
-                <SavingsScoreWidget {...savingsData} />
-              </div>
-            )}
+            {/* Utility Breakdown Tabs */}
+            <Tabs defaultValue="electric" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="electric">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Electric
+                </TabsTrigger>
+                <TabsTrigger value="gas">
+                  <Flame className="h-4 w-4 mr-2" />
+                  Natural Gas
+                </TabsTrigger>
+                <TabsTrigger value="water">
+                  <Droplets className="h-4 w-4 mr-2" />
+                  Water
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Performance Trends - All roles except operator */}
-            {showDetailedCharts && (
-              <Card className="border-neon-cyan/20">
+              {/* Electric Tab */}
+              <TabsContent value="electric" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Electric Consumption</p>
+                      <p className="text-2xl font-bold">{data.summary.total_kwh_consumed.toLocaleString()} kWh</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ${data.rates.electric}/kWh
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Estimated Electric Cost</p>
+                      <p className="text-2xl font-bold">${data.summary.estimated_electric_cost.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Avg per Day</p>
+                      <p className="text-2xl font-bold">{data.summary.average_kwh_per_day.toFixed(1)} kWh</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="neon-border">
+                  <CardHeader>
+                    <CardTitle>Electric by System</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {data.by_utility.electric.map((system) => (
+                        <div key={system.system_type} className="flex items-center gap-4">
+                          <div className="flex-shrink-0">
+                            {getSystemIcon(system.system_type)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {system.kwh} kWh ({(system.percentage_of_electric || 0).toFixed(1)}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-yellow-500 h-2 rounded-full transition-all"
+                                style={{ width: `${system.percentage_of_electric}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Est. ${(system.estimated_cost || 0).toFixed(2)} • {system.runtime_hours} hrs
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Gas Tab */}
+              <TabsContent value="gas" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Therms Consumed</p>
+                      <p className="text-2xl font-bold">{data.summary.total_therms_consumed.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ${data.rates.gas}/Therm
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">CCF Consumed</p>
+                      <p className="text-2xl font-bold">{data.summary.total_ccf_consumed.toLocaleString()}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">BTUs</p>
+                      <p className="text-2xl font-bold">{(data.summary.total_btus_consumed / 1000000).toFixed(2)}M</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Estimated Gas Cost</p>
+                      <p className="text-2xl font-bold">${data.summary.estimated_gas_cost.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="neon-border">
+                  <CardHeader>
+                    <CardTitle>Natural Gas by System</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {data.by_utility.gas.map((system) => (
+                        <div key={system.system_type} className="flex items-center gap-4">
+                          <div className="flex-shrink-0">
+                            {getSystemIcon(system.system_type)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {(system.therms || 0)} Therms ({(system.percentage_of_gas || 0).toFixed(1)}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-orange-500 h-2 rounded-full transition-all"
+                                style={{ width: `${system.percentage_of_gas}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Est. ${(system.estimated_cost || 0).toFixed(2)} • {(system.btus / 1000000).toFixed(2)}M BTUs
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Water Tab */}
+              <TabsContent value="water" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Water Consumption</p>
+                      <p className="text-2xl font-bold">{data.summary.total_gallons_consumed.toLocaleString()} gal</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ${data.rates.water}/gallon
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-muted-foreground">Estimated Water Cost</p>
+                      <p className="text-2xl font-bold">${data.summary.estimated_water_cost.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="neon-border">
+                  <CardHeader>
+                    <CardTitle>Water Usage by System</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {data.by_utility.water.map((system) => (
+                        <div key={system.system_type} className="flex items-center gap-4">
+                          <div className="flex-shrink-0">
+                            {getSystemIcon(system.system_type)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {(system.gallons || 0).toLocaleString()} gal ({(system.percentage_of_water || 0).toFixed(1)}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all"
+                                style={{ width: `${system.percentage_of_water}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Est. ${(system.estimated_cost || 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* Equipment Breakdown */}
+            {data.equipment_breakdown.length > 0 && (
+              <Card className="neon-border">
                 <CardHeader>
-                  <CardTitle>
-                    {currentRole === 'executive' ? 'Portfolio Efficiency Trends' : 'Performance Trends (14-Day)'}
-                  </CardTitle>
+                  <CardTitle>Top Energy Consumers</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis yAxisId="left" className="text-xs" />
-                      <YAxis yAxisId="right" orientation="right" className="text-xs" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }} />
-                      <Legend />
-                      <Line yAxisId="left" type="monotone" dataKey="boilerEff" stroke="hsl(var(--neon-cyan))" name="Boiler Efficiency (%)" strokeWidth={2} />
-                      <Line yAxisId="right" type="monotone" dataKey="chillerKW" stroke="hsl(var(--neon-teal))" name="Chiller kW/ton" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Benchmark Radar - Executive and Manager only */}
-            {showBenchmarks && (
-              <Card className="border-neon-cyan/20">
-                <CardHeader>
-                  <CardTitle>
-                    {currentRole === 'executive' ? 'Portfolio Benchmark vs. Industry Standards' : 'Performance Benchmark'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid stroke="hsl(var(--border))" />
-                      <PolarAngleAxis dataKey="metric" className="text-xs" />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-xs" />
-                      <Radar name="Current" dataKey="value" stroke="hsl(var(--neon-cyan))" fill="hsl(var(--neon-cyan))" fillOpacity={0.3} />
-                      <Radar name="Optimal" dataKey="optimal" stroke="hsl(var(--neon-teal))" fill="hsl(var(--neon-teal))" fillOpacity={0.1} />
-                      <Legend />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Operational Issues - Supervisor and Manager only */}
-            {showOperationalIssues && boilerPerformance && boilerPerformance.issues.length > 0 && (
-              <Card className="border-yellow-500/20 bg-yellow-500/5">
-                <CardHeader>
-                  <CardTitle className="text-yellow-500">Engineering Observations & Recommendations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    {boilerPerformance.issues.map((issue, index) => (
-                      <li key={index} className="flex gap-2">
-                        <span className="text-yellow-500">•</span>
-                        <span>{issue}</span>
-                      </li>
+                  <div className="space-y-3">
+                    {data.equipment_breakdown.slice(0, 10).map((equip) => (
+                      <div key={equip.equipment_id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="font-medium">{equip.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{equip.type}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{equip.total_kwh} kWh</p>
+                          <p className="text-xs text-muted-foreground">Est. ${equip.estimated_cost.toFixed(2)}</p>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {showOperationalIssues && chillerPerformance && chillerPerformance.issues.length > 0 && (
-              <Card className="border-yellow-500/20 bg-yellow-500/5">
-                <CardHeader>
-                  <CardTitle className="text-yellow-500">Chiller System Observations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    {chillerPerformance.issues.map((issue, index) => (
-                      <li key={index} className="flex gap-2">
-                        <span className="text-yellow-500">•</span>
-                        <span>{issue}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  </div>
                 </CardContent>
               </Card>
             )}
           </>
-        )}
+        ) : null}
       </div>
     </MainLayout>
   );

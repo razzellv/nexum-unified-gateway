@@ -6,9 +6,6 @@ interface ApiOptions extends RequestInit {
   requireAuth?: boolean;
 }
 
-/**
- * Make authenticated API request
- */
 export async function apiRequest<T>(
   endpoint: string,
   options: ApiOptions = {}
@@ -20,13 +17,13 @@ export async function apiRequest<T>(
     ...fetchOptions.headers,
   };
 
-  // Add Authorization header if auth required
   if (requireAuth) {
     const token = getAccessToken();
     if (!token) {
       throw new Error('No access token found. Please log in.');
     }
     headers['Authorization'] = `Bearer ${token}`;
+    console.log("🔑 Sending Authorization header with token:", token.substring(0, 50) + "...");
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
@@ -52,16 +49,10 @@ export async function apiRequest<T>(
   return data;
 }
 
-/**
- * GET request
- */
 export async function apiGet<T>(endpoint: string, options?: ApiOptions): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'GET' });
 }
 
-/**
- * POST request
- */
 export async function apiPost<T>(
   endpoint: string,
   body: unknown,
@@ -74,9 +65,6 @@ export async function apiPost<T>(
   });
 }
 
-/**
- * PUT request
- */
 export async function apiPut<T>(
   endpoint: string,
   body: unknown,
@@ -89,9 +77,6 @@ export async function apiPut<T>(
   });
 }
 
-/**
- * DELETE request
- */
 export async function apiDelete<T>(endpoint: string, options?: ApiOptions): Promise<T> {
   return apiRequest<T>(endpoint, { ...options, method: 'DELETE' });
 }
