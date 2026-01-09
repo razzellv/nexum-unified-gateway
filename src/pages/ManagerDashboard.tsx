@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useRole } from '@/contexts/RoleContext';
 import { ParticleBackground } from "@/components/ParticleBackground";
+import { NexumBranding } from "@/components/NexumBranding";
+
 
 import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { ExportButtons } from '@/components/global/ExportButtons';
@@ -225,6 +227,7 @@ export default function ManagerDashboard() {
   return (
     <MainLayout>
       <ParticleBackground />
+        <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

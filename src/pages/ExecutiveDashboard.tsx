@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { NexumBranding } from "@/components/NexumBranding";
+
 import { getExecutiveDashboard } from "@/lib/nexum-api";
 
 import { ParticleBackground } from "@/components/ParticleBackground";
@@ -278,28 +280,13 @@ export default function ExecutiveDashboard() {
   return (
     <MainLayout>
       <ParticleBackground />
+        <NexumBranding />
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground text-glow flex items-center gap-3">
-              {showMultiFacility && <Layers className="h-8 w-8 text-neon-cyan" />}
-              Nexum Suum Facility Intelligence™
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {showMultiFacility ? 'Multi-Facility Command Center' : 
-               roleScope.facilityScope === 'single' ? 'Facility Command Center' : 
-               'Assigned Resources View'}
-              {lastUpdated && (
-                <span className="ml-2 text-xs">
-                  • Last updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </p>
-          </div>
+        <div className="flex justify-end">
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={fetchData}
               disabled={isLoading}

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { NexumBranding } from "@/components/NexumBranding";
+
 import { ParticleBackground } from "@/components/ParticleBackground";
 
 import { MainLayout } from '@/components/MainLayout';
@@ -142,6 +144,7 @@ export default function EmployeeDashboard() {
   return (
     <MainLayout>
       <ParticleBackground />
+        <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

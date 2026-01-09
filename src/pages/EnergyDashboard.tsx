@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { NexumBranding } from "@/components/NexumBranding";
+
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,15 +123,10 @@ export default function EnergyDashboard() {
   return (
     <MainLayout>
       <ParticleBackground />
+        <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Energy Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              {data ? `${data.period_days} Day Multi-Utility Analysis` : 'Loading...'}
-            </p>
-          </div>
+        <div className="flex justify-end">
           <Button 
             variant="outline" 
             size="sm"

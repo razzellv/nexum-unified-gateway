@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { NexumBranding } from "@/components/NexumBranding";
+
 import { getSupervisorDashboard } from "@/lib/nexum-api";
 
 import { ParticleBackground } from "@/components/ParticleBackground";
@@ -156,24 +158,13 @@ export default function SupervisorDashboard() {
     return <Activity className="h-4 w-4 text-muted-foreground" />;
   };
 
-  console.log("🎨 Rendering with:", { stats, isLoading, error });
   return (
     <MainLayout>
       <ParticleBackground />
+        <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground text-glow">Supervisor Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              Team Performance & Operations
-              {lastUpdated && (
-                <span className="ml-2 text-xs">
-                  • Last updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </p>
-          </div>
+        <div className="flex justify-end">
           <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 
@@ -296,10 +287,8 @@ export default function SupervisorDashboard() {
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                   {violationsSummary.map((employee) => {
                     const score = Math.max(0, 100 - employee.avgSeverity * 10);
-  console.log("🎨 Rendering with:", { stats, isLoading, error });
                     return (
                       <div
-                        key={employee.employeeId}
                         className={cn(
                           'p-4 rounded-lg border transition-all hover:shadow-lg',
                           getHeatmapColor(score)
