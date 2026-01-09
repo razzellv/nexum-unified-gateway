@@ -5,6 +5,10 @@ import Login from "./pages/login";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
+import EquipmentMetrics from "./pages/EquipmentMetrics";
+import EquipmentLibrary from "./pages/EquipmentLibrary";
+
+
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
@@ -53,11 +57,15 @@ export const router = createBrowserRouter([
           },
           {
             path: "equipment",
-            element: <Equipment />,
+            element: <EquipmentMetrics />,
           },
           {
             path: "equipment-intelligence",
             element: <EquipmentIntelligence />,
+          },
+          {
+            path: "equipment-library",
+            element: <EquipmentLibrary />,
           },
           {
             path: "dashboard",
