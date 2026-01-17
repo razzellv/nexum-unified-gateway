@@ -201,7 +201,7 @@ const Index = () => {
             <ModuleCard
               title="Facility Data Source"
               description="Log daily operational readings and equipment data"
-              route="/data-source"
+              route="/facility-logs"
               icon={<Upload className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
