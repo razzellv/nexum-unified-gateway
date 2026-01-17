@@ -198,6 +198,7 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
+          </div>
         </section>
 
 
