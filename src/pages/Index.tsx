@@ -198,7 +198,6 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
-            <ModuleCard
         </section>
 
 
