@@ -198,6 +198,14 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
+            <ModuleCard
+              title="Facility Data Source"
+              description="Log daily operational readings and equipment data"
+              route="/data-source"
+              icon={<Upload className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
+            />
           </div>
         </section>
 
