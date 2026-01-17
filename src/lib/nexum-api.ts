@@ -70,6 +70,9 @@ export interface EmployeePortalData {
     steam_pressure: number;
     water_level: string;
     fuel_pressure: number;
+    stack_temp?: number;
+    feedwater_temp?: number;
+    flue_gas_temp?: number;
     blowdown_performed: boolean;
     notes?: string;
   };
@@ -266,6 +269,9 @@ const mockEmployeeData: EmployeePortalData = {
     steam_pressure: 125,
     water_level: 'Normal',
     fuel_pressure: 45,
+    stack_temp: 425,
+    feedwater_temp: 212,
+    flue_gas_temp: 380,
     blowdown_performed: true,
     notes: 'All systems operating normally'
   },
