@@ -198,14 +198,6 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
-            <ModuleCard
-              title="Facility Data Source"
-              description="Log daily operational readings and equipment data"
-              route="/facility-logs"
-              icon={<Upload className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
           </div>
         </section>
 
@@ -221,6 +213,22 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <ModuleCard
+              description="Log daily operational readings and equipment data"
+              title="Facility Data Source"
+              route="/data-source"
+              icon={<Upload className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="secondary"
+            />
+            <ModuleCard
+              title="Facility Command Center"
+              description="Work orders, maintenance scheduling, and operations management"
+              route="/command-center"
+              icon={<Command className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="secondary"
+            />
             <ModuleCard
               title="Facility Instructor"
               description="AI chat assistant for technical, safety, and HR questions"
@@ -257,33 +265,15 @@ const Index = () => {
         </section>
 
         {/* Live Facility Telemetry */}
-        <section className="rounded-xl border border-green-500/20 bg-card/30 backdrop-blur-xl p-6">
+        <section className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-green-500 animate-pulse" />
-            <h2 className="text-lg font-semibold text-foreground">Live Facility Telemetry</h2>
-            <Badge variant="outline" className="text-green-500 border-green-500/50">Connected</Badge>
+            <Activity className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-muted-foreground">Live Facility Telemetry</h2>
           </div>
           <div className="h-[150px] flex items-center justify-center overflow-x-auto">
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-muted-foreground">Boiler System</span>
-                  <span className="text-foreground font-mono">125 PSI</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                  <span className="text-muted-foreground">Chiller System</span>
-                  <span className="text-foreground font-mono">42°F</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                  <span className="text-muted-foreground">Energy Usage</span>
-                  <span className="text-foreground font-mono">75 kW</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">Real-time data from facility sensors</p>
-            </div>
+            <p className="text-sm text-muted-foreground/60 italic">
+              Real-time telemetry stream (integration in progress)
+            </p>
           </div>
         </section>
 

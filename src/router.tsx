@@ -7,7 +7,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
-import FacilityDataSource from "./pages/FacilityDataSource";
+
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
@@ -17,6 +17,11 @@ import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
+
+
+
+
+
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 
@@ -63,10 +68,6 @@ export const router = createBrowserRouter([
             element: <EquipmentLibrary />,
           },
           {
-            path: "facility-logs",
-            element: <FacilityDataSource />,
-          },
-          {
             path: "dashboard",
             element: <Dashboard />,
           },
@@ -93,6 +94,10 @@ export const router = createBrowserRouter([
           {
             path: "facility-intelligence",
             element: <FacilityIntelligence />,
+          },
+          {
+            path: "data-source",
+            element: <ComingSoon title="Facility Data Source" />,
           },
           {
             path: "command-center",
