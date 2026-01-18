@@ -221,14 +221,7 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <ModuleCard
-              description="Log daily operational readings and equipment data"
-              title="Facility Data Source"
-              route="/data-source"
-              icon={<Upload className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="secondary"
-            />
+
             <ModuleCard
               title="Facility Command Center"
               description="Work orders, maintenance scheduling, and operations management"
