@@ -7,6 +7,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
+import FacilityDataSource from "./pages/FacilityDataSource";
 
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
