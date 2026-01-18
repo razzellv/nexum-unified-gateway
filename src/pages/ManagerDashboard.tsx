@@ -378,10 +378,6 @@ export default function ManagerDashboard() {
       );
     }
     return null;
-  };
-    }
-    return null;
-  };
 
   return (
     <MainLayout>
