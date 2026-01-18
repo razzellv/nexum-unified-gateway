@@ -217,7 +217,7 @@ export const submitFacilityLog = async (logData: any) => {
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/facility-logs-ingest`,
+      `${API_BASE_URL}/logs`,
       {
         method: 'POST',
         headers: {
