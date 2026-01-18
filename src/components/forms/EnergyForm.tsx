@@ -81,6 +81,7 @@ export function EnergyForm({ data, onChange, errors }: EnergyFormProps) {
           onChange={(v) => updateField("secondaryGasUsage", v)}
           min={0}
           placeholder="12.5"
+        />
       </div>
 
         <div className="input-group">
