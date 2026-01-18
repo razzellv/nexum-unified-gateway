@@ -326,6 +326,59 @@ export default function ManagerDashboard() {
           )}
         </div>
       );
+
+  // Custom tooltip for energy costs
+  const CustomEnergyTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const primaryGas = data.primary || 0;
+      const secondaryGas = data.secondary || 0;
+      
+      // Cost calculations
+      const THERM_COST = 1.52;
+      const primaryCost = primaryGas * THERM_COST;
+      const secondaryCost = (secondaryGas / 1000) * THERM_COST; // Convert SCFH to therms estimate
+      const totalCost = primaryCost + secondaryCost;
+      
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg min-w-[200px]">
+          <p className="font-semibold text-sm mb-2">{data.day}</p>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Primary Gas:</span>
+              <span className="font-medium">{primaryGas.toLocaleString()} therms</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Est. Cost:</span>
+              <span className="font-medium text-green-400">${primaryCost.toFixed(2)}</span>
+            </div>
+            
+            <div className="h-px bg-border my-2"></div>
+            
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Secondary Gas:</span>
+              <span className="font-medium">{secondaryGas.toLocaleString()} SCFH</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Est. Cost:</span>
+              <span className="font-medium text-green-400">${secondaryCost.toFixed(2)}</span>
+            </div>
+            
+            <div className="h-px bg-border my-2"></div>
+            
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground font-semibold">Total Est. Cost:</span>
+              <span className="font-bold text-neon-cyan">${totalCost.toFixed(2)}</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 italic">
+            Rate: $1.52/therm (NJ avg)
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
     }
     return null;
   };
@@ -502,7 +555,7 @@ export default function ManagerDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Zap className="w-4 h-4 text-neon-cyan" />
-              Gas Usage Trend
+              Utility Trend
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -520,13 +573,7 @@ export default function ManagerDashboard() {
                       stroke="hsl(var(--muted-foreground))" 
                       fontSize={11}
                     />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip content={<CustomEnergyTooltip />} />
                     <Line 
                       type="monotone" 
                       dataKey="primary" 
