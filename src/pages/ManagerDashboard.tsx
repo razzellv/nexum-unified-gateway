@@ -6,12 +6,10 @@ import { Progress } from '@/components/ui/progress';
 import { useRole } from '@/contexts/RoleContext';
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { NexumBranding } from "@/components/NexumBranding";
-
-
 import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { NexumLoader } from '@/components/global/NexumLoader';
-import { getMasterExecutive } from '@/lib/nexum-api';
+import { getManagerDashboard } from '@/lib/nexum-api';
 import { 
   Activity, 
   Shield, 
@@ -112,40 +110,36 @@ const SystemHealthCard = ({ system, score, status, lastUpdated }: SystemHealthCa
   };
 
   return (
-    <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border">
-      <div className="flex items-center gap-3">
-        <Gauge className="w-4 h-4 text-muted-foreground" />
-        <div>
-          <p className="text-sm font-medium">{system}</p>
-          <p className="text-xs text-muted-foreground">{lastUpdated}</p>
-        </div>
+    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/50">
+      <div className="flex-1">
+        <p className="text-sm font-medium">{system}</p>
+        <p className="text-xs text-muted-foreground">Updated {lastUpdated}</p>
       </div>
       <div className="flex items-center gap-3">
-        <div className="w-24">
-          <Progress value={score} className="h-2" />
+        <div className="text-right">
+          <p className="text-lg font-bold">{score}</p>
+          <Badge variant="outline" className={statusColors[status]}>
+            {status}
+          </Badge>
         </div>
-        <Badge className={statusColors[status]}>
-          {score}%
-        </Badge>
       </div>
     </div>
   );
 };
 
 export default function ManagerDashboard() {
-  const { currentRole, roleScope } = useRole();
-  const [loading, setLoading] = useState(true);
+  const { role } = useRole();
   const [data, setData] = useState<any>(null);
-  const [selectedBuilding, setSelectedBuilding] = useState('all');
-  const [selectedSystem, setSelectedSystem] = useState('all');
+  const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const result = await getMasterExecutive();
-        setData(result.data);
+        const result = await getManagerDashboard();
+        console.log('📊 Manager Dashboard Data:', result);
+        setData(result);
       } catch (error) {
         console.error('Failed to load manager data:', error);
       } finally {
@@ -166,96 +160,172 @@ export default function ManagerDashboard() {
   if (loading) {
     return (
       <MainLayout>
-      <ParticleBackground />
         <NexumLoader message="Loading Manager Dashboard..." />
       </MainLayout>
     );
   }
 
-  // Mock data for manager-specific metrics
-  const assetHealthBySystem = [
-    { system: 'Boilers', score: 87, status: 'healthy' as const, lastUpdated: '2 min ago' },
-    { system: 'Chillers', score: 92, status: 'healthy' as const, lastUpdated: '5 min ago' },
-    { system: 'Pumps', score: 78, status: 'warning' as const, lastUpdated: '3 min ago' },
-    { system: 'AHU/RTU', score: 85, status: 'healthy' as const, lastUpdated: '8 min ago' },
-    { system: 'Cooling Towers', score: 65, status: 'warning' as const, lastUpdated: '12 min ago' },
-    { system: 'Compressors', score: 91, status: 'healthy' as const, lastUpdated: '1 min ago' },
-  ];
+  // Calculate KPIs from real data
+  const totalEquipment = data?.summary?.total_equipment || 0;
+  const activeEquipment = data?.summary?.active_equipment || 0;
+  const recentLogsCount = data?.summary?.recent_logs_count || 0;
+  const openWorkOrders = data?.work_orders?.open || 0;
+  const totalWorkOrders = data?.work_orders?.total || 0;
+  const activeViolations = data?.violations?.active || 0;
+  
+  // Asset Health: Based on equipment with recent data
+  const equipmentWithData = data?.performance?.equipment_with_recent_data || 0;
+  const overallAssetHealth = totalEquipment > 0 
+    ? Math.round((equipmentWithData / totalEquipment) * 100) 
+    : 0;
 
-  const complianceRisk30Day = 12;
-  const complianceRisk90Day = 8;
-  const pmCompletionRate = 87;
-  const avgWorkOrderAge = 4.2;
-  const downtimeFrequency = 3;
-  const loggingConsistency = 94;
+  // Compliance Risk: Based on active violations
+  const complianceRisk30Day = totalEquipment > 0
+    ? Math.round((activeViolations / totalEquipment) * 100)
+    : 0;
 
-  const energyTrend = [
-    { day: 'Mon', usage: 2400, cost: 180 },
-    { day: 'Tue', usage: 2210, cost: 165 },
-    { day: 'Wed', usage: 2290, cost: 172 },
-    { day: 'Thu', usage: 2000, cost: 150 },
-    { day: 'Fri', usage: 2181, cost: 164 },
-    { day: 'Sat', usage: 1500, cost: 112 },
-    { day: 'Sun', usage: 1200, cost: 90 },
-  ];
+  // PM Completion: Based on closed work orders
+  const closedWO = data?.work_orders?.by_status?.Completed || 0;
+  const pmCompletionRate = totalWorkOrders > 0
+    ? Math.round((closedWO / totalWorkOrders) * 100)
+    : 0;
 
+  // Calculate Work Order Age from real data
+  const workOrders = data?.work_orders?.recent || [];
+  const avgWorkOrderAge = workOrders.length > 0
+    ? workOrders.reduce((sum: number, wo: any) => {
+        const createdDate = new Date(wo.createdAt);
+        const ageInDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+        return sum + ageInDays;
+      }, 0) / workOrders.length
+    : 0;
+
+  // Group work orders by age range with hover data
   const workOrderAging = [
-    { range: '0-3 days', count: 12, color: '#00f2ea' },
-    { range: '4-7 days', count: 8, color: '#22c55e' },
-    { range: '8-14 days', count: 5, color: '#eab308' },
-    { range: '15+ days', count: 2, color: '#ef4444' },
+    { 
+      range: '0-3 days', 
+      count: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age <= 3;
+      }).length,
+      color: '#00f2ea',
+      workOrders: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age <= 3;
+      })
+    },
+    { 
+      range: '4-7 days', 
+      count: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 3 && age <= 7;
+      }).length,
+      color: '#22c55e',
+      workOrders: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 3 && age <= 7;
+      })
+    },
+    { 
+      range: '8-14 days', 
+      count: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 7 && age <= 14;
+      }).length,
+      color: '#eab308',
+      workOrders: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 7 && age <= 14;
+      })
+    },
+    { 
+      range: '15+ days', 
+      count: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 14;
+      }).length,
+      color: '#ef4444',
+      workOrders: workOrders.filter((wo: any) => {
+        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        return age > 14;
+      })
+    },
   ];
 
-  const teamLogging = [
-    { team: 'Day Shift', consistency: 96 },
-    { team: 'Night Shift', consistency: 89 },
-    { team: 'Weekend', consistency: 92 },
-    { team: 'Maintenance', consistency: 98 },
-  ];
+  // Log Consistency: Based on recent logs
+  const loggingConsistency = data?.performance?.logs_last_7_days || 0;
+  const expectedLogs = 7; // One log per day as baseline
+  const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / expectedLogs) * 100));
 
-  // Filter data based on selected system
-  const filteredAssetHealth = selectedSystem === 'all' 
-    ? assetHealthBySystem
-    : assetHealthBySystem.filter(item => 
-        item.system.toLowerCase().replace(/\//g, '-').includes(selectedSystem.toLowerCase())
+  // Downtime: Currently mock, would need equipment status tracking
+  const downtimeFrequency = 0;
+
+  // Equipment by type for health scores
+  const equipmentByType = data?.equipment?.by_type || {};
+  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => ({
+    system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
+    score: Math.round(70 + Math.random() * 25), // TODO: Calculate from actual equipment health
+    status: 'healthy' as const,
+    lastUpdated: '5 min ago'
+  }));
+
+  // Custom tooltip for work order aging
+  const CustomWorkOrderTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const wos = data.workOrders || [];
+      
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold text-sm mb-2">{data.range}</p>
+          <p className="text-xs text-muted-foreground mb-2">{data.count} work orders</p>
+          {wos.length > 0 && (
+            <div className="space-y-1 mt-2 max-h-40 overflow-y-auto">
+              {wos.slice(0, 5).map((wo: any, idx: number) => (
+                <div key={idx} className="text-xs border-t border-border pt-1">
+                  <p className="font-medium">{wo.title}</p>
+                  <p className="text-muted-foreground">
+                    Created: {new Date(wo.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+              {wos.length > 5 && (
+                <p className="text-xs text-muted-foreground italic">+{wos.length - 5} more...</p>
+              )}
+            </div>
+          )}
+        </div>
       );
-
-  const overallAssetHealth = Math.round(
-    filteredAssetHealth.reduce((acc, s) => acc + s.score, 0) / filteredAssetHealth.length
-  );
+    }
+    return null;
+  };
 
   return (
     <MainLayout>
       <ParticleBackground />
-        <NexumBranding />
-      <div className="space-y-6">
+      
+      <div className="relative z-10 max-w-[1800px] mx-auto p-6 space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-neon-cyan">Manager Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Full facility monitoring — {roleScope.assignedFacilities[0] || 'Main Campus'}
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+              <BarChart3 className="w-8 h-8 text-neon-cyan" />
+              Manager Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">Operations overview and facility management</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-xs">
-              <Activity className="w-3 h-3 mr-1" />
-              Live Data
-            </Badge>
-            <ExportButtons title="Manager Dashboard" />
+          <div className="flex gap-3 items-center">
+            <ExportButtons 
+              data={data} 
+              filename="manager-dashboard" 
+              title="Manager Dashboard Report"
+            />
+            <NexumBranding />
           </div>
         </div>
 
         {/* Scope Filters */}
-        <ScopeFilters
-          selectedFacility="all"
-          selectedBuilding={selectedBuilding}
-          selectedSystem={selectedSystem}
-          onFacilityChange={() => {}}
-          onBuildingChange={setSelectedBuilding}
-          onSystemChange={setSelectedSystem}
-          showFacility={false}
-        />
+        <ScopeFilters />
 
         {/* Primary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -264,8 +334,8 @@ export default function ManagerDashboard() {
             value={overallAssetHealth}
             unit="%"
             icon={Activity}
-            trend="up"
-            trendValue="+2.3%"
+            trend={overallAssetHealth >= 80 ? "up" : "down"}
+            trendValue={overallAssetHealth >= 80 ? "Good" : "Needs Attention"}
           />
           <KPICard
             title="Compliance Risk (30d)"
@@ -281,8 +351,8 @@ export default function ManagerDashboard() {
             value={pmCompletionRate}
             unit="%"
             icon={CheckCircle2}
-            trend="up"
-            trendValue="+5%"
+            trend={pmCompletionRate >= 85 ? "up" : "down"}
+            trendValue={pmCompletionRate >= 85 ? "On Track" : "Behind"}
           />
           <KPICard
             title="Avg WO Age"
@@ -302,84 +372,37 @@ export default function ManagerDashboard() {
           />
           <KPICard
             title="Log Consistency"
-            value={loggingConsistency}
+            value={logConsistencyPercent}
             unit="%"
             icon={Users}
-            trend="up"
-            trendValue="+1.2%"
+            trend={logConsistencyPercent >= 90 ? "up" : "down"}
+            trendValue={`${loggingConsistency} logs/7d`}
           />
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
           {/* Asset Health by System */}
           <Card className="lg:col-span-1 bg-card/80 border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Gauge className="w-4 h-4 text-neon-cyan" />
+                <Activity className="w-4 h-4 text-neon-cyan" />
                 Asset Health by System
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {filteredAssetHealth.map((system) => (
-                <SystemHealthCard
-                  key={system.system}
-                  system={system.system}
-                  score={system.score}
-                  status={system.status}
-                  lastUpdated={system.lastUpdated}
-                />
-              ))}
+              {assetHealthBySystem.length > 0 ? (
+                assetHealthBySystem.map((system, idx) => (
+                  <SystemHealthCard key={idx} {...system} />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No equipment data available
+                </p>
+              )}
             </CardContent>
           </Card>
 
-          {/* Energy Trend Summary */}
-          <Card className="lg:col-span-2 bg-card/80 border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Zap className="w-4 h-4 text-neon-cyan" />
-                Weekly Energy Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={energyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="usage" 
-                      stroke="#00f2ea" 
-                      strokeWidth={2}
-                      dot={{ fill: '#00f2ea', strokeWidth: 0 }}
-                      name="Usage (kWh)"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="cost" 
-                      stroke="#22c55e" 
-                      strokeWidth={2}
-                      dot={{ fill: '#22c55e', strokeWidth: 0 }}
-                      name="Cost ($)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Secondary Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Work Order Aging */}
           <Card className="bg-card/80 border-border">
             <CardHeader className="pb-2">
@@ -395,13 +418,7 @@ export default function ManagerDashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <YAxis type="category" dataKey="range" stroke="hsl(var(--muted-foreground))" fontSize={11} width={80} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip content={<CustomWorkOrderTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                       {workOrderAging.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -425,77 +442,29 @@ export default function ManagerDashboard() {
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">30-Day Risk</span>
-                    <span className={complianceRisk30Day > 15 ? 'text-yellow-400' : 'text-green-400'}>
-                      {complianceRisk30Day}%
+                    <span className="text-muted-foreground">Active Violations</span>
+                    <span className={activeViolations > 0 ? 'text-yellow-400' : 'text-green-400'}>
+                      {activeViolations}
                     </span>
                   </div>
-                  <Progress 
-                    value={complianceRisk30Day} 
-                    className="h-3"
-                  />
+                  <Progress value={complianceRisk30Day} className="h-2" />
                 </div>
+                
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">90-Day Risk</span>
-                    <span className={complianceRisk90Day > 15 ? 'text-yellow-400' : 'text-green-400'}>
-                      {complianceRisk90Day}%
-                    </span>
+                    <span className="text-muted-foreground">Open Work Orders</span>
+                    <span className="text-neon-cyan">{openWorkOrders}</span>
                   </div>
-                  <Progress 
-                    value={complianceRisk90Day} 
-                    className="h-3"
-                  />
+                  <Progress value={(openWorkOrders / Math.max(totalWorkOrders, 1)) * 100} className="h-2" />
                 </div>
-                <div className="pt-2 border-t border-border">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Target: &lt;10%</span>
-                    <Badge variant="outline" className="text-xs">
-                      <TrendingDown className="w-3 h-3 mr-1" />
-                      Improving
-                    </Badge>
-                  </div>
+
+                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                  <p>Risk Score: {complianceRisk30Day < 10 ? 'Low' : complianceRisk30Day < 20 ? 'Medium' : 'High'}</p>
+                  <p className="mt-1">Total Equipment: {totalEquipment}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Team Logging Consistency */}
-          <Card className="bg-card/80 border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Users className="w-4 h-4 text-neon-cyan" />
-                Logging Consistency by Team
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {teamLogging.map((team) => (
-                  <div key={team.team} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{team.team}</span>
-                      <span className={team.consistency >= 90 ? 'text-green-400' : 'text-yellow-400'}>
-                        {team.consistency}%
-                      </span>
-                    </div>
-                    <Progress value={team.consistency} className="h-2" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Footer Info */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-3 h-3" />
-            <span>Last refreshed: {new Date().toLocaleTimeString()}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-3 h-3" />
-            <span>Scope: Full Facility ({roleScope.assignedFacilities[0] || 'Main Campus'})</span>
-          </div>
         </div>
       </div>
     </MainLayout>
