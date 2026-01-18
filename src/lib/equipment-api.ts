@@ -118,6 +118,26 @@ const getAuthToken = (): string | null => {
   return localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
 };
 
+// Transform log item to flatten metrics for backward compatibility
+const transformLogItem = (item: any) => {
+  if (!item) return item;
+  
+  // If data is nested, flatten it
+  if (item.data) {
+    const { data, ...metadata } = item;
+    return {
+      ...metadata,
+      ...data,
+      // Preserve original data object for future use
+      _rawData: data
+    };
+  }
+  
+  // Already flat, return as-is
+  return item;
+};
+
+
 export const api = {
   async getEquipmentReadings(equipmentId: string, limit: number = 50) {
     const token = getAuthToken();
@@ -145,7 +165,14 @@ export const api = {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      return response.json();
+      const json = await response.json();
+      
+      // Transform readings to flatten nested data
+      if (json.readings) {
+        json.readings = json.readings.map(transformLogItem);
+      }
+      
+      return json;
     } catch (error) {
       console.error('API Error:', error);
       throw error;
@@ -180,7 +207,14 @@ export const api = {
       throw new Error('Failed to create equipment reading');
     }
     
-    return response.json();
+    const json = await response.json();
+      
+      // Transform readings to flatten nested data
+      if (json.readings) {
+        json.readings = json.readings.map(transformLogItem);
+      }
+      
+      return json;
   },
 };
 
