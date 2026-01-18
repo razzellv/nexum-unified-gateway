@@ -192,16 +192,39 @@ export const submitFacilityLog = async (logData: any) => {
     throw new Error('No authentication token available');
   }
 
+  // Transform data to match Lambda expectations
+  const payload = {
+    facility_id: logData.facilityId,
+    system: logData.systemType,
+    equipment_id: logData.systemId,
+    timestamp: logData.timestamp,
+    operator: {
+      name: logData.operator,
+      id: logData.operatorId,
+    },
+    system_asset: {
+      id: logData.systemId,
+      equipment_id: logData.systemId,
+    },
+    // Spread all the metrics from the form
+    ...logData.metrics,
+    // Add metadata
+    measurement_type: logData.measurementType,
+    abnormal_condition: logData.abnormalCondition,
+    operator_notes: logData.operatorNotes,
+    shift: logData.shift,
+  };
+
   try {
     const response = await fetch(
-      `${API_BASE_URL}/facility-logs`,
+      `${API_BASE_URL}/facility-logs-ingest`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(logData),
+        body: JSON.stringify(payload),
       }
     );
     
