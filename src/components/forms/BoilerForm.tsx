@@ -213,7 +213,6 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           placeholder="125"
         />
       </div>
-      </div>
 
 
       {/* Safety Status */}
