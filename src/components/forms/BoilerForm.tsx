@@ -213,11 +213,6 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
         />
       </div>
 
-          step={0.1}
-          placeholder="12.5"
-        />
-      </div>
-      </div>
 
       {/* Safety Status */}
       <div className="input-group">
