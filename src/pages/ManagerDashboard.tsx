@@ -290,14 +290,29 @@ export default function ManagerDashboard() {
   // Downtime: Currently mock
   const downtimeFrequency = 0;
 
-  // Equipment by type for health scores
+  // Equipment by type for health scores - based on recent logs
   const equipmentByType = data?.equipment?.by_type || {};
-  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => ({
-    system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
-    score: Math.round(70 + Math.random() * 25),
-    status: 'healthy' as const,
-    lastUpdated: '5 min ago'
-  }));
+  const recentLogs = data?.summary?.recent_logs_count || 0;
+  
+  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => {
+    // Calculate health based on whether this equipment type has recent data
+    const hasRecentData = recentLogs > 0;
+    const baseScore = hasRecentData ? 85 : 50;
+    const logBonus = Math.min(15, Math.round((recentLogs / expectedLogs) * 15));
+    const healthScore = Math.min(100, baseScore + logBonus);
+    
+    // Determine status based on score
+    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+    if (healthScore < 60) status = 'critical';
+    else if (healthScore < 80) status = 'warning';
+    
+    return {
+      system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
+      score: healthScore,
+      status,
+      lastUpdated: recentLogs > 0 ? 'Recently' : 'No recent data'
+    };
+  });
 
   // Custom tooltip for work order aging
   const CustomWorkOrderTooltip = ({ active, payload }: any) => {
