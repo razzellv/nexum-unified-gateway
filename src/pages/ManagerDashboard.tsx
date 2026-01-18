@@ -378,6 +378,7 @@ export default function ManagerDashboard() {
       );
     }
     return null;
+  };
 
   return (
     <MainLayout>
