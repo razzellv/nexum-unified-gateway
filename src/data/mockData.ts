@@ -2,7 +2,7 @@ import { Facility, User } from '@/types/logging';
 
 export const mockFacilities: Facility[] = [
   {
-    id: 'fac-001',
+    id: 'facility-001',
     name: 'Main Campus',
     buildings: [
       {
@@ -36,7 +36,7 @@ export const mockFacilities: Facility[] = [
     ],
   },
   {
-    id: 'fac-002',
+    id: 'facility-002',
     name: 'West Campus',
     buildings: [
       {
@@ -56,7 +56,7 @@ export const mockUser: User = {
   name: 'John Operator',
   role: 'operator',
   assignedSystems: ['sys-001', 'sys-002', 'sys-003', 'sys-004', 'sys-005', 'sys-006', 'sys-007', 'sys-008', 'sys-009', 'sys-010'],
-  assignedFacilities: ['fac-001', 'fac-002'],
+  assignedFacilities: ['facility-001', 'facility-002'],
 };
 
 export const getCurrentShift = (): 'day' | 'evening' | 'night' => {
