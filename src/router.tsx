@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "data-source",
-            element: <ComingSoon title="Facility Data Source" />,
+            element: <FacilityDataSource />,
           },
           {
             path: "command-center",
