@@ -132,6 +132,7 @@ export default function ManagerDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [energyTrend, setEnergyTrend] = useState<any[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -155,6 +156,35 @@ export default function ManagerDashboard() {
     }, 60000);
     
     return () => clearInterval(interval);
+  }, [refreshKey]);
+
+  // Fetch energy logs
+  useEffect(() => {
+    const fetchEnergyLogs = async () => {
+      const token = localStorage.getItem('nexum_id_token');
+      if (!token) return;
+      
+      try {
+        const response = await fetch(
+          'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/equipment/readings?equipmentId=energy-log&limit=7',
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        const result = await response.json();
+        
+        if (result.readings) {
+          const chartData = result.readings.reverse().map((r: any) => ({
+            day: new Date(r.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            primary: parseFloat(r.data?.primaryGasUsage || r.primaryGasUsage || 0),
+            secondary: parseFloat(r.data?.secondaryGasUsage || r.secondaryGasUsage || 0)
+          }));
+          setEnergyTrend(chartData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch energy logs:', error);
+      }
+    };
+    
+    fetchEnergyLogs();
   }, [refreshKey]);
 
   if (loading) {
@@ -254,17 +284,17 @@ export default function ManagerDashboard() {
 
   // Log Consistency: Based on recent logs
   const loggingConsistency = data?.performance?.logs_last_7_days || 0;
-  const expectedLogs = 7; // One log per day as baseline
+  const expectedLogs = 7;
   const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / expectedLogs) * 100));
 
-  // Downtime: Currently mock, would need equipment status tracking
+  // Downtime: Currently mock
   const downtimeFrequency = 0;
 
   // Equipment by type for health scores
   const equipmentByType = data?.equipment?.by_type || {};
   const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => ({
     system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
-    score: Math.round(70 + Math.random() * 25), // TODO: Calculate from actual equipment health
+    score: Math.round(70 + Math.random() * 25),
     status: 'healthy' as const,
     lastUpdated: '5 min ago'
   }));
@@ -466,6 +496,75 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Energy Trend */}
+        <Card className="bg-card/80 border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="w-4 h-4 text-neon-cyan" />
+              Gas Usage Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[240px]">
+              {energyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={energyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={11} 
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={11}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="primary" 
+                      stroke="#00f2ea" 
+                      strokeWidth={2}
+                      name="Primary Gas (therms)"
+                      dot={{ fill: '#00f2ea', r: 3 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="secondary" 
+                      stroke="#22c55e" 
+                      strokeWidth={2}
+                      name="Secondary Gas (SCFH)"
+                      dot={{ fill: '#22c55e', r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  No energy logs available - Submit energy logs via Facility Data Source
+                </div>
+              )}
+            </div>
+            {energyTrend.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#00f2ea]"></div>
+                  <span className="text-muted-foreground">Primary Gas (Main Burner - therms)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#22c55e]"></div>
+                  <span className="text-muted-foreground">Secondary Gas (Pilot - SCFH)</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
