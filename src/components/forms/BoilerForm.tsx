@@ -181,6 +181,7 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           placeholder="75"
         />
 
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField
           label="Fuel Gas Pressure"
@@ -211,6 +212,7 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           step={0.5}
           placeholder="125"
         />
+      </div>
       </div>
 
 
