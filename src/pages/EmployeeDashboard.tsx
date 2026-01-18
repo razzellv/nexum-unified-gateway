@@ -327,7 +327,7 @@ export default function EmployeeDashboard() {
                             <div>
                               <p className="font-medium">{event.type}</p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(event.date).toLocaleDateString()}
+                                {new Date(event.date).toLocaleString()}
                               </p>
                             </div>
                           </div>

@@ -11,6 +11,10 @@ interface ChillerFormData {
   enteringCondenserWaterTemp: string;
   leavingCondenserWaterTemp: string;
   estimatedTons: string;
+  refrigerantType: string;
+  suctionPressure: string;
+  dischargePressure: string;
+  currentKw: string;
   runStatus: string;
   alarmStatus: string;
 }
@@ -192,6 +196,81 @@ export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
         </div>
       )}
 
+
+      {/* Refrigerant & Performance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Refrigerant Type */}
+        <div className="input-group">
+          <Label className="text-sm font-medium">
+            Refrigerant Type <span className="text-destructive">*</span>
+          </Label>
+          <Select value={data.refrigerantType} onValueChange={(v) => updateField('refrigerantType', v)}>
+            <SelectTrigger className={cn(errors.refrigerantType && 'border-destructive')}>
+              <SelectValue placeholder="Select refrigerant" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="R-134a">R-134a</SelectItem>
+              <SelectItem value="R-410A">R-410A</SelectItem>
+              <SelectItem value="R-407C">R-407C</SelectItem>
+              <SelectItem value="R-22">R-22 (Legacy)</SelectItem>
+              <SelectItem value="R-32">R-32</SelectItem>
+              <SelectItem value="R-513A">R-513A</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.refrigerantType && (
+            <p className="text-xs text-destructive">{errors.refrigerantType}</p>
+          )}
+        </div>
+
+        {/* Current kW */}
+        <FormField
+          label="Current Power Draw"
+          name="currentKw"
+          type="number"
+          value={data.currentKw}
+          onChange={(v) => updateField('currentKw', v)}
+          required
+          error={errors.currentKw}
+          unit="kW"
+          min={0}
+          max={5000}
+          step={0.1}
+          placeholder="450"
+        />
+      </div>
+
+      {/* Refrigerant Pressures */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          label="Suction Pressure"
+          name="suctionPressure"
+          type="number"
+          value={data.suctionPressure}
+          onChange={(v) => updateField('suctionPressure', v)}
+          required
+          error={errors.suctionPressure}
+          unit="PSIG"
+          min={0}
+          max={200}
+          step={0.1}
+          placeholder="68"
+        />
+
+        <FormField
+          label="Discharge Pressure"
+          name="dischargePressure"
+          type="number"
+          value={data.dischargePressure}
+          onChange={(v) => updateField('dischargePressure', v)}
+          required
+          error={errors.dischargePressure}
+          unit="PSIG"
+          min={0}
+          max={500}
+          step={0.1}
+          placeholder="245"
+        />
+      </div>
       {/* Run Status */}
       <div className="input-group">
         <Label className="text-sm font-medium">
@@ -268,6 +347,10 @@ export const initialChillerData: ChillerFormData = {
   leavingCondenserWaterTemp: '',
   estimatedTons: '',
   runStatus: '',
+  refrigerantType: '',
+  suctionPressure: '',
+  dischargePressure: '',
+  currentKw: '',
   alarmStatus: '',
 };
 
@@ -279,6 +362,10 @@ export function validateChillerForm(data: ChillerFormData): Record<string, strin
   if (!data.leavingWaterTemp) errors.leavingWaterTemp = 'Required';
   if (!data.estimatedTons) errors.estimatedTons = 'Required';
   if (!data.runStatus) errors.runStatus = 'Required';
+  if (!data.refrigerantType) errors.refrigerantType = 'Required';
+  if (!data.suctionPressure) errors.suctionPressure = 'Required';
+  if (!data.dischargePressure) errors.dischargePressure = 'Required';
+  if (!data.currentKw) errors.currentKw = 'Required';
   if (!data.alarmStatus) errors.alarmStatus = 'Required';
 
   // Condenser water temps required for water-cooled chillers
