@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 interface EnergyFormData {
   electricMeterReading: string;
   waterMeterReading: string;
-  gasUsage: string;
+  primaryGasUsage: string;
+  secondaryGasUsage: string;
   gasUnit: string;
   fuelOilUsage: string;
 }
@@ -60,17 +61,27 @@ export function EnergyForm({ data, onChange, errors }: EnergyFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField
-          label="Gas Usage"
-          name="gasUsage"
+          label="Primary Gas Usage"
+          name="primaryGasUsage"
           type="number"
-          value={data.gasUsage}
-          onChange={(v) => updateField('gasUsage', v)}
+          value={data.primaryGasUsage}
+          onChange={(v) => updateField('primaryGasUsage', v)}
           required
-          error={errors.gasUsage}
+          error={errors.primaryGasUsage}
           min={0}
           placeholder="1500"
+          unit="therms"
         />
 
+        <FormField
+          label="Secondary Gas Usage"
+          name="secondaryGasUsage"
+          type="number"
+          value={data.secondaryGasUsage}
+          onChange={(v) => updateField("secondaryGasUsage", v)}
+          min={0}
+          placeholder="12.5"
+        />
         <div className="input-group">
           <Label className="text-sm font-medium">
             Gas Unit <span className="text-destructive">*</span>
@@ -108,7 +119,8 @@ export function EnergyForm({ data, onChange, errors }: EnergyFormProps) {
 export const initialEnergyData: EnergyFormData = {
   electricMeterReading: '',
   waterMeterReading: '',
-  gasUsage: '',
+  primaryGasUsage: '',
+  secondaryGasUsage: '',
   gasUnit: '',
   fuelOilUsage: '',
 };
@@ -118,7 +130,7 @@ export function validateEnergyForm(data: EnergyFormData): Record<string, string>
 
   if (!data.electricMeterReading) errors.electricMeterReading = 'Required';
   if (!data.waterMeterReading) errors.waterMeterReading = 'Required';
-  if (!data.gasUsage) errors.gasUsage = 'Required';
+  if (!data.primaryGasUsage) errors.primaryGasUsage = 'Required';
   if (!data.gasUnit) errors.gasUnit = 'Required';
 
   if (data.electricMeterReading && Number(data.electricMeterReading) < 0) {
@@ -127,8 +139,8 @@ export function validateEnergyForm(data: EnergyFormData): Record<string, string>
   if (data.waterMeterReading && Number(data.waterMeterReading) < 0) {
     errors.waterMeterReading = 'Must be positive';
   }
-  if (data.gasUsage && Number(data.gasUsage) < 0) {
-    errors.gasUsage = 'Must be positive';
+  if (data.primaryGasUsage && Number(data.primaryGasUsage) < 0) {
+    errors.primaryGasUsage = 'Must be positive';
   }
 
   return errors;

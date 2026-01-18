@@ -17,6 +17,8 @@ interface BoilerFormData {
   firingRate: string;
   fuelPsi: string;
   systemPsi: string;
+  primaryGasUsage: string;
+  secondaryGasUsage: string;
   makeUpWater: boolean;
   safetyStatus: string;
   // Simplified LWCO fields
@@ -210,6 +212,11 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           placeholder="125"
         />
       </div>
+
+          step={0.1}
+          placeholder="12.5"
+        />
+      </div>
       </div>
 
       {/* Safety Status */}
@@ -328,6 +335,8 @@ export const initialBoilerData: BoilerFormData = {
   firingRate: '',
   fuelPsi: '',
   systemPsi: '',
+  primaryGasUsage: '',
+  secondaryGasUsage: '',
   makeUpWater: false,
   safetyStatus: '',
   lwcoTestResult: '',
