@@ -183,3 +183,36 @@ export const api = {
     return response.json();
   },
 };
+
+// Submit facility log entry
+export const submitFacilityLog = async (logData: any) => {
+  const token = localStorage.getItem('idToken');
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/facility-logs`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(logData),
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error submitting facility log:', error);
+    throw error;
+  }
+};

@@ -12,6 +12,7 @@ import { EnergyForm, initialEnergyData, validateEnergyForm } from '@/components/
 import { Facility, Building, SystemInfo, Shift, MeasurementType } from '@/types/logging';
 import { getCurrentShift, mockUser } from '@/data/mockData';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { submitFacilityLog } from "@/lib/equipment-api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -114,17 +115,51 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
     setIsSubmitting(true);
     setShowConfirmDialog(false);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Construct the log data payload
+      const logData = {
+        facilityId: facility.id,
+        buildingId: building.id,
+        systemType: system?.type || 'energy',
+        systemId: system?.id || 'energy-log',
+        timestamp: new Date().toISOString(),
+        shift,
+        operator: mockUser.name,
+        operatorId: mockUser.id,
+        measurementType,
+        abnormalCondition,
+        operatorNotes: notes,
+        metrics: isEnergyLog ? energyData : 
+                 systemType === 'boiler' ? boilerData :
+                 systemType === 'chiller' ? chillerData :
+                 systemType === 'pump' ? pumpData :
+                 systemType === 'ahu' ? ahuData :
+                 systemType === 'tower' ? towerData : {},
+      };
 
-    const logName = isEnergyLog ? 'Energy & Utilities' : system?.name;
-    toast({
-      title: 'Log Submitted Successfully',
-      description: `${logName} log entry has been recorded.`,
-    });
+      console.log('📤 Submitting log data:', logData);
+      
+      const result = await submitFacilityLog(logData);
+      
+      console.log('✅ Log submitted successfully:', result);
 
-    setIsSubmitting(false);
-    onBack();
+      const logName = isEnergyLog ? 'Energy & Utilities' : system?.name;
+      toast({
+        title: 'Log Submitted Successfully',
+        description: `${logName} log entry has been recorded.`,
+      });
+
+      setIsSubmitting(false);
+      onBack();
+    } catch (error) {
+      console.error('❌ Error submitting log:', error);
+      toast({
+        title: 'Submission Failed',
+        description: error instanceof Error ? error.message : 'Failed to submit log entry. Please try again.',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+    }
   };
 
   const handleSaveDraft = () => {
