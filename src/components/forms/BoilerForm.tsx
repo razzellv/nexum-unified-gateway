@@ -1,0 +1,328 @@
+import { FormField } from './FormField';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Flame, Shield } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface BoilerFormData {
+  operatingMode: string;
+  supplyTemp: string;
+  returnTemp: string;
+  stackTemp: string;
+  o2Level: string;
+  co2Level: string;
+  fuelType: string;
+  firingRate: string;
+  makeUpWater: boolean;
+  safetyStatus: string;
+  // Simplified LWCO fields
+  lwcoTestResult: 'pass' | 'fail' | '';
+  blowdownPerformed: boolean;
+}
+
+interface BoilerFormProps {
+  data: BoilerFormData;
+  onChange: (data: BoilerFormData) => void;
+  errors: Record<string, string>;
+}
+
+const safetyStatusColors = {
+  normal: 'bg-success/20 border-success/50 text-success',
+  alarm: 'bg-warning/20 border-warning/50 text-warning',
+  lockout: 'bg-destructive/20 border-destructive/50 text-destructive',
+};
+
+export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
+  const updateField = (field: keyof BoilerFormData, value: string | boolean) => {
+    onChange({ ...data, [field]: value });
+  };
+
+  return (
+    <div className="form-section animate-fade-in">
+      <h3 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="p-1.5 rounded-md bg-boiler/20">
+          <Flame className="h-4 w-4 text-boiler" />
+        </div>
+        Boiler Operating Data
+      </h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Operating Mode */}
+        <div className="input-group">
+          <Label className="text-sm font-medium">
+            Operating Mode <span className="text-destructive">*</span>
+          </Label>
+          <Select value={data.operatingMode} onValueChange={(v) => updateField('operatingMode', v)}>
+            <SelectTrigger className={cn(errors.operatingMode && 'border-destructive')}>
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standby">Standby</SelectItem>
+              <SelectItem value="low-fire">Low Fire</SelectItem>
+              <SelectItem value="high-fire">High Fire</SelectItem>
+              <SelectItem value="modulating">Modulating</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.operatingMode && (
+            <p className="text-xs text-destructive">{errors.operatingMode}</p>
+          )}
+        </div>
+
+        {/* Fuel Type */}
+        <div className="input-group">
+          <Label className="text-sm font-medium">
+            Fuel Type <span className="text-destructive">*</span>
+          </Label>
+          <Select value={data.fuelType} onValueChange={(v) => updateField('fuelType', v)}>
+            <SelectTrigger className={cn(errors.fuelType && 'border-destructive')}>
+              <SelectValue placeholder="Select fuel" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="natural-gas">Natural Gas</SelectItem>
+              <SelectItem value="fuel-oil">Fuel Oil</SelectItem>
+              <SelectItem value="dual-fuel">Dual Fuel</SelectItem>
+              <SelectItem value="electric">Electric</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.fuelType && (
+            <p className="text-xs text-destructive">{errors.fuelType}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <FormField
+          label="Supply Temp"
+          name="supplyTemp"
+          type="number"
+          value={data.supplyTemp}
+          onChange={(v) => updateField('supplyTemp', v)}
+          required
+          error={errors.supplyTemp}
+          unit="°F"
+          min={0}
+          max={500}
+          placeholder="180"
+        />
+
+        <FormField
+          label="Return Temp"
+          name="returnTemp"
+          type="number"
+          value={data.returnTemp}
+          onChange={(v) => updateField('returnTemp', v)}
+          required
+          error={errors.returnTemp}
+          unit="°F"
+          min={0}
+          max={500}
+          placeholder="160"
+        />
+
+        <FormField
+          label="Stack Temp"
+          name="stackTemp"
+          type="number"
+          value={data.stackTemp}
+          onChange={(v) => updateField('stackTemp', v)}
+          required
+          error={errors.stackTemp}
+          unit="°F"
+          min={0}
+          max={1000}
+          placeholder="350"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <FormField
+          label="O₂ Level"
+          name="o2Level"
+          type="number"
+          value={data.o2Level}
+          onChange={(v) => updateField('o2Level', v)}
+          unit="%"
+          min={0}
+          max={21}
+          step={0.1}
+          placeholder="3.5"
+        />
+
+        <FormField
+          label="CO₂ Level"
+          name="co2Level"
+          type="number"
+          value={data.co2Level}
+          onChange={(v) => updateField('co2Level', v)}
+          unit="%"
+          min={0}
+          max={20}
+          step={0.1}
+          placeholder="12.0"
+        />
+
+        <FormField
+          label="Firing Rate"
+          name="firingRate"
+          type="number"
+          value={data.firingRate}
+          onChange={(v) => updateField('firingRate', v)}
+          required
+          error={errors.firingRate}
+          unit="%"
+          min={0}
+          max={100}
+          placeholder="75"
+        />
+      </div>
+
+      {/* Safety Status */}
+      <div className="input-group">
+        <Label className="text-sm font-medium">
+          Safety Status <span className="text-destructive">*</span>
+        </Label>
+        <div className="grid grid-cols-3 gap-2">
+          {(['normal', 'alarm', 'lockout'] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => updateField('safetyStatus', status)}
+              className={cn(
+                'p-3 rounded-lg border-2 font-medium text-sm capitalize transition-all',
+                data.safetyStatus === status
+                  ? safetyStatusColors[status]
+                  : 'bg-background/50 border-border/50 text-muted-foreground hover:border-border'
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <div
+                  className={cn(
+                    'w-2 h-2 rounded-full',
+                    status === 'normal' && 'bg-success',
+                    status === 'alarm' && 'bg-warning animate-pulse',
+                    status === 'lockout' && 'bg-destructive animate-pulse'
+                  )}
+                />
+                {status}
+              </div>
+            </button>
+          ))}
+        </div>
+        {errors.safetyStatus && (
+          <p className="text-xs text-destructive">{errors.safetyStatus}</p>
+        )}
+      </div>
+
+      {/* Make-Up Water */}
+      <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
+        <div>
+          <p className="font-medium text-sm">Make-Up Water Indicator</p>
+          <p className="text-xs text-muted-foreground">Is make-up water system active?</p>
+        </div>
+        <Switch
+          checked={data.makeUpWater}
+          onCheckedChange={(v) => updateField('makeUpWater', v)}
+        />
+      </div>
+
+      {/* LWCO Verification Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-warning/20">
+            <Shield className="h-4 w-4 text-warning" />
+          </div>
+          Low Water Cutoff (LWCO) Verification
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* LWFCO Test Toggle */}
+          <div className="input-group">
+            <Label className="text-sm font-medium">
+              LWFCO Test <span className="text-destructive">*</span>
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['pass', 'fail'] as const).map((result) => (
+                <button
+                  key={result}
+                  type="button"
+                  onClick={() => updateField('lwcoTestResult', result)}
+                  className={cn(
+                    'p-3 rounded-lg border-2 font-medium text-sm capitalize transition-all',
+                    data.lwcoTestResult === result
+                      ? result === 'pass'
+                        ? 'bg-success/20 border-success/50 text-success'
+                        : 'bg-destructive/20 border-destructive/50 text-destructive'
+                      : 'bg-background/50 border-border/50 text-muted-foreground hover:border-border'
+                  )}
+                >
+                  {result}
+                </button>
+              ))}
+            </div>
+            {errors.lwcoTestResult && (
+              <p className="text-xs text-destructive">{errors.lwcoTestResult}</p>
+            )}
+          </div>
+
+          {/* Blowdown Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50 h-fit">
+            <div>
+              <p className="font-medium text-sm">Blowdown Performed</p>
+              <p className="text-xs text-muted-foreground">Was blowdown done this shift?</p>
+            </div>
+            <Switch
+              checked={data.blowdownPerformed}
+              onCheckedChange={(v) => updateField('blowdownPerformed', v)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const initialBoilerData: BoilerFormData = {
+  operatingMode: '',
+  supplyTemp: '',
+  returnTemp: '',
+  stackTemp: '',
+  o2Level: '',
+  co2Level: '',
+  fuelType: '',
+  firingRate: '',
+  makeUpWater: false,
+  safetyStatus: '',
+  lwcoTestResult: '',
+  blowdownPerformed: false,
+};
+
+export function validateBoilerForm(data: BoilerFormData): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  if (!data.operatingMode) errors.operatingMode = 'Required';
+  if (!data.fuelType) errors.fuelType = 'Required';
+  if (!data.supplyTemp) errors.supplyTemp = 'Required';
+  if (!data.returnTemp) errors.returnTemp = 'Required';
+  if (!data.stackTemp) errors.stackTemp = 'Required';
+  if (!data.firingRate) errors.firingRate = 'Required';
+  if (!data.safetyStatus) errors.safetyStatus = 'Required';
+  if (!data.lwcoTestResult) errors.lwcoTestResult = 'Required';
+
+  // Numeric validations
+  if (data.supplyTemp && (Number(data.supplyTemp) < 0 || Number(data.supplyTemp) > 500)) {
+    errors.supplyTemp = 'Must be 0-500°F';
+  }
+  if (data.returnTemp && (Number(data.returnTemp) < 0 || Number(data.returnTemp) > 500)) {
+    errors.returnTemp = 'Must be 0-500°F';
+  }
+  if (data.stackTemp && (Number(data.stackTemp) < 0 || Number(data.stackTemp) > 1000)) {
+    errors.stackTemp = 'Must be 0-1000°F';
+  }
+  if (data.firingRate && (Number(data.firingRate) < 0 || Number(data.firingRate) > 100)) {
+    errors.firingRate = 'Must be 0-100%';
+  }
+
+  return errors;
+}

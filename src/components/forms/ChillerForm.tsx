@@ -1,0 +1,291 @@
+import { FormField } from './FormField';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Snowflake, Droplets } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ChillerFormData {
+  chillerType: string;
+  enteringWaterTemp: string;
+  leavingWaterTemp: string;
+  enteringCondenserWaterTemp: string;
+  leavingCondenserWaterTemp: string;
+  estimatedTons: string;
+  runStatus: string;
+  alarmStatus: string;
+}
+
+interface ChillerFormProps {
+  data: ChillerFormData;
+  onChange: (data: ChillerFormData) => void;
+  errors: Record<string, string>;
+}
+
+const runStatusColors = {
+  running: 'bg-success/20 border-success/50 text-success',
+  stopped: 'bg-muted border-border text-muted-foreground',
+  starting: 'bg-primary/20 border-primary/50 text-primary',
+  stopping: 'bg-warning/20 border-warning/50 text-warning',
+};
+
+const alarmStatusColors = {
+  none: 'bg-success/20 border-success/50 text-success',
+  warning: 'bg-warning/20 border-warning/50 text-warning',
+  alarm: 'bg-destructive/20 border-destructive/50 text-destructive',
+  shutdown: 'bg-destructive/30 border-destructive text-destructive',
+};
+
+const isWaterCooled = (type: string) => {
+  return type && type !== 'air-cooled';
+};
+
+export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
+  const updateField = (field: keyof ChillerFormData, value: string) => {
+    onChange({ ...data, [field]: value });
+  };
+
+  // Calculate condenser water delta T
+  const condenserDeltaT = 
+    data.enteringCondenserWaterTemp && data.leavingCondenserWaterTemp
+      ? (Number(data.leavingCondenserWaterTemp) - Number(data.enteringCondenserWaterTemp)).toFixed(1)
+      : null;
+
+  return (
+    <div className="form-section animate-fade-in">
+      <h3 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="p-1.5 rounded-md bg-chiller/20">
+          <Snowflake className="h-4 w-4 text-chiller" />
+        </div>
+        Chiller Operating Data
+      </h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Chiller Type */}
+        <div className="input-group">
+          <Label className="text-sm font-medium">
+            Chiller Type <span className="text-destructive">*</span>
+          </Label>
+          <Select value={data.chillerType} onValueChange={(v) => updateField('chillerType', v)}>
+            <SelectTrigger className={cn(errors.chillerType && 'border-destructive')}>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="centrifugal">Centrifugal</SelectItem>
+              <SelectItem value="screw">Screw</SelectItem>
+              <SelectItem value="scroll">Scroll</SelectItem>
+              <SelectItem value="reciprocating">Reciprocating</SelectItem>
+              <SelectItem value="absorption">Absorption</SelectItem>
+              <SelectItem value="air-cooled">Air-Cooled</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.chillerType && (
+            <p className="text-xs text-destructive">{errors.chillerType}</p>
+          )}
+        </div>
+
+        <FormField
+          label="Estimated Tons"
+          name="estimatedTons"
+          type="number"
+          value={data.estimatedTons}
+          onChange={(v) => updateField('estimatedTons', v)}
+          required
+          error={errors.estimatedTons}
+          unit="tons"
+          min={0}
+          max={5000}
+          placeholder="500"
+        />
+      </div>
+
+      {/* Chilled Water Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          label="Entering Chilled Water Temp"
+          name="enteringWaterTemp"
+          type="number"
+          value={data.enteringWaterTemp}
+          onChange={(v) => updateField('enteringWaterTemp', v)}
+          required
+          error={errors.enteringWaterTemp}
+          unit="°F"
+          min={30}
+          max={100}
+          step={0.1}
+          placeholder="54"
+        />
+
+        <FormField
+          label="Leaving Chilled Water Temp"
+          name="leavingWaterTemp"
+          type="number"
+          value={data.leavingWaterTemp}
+          onChange={(v) => updateField('leavingWaterTemp', v)}
+          required
+          error={errors.leavingWaterTemp}
+          unit="°F"
+          min={30}
+          max={100}
+          step={0.1}
+          placeholder="44"
+        />
+      </div>
+
+      {/* Condenser Water Section - Only for water-cooled chillers */}
+      {isWaterCooled(data.chillerType) && (
+        <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in">
+          <h4 className="font-medium text-foreground flex items-center gap-2 mb-4">
+            <div className="p-1 rounded bg-chiller/10">
+              <Droplets className="h-3.5 w-3.5 text-chiller" />
+            </div>
+            Condenser Water
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <FormField
+              label="Entering CW Temp (ECWT)"
+              name="enteringCondenserWaterTemp"
+              type="number"
+              value={data.enteringCondenserWaterTemp}
+              onChange={(v) => updateField('enteringCondenserWaterTemp', v)}
+              required
+              error={errors.enteringCondenserWaterTemp}
+              unit="°F"
+              min={50}
+              max={120}
+              step={0.1}
+              placeholder="85"
+            />
+
+            <FormField
+              label="Leaving CW Temp (LCWT)"
+              name="leavingCondenserWaterTemp"
+              type="number"
+              value={data.leavingCondenserWaterTemp}
+              onChange={(v) => updateField('leavingCondenserWaterTemp', v)}
+              required
+              error={errors.leavingCondenserWaterTemp}
+              unit="°F"
+              min={50}
+              max={120}
+              step={0.1}
+              placeholder="95"
+            />
+
+            {/* Auto-calculated Delta T */}
+            <div className="input-group">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Condenser Water ΔT
+              </Label>
+              <div className="flex items-center h-10 px-3 rounded-md bg-muted/50 border border-border/50">
+                <span className={cn(
+                  "font-mono text-sm",
+                  condenserDeltaT ? "text-foreground" : "text-muted-foreground"
+                )}>
+                  {condenserDeltaT ? `${condenserDeltaT}°F` : '—'}
+                </span>
+                <span className="ml-auto text-xs text-muted-foreground">Auto</span>
+              </div>
+              <p className="text-xs text-muted-foreground">LCWT - ECWT</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Run Status */}
+      <div className="input-group">
+        <Label className="text-sm font-medium">
+          Run Status <span className="text-destructive">*</span>
+        </Label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {(['running', 'stopped', 'starting', 'stopping'] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => updateField('runStatus', status)}
+              className={cn(
+                'p-3 rounded-lg border-2 font-medium text-sm capitalize transition-all',
+                data.runStatus === status
+                  ? runStatusColors[status]
+                  : 'bg-background/50 border-border/50 text-muted-foreground hover:border-border'
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <div
+                  className={cn(
+                    'w-2 h-2 rounded-full',
+                    status === 'running' && 'bg-success',
+                    status === 'stopped' && 'bg-muted-foreground',
+                    status === 'starting' && 'bg-primary animate-pulse',
+                    status === 'stopping' && 'bg-warning animate-pulse'
+                  )}
+                />
+                {status}
+              </div>
+            </button>
+          ))}
+        </div>
+        {errors.runStatus && (
+          <p className="text-xs text-destructive">{errors.runStatus}</p>
+        )}
+      </div>
+
+      {/* Alarm Status */}
+      <div className="input-group">
+        <Label className="text-sm font-medium">
+          Alarm Status <span className="text-destructive">*</span>
+        </Label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {(['none', 'warning', 'alarm', 'shutdown'] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => updateField('alarmStatus', status)}
+              className={cn(
+                'p-3 rounded-lg border-2 font-medium text-sm capitalize transition-all',
+                data.alarmStatus === status
+                  ? alarmStatusColors[status]
+                  : 'bg-background/50 border-border/50 text-muted-foreground hover:border-border'
+              )}
+            >
+              {status === 'none' ? 'No Alarms' : status}
+            </button>
+          ))}
+        </div>
+        {errors.alarmStatus && (
+          <p className="text-xs text-destructive">{errors.alarmStatus}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const initialChillerData: ChillerFormData = {
+  chillerType: '',
+  enteringWaterTemp: '',
+  leavingWaterTemp: '',
+  enteringCondenserWaterTemp: '',
+  leavingCondenserWaterTemp: '',
+  estimatedTons: '',
+  runStatus: '',
+  alarmStatus: '',
+};
+
+export function validateChillerForm(data: ChillerFormData): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  if (!data.chillerType) errors.chillerType = 'Required';
+  if (!data.enteringWaterTemp) errors.enteringWaterTemp = 'Required';
+  if (!data.leavingWaterTemp) errors.leavingWaterTemp = 'Required';
+  if (!data.estimatedTons) errors.estimatedTons = 'Required';
+  if (!data.runStatus) errors.runStatus = 'Required';
+  if (!data.alarmStatus) errors.alarmStatus = 'Required';
+
+  // Condenser water temps required for water-cooled chillers
+  if (data.chillerType && data.chillerType !== 'air-cooled') {
+    if (!data.enteringCondenserWaterTemp) errors.enteringCondenserWaterTemp = 'Required for water-cooled';
+    if (!data.leavingCondenserWaterTemp) errors.leavingCondenserWaterTemp = 'Required for water-cooled';
+  }
+
+  return errors;
+}
