@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/MainLayout';
 import SystemSelector from '@/components/SystemSelector';
-import { LogEntryForm } from '@/components/LogEntryForm';
+import LogEntryForm from '@/components/LogEntryForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import type { Facility, Building, SystemInfo } from '@/types/logging';
