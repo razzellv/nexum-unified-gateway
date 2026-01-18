@@ -15,6 +15,8 @@ interface BoilerFormData {
   co2Level: string;
   fuelType: string;
   firingRate: string;
+  fuelPsi: string;
+  systemPsi: string;
   makeUpWater: boolean;
   safetyStatus: string;
   // Simplified LWCO fields
@@ -176,6 +178,38 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           max={100}
           placeholder="75"
         />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          label="Fuel Gas Pressure"
+          name="fuelPsi"
+          type="number"
+          value={data.fuelPsi}
+          onChange={(v) => updateField("fuelPsi", v)}
+          required
+          error={errors.fuelPsi}
+          unit="PSI"
+          min={0}
+          max={50}
+          step={0.1}
+          placeholder="3.5"
+        />
+
+        <FormField
+          label="System Pressure"
+          name="systemPsi"
+          type="number"
+          value={data.systemPsi}
+          onChange={(v) => updateField("systemPsi", v)}
+          required
+          error={errors.systemPsi}
+          unit="PSI"
+          min={0}
+          max={300}
+          step={0.5}
+          placeholder="125"
+        />
+      </div>
       </div>
 
       {/* Safety Status */}
@@ -292,6 +326,8 @@ export const initialBoilerData: BoilerFormData = {
   co2Level: '',
   fuelType: '',
   firingRate: '',
+  fuelPsi: '',
+  systemPsi: '',
   makeUpWater: false,
   safetyStatus: '',
   lwcoTestResult: '',
@@ -307,6 +343,8 @@ export function validateBoilerForm(data: BoilerFormData): Record<string, string>
   if (!data.returnTemp) errors.returnTemp = 'Required';
   if (!data.stackTemp) errors.stackTemp = 'Required';
   if (!data.firingRate) errors.firingRate = 'Required';
+  if (!data.fuelPsi) errors.fuelPsi = 'Required';
+  if (!data.systemPsi) errors.systemPsi = 'Required';
   if (!data.safetyStatus) errors.safetyStatus = 'Required';
   if (!data.lwcoTestResult) errors.lwcoTestResult = 'Required';
 
@@ -322,6 +360,12 @@ export function validateBoilerForm(data: BoilerFormData): Record<string, string>
   }
   if (data.firingRate && (Number(data.firingRate) < 0 || Number(data.firingRate) > 100)) {
     errors.firingRate = 'Must be 0-100%';
+  }
+  if (data.fuelPsi && (Number(data.fuelPsi) < 0 || Number(data.fuelPsi) > 50)) {
+    errors.fuelPsi = 'Must be 0-50 PSI';
+  }
+  if (data.systemPsi && (Number(data.systemPsi) < 0 || Number(data.systemPsi) > 300)) {
+    errors.systemPsi = 'Must be 0-300 PSI';
   }
 
   return errors;
