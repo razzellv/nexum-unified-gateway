@@ -115,7 +115,7 @@ const mockReadings = {
 
 // Get token from localStorage
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('accessToken') || localStorage.getItem('idToken');
+  return localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
 };
 
 export const api = {
@@ -186,7 +186,7 @@ export const api = {
 
 // Submit facility log entry
 export const submitFacilityLog = async (logData: any) => {
-  const token = localStorage.getItem('idToken');
+  const token = localStorage.getItem('nexum_id_token');
   
   if (!token) {
     throw new Error('No authentication token available');
