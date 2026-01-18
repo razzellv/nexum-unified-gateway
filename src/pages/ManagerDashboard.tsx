@@ -25,7 +25,7 @@ import {
   Users,
   Gauge
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
 
 // Custom hook for animated count-up effect
 const useCountUp = (target: number, duration: number = 1500) => {
@@ -206,7 +206,7 @@ export default function ManagerDashboard() {
   // Asset Health: Based on equipment with recent data
   const equipmentWithData = data?.performance?.equipment_with_recent_data || 0;
   const overallAssetHealth = totalEquipment > 0 
-    ? Math.round((equipmentWithData / totalEquipment) * 100) 
+    ? Math.min(100, Math.round((equipmentWithData / totalEquipment) * 100)) 
     : 0;
 
   // Compliance Risk: Based on active violations
@@ -326,6 +326,9 @@ export default function ManagerDashboard() {
           )}
         </div>
       );
+    }
+    return null;
+  };
 
   // Custom tooltip for energy costs
   const CustomEnergyTooltip = ({ active, payload }: any) => {
@@ -503,6 +506,7 @@ export default function ManagerDashboard() {
                       {workOrderAging.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
+                      <LabelList dataKey="count" position="inside" fill="#ffffff" fontSize={11} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
