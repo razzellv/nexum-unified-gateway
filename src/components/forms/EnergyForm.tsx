@@ -101,7 +101,6 @@ export function EnergyForm({ data, onChange, errors }: EnergyFormProps) {
             <p className="text-xs text-destructive">{errors.gasUnit}</p>
           )}
         </div>
-      </div>
 
       <FormField
         label="Fuel Oil Usage"
