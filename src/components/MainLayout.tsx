@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Flame, Wrench, Shield, Users, LayoutDashboard, ClipboardList, UserCog, Zap, BarChart3 } from 'lucide-react';
+import { Flame, Wrench, Shield, Users, LayoutDashboard, ClipboardList, UserCog, Zap, BarChart3, History } from 'lucide-react';
 import { useAuth } from '@/auth/AuthContext';
 import { useRole } from '@/contexts/RoleContext';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { NotificationBell } from '@/components/global/NotificationBell';
 import { RoleSelector } from '@/components/global/RoleSelector';
 import { NoAccessScreen } from '@/components/global/NoAccessScreen';
 import { ROLE_DEFINITIONS } from '@/lib/role-filters';
+import { PageWrapper } from '@/components/PageWrapper';
 
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -38,6 +39,12 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
         icon: Flame,
         roles: ['employee', 'supervisor', 'manager']
       },
+      { 
+        name: 'Facility Data Source', 
+        path: '/data-source', 
+        icon: History,
+        roles: ['all']
+      },
     ];
 
     return baseNav.filter(item => 
@@ -52,15 +59,20 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageWrapper>
       {/* Top Navigation Bar */}
       <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
-                <Flame className="w-6 h-6 text-neon-cyan" />
-                <span className="font-bold text-lg">Nexum Suum</span>
+                <Flame className="w-6 h-6 text-neon-cyan drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+                <span className="font-bold text-lg" style={{
+                  color: '#06b6d4',
+                  textShadow: '0 0 20px rgba(6, 182, 212, 0.6)'
+                }}>
+                  Nexum Suum
+                </span>
               </Link>
               
               <div className="hidden md:flex items-center gap-4">
@@ -71,10 +83,10 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
                     <Link
                       key={item.path}
                       to={item.path}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                         isActive
-                          ? 'bg-neon-cyan/10 text-neon-cyan'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                          ? 'bg-neon-cyan/10 text-neon-cyan shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                          : 'text-muted-foreground hover:text-neon-cyan hover:bg-accent hover:shadow-[0_0_10px_rgba(6,182,212,0.2)]'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -86,7 +98,7 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
 
             <div className="flex items-center gap-4">
-              <Badge variant="outline" className="hidden sm:flex">
+              <Badge variant="outline" className="hidden sm:flex border-neon-cyan/30">
                 {roleScope.assignedFacilities[0] || 'All Facilities'}
               </Badge>
               <RoleSelector />
@@ -100,6 +112,6 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
-    </div>
+    </PageWrapper>
   );
 };
