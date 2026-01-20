@@ -79,6 +79,7 @@ export function EnergyForm({ data, onChange, errors }: EnergyFormProps) {
           type="number"
           value={data.secondaryGasUsage}
           onChange={(v) => updateField("secondaryGasUsage", v)}
+          unit="therms"
           min={0}
           placeholder="12.5"
         />

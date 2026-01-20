@@ -291,10 +291,10 @@ export default function ManagerDashboard() {
   const downtimeFrequency = 0;
 
   // Equipment by type for health scores - based on recent logs
-  const equipmentByType = data?.equipment?.by_type || {};
+  const equipmentByType = data?.performance?.equipment_health_by_type || {};
   const recentLogs = data?.summary?.recent_logs_count || 0;
   
-  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => {
+  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, stats]: [string, any]) => {
     // Calculate health based on whether this equipment type has recent data
     const hasRecentData = recentLogs > 0;
     const baseScore = hasRecentData ? 85 : 50;
@@ -355,7 +355,7 @@ export default function ManagerDashboard() {
       // Cost calculations
       const THERM_COST = 1.52;
       const primaryCost = primaryGas * THERM_COST;
-      const secondaryCost = (secondaryGas / 1000) * THERM_COST; // Convert SCFH to therms estimate
+      const secondaryCost = secondaryGas * THERM_COST;
       const totalCost = primaryCost + secondaryCost;
       
       return (
@@ -375,7 +375,7 @@ export default function ManagerDashboard() {
             
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Secondary Gas:</span>
-              <span className="font-medium">{secondaryGas.toLocaleString()} SCFH</span>
+              <span className="font-medium">{secondaryGas.toLocaleString()} therms</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Est. Cost:</span>
@@ -603,7 +603,7 @@ export default function ManagerDashboard() {
                       dataKey="secondary" 
                       stroke="#22c55e" 
                       strokeWidth={2}
-                      name="Secondary Gas (SCFH)"
+                      name="Secondary Gas (therms)"
                       dot={{ fill: '#22c55e', r: 3 }}
                     />
                   </LineChart>
@@ -622,7 +622,7 @@ export default function ManagerDashboard() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[#22c55e]"></div>
-                  <span className="text-muted-foreground">Secondary Gas (Pilot - SCFH)</span>
+                  <span className="text-muted-foreground">Secondary Gas (Pilot - therms)</span>
                 </div>
               </div>
             )}
