@@ -19,6 +19,7 @@ import {
   type VirtuousMetrics,
   type WorkOrder 
 } from '@/lib/nexum-api';
+import { OnShiftTeamTable } from '@/components/supervisor/OnShiftTeamTable';
 import { 
   ClipboardList, 
   AlertTriangle, 
@@ -49,6 +50,7 @@ export default function SupervisorDashboard() {
   const [violationsSummary, setViolationsSummary] = useState<ViolationSummary[]>([]);
   const [departmentMetrics, setDepartmentMetrics] = useState<VirtuousMetrics[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [onShiftTeam, setOnShiftTeam] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -100,7 +102,9 @@ export default function SupervisorDashboard() {
       const openWO = apiData.summary?.open_work_orders || 0;
       const unassignedWO = orders.filter(o => !o.assignedTo || o.assignedTo === 'Unassigned').length;
       const avgCompliance = Math.round((100 - violations.reduce((acc, v) => acc + v.avgSeverity, 0) / violations.length));
-
+      // Set on-shift team from API
+const team = apiData.on_shift_team || [];
+setOnShiftTeam(team);
       setStats({
         openWorkOrders: openWO,
         highSeverityViolations: highSeverity,
@@ -434,7 +438,8 @@ export default function SupervisorDashboard() {
               </CardContent>
             </Card>
           </>
-        )}
+      {/* On-Shift Team Activity */}
+            <OnShiftTeamTable team={onShiftTeam} />        )}
       </div>
     </MainLayout>
   );
