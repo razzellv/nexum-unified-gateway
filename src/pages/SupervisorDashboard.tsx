@@ -439,7 +439,7 @@ setOnShiftTeam(team);
             </Card>
           </>
       {/* On-Shift Team Activity */}
-            <OnShiftTeamTable team={onShiftTeam} />        )}
+            <OnShiftTeamTable team={onShiftTeam} />        
       </div>
     </MainLayout>
   );
