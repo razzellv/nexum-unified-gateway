@@ -442,7 +442,7 @@ setOnShiftTeam(team);
             <OnShiftTeamTable team={onShiftTeam} />
           </>
         )} 
-      </div> {/* This closes <div className="space-y-6"> */}
+      </div>
     </MainLayout>
   );
 }
