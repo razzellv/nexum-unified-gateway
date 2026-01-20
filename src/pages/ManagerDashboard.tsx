@@ -291,26 +291,29 @@ export default function ManagerDashboard() {
   const downtimeFrequency = 0;
 
   // Equipment by type for health scores - based on recent logs
-  const equipmentByType = data?.equipment?.by_type || {};
+  const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
   const recentLogs = data?.summary?.recent_logs_count || 0;
   
-  const assetHealthBySystem = Object.entries(equipmentByType).map(([type, count]: [string, any]) => {
-    // Calculate health based on whether this equipment type has recent data
-    const hasRecentData = recentLogs > 0;
-    const baseScore = hasRecentData ? 85 : 50;
-    const logBonus = Math.min(15, Math.round((recentLogs / expectedLogs) * 15));
-    const healthScore = Math.min(100, baseScore + logBonus);
+  const assetHealthBySystem = Object.entries(equipmentHealthByType).map(([type, stats]: [string, any]) => {
+    const logsCount = stats.log_count || 0;
+    const expectedLogsPerWeek = 7;
+    const healthScore = Math.min(100, Math.round((logsCount / expectedLogsPerWeek) * 100));
     
-    // Determine status based on score
     let status: 'healthy' | 'warning' | 'critical' = 'healthy';
     if (healthScore < 60) status = 'critical';
     else if (healthScore < 80) status = 'warning';
+    
+    const lastLogDate = stats.last_log ? new Date(stats.last_log) : null;
+    const minutesAgo = lastLogDate ? Math.round((Date.now() - lastLogDate.getTime()) / 60000) : null;
+    const lastUpdated = minutesAgo !== null 
+      ? (minutesAgo < 60 ? `${minutesAgo} min ago` : `${Math.round(minutesAgo / 60)} hr ago`)
+      : 'No recent data';
     
     return {
       system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
       score: healthScore,
       status,
-      lastUpdated: recentLogs > 0 ? 'Recently' : 'No recent data'
+      lastUpdated
     };
   });
 
