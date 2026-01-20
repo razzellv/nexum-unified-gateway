@@ -1,0 +1,214 @@
+// Nexum Suum API Client - AWS Lambda Integration
+import { apiRequest } from './api';
+
+export interface APIResponse<T> {
+  data: T | null;
+  error: boolean;
+  message?: string;
+}
+
+export interface DashboardMetrics {
+  totalEnergyCost: number;
+  avgEfficiency: number;
+  openWorkOrders: number;
+  complianceScore: number;
+}
+
+export interface WorkOrder {
+  id: string;
+  title: string;
+  description: string;
+  status: 'Open' | 'In Progress' | 'Completed';
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  assignedTo: string;
+  equipment: string;
+  dueDate: string;
+  createdAt: string;
+  notes?: string;
+}
+
+export interface ExecutiveData {
+  metrics: DashboardMetrics;
+  workOrders: WorkOrder[];
+}
+
+export interface ViolationSummary {
+  total: number;
+  critical: number;
+  open: number;
+}
+
+export interface VirtuousMetrics {
+  score: number;
+  violations: ViolationSummary;
+}
+
+export interface EmployeePortalData {
+  employee: {
+    name: string;
+    id: string;
+    role: string;
+    department: string;
+    shift: string;
+    certifications?: string[];
+  };
+  metrics: any;
+  workOrders?: WorkOrder[];
+}
+
+// Mock data matching exact dashboard expectations
+const mockExecutiveData: ExecutiveData = {
+  metrics: {
+    totalEnergyCost: 125000,
+    avgEfficiency: 87.5,
+    openWorkOrders: 12,
+    complianceScore: 94
+  },
+  workOrders: [
+    {
+      id: 'wo-001',
+      title: 'Boiler Maintenance',
+      description: 'Quarterly maintenance check',
+      status: 'In Progress',
+      priority: 'High',
+      assignedTo: 'John Doe',
+      equipment: 'BLR-001',
+      dueDate: '2026-01-20',
+      createdAt: '2026-01-15'
+    }
+  ]
+};
+
+const mockEnergyData = {
+  facility_id: 'facility-001',
+  summary: {
+    total_energy_equivalent_kwh: 125000,
+    total_gallons_consumed: 15000,
+    estimated_water_cost: 2500,
+    estimated_total_utility_cost: 18125,
+    total_runtime_hours: 720,
+    total_cost: 15625,
+    average_efficiency: 87.5,
+    peak_demand_kw: 450,
+    carbon_footprint_kg: 62500
+  },
+  energy_breakdown: {
+    electric: {
+      kwh: 75000,
+      cost: 9375,
+      percentage: 60
+    },
+    gas: {
+      therms: 12500,
+      kwh_equivalent: 36625,
+      cost: 5000,
+      percentage: 29.3
+    },
+    steam: {
+      mlbs: 5000,
+      kwh_equivalent: 13375,
+      cost: 1250,
+      percentage: 10.7
+    }
+  },
+  time_series: Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    electric_kw: 300 + Math.random() * 100,
+    gas_therms: 40 + Math.random() * 20,
+    steam_mlbs: 15 + Math.random() * 10
+  })),
+  efficiency_metrics: {
+    boiler_efficiency: 85,
+    chiller_cop: 5.2,
+    overall_plant_efficiency: 87.5
+  }
+};
+
+const mockEmployeeData: EmployeePortalData = {
+  employee: {
+    id: 'EMP001',
+    name: 'John Operator',
+    role: 'Operator',
+    department: 'Operations',
+    shift: 'Day',
+    certifications: ['Boiler Operator', 'HVAC Technician']
+  },
+  metrics: {
+    tasksCompleted: 45,
+    workOrders: 12,
+    compliance: 98,
+    efficiency: 92
+  },
+  workOrders: [
+    {
+      id: 'wo-002',
+      title: 'Daily Equipment Check',
+      description: 'Routine inspection',
+      status: 'Open',
+      priority: 'Medium',
+      assignedTo: 'John Operator',
+      equipment: 'Various',
+      dueDate: '2026-01-17',
+      createdAt: '2026-01-17'
+    }
+  ]
+};
+
+// ============ DASHBOARD ENDPOINTS ============
+
+export async function getMasterExecutive() {
+  try {
+    return await apiRequest<ExecutiveData>('/dashboard/manager');
+  } catch (error) {
+    console.warn('📊 Using mock data for Executive Dashboard');
+    return mockExecutiveData;
+  }
+}
+
+export async function getMasterWorkOrders() {
+  try {
+    return await apiRequest<WorkOrder[]>('/work-orders/list');
+  } catch (error) {
+    console.warn('📊 Using mock data for Work Orders');
+    return mockExecutiveData.workOrders;
+  }
+}
+
+export async function getSupervisorDashboard() {
+  try {
+    return await apiRequest<any>('/dashboard/supervisor');
+  } catch (error) {
+    console.warn('📊 Using mock data for Supervisor Dashboard');
+    return mockExecutiveData;
+  }
+}
+
+export async function getExecutiveDashboard() {
+  try {
+    return await apiRequest<ExecutiveData>('/dashboard/executive');
+  } catch (error) {
+    console.warn('📊 Using mock data for Executive Dashboard');
+    return mockExecutiveData;
+  }
+}
+
+export async function getEnergyDashboard() {
+  try {
+    return await apiRequest<any>('/dashboard/energy');
+  } catch (error) {
+    console.warn('📊 Using mock data for Energy Dashboard');
+    return mockEnergyData;
+  }
+}
+
+export async function getEmployeeDashboard(employeeId?: string) {
+  try {
+    const endpoint = employeeId 
+      ? `/dashboard/employee/${employeeId}`
+      : '/dashboard/employee';
+    return await apiRequest<EmployeePortalData>(endpoint);
+  } catch (error) {
+    console.warn('📊 Using mock data for Employee Dashboard');
+    return mockEmployeeData;
+  }
+}
