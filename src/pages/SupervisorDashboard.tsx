@@ -434,14 +434,14 @@ setOnShiftTeam(team);
                       <li>• Review water treatment schedule</li>
                     </ul>
                   </div>
-                </div
+                </div>
               </CardContent>
             </Card>
             
             {/* On-Shift Team Activity */}
             <OnShiftTeamTable team={onShiftTeam} />
           </>
-      </div>
+      >
     </MainLayout>
   );
 }
