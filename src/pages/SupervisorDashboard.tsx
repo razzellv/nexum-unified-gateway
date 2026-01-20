@@ -433,6 +433,9 @@ export default function SupervisorDashboard() {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* On-Shift Team Activity */}
+            <OnShiftTeamTable team={onShiftTeam} />
           </>
         )}
       </div>
