@@ -441,8 +441,6 @@ setOnShiftTeam(team);
             {/* On-Shift Team Activity */}
             <OnShiftTeamTable team={onShiftTeam} />
           </>
-      {/* On-Shift Team Activity */}
-            <OnShiftTeamTable team={onShiftTeam} />        
       </div>
     </MainLayout>
   );
