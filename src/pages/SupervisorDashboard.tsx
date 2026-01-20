@@ -437,11 +437,19 @@ setOnShiftTeam(team);
                 </div>
               </CardContent>
             </Card>
+           {isLoading ? (
+          <div className="flex justify-center py-20">
+            <NexumLoader message="Loading supervisor metrics..." />
+          </div>
+        ) : (
+          <>
+            {/* KPI Row and other components... */}
             
             {/* On-Shift Team Activity */}
             <OnShiftTeamTable team={onShiftTeam} />
           </>
-      </div>
-      </MainLayout>
+        )} 
+      </div> {/* This closes <div className="space-y-6"> */}
+    </MainLayout>
   );
 }
