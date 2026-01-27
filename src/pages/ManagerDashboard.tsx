@@ -10,6 +10,7 @@ import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { NexumLoader } from '@/components/global/NexumLoader';
 import { getManagerDashboard } from '@/lib/nexum-api';
+import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
 import { 
   Activity, 
   Shield, 
@@ -23,7 +24,8 @@ import {
   BarChart3,
   Calendar,
   Users,
-  Gauge
+  Gauge,
+  DollarSign
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
 
@@ -133,6 +135,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [energyTrend, setEnergyTrend] = useState<any[]>([]);
+  const [budgetData, setBudgetData] = useState<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -141,6 +144,24 @@ export default function ManagerDashboard() {
         const result = await getManagerDashboard();
         console.log('📊 Manager Dashboard Data:', result);
         setData(result);
+        
+        // Fetch budget data
+        const token = localStorage.getItem('nexum_id_token');
+        if (token) {
+          try {
+            const budgetResponse = await fetch(
+              'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
+              { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (budgetResponse.ok) {
+              const budget = await budgetResponse.json();
+              console.log('💰 Budget Data:', budget);
+              setBudgetData(budget);
+            }
+          } catch (budgetError) {
+            console.error('Failed to load budget data:', budgetError);
+          }
+        }
       } catch (error) {
         console.error('Failed to load manager data:', error);
       } finally {
@@ -631,6 +652,10 @@ export default function ManagerDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Budget vs Cost */}
+        <BudgetVsCost budgetData={budgetData} isLoading={loading} />
+
       </div>
     </MainLayout>
   );
