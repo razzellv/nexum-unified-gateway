@@ -104,22 +104,28 @@ export default function SupervisorDashboard() {
         createdAt: wo.created || new Date().toISOString().split('T')[0],
       }));
       
-      // Extract on-shift team
-const team = (apiData.on_shift_team || []).map((t: any) => ({
-  employee: typeof t.employee === 'string' ? t.employee : (t.employee?.name || t.operatorId || 'Unknown'),  // FIX THIS LINE
-  employeeName: typeof t.employee === 'string' ? t.employee : (t.employee?.name || t.operatorId || 'Unknown'),  // ADD THIS
-  operatorId: t.operatorId,
-  role: t.role || 'Operator',
-  systems_logged_24h: t.systems_logged_24h || 0,
-  total_logs: t.total_logs || 0,
-  specialty: t.specialty || 'HVAC',
-  last_activity: t.last_activity,
-  violations_count: t.violations_count || 0,
-  avg_severity: t.avg_severity || 0,
-  compliance_rate: t.compliance_rate || 100,
-  risk_score: t.risk_score || 0,
-  virtuous_score: t.virtuous_score || 100,
-}));
+     // Extract on-shift team
+const team = (apiData.on_shift_team || []).map((t: any) => {
+  // Handle employee being either string or object {name, id}
+  const employeeName = typeof t.employee === 'string' 
+    ? t.employee 
+    : (t.employee?.name || t.operatorId || 'Unknown');
+  
+  return {
+    employee: employeeName,
+    operatorId: t.operatorId,
+    role: t.role || 'Operator',
+    systems_logged_24h: t.systems_logged_24h || 0,
+    total_logs: t.total_logs || 0,
+    specialty: t.specialty || 'HVAC',
+    last_activity: t.last_activity,
+    violations_count: t.violations_count || 0,
+    avg_severity: t.avg_severity || 0,
+    compliance_rate: t.compliance_rate || 100,
+    risk_score: t.risk_score || 0,
+    virtuous_score: t.virtuous_score || 100,
+  };
+});
       
       // Extract violation details
       const details = apiData.violation_details || [];
