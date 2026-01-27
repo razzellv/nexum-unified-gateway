@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { NexumBranding } from "@/components/NexumBranding";
-
 import { getSupervisorDashboard } from "@/lib/nexum-api";
-
 import { ParticleBackground } from "@/components/ParticleBackground";
-
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,17 +27,23 @@ import {
   TrendingDown,
   RefreshCw,
   Building2,
-  Activity
+  Activity,
+  Shield,
+  Target,
+  Award
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SupervisorStats {
   openWorkOrders: number;
   highSeverityViolations: number;
+  totalViolations: number;
   avgComplianceScore: number;
+  avgVirtuousScore: number;
   unassignedWorkOrders: number;
   activeAlerts: number;
   waterChemistryAlerts: number;
+  employeesAtRisk: number;
 }
 
 export default function SupervisorDashboard() {
@@ -51,6 +54,7 @@ export default function SupervisorDashboard() {
   const [departmentMetrics, setDepartmentMetrics] = useState<VirtuousMetrics[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [onShiftTeam, setOnShiftTeam] = useState<any[]>([]);
+  const [violationDetails, setViolationDetails] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -60,70 +64,99 @@ export default function SupervisorDashboard() {
     setError(null);
 
     try {
-      // Call real supervisor-dash Lambda
       const apiData = await getSupervisorDashboard();
       console.log("✅ Supervisor API data:", apiData);
       
-      // Transform API data to match component expectations
-      // TODO: Map apiData to violations, departments, workOrders
-      // For now, use mock data as fallback
+      // Extract violations summary with virtuous/risk scores
+      const violations: ViolationSummary[] = (apiData.violations_summary || []).map((v: any) => ({
+        employeeId: v.employeeId,
+        employeeName: v.employeeName,
+        role: v.role,
+        violationCount: v.violationCount || 0,
+        avgWeight: v.avgWeight || 0,
+        avgSeverity: v.avgSeverity || 0,
+        riskScore: v.riskScore || 0,
+        virtuousScore: v.virtuousScore || 100,
+        complianceRate: v.complianceRate || 100,
+      }));
       
-      const violations: any[] = [
-        { employeeId: 'E001', employeeName: 'John Smith', violationCount: 1, avgWeight: 0.3, avgSeverity: 25 },
-        { employeeId: 'E002', employeeName: 'Jane Doe', violationCount: 3, avgWeight: 0.5, avgSeverity: 55 },
-        { employeeId: 'E003', employeeName: 'Mike Johnson', violationCount: 7, avgWeight: 0.8, avgSeverity: 85 },
-      ];
+      // Extract department metrics
+      const departments: VirtuousMetrics[] = (apiData.department_metrics || []).map((d: any) => ({
+        department: d.department,
+        avgSeverity: d.avgSeverity || 0,
+        trend: d.trend || 'stable',
+        violationCount: d.violationCount || 0,
+        complianceRate: d.complianceRate || 100,
+        riskScore: d.riskScore || 0,
+        virtuousScore: d.virtuousScore || 100,
+      }));
       
-      const departments: any[] = [
-        { department: 'Operations', avgSeverity: 35, trend: 'down' as const, violationCount: 12, complianceRate: 88 },
-        { department: 'Engineering', avgSeverity: 20, trend: 'stable' as const, violationCount: 6, complianceRate: 95 },
-        { department: 'Maintenance', avgSeverity: 45, trend: 'stable' as const, violationCount: 8, complianceRate: 78 },
-      ];
-      
-      // Use real work orders from API
-      const orders: WorkOrder[] = apiData.work_orders?.map((wo: any) => ({
+      // Extract work orders
+      const orders: WorkOrder[] = (apiData.work_orders || []).map((wo: any) => ({
         id: wo.id,
         title: `Work Order ${wo.id}`,
-        description: wo.type || 'Work order',
-        status: 'Open',
+        description: wo.description || wo.type || 'Work order',
+        status: wo.status || 'Open',
         priority: wo.priority || 'Medium',
         assignedTo: wo.assigned_to || 'Unassigned',
         equipment: wo.equipment,
         dueDate: wo.due_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         createdAt: wo.created || new Date().toISOString().split('T')[0],
-      })) || [];
+      }));
+      
+      // Extract on-shift team
+      const team = (apiData.on_shift_team || []).map((t: any) => ({
+        employee: t.employee,
+        operatorId: t.operatorId,
+        role: t.role || 'Operator',
+        systems_logged_24h: t.systems_logged_24h || 0,
+        total_logs: t.total_logs || 0,
+        specialty: t.specialty || 'HVAC',
+        last_activity: t.last_activity,
+        violations_count: t.violations_count || 0,
+        avg_severity: t.avg_severity || 0,
+        compliance_rate: t.compliance_rate || 100,
+        risk_score: t.risk_score || 0,
+        virtuous_score: t.virtuous_score || 100,
+      }));
+      
+      // Extract violation details
+      const details = apiData.violation_details || [];
+      
+      console.log("📊 Processed data:", {
+        violations: violations.length,
+        departments: departments.length,
+        workOrders: orders.length,
+        team: team.length,
+        violationDetails: details.length,
+      });
       
       setViolationsSummary(violations);
       setDepartmentMetrics(departments);
       setWorkOrders(orders);
+      setOnShiftTeam(team);
+      setViolationDetails(details);
       
-      // Use real stats from API
-      const highSeverity = violations.filter(v => v.avgSeverity >= 70).length;
-      const openWO = apiData.summary?.open_work_orders || 0;
-      const unassignedWO = orders.filter(o => !o.assignedTo || o.assignedTo === 'Unassigned').length;
-      const avgCompliance = Math.round((100 - violations.reduce((acc, v) => acc + v.avgSeverity, 0) / violations.length));
-      // Set on-shift team from API
-const team = apiData.on_shift_team || [];
-setOnShiftTeam(team);
+      // Use real stats from API summary
+      const summary = apiData.summary || {};
       setStats({
-        openWorkOrders: openWO,
-        highSeverityViolations: highSeverity,
-        avgComplianceScore: avgCompliance,
-        unassignedWorkOrders: unassignedWO,
-        activeAlerts: Math.floor(Math.random() * 5) + 2,
-        waterChemistryAlerts: Math.floor(Math.random() * 3),
+        openWorkOrders: summary.open_work_orders || 0,
+        totalViolations: summary.total_violations || 0,
+        highSeverityViolations: summary.high_severity_violations || 0,
+        avgComplianceScore: summary.avg_compliance_score || 100,
+        avgVirtuousScore: summary.avg_virtuous_score || 100,
+        unassignedWorkOrders: summary.unassigned_work_orders || 0,
+        activeAlerts: summary.alerts_count || 0,
+        waterChemistryAlerts: summary.water_chemistry_alerts || 0,
+        employeesAtRisk: summary.employees_at_risk || 0,
       });
-      console.log("📊 Setting stats to:", {
-        openWorkOrders: openWO,
-        highSeverityViolations: highSeverity,
-        avgComplianceScore: avgCompliance,
-        unassignedWorkOrders: unassignedWO
-      });
+      
+      console.log("📊 Stats set from API:", summary);
 
       setLastUpdated(new Date());
     } catch (err) {
-      console.error('Fetch error:', err);
-      setError('Unable to load supervisor data. Retrying...');
+      console.error('❌ Fetch error:', err);
+      setError('Unable to load supervisor data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +165,6 @@ setOnShiftTeam(team);
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
-      // Auto-refresh every 60 seconds
       const interval = setInterval(fetchData, 60000);
       return () => clearInterval(interval);
     }
@@ -141,31 +173,35 @@ setOnShiftTeam(team);
   if (loading) {
     return <NexumPageLoader message="Authenticating..." />;
   }
-  // No auth/role redirect - access controlled via RoleContext and MainLayout
 
-  const getSeverityColor = (severity: number) => {
-    if (severity >= 4) return 'bg-destructive text-destructive-foreground';
-    if (severity >= 3) return 'bg-yellow-500 text-yellow-950';
+  const getRiskColor = (riskScore: number) => {
+    if (riskScore >= 70) return 'bg-destructive text-destructive-foreground';
+    if (riskScore >= 40) return 'bg-yellow-500 text-yellow-950';
     return 'bg-green-500 text-green-950';
   };
 
-  const getHeatmapColor = (value: number) => {
-    const normalized = Math.min(100, Math.max(0, value));
-    if (normalized >= 80) return 'bg-green-500/20 border-green-500/50';
-    if (normalized >= 60) return 'bg-yellow-500/20 border-yellow-500/50';
+  const getVirtuousColor = (virtuousScore: number) => {
+    if (virtuousScore >= 80) return 'bg-green-500 text-green-950';
+    if (virtuousScore >= 60) return 'bg-yellow-500 text-yellow-950';
+    return 'bg-destructive text-destructive-foreground';
+  };
+
+  const getHeatmapColor = (virtuousScore: number) => {
+    if (virtuousScore >= 80) return 'bg-green-500/20 border-green-500/50';
+    if (virtuousScore >= 60) return 'bg-yellow-500/20 border-yellow-500/50';
     return 'bg-destructive/20 border-destructive/50';
   };
 
-  const getTrendIcon = (trend: 'up' | 'down' | 'stable') => {
-    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-destructive" />;
-    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-green-400" />;
+  const getTrendIcon = (trend: 'up' | 'down' | 'stable' | 'improving' | 'worsening') => {
+    if (trend === 'up' || trend === 'worsening') return <TrendingUp className="h-4 w-4 text-destructive" />;
+    if (trend === 'down' || trend === 'improving') return <TrendingDown className="h-4 w-4 text-green-400" />;
     return <Activity className="h-4 w-4 text-muted-foreground" />;
   };
 
   return (
     <MainLayout>
       <ParticleBackground />
-        <NexumBranding />
+      <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-end">
@@ -184,8 +220,11 @@ setOnShiftTeam(team);
               title="Supervisor Report"
               data={violationsSummary}
               metrics={stats ? [
-                { label: 'Open Work Orders', value: `${stats.openWorkOrders}` },
+                { label: 'Total Violations', value: `${stats.totalViolations}` },
+                { label: 'High Severity', value: `${stats.highSeverityViolations}` },
                 { label: 'Team Compliance', value: `${stats.avgComplianceScore}%` },
+                { label: 'Virtuous Score', value: `${stats.avgVirtuousScore}%` },
+                { label: 'At-Risk Employees', value: `${stats.employeesAtRisk}` },
               ] : undefined}
             />
           </div>
@@ -201,7 +240,7 @@ setOnShiftTeam(team);
           <>
             {/* KPI Row */}
             {stats && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                 <Card className="neon-border" style={{ animationDelay: '0ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -210,7 +249,7 @@ setOnShiftTeam(team);
                         {stats.openWorkOrders}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">Open Work Orders</p>
+                    <p className="text-sm text-muted-foreground mt-2">Open WOs</p>
                   </CardContent>
                 </Card>
 
@@ -218,18 +257,30 @@ setOnShiftTeam(team);
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
-                      <Badge variant={stats.highSeverityViolations > 0 ? 'destructive' : 'secondary'}>
-                        {stats.highSeverityViolations}
+                      <Badge variant={stats.totalViolations > 0 ? 'destructive' : 'secondary'}>
+                        {stats.totalViolations}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">High Severity Today</p>
+                    <p className="text-sm text-muted-foreground mt-2">Violations</p>
                   </CardContent>
                 </Card>
 
                 <Card className="neon-border" style={{ animationDelay: '100ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
-                      <TrendingUp className="h-5 w-5 text-green-400" />
+                      <Shield className="h-5 w-5 text-destructive" />
+                      <Badge variant={stats.highSeverityViolations > 0 ? 'destructive' : 'secondary'}>
+                        {stats.highSeverityViolations}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">High Severity</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="neon-border" style={{ animationDelay: '150ms' }}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <Target className="h-5 w-5 text-green-400" />
                       <span className={cn(
                         'text-xl font-bold',
                         stats.avgComplianceScore >= 80 ? 'text-green-400' : stats.avgComplianceScore >= 60 ? 'text-yellow-400' : 'text-destructive'
@@ -237,11 +288,38 @@ setOnShiftTeam(team);
                         {stats.avgComplianceScore}%
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">Team Compliance</p>
+                    <p className="text-sm text-muted-foreground mt-2">Compliance</p>
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '150ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '200ms' }}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <Award className="h-5 w-5 text-primary" />
+                      <span className={cn(
+                        'text-xl font-bold',
+                        stats.avgVirtuousScore >= 80 ? 'text-green-400' : stats.avgVirtuousScore >= 60 ? 'text-yellow-400' : 'text-destructive'
+                      )}>
+                        {stats.avgVirtuousScore}%
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">Virtuous</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="neon-border" style={{ animationDelay: '250ms' }}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <Users className="h-5 w-5 text-yellow-400" />
+                      <Badge variant={stats.employeesAtRisk > 0 ? 'destructive' : 'secondary'}>
+                        {stats.employeesAtRisk}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">At Risk</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="neon-border" style={{ animationDelay: '300ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Clock className="h-5 w-5 text-yellow-400" />
@@ -249,11 +327,11 @@ setOnShiftTeam(team);
                         {stats.unassignedWorkOrders}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">Unassigned WOs</p>
+                    <p className="text-sm text-muted-foreground mt-2">Unassigned</p>
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '200ms' }}>
+                <Card className="neon-border" style={{ animationDelay: '350ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Bell className="h-5 w-5 text-yellow-400" />
@@ -261,63 +339,71 @@ setOnShiftTeam(team);
                         {stats.activeAlerts}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">Active Alerts</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="neon-border" style={{ animationDelay: '250ms' }}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <Activity className="h-5 w-5 text-primary" />
-                      <Badge variant={stats.waterChemistryAlerts > 0 ? 'destructive' : 'secondary'}>
-                        {stats.waterChemistryAlerts}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">Water Chemistry</p>
+                    <p className="text-sm text-muted-foreground mt-2">Alerts</p>
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            {/* Employee Compliance Summary */}
-            <Card className="neon-border" style={{ animationDelay: '300ms' }}>
+            {/* Employee Compliance Summary with Virtuous Scores */}
+            <Card className="neon-border" style={{ animationDelay: '400ms' }}>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  Employee Compliance Summary
+                  Employee Compliance & Virtuous Scores
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  {violationsSummary.map((employee) => {
-                    const score = Math.max(0, 100 - employee.avgSeverity * 10);
-                    return (
+                {violationsSummary.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Award className="h-12 w-12 mx-auto mb-2 text-green-400" />
+                    <p>No violations recorded today - excellent compliance!</p>
+                    <p className="text-sm mt-1">Team Virtuous Score: 100%</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    {violationsSummary.map((employee) => (
                       <div
+                        key={employee.employeeId}
                         className={cn(
                           'p-4 rounded-lg border transition-all hover:shadow-lg',
-                          getHeatmapColor(score)
+                          getHeatmapColor(employee.virtuousScore || 100)
                         )}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm">{employee.employeeName}</span>
-                          <Badge className={getSeverityColor(employee.avgSeverity)}>
-                            Sev {employee.avgSeverity.toFixed(1)}
+                          <Badge className={getRiskColor(employee.riskScore || 0)}>
+                            Risk {(employee.riskScore || 0).toFixed(0)}
                           </Badge>
                         </div>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <p>Violations: {employee.violationCount}</p>
-                          <p>Avg Weight: {employee.avgWeight.toFixed(1)}</p>
+                        <div className="space-y-1 text-xs text-muted-foreground mb-2">
+                          <div className="flex justify-between">
+                            <span>Violations:</span>
+                            <span className="font-medium">{employee.violationCount}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Avg Severity:</span>
+                            <span className="font-medium">{(employee.avgSeverity || 0).toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Virtuous:</span>
+                            <span className={cn(
+                              'font-medium',
+                              (employee.virtuousScore || 100) >= 80 ? 'text-green-400' : 
+                              (employee.virtuousScore || 100) >= 60 ? 'text-yellow-400' : 'text-destructive'
+                            )}>{(employee.virtuousScore || 100).toFixed(0)}%</span>
+                          </div>
                         </div>
-                        <Progress value={score} className="h-1.5 mt-2" />
+                        <Progress value={employee.virtuousScore || 100} className="h-1.5" />
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Work Order Summary (Read-Only) */}
-            <Card className="neon-border" style={{ animationDelay: '400ms' }}>
+            {/* Work Order Summary */}
+            <Card className="neon-border" style={{ animationDelay: '500ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-primary" />
@@ -325,113 +411,157 @@ setOnShiftTeam(team);
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {workOrders.map((wo) => (
-                    <div
-                      key={wo.id}
-                      className="p-4 rounded-lg bg-muted/30 border border-border/50"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{wo.title}</span>
-                            <Badge variant={wo.priority === 'Critical' ? 'destructive' : wo.priority === 'High' ? 'default' : 'secondary'}>
-                              {wo.priority}
-                            </Badge>
-                            <Badge variant={wo.status === 'Completed' ? 'outline' : 'secondary'}>
-                              {wo.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{wo.description}</p>
-                          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                            <span>Equipment: {wo.equipment}</span>
-                            <span>Assigned: {wo.assignedTo || 'Unassigned'}</span>
-                            <span>Due: {wo.dueDate}</span>
+                {workOrders.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No open work orders</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {workOrders.map((wo) => (
+                      <div
+                        key={wo.id}
+                        className="p-4 rounded-lg bg-muted/30 border border-border/50"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{wo.title}</span>
+                              <Badge variant={wo.priority === 'Critical' ? 'destructive' : wo.priority === 'High' ? 'default' : 'secondary'}>
+                                {wo.priority}
+                              </Badge>
+                              <Badge variant={wo.status === 'Completed' ? 'outline' : 'secondary'}>
+                                {wo.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{wo.description}</p>
+                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                              <span>Equipment: {wo.equipment}</span>
+                              <span>Assigned: {wo.assignedTo || 'Unassigned'}</span>
+                              <span>Due: {wo.dueDate}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Department Risk Leaderboard */}
-            <Card className="neon-border" style={{ animationDelay: '500ms' }}>
+            <Card className="neon-border" style={{ animationDelay: '600ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
-                  Department Risk Leaderboard
+                  Department Risk & Virtuous Scores
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {departmentMetrics.map((dept) => (
-                    <div
-                      key={dept.department}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="font-medium">{dept.department}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {dept.violationCount} violations • {dept.complianceRate}% compliance
-                          </p>
+                {departmentMetrics.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No department data available</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {departmentMetrics.map((dept) => (
+                      <div
+                        key={dept.department}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="font-medium">{dept.department}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {dept.violationCount} violations • {dept.complianceRate}% compliance
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            {getTrendIcon(dept.trend)}
+                            <Badge className={getRiskColor(dept.riskScore || 0)}>
+                              Risk: {(dept.riskScore || 0).toFixed(0)}
+                            </Badge>
+                            <Badge className={getVirtuousColor(dept.virtuousScore || 100)}>
+                              Virtuous: {(dept.virtuousScore || 100).toFixed(0)}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          {getTrendIcon(dept.trend)}
-                          <Badge className={getSeverityColor(Math.round(dept.avgSeverity))}>
-                            Avg Sev: {dept.avgSeverity.toFixed(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Supervisor Insights */}
-            <Card className="neon-border border-primary/30" style={{ animationDelay: '600ms' }}>
+            {/* Today's Priorities */}
+            <Card className="neon-border border-primary/30" style={{ animationDelay: '700ms' }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                  Today's Priorities
+                  Today's Priorities & Risk Management
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <h4 className="font-medium text-destructive">Top 3 Risks Today</h4>
+                    <h4 className="font-medium text-destructive">Immediate Actions Required</h4>
                     <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li>• Chiller CH-02 compressor showing signs of stress</li>
-                      <li>• 2 unassigned high-priority work orders</li>
-                      <li>• Water chemistry pH trending out of range</li>
+                      {stats && stats.highSeverityViolations > 0 && (
+                        <li>• {stats.highSeverityViolations} high severity violations to address</li>
+                      )}
+                      {stats && stats.unassignedWorkOrders > 0 && (
+                        <li>• {stats.unassignedWorkOrders} unassigned work orders need assignment</li>
+                      )}
+                      {stats && stats.employeesAtRisk > 0 && (
+                        <li>• {stats.employeesAtRisk} employees at risk - coaching needed</li>
+                      )}
+                      {(!stats || (stats.highSeverityViolations === 0 && stats.unassignedWorkOrders === 0 && stats.employeesAtRisk === 0)) && (
+                        <li>• No immediate actions required</li>
+                      )}
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-medium text-yellow-400">Most Delayed Work Orders</h4>
+                    <h4 className="font-medium text-yellow-400">High-Risk Team Members</h4>
                     <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li>• WO-001: Boiler inspection (3 days overdue)</li>
-                      <li>• WO-004: Pump seal replacement (1 day overdue)</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-primary">Employees Needing Support</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {violationsSummary.filter(v => v.avgSeverity >= 3).slice(0, 3).map(v => (
-                        <li key={v.employeeId}>• {v.employeeName} - {v.violationCount} recent violations</li>
+                      {violationsSummary.filter(v => (v.riskScore || 0) >= 70).slice(0, 3).map(v => (
+                        <li key={v.employeeId}>
+                          • {v.employeeName} - Risk: {(v.riskScore || 0).toFixed(0)}, Virtuous: {(v.virtuousScore || 100).toFixed(0)}%
+                        </li>
                       ))}
+                      {violationsSummary.filter(v => (v.riskScore || 0) >= 70).length === 0 && (
+                        <li>• All team members in good standing</li>
+                      )}
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-medium text-green-400">Recommended Actions</h4>
+                    <h4 className="font-medium text-primary">Department Focus Areas</h4>
                     <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li>• Assign WO-003 to available technician</li>
-                      <li>• Schedule team meeting on compliance</li>
-                      <li>• Review water treatment schedule</li>
+                      {departmentMetrics.filter(d => (d.riskScore || 0) >= 40).slice(0, 3).map(d => (
+                        <li key={d.department}>
+                          • {d.department} - {d.violationCount} violations (Risk: {(d.riskScore || 0).toFixed(0)})
+                        </li>
+                      ))}
+                      {departmentMetrics.filter(d => (d.riskScore || 0) >= 40).length === 0 && (
+                        <li>• All departments meeting standards</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-green-400">Performance Highlights</h4>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {stats && stats.avgVirtuousScore >= 80 && (
+                        <li>• Team Virtuous Score: {stats.avgVirtuousScore}% - excellent!</li>
+                      )}
+                      {violationsSummary.filter(v => v.violationCount === 0).length > 0 && (
+                        <li>• {violationsSummary.filter(v => v.violationCount === 0).length} team members with zero violations</li>
+                      )}
+                      {violationsSummary.filter(v => (v.virtuousScore || 100) >= 90).length > 0 && (
+                        <li>• {violationsSummary.filter(v => (v.virtuousScore || 100) >= 90).length} employees with virtuous scores ≥ 90%</li>
+                      )}
+                      {(!stats || stats.avgVirtuousScore < 80) && violationsSummary.length === 0 && (
+                        <li>• Keep up the good work</li>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -441,5 +571,8 @@ setOnShiftTeam(team);
             {/* On-Shift Team Activity */}
             <OnShiftTeamTable team={onShiftTeam} />
           </>
+        )} 
+      </div>
+    </MainLayout>
   );
 }
