@@ -90,7 +90,7 @@ export const OnShiftTeamTable = ({ team }: OnShiftTeamTableProps) => {
                         <div className={`w-2 h-2 rounded-full ${
                           minutesAgo && minutesAgo < 60 ? 'bg-green-400' : 'bg-muted-foreground/50'
                         }`} />
-                        <span className="text-sm font-medium">{member.employee}</span>
+                        <span className="font-medium">{typeof employee.employeeName === 'string' ? employee.employeeName : (employee.employeeName?.name || employee.employeeId)}</span>
                       </div>
                     </td>
                     <td className="py-3 px-3">
