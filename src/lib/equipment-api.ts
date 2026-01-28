@@ -228,6 +228,7 @@ export const submitFacilityLog = async (logData: any) => {
 
   // Transform data to match Lambda expectations
   const payload = {
+    equipmentType: logData.systemType, // Dashboard compatibility
     facility_id: logData.facilityId,
     system: logData.systemType,
     equipment_id: logData.systemId,
