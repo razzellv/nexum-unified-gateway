@@ -8,7 +8,7 @@ import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import FacilityDataSource from "./pages/FacilityDataSource";
-
+import Compliance from "./pages/Compliance";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
@@ -18,11 +18,6 @@ import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
-
-
-
-
-
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 
@@ -101,6 +96,10 @@ export const router = createBrowserRouter([
             element: <FacilityDataSource />,
           },
           {
+            path: "compliance-logger",
+            element: <Compliance />,
+          },
+          {
             path: "command-center",
             element: <ComingSoon title="Facility Command Center" />,
           },
@@ -111,10 +110,6 @@ export const router = createBrowserRouter([
           {
             path: "compliance-analyzer",
             element: <ComingSoon title="Compliance Analyzer" />,
-          },
-          {
-            path: "compliance-log",
-            element: <ComingSoon title="Compliance Log" />,
           },
           {
             path: "optimize-learn",

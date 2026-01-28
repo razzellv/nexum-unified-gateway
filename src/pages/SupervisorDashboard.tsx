@@ -11,12 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
 import { NexumError } from '@/components/global/NexumError';
 import { ExportButtons } from '@/components/global/ExportButtons';
-import { 
-  type ViolationSummary,
-  type VirtuousMetrics,
-  type WorkOrder 
-} from '@/lib/nexum-api';
 import { OnShiftTeamTable } from '@/components/supervisor/OnShiftTeamTable';
+import { EmployeeStatusTable } from '@/components/supervisor/EmployeeStatusTable';
 import { 
   ClipboardList, 
   AlertTriangle, 
@@ -46,13 +42,22 @@ interface SupervisorStats {
   employeesAtRisk: number;
 }
 
+// Helper function to safely extract string from employee name
+function safeString(value: any, fallback: string = 'Unknown'): string {
+  if (!value) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    return value.name || value.id || fallback;
+  }
+  return String(value);
+}
+
 export default function SupervisorDashboard() {
   const { isAuthenticated, loading } = useAuth();
-  console.log("🔵 SupervisorDashboard auth:", { isAuthenticated, loading });
   const [stats, setStats] = useState<SupervisorStats | null>(null);
-  const [violationsSummary, setViolationsSummary] = useState<ViolationSummary[]>([]);
-  const [departmentMetrics, setDepartmentMetrics] = useState<VirtuousMetrics[]>([]);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [violationsSummary, setViolationsSummary] = useState<any[]>([]);
+  const [departmentMetrics, setDepartmentMetrics] = useState<any[]>([]);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [onShiftTeam, setOnShiftTeam] = useState<any[]>([]);
   const [violationDetails, setViolationDetails] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,10 +72,10 @@ export default function SupervisorDashboard() {
       const apiData = await getSupervisorDashboard();
       console.log("✅ Supervisor API data:", apiData);
       
-      // Extract violations summary with virtuous/risk scores
-      const violations: ViolationSummary[] = (apiData.violations_summary || []).map((v: any) => ({
+      // Extract violations summary - SAFE STRING CONVERSION
+      const violations = (apiData.violations_summary || []).map((v: any) => ({
         employeeId: v.employeeId,
-        employeeName: v.employeeName,
+        employeeName: safeString(v.employeeName, v.employeeId),
         role: v.role,
         violationCount: v.violationCount || 0,
         avgWeight: v.avgWeight || 0,
@@ -81,7 +86,7 @@ export default function SupervisorDashboard() {
       }));
       
       // Extract department metrics
-      const departments: VirtuousMetrics[] = (apiData.department_metrics || []).map((d: any) => ({
+      const departments = (apiData.department_metrics || []).map((d: any) => ({
         department: d.department,
         avgSeverity: d.avgSeverity || 0,
         trend: d.trend || 'stable',
@@ -92,7 +97,7 @@ export default function SupervisorDashboard() {
       }));
       
       // Extract work orders
-      const orders: WorkOrder[] = (apiData.work_orders || []).map((wo: any) => ({
+      const orders = (apiData.work_orders || []).map((wo: any) => ({
         id: wo.id,
         title: `Work Order ${wo.id}`,
         description: wo.description || wo.type || 'Work order',
@@ -104,9 +109,9 @@ export default function SupervisorDashboard() {
         createdAt: wo.created || new Date().toISOString().split('T')[0],
       }));
       
-      // Extract on-shift team
+      // Extract on-shift team - SAFE STRING CONVERSION
       const team = (apiData.on_shift_team || []).map((t: any) => ({
-        employee: t.employee,
+        employee: safeString(t.employee, t.operatorId),
         operatorId: t.operatorId,
         role: t.role || 'Operator',
         systems_logged_24h: t.systems_logged_24h || 0,
@@ -122,14 +127,6 @@ export default function SupervisorDashboard() {
       
       // Extract violation details
       const details = apiData.violation_details || [];
-      
-      console.log("📊 Processed data:", {
-        violations: violations.length,
-        departments: departments.length,
-        workOrders: orders.length,
-        team: team.length,
-        violationDetails: details.length,
-      });
       
       setViolationsSummary(violations);
       setDepartmentMetrics(departments);
@@ -150,8 +147,6 @@ export default function SupervisorDashboard() {
         waterChemistryAlerts: summary.water_chemistry_alerts || 0,
         employeesAtRisk: summary.employees_at_risk || 0,
       });
-      
-      console.log("📊 Stats set from API:", summary);
 
       setLastUpdated(new Date());
     } catch (err) {
@@ -192,7 +187,7 @@ export default function SupervisorDashboard() {
     return 'bg-destructive/20 border-destructive/50';
   };
 
-  const getTrendIcon = (trend: 'up' | 'down' | 'stable' | 'improving' | 'worsening') => {
+  const getTrendIcon = (trend: string) => {
     if (trend === 'up' || trend === 'worsening') return <TrendingUp className="h-4 w-4 text-destructive" />;
     if (trend === 'down' || trend === 'improving') return <TrendingDown className="h-4 w-4 text-green-400" />;
     return <Activity className="h-4 w-4 text-muted-foreground" />;
@@ -241,7 +236,7 @@ export default function SupervisorDashboard() {
             {/* KPI Row */}
             {stats && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-                <Card className="neon-border" style={{ animationDelay: '0ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <ClipboardList className="h-5 w-5 text-primary" />
@@ -253,7 +248,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '50ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -265,7 +260,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '100ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Shield className="h-5 w-5 text-destructive" />
@@ -277,7 +272,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '150ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Target className="h-5 w-5 text-green-400" />
@@ -292,7 +287,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '200ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Award className="h-5 w-5 text-primary" />
@@ -307,7 +302,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '250ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Users className="h-5 w-5 text-yellow-400" />
@@ -319,7 +314,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '300ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Clock className="h-5 w-5 text-yellow-400" />
@@ -331,7 +326,7 @@ export default function SupervisorDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="neon-border" style={{ animationDelay: '350ms' }}>
+                <Card className="neon-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <Bell className="h-5 w-5 text-yellow-400" />
@@ -345,229 +340,9 @@ export default function SupervisorDashboard() {
               </div>
             )}
 
-            {/* Employee Compliance Summary with Virtuous Scores */}
-            <Card className="neon-border" style={{ animationDelay: '400ms' }}>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Employee Compliance & Virtuous Scores
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {violationsSummary.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Award className="h-12 w-12 mx-auto mb-2 text-green-400" />
-                    <p>No violations recorded today - excellent compliance!</p>
-                    <p className="text-sm mt-1">Team Virtuous Score: 100%</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    {violationsSummary.map((employee) => (
-                      <div
-                        key={employee.employeeId}
-                        className={cn(
-                          'p-4 rounded-lg border transition-all hover:shadow-lg',
-                          getHeatmapColor(employee.virtuousScore || 100)
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-sm">{employee.employeeName}</span>
-                          <Badge className={getRiskColor(employee.riskScore || 0)}>
-                            Risk {(employee.riskScore || 0).toFixed(0)}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 text-xs text-muted-foreground mb-2">
-                          <div className="flex justify-between">
-                            <span>Violations:</span>
-                            <span className="font-medium">{employee.violationCount}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Avg Severity:</span>
-                            <span className="font-medium">{(employee.avgSeverity || 0).toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Virtuous:</span>
-                            <span className={cn(
-                              'font-medium',
-                              (employee.virtuousScore || 100) >= 80 ? 'text-green-400' : 
-                              (employee.virtuousScore || 100) >= 60 ? 'text-yellow-400' : 'text-destructive'
-                            )}>{(employee.virtuousScore || 100).toFixed(0)}%</span>
-                          </div>
-                        </div>
-                        <Progress value={employee.virtuousScore || 100} className="h-1.5" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Employee Status Table - NEW! */}
+            <EmployeeStatusTable employees={violationsSummary} />
 
-            {/* Work Order Summary */}
-            <Card className="neon-border" style={{ animationDelay: '500ms' }}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-primary" />
-                  Work Order Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {workOrders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No open work orders</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {workOrders.map((wo) => (
-                      <div
-                        key={wo.id}
-                        className="p-4 rounded-lg bg-muted/30 border border-border/50"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{wo.title}</span>
-                              <Badge variant={wo.priority === 'Critical' ? 'destructive' : wo.priority === 'High' ? 'default' : 'secondary'}>
-                                {wo.priority}
-                              </Badge>
-                              <Badge variant={wo.status === 'Completed' ? 'outline' : 'secondary'}>
-                                {wo.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{wo.description}</p>
-                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                              <span>Equipment: {wo.equipment}</span>
-                              <span>Assigned: {wo.assignedTo || 'Unassigned'}</span>
-                              <span>Due: {wo.dueDate}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Department Risk Leaderboard */}
-            <Card className="neon-border" style={{ animationDelay: '600ms' }}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  Department Risk & Virtuous Scores
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {departmentMetrics.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No department data available</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {departmentMetrics.map((dept) => (
-                      <div
-                        key={dept.department}
-                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <p className="font-medium">{dept.department}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {dept.violationCount} violations • {dept.complianceRate}% compliance
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            {getTrendIcon(dept.trend)}
-                            <Badge className={getRiskColor(dept.riskScore || 0)}>
-                              Risk: {(dept.riskScore || 0).toFixed(0)}
-                            </Badge>
-                            <Badge className={getVirtuousColor(dept.virtuousScore || 100)}>
-                              Virtuous: {(dept.virtuousScore || 100).toFixed(0)}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Today's Priorities */}
-            <Card className="neon-border border-primary/30" style={{ animationDelay: '700ms' }}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                  Today's Priorities & Risk Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-destructive">Immediate Actions Required</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {stats && stats.highSeverityViolations > 0 && (
-                        <li>• {stats.highSeverityViolations} high severity violations to address</li>
-                      )}
-                      {stats && stats.unassignedWorkOrders > 0 && (
-                        <li>• {stats.unassignedWorkOrders} unassigned work orders need assignment</li>
-                      )}
-                      {stats && stats.employeesAtRisk > 0 && (
-                        <li>• {stats.employeesAtRisk} employees at risk - coaching needed</li>
-                      )}
-                      {(!stats || (stats.highSeverityViolations === 0 && stats.unassignedWorkOrders === 0 && stats.employeesAtRisk === 0)) && (
-                        <li>• No immediate actions required</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-yellow-400">High-Risk Team Members</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {violationsSummary.filter(v => (v.riskScore || 0) >= 70).slice(0, 3).map(v => (
-                        <li key={v.employeeId}>
-                          • {v.employeeName} - Risk: {(v.riskScore || 0).toFixed(0)}, Virtuous: {(v.virtuousScore || 100).toFixed(0)}%
-                        </li>
-                      ))}
-                      {violationsSummary.filter(v => (v.riskScore || 0) >= 70).length === 0 && (
-                        <li>• All team members in good standing</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-primary">Department Focus Areas</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {departmentMetrics.filter(d => (d.riskScore || 0) >= 40).slice(0, 3).map(d => (
-                        <li key={d.department}>
-                          • {d.department} - {d.violationCount} violations (Risk: {(d.riskScore || 0).toFixed(0)})
-                        </li>
-                      ))}
-                      {departmentMetrics.filter(d => (d.riskScore || 0) >= 40).length === 0 && (
-                        <li>• All departments meeting standards</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-green-400">Performance Highlights</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {stats && stats.avgVirtuousScore >= 80 && (
-                        <li>• Team Virtuous Score: {stats.avgVirtuousScore}% - excellent!</li>
-                      )}
-                      {violationsSummary.filter(v => v.violationCount === 0).length > 0 && (
-                        <li>• {violationsSummary.filter(v => v.violationCount === 0).length} team members with zero violations</li>
-                      )}
-                      {violationsSummary.filter(v => (v.virtuousScore || 100) >= 90).length > 0 && (
-                        <li>• {violationsSummary.filter(v => (v.virtuousScore || 100) >= 90).length} employees with virtuous scores ≥ 90%</li>
-                      )}
-                      {(!stats || stats.avgVirtuousScore < 80) && violationsSummary.length === 0 && (
-                        <li>• Keep up the good work</li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
             {/* On-Shift Team Activity */}
             <OnShiftTeamTable team={onShiftTeam} />
           </>

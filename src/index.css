@@ -197,3 +197,24 @@
     100% { top: 100%; opacity: 0; }
   }
 }
+
+/* Neon Glow Effects for Equipment Logs Table */
+.neon-glow-row {
+  transition: all 0.3s ease;
+}
+
+.neon-glow-row:hover {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+  background: rgba(6, 182, 212, 0.05) !important;
+}
+
+.neon-border {
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+  transition: all 0.3s ease;
+}
+
+.neon-border:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+}

@@ -20,6 +20,7 @@ interface OnShiftTeamTableProps {
   team: OnShiftTeamMember[];
 }
 
+// Safe string extraction
 const safeString = (value: any, fallback: string = 'Unknown'): string => {
   if (!value) return fallback;
   if (typeof value === 'string') return value;
@@ -60,7 +61,7 @@ export function OnShiftTeamTable({ team }: OnShiftTeamTableProps) {
               </thead>
               <tbody>
                 {team.map((member, idx) => (
-                  <tr key={member.operatorId} className="border-b border-border/30 hover:bg-accent/50 neon-glow-row">
+                  <tr key={={`${member.operatorId}-${idx}`} className="border-b border-border/30 hover:bg-accent/50 neon-glow-row">
                     <td className="p-3">
                       <div className="flex flex-col">
                         <span className="font-medium">{safeString(member.employee, member.operatorId)}</span>

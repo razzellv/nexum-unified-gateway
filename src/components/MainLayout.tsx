@@ -45,6 +45,12 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
         icon: History,
         roles: ['all']
       },
+      { 
+        name: 'Compliance Logger', 
+        path: '/compliance-logger', 
+        icon: Shield,
+        roles: ['supervisor', 'manager', 'executive']
+      },
     ];
 
     return baseNav.filter(item => 

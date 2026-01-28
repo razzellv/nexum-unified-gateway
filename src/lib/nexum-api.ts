@@ -362,3 +362,79 @@ export async function getEmployeeDashboard(employeeId?: string) {
     return mockEmployeeData;
   }
 }
+
+// Facility Logs API
+export interface FacilityLog {
+  PK: string;
+  SK: string;
+  equipmentId: string;
+  equipmentType: string;
+  timestamp: string;
+  operator: string;
+  operatorId: string;
+  data: any;
+  notes?: string;
+}
+
+export async function getFacilityLogs(options?: {
+  startDate?: string;
+  endDate?: string;
+  equipmentType?: string;
+  limit?: number;
+}) {
+  try {
+    const params = new URLSearchParams();
+    if (options?.startDate) params.append('startDate', options.startDate);
+    if (options?.endDate) params.append('endDate', options.endDate);
+    if (options?.equipmentType) params.append('equipmentType', options.equipmentType);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    
+    const query = params.toString();
+    const endpoint = query ? `/logs?${query}` : '/logs';
+    
+    return await apiRequest<{ logs: FacilityLog[] }>(endpoint);
+  } catch (error) {
+    console.warn('📊 Logs endpoint not available, using mock data');
+    return { logs: [] };
+  }
+}
+
+// Compliance Logger API Integration
+export interface ComplianceLogPayload {
+  type: string;
+  facility: string;
+  building: string;
+  systemType: string;
+  systemId: string;
+  employeeInvolved: string;
+  complianceCategory: string;
+  severityLevel: number;
+  description: string;
+  correctiveActionRequired: boolean;
+  // Violation specific
+  violationType?: string;
+  policyReference?: string;
+  estimatedImpactLevel?: string;
+  repeatOffense?: boolean;
+  // PM Check specific
+  pmTask?: string;
+  scheduledDate?: string;
+  completedOnTime?: boolean;
+  missedReason?: string;
+  // Safety specific
+  hazardType?: string;
+  immediateRisk?: boolean;
+  actionTaken?: string;
+}
+
+export async function logComplianceEvent(payload: ComplianceLogPayload) {
+  try {
+    return await apiRequest<any>('/compliance/log', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    console.error('Failed to log compliance event:', error);
+    throw error;
+  }
+}

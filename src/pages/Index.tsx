@@ -26,7 +26,8 @@ import {
   TrendingUp,
   Users,
   User,
-  Zap
+  Zap,
+  Shield
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -206,6 +207,14 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
+            <ModuleCard
+              title="Compliance Logger"
+              description="Log violations, PM checks, and safety observations"
+              route="/compliance-logger"
+              icon={<Shield className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
+            />
           </div>
         </section>
 
@@ -243,14 +252,6 @@ const Index = () => {
               description="Automated compliance analysis and regulatory tracking"
               route="/compliance-analyzer"
               icon={<ShieldCheck className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Compliance Log"
-              description="Compliance event logging and record keeping"
-              route="/compliance-log"
-              icon={<FileText className="w-5 h-5" />}
               status="in-progress"
               colorTheme="accent"
             />
