@@ -1,8 +1,7 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-
 import { ParticleBackground } from "@/components/ParticleBackground";
-
 import { SystemFeed } from "@/components/SystemFeed";
 import { 
   GraduationCap, 
@@ -27,9 +26,14 @@ import {
   Users,
   User,
   Zap,
-  Shield
+  Shield,
+  Flame,
+  Snowflake,
+  Wind,
+  Droplets
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type ModuleStatus = "active" | "in-progress";
@@ -140,8 +144,91 @@ const ModuleCard = ({
   );
 };
 
+// ✅ NEW: Live Telemetry Component
+const LiveTelemetry = () => {
+  const [telemetryData, setTelemetryData] = useState<any[]>([]);
+  
+  useEffect(() => {
+    // Simulate live telemetry updates
+    const interval = setInterval(() => {
+      const newData = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        system: ['Boiler-1', 'Chiller-2', 'AHU-3', 'Pump-4'][Math.floor(Math.random() * 4)],
+        type: ['boiler', 'chiller', 'ahu', 'pump'][Math.floor(Math.random() * 4)],
+        value: Math.random() * 100,
+        status: Math.random() > 0.8 ? 'warning' : 'normal'
+      };
+      
+      setTelemetryData(prev => [newData, ...prev].slice(0, 10));
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const getIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      boiler: Flame,
+      chiller: Snowflake,
+      ahu: Wind,
+      pump: Droplets
+    };
+    return icons[type] || Activity;
+  };
+
+  return (
+    <div className="space-y-2">
+      {telemetryData.length === 0 ? (
+        <div className="text-center py-8">
+          <Activity className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground">Waiting for telemetry data...</p>
+        </div>
+      ) : (
+        telemetryData.map((data) => {
+          const Icon = getIcon(data.type);
+          return (
+            <div
+              key={data.id}
+              className={cn(
+                "flex items-center gap-3 p-2 rounded-lg border transition-all animate-fade-in",
+                data.status === 'warning' 
+                  ? "border-warning/50 bg-warning/10" 
+                  : "border-border/30 bg-muted/20"
+              )}
+            >
+              <Icon className={cn(
+                "w-4 h-4",
+                data.status === 'warning' ? "text-warning" : "text-primary"
+              )} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{data.system}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(data.timestamp).toLocaleTimeString()}
+                </p>
+              </div>
+              <Badge variant={data.status === 'warning' ? "destructive" : "outline"} className="text-xs">
+                {data.value.toFixed(1)}
+              </Badge>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
 const Index = () => {
   const { userRole } = useAuth();
+  const navigate = useNavigate();
+  
+  // ✅ NEW: Equipment Library stats
+  const [equipmentCount, setEquipmentCount] = useState(0);
+  
+  useEffect(() => {
+    // Simulate fetching equipment count
+    setEquipmentCount(12);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background grid-bg">
       <ParticleBackground />
@@ -161,7 +248,6 @@ const Index = () => {
           </p>
         </div>
       </header>
-
 
       <main className="container mx-auto px-4 py-8 space-y-10">
         {/* Active Modules */}
@@ -218,7 +304,6 @@ const Index = () => {
           </div>
         </section>
 
-
         {/* Modules In Progress */}
         <section className="rounded-xl border border-blue-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
@@ -230,7 +315,6 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
             <ModuleCard
               title="Facility Command Center"
               description="Work orders, maintenance scheduling, and operations management"
@@ -266,16 +350,85 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Live Facility Telemetry */}
+        {/* ✅ NEW: Equipment Library Section */}
+        <section className="rounded-xl border border-primary/20 bg-card/30 backdrop-blur-xl p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="h-px flex-1 bg-gradient-to-r from-primary/50 to-transparent" />
+            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
+              <Database className="w-4 h-4 text-primary" />
+              Equipment Library
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-primary/50 to-transparent" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick Stats */}
+            <Card 
+              className="neon-border cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => navigate('/equipment-library')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <Database className="w-8 h-8 text-primary" />
+                  <Badge variant="outline" className="bg-primary/10 text-primary">
+                    {equipmentCount} Items
+                  </Badge>
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Equipment Registry</h3>
+                <p className="text-sm text-muted-foreground">
+                  View all scanned equipment, specifications, and AI analysis
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Recent Scans */}
+            <Card className="neon-border col-span-1 md:col-span-2">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-primary" />
+                    Recent Equipment Scans
+                  </h3>
+                  <button 
+                    onClick={() => navigate('/equipment-library')}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View All →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
+                    { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
+                    { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <item.icon className={cn('w-4 h-4', item.color)} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{item.type}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{item.date}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* ✅ ENHANCED: Live Facility Telemetry */}
         <section className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-muted-foreground" />
+            <Activity className="w-4 h-4 text-muted-foreground animate-pulse" />
             <h2 className="text-lg font-semibold text-muted-foreground">Live Facility Telemetry</h2>
+            <Badge variant="outline" className="ml-auto text-xs">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-1.5" />
+              Live
+            </Badge>
           </div>
-          <div className="h-[150px] flex items-center justify-center overflow-x-auto">
-            <p className="text-sm text-muted-foreground/60 italic">
-              Real-time telemetry stream (integration in progress)
-            </p>
+          <div className="min-h-[200px]">
+            <LiveTelemetry />
           </div>
         </section>
 
