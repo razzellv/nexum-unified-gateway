@@ -1,7 +1,7 @@
 import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Snowflake, Droplets } from 'lucide-react';
+import { Snowflake, Droplets, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ChillerFormData {
@@ -17,6 +17,8 @@ interface ChillerFormData {
   currentKw: string;
   runStatus: string;
   alarmStatus: string;
+  // ✅ NEW: Runtime for energy calculations
+  runtimeHours: string;
 }
 
 interface ChillerFormProps {
@@ -196,7 +198,6 @@ export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
         </div>
       )}
 
-
       {/* Refrigerant & Performance */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Refrigerant Type */}
@@ -271,8 +272,38 @@ export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
           placeholder="245"
         />
       </div>
+
+      {/* ✅ NEW: Runtime Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-primary/20">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          Energy & Runtime Data
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
+          <FormField
+            label="Runtime Hours"
+            name="runtimeHours"
+            type="number"
+            value={data.runtimeHours}
+            onChange={(v) => updateField('runtimeHours', v)}
+            required
+            error={errors.runtimeHours}
+            unit="hrs"
+            min={0}
+            max={24}
+            step={0.1}
+            placeholder="12.5"
+            icon={Timer}
+            helperText="Hours of operation for kWh calculation (kWh = kW × hours)"
+          />
+        </div>
+      </div>
+
       {/* Run Status */}
-      <div className="input-group">
+      <div className="input-group mt-6">
         <Label className="text-sm font-medium">
           Run Status <span className="text-destructive">*</span>
         </Label>
@@ -352,6 +383,8 @@ export const initialChillerData: ChillerFormData = {
   dischargePressure: '',
   currentKw: '',
   alarmStatus: '',
+  // ✅ NEW: Runtime field
+  runtimeHours: '',
 };
 
 export function validateChillerForm(data: ChillerFormData): Record<string, string> {
@@ -367,11 +400,19 @@ export function validateChillerForm(data: ChillerFormData): Record<string, strin
   if (!data.dischargePressure) errors.dischargePressure = 'Required';
   if (!data.currentKw) errors.currentKw = 'Required';
   if (!data.alarmStatus) errors.alarmStatus = 'Required';
+  
+  // ✅ NEW: Runtime is required for energy calculations
+  if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
 
   // Condenser water temps required for water-cooled chillers
   if (data.chillerType && data.chillerType !== 'air-cooled') {
     if (!data.enteringCondenserWaterTemp) errors.enteringCondenserWaterTemp = 'Required for water-cooled';
     if (!data.leavingCondenserWaterTemp) errors.leavingCondenserWaterTemp = 'Required for water-cooled';
+  }
+
+  // ✅ NEW: Runtime validation
+  if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
+    errors.runtimeHours = 'Must be 0-24 hours';
   }
 
   return errors;
