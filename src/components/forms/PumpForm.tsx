@@ -1,6 +1,6 @@
 import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
-import { Gauge } from 'lucide-react';
+import { Gauge, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PumpFormData {
@@ -11,6 +11,10 @@ interface PumpFormData {
   loadPercent: string;
   vibrationIndicator: string;
   sealLeakIndicator: string;
+  // ✅ NEW: Energy calculation fields
+  runtimeHours: string;
+  motorKw: string;
+  flowGPM: string;
 }
 
 interface PumpFormProps {
@@ -121,8 +125,65 @@ export function PumpForm({ data, onChange, errors }: PumpFormProps) {
         />
       </div>
 
+      {/* ✅ NEW: Energy & Performance Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-primary/20">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          Energy & Performance Data
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <FormField
+            label="Runtime Hours"
+            name="runtimeHours"
+            type="number"
+            value={data.runtimeHours}
+            onChange={(v) => updateField('runtimeHours', v)}
+            required
+            error={errors.runtimeHours}
+            unit="hrs"
+            min={0}
+            max={24}
+            step={0.1}
+            placeholder="20.5"
+            icon={Timer}
+          />
+
+          <FormField
+            label="Motor Power"
+            name="motorKw"
+            type="number"
+            value={data.motorKw}
+            onChange={(v) => updateField('motorKw', v)}
+            required
+            error={errors.motorKw}
+            unit="kW"
+            min={0}
+            max={500}
+            step={0.1}
+            placeholder="25.5"
+            helperText="For kWh calculation"
+          />
+
+          <FormField
+            label="Flow Rate"
+            name="flowGPM"
+            type="number"
+            value={data.flowGPM}
+            onChange={(v) => updateField('flowGPM', v)}
+            unit="GPM"
+            min={0}
+            max={10000}
+            placeholder="850"
+            helperText="Gallons per minute"
+          />
+        </div>
+      </div>
+
       {/* Vibration Indicator */}
-      <div className="input-group">
+      <div className="input-group mt-6">
         <Label className="text-sm font-medium">
           Vibration / Noise Indicator <span className="text-destructive">*</span>
         </Label>
@@ -196,6 +257,10 @@ export const initialPumpData: PumpFormData = {
   loadPercent: '',
   vibrationIndicator: '',
   sealLeakIndicator: '',
+  // ✅ NEW: Energy fields
+  runtimeHours: '',
+  motorKw: '',
+  flowGPM: '',
 };
 
 export function validatePumpForm(data: PumpFormData): Record<string, string> {
@@ -208,6 +273,18 @@ export function validatePumpForm(data: PumpFormData): Record<string, string> {
   if (!data.loadPercent) errors.loadPercent = 'Required';
   if (!data.vibrationIndicator) errors.vibrationIndicator = 'Required';
   if (!data.sealLeakIndicator) errors.sealLeakIndicator = 'Required';
+  
+  // ✅ NEW: Runtime and kW required for energy tracking
+  if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
+  if (!data.motorKw) errors.motorKw = 'Required for energy tracking';
+
+  // ✅ NEW: Validations
+  if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
+    errors.runtimeHours = 'Must be 0-24 hours';
+  }
+  if (data.motorKw && (Number(data.motorKw) < 0 || Number(data.motorKw) > 500)) {
+    errors.motorKw = 'Must be 0-500 kW';
+  }
 
   return errors;
 }
