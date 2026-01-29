@@ -25,9 +25,14 @@ import {
   Calendar,
   User,
   FileText,
-  Download
+  Download,
+  ChevronDown,
+  ChevronRight,
+  Info,
+  Gauge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 const EQUIPMENT_TYPES = [
   { value: 'all', label: 'All Equipment', icon: Activity },
@@ -62,6 +67,19 @@ export default function EquipmentMetrics() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const logsPerPage = 20;
+
+  // Expandable rows
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (logKey: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(logKey)) {
+      newExpanded.delete(logKey);
+    } else {
+      newExpanded.add(logKey);
+    }
+    setExpandedRows(newExpanded);
+  };
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);
@@ -397,46 +415,145 @@ export default function EquipmentMetrics() {
                         const Icon = getEquipmentIcon(log.equipmentType);
                         const colorClass = getEquipmentColor(log.equipmentType);
                         const { date, time } = formatTimestamp(log.timestamp);
+                        const logKey = `${log.SK}-${index}`;
+                        const isExpanded = expandedRows.has(logKey);
+
+                        // Get all metrics from flattened log (data was merged to top level by Lambda)
+                        const allMetrics = Object.entries(log)
+                          .filter(([key]) => !['PK', 'SK', 'id', 'facilityId', 'equipmentId', 'systemType', 'equipmentType', 'timestamp', 'operator', 'operatorId', 'notes', 'createdBy', 'createdRole', 'facility_id', 'system', 'system_asset', 'data'].includes(key))
+                          .filter(([_, value]) => value !== null && value !== undefined && value !== '');
 
                         return (
-                          <tr
-                            key={`${log.SK}-${index}`}
-                            className="border-b border-border/30 hover:bg-accent/50 transition-colors neon-glow-row"
-                          >
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                <Icon className={cn('w-4 h-4', colorClass)} />
-                                <span className="font-mono text-sm">{log.equipmentId}</span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <Badge variant="outline" className="capitalize">
-                                {log.equipmentType}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-sm">{date}</td>
-                            <td className="p-3 text-sm font-mono">{time}</td>
-                            <td className="p-3">
-                              <div className="flex flex-col">
-                                <span className="text-sm">{log.operator}</span>
-                                <span className="text-xs text-muted-foreground font-mono">{log.operatorId}</span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(log.data).slice(0, 3).map(([key, value]) => (
-                                  <Badge key={key} variant="secondary" className="text-xs">
-                                    {key}: {typeof value === 'number' ? value.toFixed(1) : value}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              {log.notes && (
-                                <span className="text-xs text-muted-foreground italic">{log.notes}</span>
-                              )}
-                            </td>
-                          </tr>
+                          <React.Fragment key={logKey}>
+                            <tr
+                              className="border-b border-border/30 hover:bg-accent/50 transition-colors neon-glow-row cursor-pointer"
+                              onClick={() => toggleRow(logKey)}
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Icon className={cn('w-4 h-4', colorClass)} />
+                                  <span className="font-mono text-sm">{log.equipmentId}</span>
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <Badge variant="outline" className="capitalize">
+                                  {log.equipmentType}
+                                </Badge>
+                              </td>
+                              <td className="p-3 text-sm">{date}</td>
+                              <td className="p-3 text-sm font-mono">{time}</td>
+                              <td className="p-3">
+                                <div className="flex flex-col">
+                                  <span className="text-sm">{log.operator}</span>
+                                  <span className="text-xs text-muted-foreground font-mono">{log.operatorId}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                  {allMetrics.slice(0, 3).map(([key, value]) => (
+                                    <Badge key={key} variant="secondary" className="text-xs">
+                                      {key}: {typeof value === 'number' ? value.toFixed(1) : value}
+                                    </Badge>
+                                  ))}
+                                  {allMetrics.length > 3 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{allMetrics.length - 3} more
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                {log.notes && (
+                                  <span className="text-xs text-muted-foreground italic truncate max-w-[200px] block">
+                                    {log.notes}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                            
+                            {/* Expanded Details Row */}
+                            {isExpanded && (
+                              <tr className="bg-accent/30 border-b border-border/30">
+                                <td colSpan={7} className="p-6">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                      <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                                        <Info className="w-4 h-4" />
+                                        Equipment Information
+                                      </h4>
+                                      <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Equipment ID:</span>
+                                          <span className="font-mono">{log.equipmentId}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Type:</span>
+                                          <span className="capitalize">{log.equipmentType}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Timestamp:</span>
+                                          <span className="font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                                        <User className="w-4 h-4" />
+                                        Operator Information
+                                      </h4>
+                                      <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Name:</span>
+                                          <span>{log.operator}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">ID:</span>
+                                          <span className="font-mono">{log.operatorId}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                                      <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                                        <Gauge className="w-4 h-4" />
+                                        All Metrics
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                        {allMetrics.map(([key, value]) => (
+                                          <div key={key} className="flex flex-col bg-background/50 rounded p-2">
+                                            <span className="text-xs text-muted-foreground capitalize">
+                                              {key.replace(/_/g, ' ')}
+                                            </span>
+                                            <span className="text-sm font-semibold">
+                                              {typeof value === 'number' ? value.toFixed(2) : String(value)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {log.notes && (
+                                      <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                                        <h4 className="text-sm font-semibold text-primary flex items-center gap-2">
+                                          <FileText className="w-4 h-4" />
+                                          Operator Notes
+                                        </h4>
+                                        <p className="text-sm bg-background/50 rounded p-3 italic">
+                                          {log.notes}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
