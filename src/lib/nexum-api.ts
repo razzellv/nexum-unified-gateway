@@ -384,13 +384,13 @@ export async function getFacilityLogs(options?: {
 }) {
   try {
     const params = new URLSearchParams();
-    if (options?.startDate) params.append('startDate', options.startDate);
-    if (options?.endDate) params.append('endDate', options.endDate);
-    if (options?.equipmentType) params.append('equipmentType', options.equipmentType);
+    if (options?.startDate) params.append('start_date', options.startDate);
+    if (options?.endDate) params.append('end_date', options.endDate);
+    if (options?.equipmentType) params.append('system_type', options.equipmentType);
     if (options?.limit) params.append('limit', options.limit.toString());
     
     const query = params.toString();
-    const endpoint = query ? `/logs?${query}` : '/logs';
+    const endpoint = query ? `/logs/latest?${query}` : '/logs/latest';
     
     return await apiRequest<{ logs: FacilityLog[] }>(endpoint);
   } catch (error) {
