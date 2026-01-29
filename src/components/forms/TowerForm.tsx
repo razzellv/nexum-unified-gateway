@@ -1,7 +1,7 @@
 import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Waves } from 'lucide-react';
+import { Waves, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TowerFormData {
@@ -10,6 +10,10 @@ interface TowerFormData {
   fanStatus: string;
   makeUpWaterStatus: string;
   driftObservation: string;
+  // ✅ NEW: Energy calculation fields
+  runtimeHours: string;
+  fanKw: string;
+  waterUsageGallons: string;
 }
 
 interface TowerFormProps {
@@ -128,8 +132,63 @@ export function TowerForm({ data, onChange, errors }: TowerFormProps) {
         </div>
       </div>
 
+      {/* ✅ NEW: Energy & Water Usage Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-primary/20">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          Energy & Water Usage Data
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <FormField
+            label="Runtime Hours"
+            name="runtimeHours"
+            type="number"
+            value={data.runtimeHours}
+            onChange={(v) => updateField('runtimeHours', v)}
+            required
+            error={errors.runtimeHours}
+            unit="hrs"
+            min={0}
+            max={24}
+            step={0.1}
+            placeholder="18.5"
+            icon={Timer}
+          />
+
+          <FormField
+            label="Fan Power"
+            name="fanKw"
+            type="number"
+            value={data.fanKw}
+            onChange={(v) => updateField('fanKw', v)}
+            unit="kW"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="7.5"
+            helperText="Fan motor kW draw"
+          />
+
+          <FormField
+            label="Water Usage"
+            name="waterUsageGallons"
+            type="number"
+            value={data.waterUsageGallons}
+            onChange={(v) => updateField('waterUsageGallons', v)}
+            unit="gal"
+            min={0}
+            step={1}
+            placeholder="5000"
+            helperText="Make-up + blowdown"
+          />
+        </div>
+      </div>
+
       {/* Drift Observation */}
-      <div className="input-group">
+      <div className="input-group mt-6">
         <Label className="text-sm font-medium">
           Drift / Splash Observation <span className="text-destructive">*</span>
         </Label>
@@ -164,6 +223,10 @@ export const initialTowerData: TowerFormData = {
   fanStatus: '',
   makeUpWaterStatus: '',
   driftObservation: '',
+  // ✅ NEW: Energy fields
+  runtimeHours: '',
+  fanKw: '',
+  waterUsageGallons: '',
 };
 
 export function validateTowerForm(data: TowerFormData): Record<string, string> {
@@ -174,9 +237,17 @@ export function validateTowerForm(data: TowerFormData): Record<string, string> {
   if (!data.fanStatus) errors.fanStatus = 'Required';
   if (!data.makeUpWaterStatus) errors.makeUpWaterStatus = 'Required';
   if (!data.driftObservation) errors.driftObservation = 'Required';
+  
+  // ✅ NEW: Runtime required for energy tracking
+  if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
 
   if (data.approachTemp && (Number(data.approachTemp) < 0 || Number(data.approachTemp) > 50)) {
     errors.approachTemp = 'Must be 0-50°F';
+  }
+  
+  // ✅ NEW: Runtime validation
+  if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
+    errors.runtimeHours = 'Must be 0-24 hours';
   }
 
   return errors;
