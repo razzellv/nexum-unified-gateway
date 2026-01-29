@@ -1,7 +1,7 @@
 import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wind } from 'lucide-react';
+import { Wind, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AHUFormData {
@@ -11,6 +11,9 @@ interface AHUFormData {
   filterStatus: string;
   damperPosition: string;
   occupancyMode: string;
+  // ✅ NEW: Energy calculation fields
+  runtimeHours: string;
+  fanKw: string;
 }
 
 interface AHUFormProps {
@@ -99,8 +102,53 @@ export function AHUForm({ data, onChange, errors }: AHUFormProps) {
         />
       </div>
 
+      {/* ✅ NEW: Energy & Runtime Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-primary/20">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          Energy & Runtime Data
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            label="Runtime Hours"
+            name="runtimeHours"
+            type="number"
+            value={data.runtimeHours}
+            onChange={(v) => updateField('runtimeHours', v)}
+            required
+            error={errors.runtimeHours}
+            unit="hrs"
+            min={0}
+            max={24}
+            step={0.1}
+            placeholder="16.5"
+            icon={Timer}
+            helperText="Hours of operation this shift"
+          />
+
+          <FormField
+            label="Fan Power Draw"
+            name="fanKw"
+            type="number"
+            value={data.fanKw}
+            onChange={(v) => updateField('fanKw', v)}
+            required
+            error={errors.fanKw}
+            unit="kW"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="15.5"
+            helperText="Current fan motor kW"
+          />
+        </div>
+      </div>
+
       {/* Filter Status */}
-      <div className="input-group">
+      <div className="input-group mt-6">
         <Label className="text-sm font-medium">
           Filter Status <span className="text-destructive">*</span>
         </Label>
@@ -156,6 +204,9 @@ export const initialAHUData: AHUFormData = {
   filterStatus: '',
   damperPosition: '',
   occupancyMode: '',
+  // ✅ NEW: Energy fields
+  runtimeHours: '',
+  fanKw: '',
 };
 
 export function validateAHUForm(data: AHUFormData): Record<string, string> {
@@ -167,6 +218,10 @@ export function validateAHUForm(data: AHUFormData): Record<string, string> {
   if (!data.filterStatus) errors.filterStatus = 'Required';
   if (!data.damperPosition) errors.damperPosition = 'Required';
   if (!data.occupancyMode) errors.occupancyMode = 'Required';
+  
+  // ✅ NEW: Runtime and kW required for energy calculations
+  if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
+  if (!data.fanKw) errors.fanKw = 'Required for energy tracking';
 
   if (data.supplyAirTemp && (Number(data.supplyAirTemp) < 0 || Number(data.supplyAirTemp) > 150)) {
     errors.supplyAirTemp = 'Must be 0-150°F';
@@ -179,6 +234,14 @@ export function validateAHUForm(data: AHUFormData): Record<string, string> {
   }
   if (data.damperPosition && (Number(data.damperPosition) < 0 || Number(data.damperPosition) > 100)) {
     errors.damperPosition = 'Must be 0-100%';
+  }
+  
+  // ✅ NEW: Runtime validation
+  if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
+    errors.runtimeHours = 'Must be 0-24 hours';
+  }
+  if (data.fanKw && (Number(data.fanKw) < 0 || Number(data.fanKw) > 100)) {
+    errors.fanKw = 'Must be 0-100 kW';
   }
 
   return errors;
