@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Flame, Shield } from 'lucide-react';
+import { Flame, Shield, Zap, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BoilerFormData {
@@ -24,6 +24,10 @@ interface BoilerFormData {
   // Simplified LWCO fields
   lwcoTestResult: 'pass' | 'fail' | '';
   blowdownPerformed: boolean;
+  // ✅ NEW: Energy calculation fields
+  runtimeHours: string;
+  gasCCF: string;
+  kwDraw: string;
 }
 
 interface BoilerFormProps {
@@ -180,8 +184,8 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
           max={100}
           placeholder="75"
         />
-
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField
           label="Fuel Gas Pressure"
@@ -214,9 +218,63 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
         />
       </div>
 
+      {/* ✅ NEW: Energy & Runtime Section */}
+      <div className="mt-6 pt-6 border-t border-border/50">
+        <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+          <div className="p-1.5 rounded-md bg-primary/20">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+          Energy & Runtime Data
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <FormField
+            label="Runtime Hours"
+            name="runtimeHours"
+            type="number"
+            value={data.runtimeHours}
+            onChange={(v) => updateField('runtimeHours', v)}
+            required
+            error={errors.runtimeHours}
+            unit="hrs"
+            min={0}
+            max={24}
+            step={0.1}
+            placeholder="8.5"
+            icon={Timer}
+          />
+
+          <FormField
+            label="Gas Consumption"
+            name="gasCCF"
+            type="number"
+            value={data.gasCCF}
+            onChange={(v) => updateField('gasCCF', v)}
+            unit="CCF"
+            min={0}
+            step={0.1}
+            placeholder="25.5"
+            helperText="Hundred cubic feet of gas"
+          />
+
+          <FormField
+            label="Electric Draw"
+            name="kwDraw"
+            type="number"
+            value={data.kwDraw}
+            onChange={(v) => updateField('kwDraw', v)}
+            unit="kW"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="2.5"
+            helperText="For controls & auxiliaries"
+          />
+        </div>
+      </div>
 
       {/* Safety Status */}
-      <div className="input-group">
+      <div className="input-group mt-6">
         <Label className="text-sm font-medium">
           Safety Status <span className="text-destructive">*</span>
         </Label>
@@ -337,6 +395,10 @@ export const initialBoilerData: BoilerFormData = {
   safetyStatus: '',
   lwcoTestResult: '',
   blowdownPerformed: false,
+  // ✅ NEW: Energy fields
+  runtimeHours: '',
+  gasCCF: '',
+  kwDraw: '',
 };
 
 export function validateBoilerForm(data: BoilerFormData): Record<string, string> {
@@ -352,6 +414,9 @@ export function validateBoilerForm(data: BoilerFormData): Record<string, string>
   if (!data.systemPsi) errors.systemPsi = 'Required';
   if (!data.safetyStatus) errors.safetyStatus = 'Required';
   if (!data.lwcoTestResult) errors.lwcoTestResult = 'Required';
+  
+  // ✅ NEW: Runtime is required for energy calculations
+  if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
 
   // Numeric validations
   if (data.supplyTemp && (Number(data.supplyTemp) < 0 || Number(data.supplyTemp) > 500)) {
@@ -371,6 +436,9 @@ export function validateBoilerForm(data: BoilerFormData): Record<string, string>
   }
   if (data.systemPsi && (Number(data.systemPsi) < 0 || Number(data.systemPsi) > 300)) {
     errors.systemPsi = 'Must be 0-300 PSI';
+  }
+  if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
+    errors.runtimeHours = 'Must be 0-24 hours';
   }
 
   return errors;
