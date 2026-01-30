@@ -35,12 +35,22 @@ import {
   Medal,
   Wind,
   Droplets,
-  Waves
+  Waves,
+  Hash // ✅ NEW: For employee ID icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Simple bar chart component
 const SimpleBarChart = ({ data }: { data: Array<{ date: string; count: number }> }) => {
+  // ✅ FIXED: Handle empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground">
+        <p className="text-sm">No activity data for the last 7 days</p>
+      </div>
+    );
+  }
+
   const maxCount = Math.max(...data.map(d => d.count), 1);
   
   return (
@@ -75,6 +85,15 @@ const SimpleBarChart = ({ data }: { data: Array<{ date: string; count: number }>
 
 // Donut chart component
 const DonutChart = ({ data }: { data: Array<{ type: string; count: number }> }) => {
+  // ✅ FIXED: Handle empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
+        <p className="text-sm">No equipment coverage data</p>
+      </div>
+    );
+  }
+
   const total = data.reduce((sum, d) => sum + d.count, 0);
   const colors = ['#00d9ff', '#0066ff', '#00ffaa', '#ffaa00', '#aa00ff'];
   
@@ -120,23 +139,27 @@ const DonutChart = ({ data }: { data: Array<{ type: string; count: number }> }) 
 };
 
 export default function EmployeeDashboard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const employeeId = id || "EMP001";
+  // ✅ FIXED: Use user.sub if no id param
+  const employeeId = id || user?.sub || "EMP001";
 
   const fetchData = useCallback(async () => {
     if (!employeeId) return;
     setError(null);
+    setIsLoading(true);
     
     try {
+      console.log('📊 Fetching employee dashboard for:', employeeId);
       const apiData = await getEmployeeDashboard(employeeId);
+      console.log('✅ Dashboard data received:', apiData);
       setData(apiData);
     } catch (apiError) {
-      console.error('API call failed:', apiError);
+      console.error('❌ API call failed:', apiError);
       setError('Unable to load dashboard data');
     } finally {
       setIsLoading(false);
@@ -196,9 +219,14 @@ export default function EmployeeDashboard() {
               <h1 className="text-3xl font-bold text-foreground text-glow">
                 {data?.employee.name || 'Employee Portal'}
               </h1>
-              <div className="flex gap-2 mt-1">
-                <Badge variant="outline">{data?.employee.department}</Badge>
-                <Badge variant="outline">{data?.employee.shift} Shift</Badge>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {/* ✅ NEW: Employee ID Badge */}
+                <Badge variant="outline" className="bg-primary/5 border-primary/30">
+                  <Hash className="w-3 h-3 mr-1" />
+                  {data?.employee.id || employeeId}
+                </Badge>
+                <Badge variant="outline">{data?.employee.department || 'Operations'}</Badge>
+                <Badge variant="outline">{data?.employee.shift || 'Day'} Shift</Badge>
                 {data?.rank && data?.totalEmployees && (
                   <Badge variant="outline" className="bg-primary/10">
                     Rank #{data.rank} of {data.totalEmployees}
@@ -221,6 +249,7 @@ export default function EmployeeDashboard() {
             <ExportButtons 
               title="My Report"
               metrics={data ? [
+                { label: 'Employee ID', value: data.employee.id },
                 { label: 'Virtuous Score', value: `${data.virtuousScore}` },
                 { label: 'Logs This Week', value: `${data.metrics?.logsThisWeek || 0}` },
               ] : undefined}
@@ -239,7 +268,7 @@ export default function EmployeeDashboard() {
             {/* Virtuous Score & Rank */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="executive-card neon-border p-6 opacity-0 fade-scale-in">
-                <FacilityGauge value={data.virtuousScore} label="Your Virtuous Compliance Score" size="lg" />
+                <FacilityGauge value={data.virtuousScore || 0} label="Your Virtuous Compliance Score" size="lg" />
               </Card>
               
               {/* Rank Card */}
@@ -275,7 +304,7 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Logs This Week</p>
-                        <p className="text-2xl font-bold text-neon-cyan">{data.metrics.logsThisWeek}</p>
+                        <p className="text-2xl font-bold text-neon-cyan">{data.metrics.logsThisWeek || 0}</p>
                       </div>
                       <Activity className="w-8 h-8 text-neon-cyan opacity-50" />
                     </div>
@@ -288,7 +317,7 @@ export default function EmployeeDashboard() {
                       <div>
                         <p className="text-sm text-muted-foreground">Work Orders</p>
                         <p className="text-2xl font-bold text-success">
-                          {data.metrics.workOrdersCompleted}/{data.metrics.workOrdersTotal}
+                          {data.metrics.workOrdersCompleted || 0}/{data.metrics.workOrdersTotal || 0}
                         </p>
                       </div>
                       <CheckCircle className="w-8 h-8 text-success opacity-50" />
@@ -301,7 +330,7 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Equipment Types</p>
-                        <p className="text-2xl font-bold text-warning">{data.metrics.equipmentTypesCovered}</p>
+                        <p className="text-2xl font-bold text-warning">{data.metrics.equipmentTypesCovered || 0}</p>
                       </div>
                       <Gauge className="w-8 h-8 text-warning opacity-50" />
                     </div>
@@ -313,7 +342,7 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Avg Response</p>
-                        <p className="text-2xl font-bold text-primary">{data.metrics.avgCompletionTimeHours}h</p>
+                        <p className="text-2xl font-bold text-primary">{data.metrics.avgCompletionTimeHours || 0}h</p>
                       </div>
                       <Clock className="w-8 h-8 text-primary opacity-50" />
                     </div>
@@ -323,35 +352,31 @@ export default function EmployeeDashboard() {
             )}
 
             {/* Activity Timeline */}
-            {data.activityTimeline && (
-              <Card className="neon-border" style={{ animationDelay: '350ms' }}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                    Activity Timeline (Last 7 Days)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SimpleBarChart data={data.activityTimeline} />
-                </CardContent>
-              </Card>
-            )}
+            <Card className="neon-border" style={{ animationDelay: '350ms' }}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Activity Timeline (Last 7 Days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SimpleBarChart data={data.activityTimeline || []} />
+              </CardContent>
+            </Card>
 
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Equipment Coverage */}
-              {data.equipmentCoverage && data.equipmentCoverage.length > 0 && (
-                <Card className="neon-border" style={{ animationDelay: '400ms' }}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="w-5 h-5 text-primary" />
-                      Equipment Coverage
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DonutChart data={data.equipmentCoverage} />
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="neon-border" style={{ animationDelay: '400ms' }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-primary" />
+                    Equipment Coverage
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DonutChart data={data.equipmentCoverage || []} />
+                </CardContent>
+              </Card>
 
               {/* Leaderboard */}
               {data.leaderboard && data.leaderboard.length > 0 && (
@@ -366,7 +391,7 @@ export default function EmployeeDashboard() {
                     <div className="space-y-2">
                       {data.leaderboard.map((operator: any, index: number) => {
                         const { icon: Icon, color, bg } = getRankBadge(index + 1);
-                        const isCurrentUser = operator.id === employeeId;
+                        const isCurrentUser = operator.id === employeeId || operator.id === data.employee.id;
                         
                         return (
                           <div
@@ -418,20 +443,20 @@ export default function EmployeeDashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div className="text-center p-4 rounded-lg bg-muted/30">
                       <Activity className="w-8 h-8 mx-auto mb-2 text-primary" />
-                      <p className="text-3xl font-bold">{data.shiftSummary.logsSubmitted}</p>
+                      <p className="text-3xl font-bold">{data.shiftSummary.logsSubmitted || 0}</p>
                       <p className="text-sm text-muted-foreground">Logs Submitted</p>
                     </div>
                     <div className="text-center p-4 rounded-lg bg-muted/30">
                       <Gauge className="w-8 h-8 mx-auto mb-2 text-success" />
-                      <p className="text-3xl font-bold">{data.shiftSummary.equipmentChecked}</p>
+                      <p className="text-3xl font-bold">{data.shiftSummary.equipmentChecked || 0}</p>
                       <p className="text-sm text-muted-foreground">Equipment Checked</p>
                     </div>
                     <div className="text-center p-4 rounded-lg bg-muted/30">
                       <AlertTriangle className={cn(
                         'w-8 h-8 mx-auto mb-2',
-                        data.shiftSummary.alertsFlagged > 0 ? 'text-warning' : 'text-muted-foreground'
+                        (data.shiftSummary.alertsFlagged || 0) > 0 ? 'text-warning' : 'text-muted-foreground'
                       )} />
-                      <p className="text-3xl font-bold">{data.shiftSummary.alertsFlagged}</p>
+                      <p className="text-3xl font-bold">{data.shiftSummary.alertsFlagged || 0}</p>
                       <p className="text-sm text-muted-foreground">Alerts Flagged</p>
                     </div>
                   </div>
@@ -564,17 +589,22 @@ export default function EmployeeDashboard() {
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
                   Compliance Events
+                  {data.complianceEvents && data.complianceEvents.length > 0 && (
+                    <Badge variant="outline" className="ml-auto">
+                      {data.complianceEvents.length} Total
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {data.complianceEvents && data.complianceEvents.length === 0 ? (
+                {!data.complianceEvents || data.complianceEvents.length === 0 ? (
                   <div className="text-center py-6">
                     <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-2" />
                     <p className="text-muted-foreground">No compliance issues - great job!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {data.complianceEvents?.map((event: any, index: number) => (
+                    {data.complianceEvents.map((event: any, index: number) => (
                       <div
                         key={event.id}
                         className={cn(
@@ -596,6 +626,9 @@ export default function EmployeeDashboard() {
                               <p className="text-xs text-muted-foreground">
                                 {new Date(event.date || event.timestamp).toLocaleString()}
                               </p>
+                              {event.description && (
+                                <p className="text-xs text-muted-foreground mt-1">{event.description}</p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -623,11 +656,11 @@ export default function EmployeeDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {data.workOrders && data.workOrders.length === 0 ? (
+                {!data.workOrders || data.workOrders.length === 0 ? (
                   <p className="text-muted-foreground text-sm text-center py-4">No work orders assigned</p>
                 ) : (
                   <div className="space-y-3">
-                    {data.workOrders?.map((wo: any, index: number) => (
+                    {data.workOrders.map((wo: any, index: number) => (
                       <div
                         key={wo.id}
                         className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-all"
