@@ -47,6 +47,31 @@ const VIOLATION_TYPES = [
   { value: 'regulatory_non_compliance', label: 'Regulatory Non-Compliance' },
 ];
 
+// ✅ NEW: Policy/Code Reference Dropdown
+const POLICY_REFERENCES = [
+  { value: 'OSHA-1910.134', label: 'OSHA 1910.134 - Respiratory Protection' },
+  { value: 'OSHA-1910.147', label: 'OSHA 1910.147 - Lockout/Tagout' },
+  { value: 'OSHA-1910.1200', label: 'OSHA 1910.1200 - Hazard Communication' },
+  { value: 'OSHA-1926.501', label: 'OSHA 1926.501 - Fall Protection' },
+  { value: 'NFPA-70', label: 'NFPA 70 - National Electrical Code' },
+  { value: 'NFPA-101', label: 'NFPA 101 - Life Safety Code' },
+  { value: 'ASHRAE-62.1', label: 'ASHRAE 62.1 - Ventilation Standards' },
+  { value: 'ASHRAE-90.1', label: 'ASHRAE 90.1 - Energy Standards' },
+  { value: 'EPA-CAA', label: 'EPA Clean Air Act' },
+  { value: 'EPA-CWA', label: 'EPA Clean Water Act' },
+  { value: 'ASME-B31.1', label: 'ASME B31.1 - Power Piping' },
+  { value: 'ASME-CSD-1', label: 'ASME CSD-1 - Boiler Controls' },
+  { value: 'IBC-2021', label: 'International Building Code 2021' },
+  { value: 'IMC-2021', label: 'International Mechanical Code 2021' },
+  { value: 'IPC-2021', label: 'International Plumbing Code 2021' },
+  { value: 'NJ-PEOSH', label: 'NJ PEOSH - Public Employee Safety' },
+  { value: 'NJ-DEP', label: 'NJ DEP - Environmental Regulations' },
+  { value: 'COMPANY-SOP-001', label: 'Company SOP-001 - General Safety' },
+  { value: 'COMPANY-SOP-002', label: 'Company SOP-002 - Equipment Operation' },
+  { value: 'COMPANY-SOP-003', label: 'Company SOP-003 - Emergency Response' },
+  { value: 'other', label: 'Other (specify in notes)' },
+];
+
 const IMPACT_LEVELS = ['low', 'medium', 'high', 'critical'];
 
 const HAZARD_TYPES = [
@@ -271,16 +296,22 @@ export default function Compliance() {
   const handleViolationSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
+      console.log('Submitting violation:', data);
+      
       const payload = {
         type: 'violation',
         ...data,
+        timestamp: new Date().toISOString(),
       };
 
       const response = await logComplianceEvent(payload);
+      console.log('Response:', response);
       
       // Extract virtuous score from response
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
+      if (virtuousScore) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
         title: '✅ Violation Logged Successfully',
@@ -294,11 +325,11 @@ export default function Compliance() {
         correctiveActionRequired: false,
         repeatOffense: false,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Compliance logging error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to log violation. Please try again.',
+        title: 'Error Logging Violation',
+        description: error.message || 'Failed to log violation. Please check console for details.',
         variant: 'destructive'
       });
     } finally {
@@ -312,12 +343,15 @@ export default function Compliance() {
       const payload = {
         type: 'pm_check',
         ...data,
+        timestamp: new Date().toISOString(),
       };
 
       const response = await logComplianceEvent(payload);
       
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
+      if (virtuousScore) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
         title: '✅ PM Check Logged Successfully',
@@ -331,10 +365,11 @@ export default function Compliance() {
         correctiveActionRequired: false,
         completedOnTime: true,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('PM logging error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to log PM check. Please try again.',
+        title: 'Error Logging PM Check',
+        description: error.message || 'Failed to log PM check. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -348,12 +383,15 @@ export default function Compliance() {
       const payload = {
         type: 'safety_observation',
         ...data,
+        timestamp: new Date().toISOString(),
       };
 
       const response = await logComplianceEvent(payload);
       
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
+      if (virtuousScore) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
         title: '✅ Safety Observation Logged Successfully',
@@ -367,10 +405,11 @@ export default function Compliance() {
         correctiveActionRequired: false,
         immediateRisk: false,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Safety logging error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to log safety observation. Please try again.',
+        title: 'Error Logging Safety Observation',
+        description: error.message || 'Failed to log safety observation. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -446,7 +485,7 @@ export default function Compliance() {
                         <div className="space-y-2">
                           <Label>Violation Type *</Label>
                           <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
-                            <SelectTrigger>
+                            <SelectTrigger className={violationForm.formState.errors.violationType ? 'border-destructive' : ''}>
                               <SelectValue placeholder="Select violation type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -455,14 +494,29 @@ export default function Compliance() {
                               ))}
                             </SelectContent>
                           </Select>
+                          {violationForm.formState.errors.violationType && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
+                        
+                        {/* ✅ FIXED: Policy Reference Dropdown */}
                         <div className="space-y-2">
                           <Label>Policy / Code Reference *</Label>
-                          <Input
-                            {...violationForm.register('policyReference', { required: true })}
-                            placeholder="e.g., OSHA 1910.134"
-                            className="font-mono"
-                          />
+                          <Select onValueChange={(v) => violationForm.setValue('policyReference', v)}>
+                            <SelectTrigger className={violationForm.formState.errors.policyReference ? 'border-destructive' : ''}>
+                              <SelectValue placeholder="Select policy or code" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              {POLICY_REFERENCES.map(({ value, label }) => (
+                                <SelectItem key={value} value={value} className="font-mono text-sm">
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {violationForm.formState.errors.policyReference && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
                       </div>
 
@@ -470,7 +524,7 @@ export default function Compliance() {
                         <div className="space-y-2">
                           <Label>Estimated Impact Level *</Label>
                           <Select onValueChange={(v) => violationForm.setValue('estimatedImpactLevel', v)}>
-                            <SelectTrigger>
+                            <SelectTrigger className={violationForm.formState.errors.estimatedImpactLevel ? 'border-destructive' : ''}>
                               <SelectValue placeholder="Select impact level" />
                             </SelectTrigger>
                             <SelectContent>
@@ -479,6 +533,9 @@ export default function Compliance() {
                               ))}
                             </SelectContent>
                           </Select>
+                          {violationForm.formState.errors.estimatedImpactLevel && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
                         <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border h-fit">
                           <div className="flex items-center gap-3">
@@ -527,7 +584,11 @@ export default function Compliance() {
                           <Input
                             {...pmForm.register('pmTask', { required: true })}
                             placeholder="e.g., Quarterly HVAC Filter Replacement"
+                            className={pmForm.formState.errors.pmTask ? 'border-destructive' : ''}
                           />
+                          {pmForm.formState.errors.pmTask && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>Scheduled Date *</Label>
@@ -536,9 +597,12 @@ export default function Compliance() {
                             <Input
                               type="date"
                               {...pmForm.register('scheduledDate', { required: true })}
-                              className="pl-10"
+                              className={`pl-10 ${pmForm.formState.errors.scheduledDate ? 'border-destructive' : ''}`}
                             />
                           </div>
+                          {pmForm.formState.errors.scheduledDate && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
                       </div>
 
@@ -601,7 +665,7 @@ export default function Compliance() {
                         <div className="space-y-2">
                           <Label>Hazard Type *</Label>
                           <Select onValueChange={(v) => safetyForm.setValue('hazardType', v)}>
-                            <SelectTrigger>
+                            <SelectTrigger className={safetyForm.formState.errors.hazardType ? 'border-destructive' : ''}>
                               <SelectValue placeholder="Select hazard type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -610,6 +674,9 @@ export default function Compliance() {
                               ))}
                             </SelectContent>
                           </Select>
+                          {safetyForm.formState.errors.hazardType && (
+                            <p className="text-xs text-destructive">Required</p>
+                          )}
                         </div>
                         <div className={`flex items-center justify-between p-4 rounded-lg border ${safetyForm.watch('immediateRisk') ? 'bg-destructive/10 border-destructive/30' : 'bg-secondary/50 border-border'}`}>
                           <div className="flex items-center gap-3">
@@ -632,7 +699,11 @@ export default function Compliance() {
                           {...safetyForm.register('actionTaken', { required: true, minLength: 10 })}
                           placeholder="Describe the corrective or preventive action taken..."
                           rows={4}
+                          className={safetyForm.formState.errors.actionTaken ? 'border-destructive' : ''}
                         />
+                        {safetyForm.formState.errors.actionTaken && (
+                          <p className="text-xs text-destructive">Required (min 10 characters)</p>
+                        )}
                       </div>
                     </div>
                   </div>
