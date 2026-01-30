@@ -5,8 +5,8 @@ import HeroSection from "@/components/equipment-intelligence/HeroSection";
 import UploadSection from "@/components/equipment-intelligence/UploadSection";
 import AnalysisResults from "@/components/equipment-intelligence/AnalysisResults";
 import EquipmentLibrary from "@/components/equipment-intelligence/EquipmentLibrary";
-import RecentEquipment from "@/components/equipment-intelligence/RecentEquipment"; // NEW
-import InventorySection from "@/components/equipment-intelligence/InventorySection"; // NEW
+import RecentEquipment from "@/components/equipment-intelligence/RecentEquipment";
+import InventorySection from "@/components/equipment-intelligence/InventorySection";
 import { EquipmentProvider } from "@/contexts/EquipmentContext";
 
 export default function EquipmentIntelligence() {
@@ -16,17 +16,23 @@ export default function EquipmentIntelligence() {
       <NexumBranding />
       
       <EquipmentProvider>
-        <div className="space-y-6">
+        <div className="space-y-8">
+          {/* Hero Section */}
           <HeroSection />
+          
+          {/* Upload Section */}
           <UploadSection />
+          
+          {/* Analysis Results */}
           <AnalysisResults />
           
-          {/* NEW: Recent Equipment (Last 7 Days) */}
+          {/* Recent Equipment (Last 7 Days) */}
           <RecentEquipment />
           
+          {/* Equipment Library */}
           <EquipmentLibrary />
           
-          {/* NEW: Inventory Section */}
+          {/* Parts & Supplies Inventory */}
           <InventorySection />
         </div>
       </EquipmentProvider>
