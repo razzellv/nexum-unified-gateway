@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -311,7 +310,7 @@ export default function InventorySection() {
                     id="name"
                     value={newPart.name || ''}
                     onChange={(e) => setNewPart({ ...newPart, name: e.target.value })}
-                    placeholder="1/2\" Hex Bolt Grade 8"
+                    placeholder="1/2 inch Hex Bolt Grade 8"
                   />
                 </div>
                 
