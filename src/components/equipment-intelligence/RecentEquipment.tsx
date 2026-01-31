@@ -133,7 +133,7 @@ export default function RecentEquipment() {
   };
 
   return (
-    <Card className="neon-border opacity-0 fade-scale-in">
+    <Card className="neon-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="w-5 h-5 text-primary" />
