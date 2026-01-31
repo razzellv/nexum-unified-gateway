@@ -256,7 +256,7 @@ export default function InventorySection() {
   const lowStockCount = inventory.filter(p => p.quantity < p.minQuantity).length;
 
   return (
-    <Card className="neon-border opacity-0 fade-scale-in" style={{ animationDelay: '300ms' }}>
+    <Card className="neon-border">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <CardTitle className="flex items-center gap-2">
