@@ -198,8 +198,6 @@ export default function EmployeeDashboard() {
     );
   }
 
-  // Rest of your component...
-}
   const getSeverityColor = (severity: number) => {
     if (severity >= 4) return 'bg-destructive text-destructive-foreground';
     if (severity >= 3) return 'bg-yellow-500 text-yellow-950';
