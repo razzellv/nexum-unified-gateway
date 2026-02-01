@@ -311,6 +311,19 @@ export default function EmployeeDashboard() {
                   </CardContent>
                 </Card>
 
+<Card className="neon-border" style={{ animationDelay: '350ms' }}>
+  <CardContent className="p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Efficiency</p>
+        <p className="text-2xl font-bold text-success">
+          {data.metrics.efficiency || 0}%
+        </p>
+      </div>
+      <Zap className="w-8 h-8 text-success opacity-50" />
+    </div>
+  </CardContent>
+</Card>                
                 <Card className="neon-border" style={{ animationDelay: '200ms' }}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
