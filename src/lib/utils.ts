@@ -33,7 +33,7 @@ export async function fileToBase64WithResize(file: File): Promise<string> {
 
     console.log('📸 Resizing image...');
 
-    console.log   Original: ${Math.round(sizeKB)}KB);
+    console.log(`   Original: ${Math.round(sizeKB)}KB);
 
     
 
