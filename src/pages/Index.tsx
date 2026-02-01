@@ -1,466 +1,368 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { ParticleBackground } from "@/components/ParticleBackground";
-import { SystemFeed } from "@/components/SystemFeed";
+import { useState, useEffect } from 'react';
+import { MainLayout } from '@/components/MainLayout';
+import { ParticleBackground } from '@/components/ParticleBackground';
+import { NexumBranding } from '@/components/NexumBranding';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
-  GraduationCap, 
-  Cpu, 
-  Sparkles, 
-  Database, 
-  Command, 
-  BarChart3, 
-  CheckCircle,
-  Clock,
-  ScrollText,
-  BookOpen,
-  ShieldCheck,
-  Gauge,
-  Camera,
-  Activity,
-  MessageSquare,
-  Upload,
-  FileText,
-  Briefcase,
-  TrendingUp,
+  Activity, 
+  AlertTriangle, 
+  TrendingUp, 
   Users,
-  User,
-  Zap,
-  Shield,
   Flame,
   Snowflake,
   Wind,
-  Droplets
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+  Droplets,
+  Waves,
+  Package,
+  RefreshCw,
+  ExternalLink
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-type ModuleStatus = "active" | "in-progress";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
-interface ModuleCardProps {
-  title: string;
-  subtitle?: string;
-  description: string;
-  route: string;
-  icon: React.ReactNode;
-  status: ModuleStatus;
-  colorTheme?: "primary" | "secondary" | "accent";
-}
-
-const ModuleCard = ({ 
-  title, 
-  subtitle,
-  description, 
-  route, 
-  icon,
-  status,
-  colorTheme = "primary"
-}: ModuleCardProps) => {
-  const navigate = useNavigate();
-  
-  const colorClasses = {
-    primary: {
-      glow: "group-hover:shadow-[0_0_40px_hsl(168_92%_55%/0.25)]",
-      border: "border-primary/20 group-hover:border-primary/50",
-      icon: "text-primary",
-    },
-    secondary: {
-      glow: "group-hover:shadow-[0_0_40px_hsl(210_100%_54%/0.25)]",
-      border: "border-secondary/20 group-hover:border-secondary/50",
-      icon: "text-secondary",
-    },
-    accent: {
-      glow: "group-hover:shadow-[0_0_40px_hsl(24_100%_55%/0.25)]",
-      border: "border-accent/20 group-hover:border-accent/50",
-      icon: "text-accent",
-    },
+const getEquipmentIcon = (type: string) => {
+  const icons: Record<string, any> = {
+    boiler: Flame,
+    chiller: Snowflake,
+    ahu: Wind,
+    pump: Droplets,
+    cooling_tower: Waves,
+    tower: Waves,
   };
-
-  const statusConfig = {
-    active: {
-      label: "Active",
-      className: "bg-green-500/10 text-green-500 border-green-500/30",
-      icon: <CheckCircle className="w-3 h-3" />,
-    },
-    "in-progress": {
-      label: "Integration in Progress",
-      className: "bg-blue-500/10 text-blue-500 border-blue-500/30",
-      icon: <Clock className="w-3 h-3" />,
-    },
-  };
-
-  const currentStatus = statusConfig[status];
-  
-  return (
-    <div 
-      onClick={() => navigate(route)}
-      className={cn(
-        "group relative rounded-xl overflow-hidden cursor-pointer",
-        "bg-card/50 backdrop-blur-xl",
-        "border transition-all duration-300",
-        "hover:-translate-y-1 hover:scale-[1.02]",
-        colorClasses[colorTheme].border,
-        colorClasses[colorTheme].glow
-      )}
-    >
-      {/* Holographic overlay */}
-      <div className="absolute inset-0 holographic opacity-10 group-hover:opacity-20 transition-opacity" />
-      
-      <div className="relative z-10 p-5">
-        {/* Header with icon and status */}
-        <div className="flex items-start justify-between mb-4">
-          <div className={cn(
-            "p-3 rounded-lg bg-muted/50 transition-transform duration-300 group-hover:scale-110",
-            colorClasses[colorTheme].icon
-          )}>
-            {icon}
-          </div>
-          
-          <Badge 
-            variant="outline"
-            className={cn(
-              "flex items-center gap-1.5 text-xs font-medium",
-              currentStatus.className
-            )}
-          >
-            {currentStatus.icon}
-            {currentStatus.label}
-          </Badge>
-        </div>
-        
-        {/* Title & Description */}
-        <h3 className="text-lg font-semibold mb-1 group-hover:text-glow-primary transition-all">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground/70 mb-1">{subtitle}</p>
-        )}
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
+  return icons[type?.toLowerCase()] || Package;
 };
 
-// ✅ NEW: Live Telemetry Component
-const LiveTelemetry = () => {
-  const [telemetryData, setTelemetryData] = useState<any[]>([]);
-  
+const getEquipmentColor = (type: string) => {
+  const colors: Record<string, string> = {
+    boiler: 'text-orange-500 bg-orange-500/10',
+    chiller: 'text-blue-500 bg-blue-500/10',
+    ahu: 'text-cyan-500 bg-cyan-500/10',
+    pump: 'text-green-500 bg-green-500/10',
+    cooling_tower: 'text-purple-500 bg-purple-500/10',
+    tower: 'text-purple-500 bg-purple-500/10',
+  };
+  return colors[type?.toLowerCase()] || 'text-primary bg-primary/10';
+};
+
+export default function Index() {
+  const [equipmentRegistry, setEquipmentRegistry] = useState<any[]>([]);
+  const [facilityTelemetry, setFacilityTelemetry] = useState<any[]>([]);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(true);
+  const [isLoadingTelemetry, setIsLoadingTelemetry] = useState(true);
+
+  const fetchEquipmentRegistry = async () => {
+    setIsLoadingEquipment(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/equipment?sort=recent`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const equipment = data.equipment || data.items || data || [];
+        console.log('✅ Equipment registry loaded:', equipment.length);
+        setEquipmentRegistry(equipment);
+      } else {
+        console.warn('⚠️ Equipment API error, showing empty');
+        setEquipmentRegistry([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading equipment:', error);
+      setEquipmentRegistry([]);
+    } finally {
+      setIsLoadingEquipment(false);
+    }
+  };
+
+  const fetchFacilityTelemetry = async () => {
+    setIsLoadingTelemetry(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      // Get recent logs (last 10)
+      const response = await fetch(`${API_BASE_URL}/logs?limit=10&sort=recent`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const logs = data.logs || data.items || data || [];
+        console.log('✅ Facility telemetry loaded:', logs.length);
+        setFacilityTelemetry(logs);
+      } else {
+        setFacilityTelemetry([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading telemetry:', error);
+      setFacilityTelemetry([]);
+    } finally {
+      setIsLoadingTelemetry(false);
+    }
+  };
+
   useEffect(() => {
-    // Simulate live telemetry updates
-    const interval = setInterval(() => {
-      const newData = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        system: ['Boiler-1', 'Chiller-2', 'AHU-3', 'Pump-4'][Math.floor(Math.random() * 4)],
-        type: ['boiler', 'chiller', 'ahu', 'pump'][Math.floor(Math.random() * 4)],
-        value: Math.random() * 100,
-        status: Math.random() > 0.8 ? 'warning' : 'normal'
-      };
-      
-      setTelemetryData(prev => [newData, ...prev].slice(0, 10));
-    }, 3000);
+    fetchEquipmentRegistry();
+    fetchFacilityTelemetry();
+
+    // Auto-refresh every 3 seconds for telemetry
+    const telemetryInterval = setInterval(fetchFacilityTelemetry, 3000);
     
-    return () => clearInterval(interval);
-  }, []);
+    // Refresh equipment every 30 seconds
+    const equipmentInterval = setInterval(fetchEquipmentRegistry, 30000);
 
-  const getIcon = (type: string) => {
-    const icons: Record<string, any> = {
-      boiler: Flame,
-      chiller: Snowflake,
-      ahu: Wind,
-      pump: Droplets
+    return () => {
+      clearInterval(telemetryInterval);
+      clearInterval(equipmentInterval);
     };
-    return icons[type] || Activity;
-  };
-
-  return (
-    <div className="space-y-2">
-      {telemetryData.length === 0 ? (
-        <div className="text-center py-8">
-          <Activity className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2 animate-pulse" />
-          <p className="text-sm text-muted-foreground">Waiting for telemetry data...</p>
-        </div>
-      ) : (
-        telemetryData.map((data) => {
-          const Icon = getIcon(data.type);
-          return (
-            <div
-              key={data.id}
-              className={cn(
-                "flex items-center gap-3 p-2 rounded-lg border transition-all animate-fade-in",
-                data.status === 'warning' 
-                  ? "border-warning/50 bg-warning/10" 
-                  : "border-border/30 bg-muted/20"
-              )}
-            >
-              <Icon className={cn(
-                "w-4 h-4",
-                data.status === 'warning' ? "text-warning" : "text-primary"
-              )} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{data.system}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(data.timestamp).toLocaleTimeString()}
-                </p>
-              </div>
-              <Badge variant={data.status === 'warning' ? "destructive" : "outline"} className="text-xs">
-                {data.value.toFixed(1)}
-              </Badge>
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-};
-
-const Index = () => {
-  const { userRole } = useAuth();
-  const navigate = useNavigate();
-  
-  // ✅ NEW: Equipment Library stats
-  const [equipmentCount, setEquipmentCount] = useState(0);
-  
-  useEffect(() => {
-    // Simulate fetching equipment count
-    setEquipmentCount(12);
   }, []);
 
+  // ✅ Listen for equipmentAdded events
+  useEffect(() => {
+    const handleEquipmentAdded = () => {
+      console.log('🔄 Equipment added, refreshing registry...');
+      fetchEquipmentRegistry();
+    };
+
+    window.addEventListener('equipmentAdded', handleEquipmentAdded);
+    return () => window.removeEventListener('equipmentAdded', handleEquipmentAdded);
+  }, []);
+
+  // Group equipment by type
+  const equipmentByType = equipmentRegistry.reduce((acc, eq) => {
+    const type = eq.type || 'unknown';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(eq);
+    return acc;
+  }, {} as Record<string, any[]>);
+
   return (
-    <div className="min-h-screen bg-background grid-bg">
+    <MainLayout>
       <ParticleBackground />
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/30 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-5">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Sparkles className="w-6 h-6 text-primary animate-glow-pulse" />
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-glow-primary">
-              Nexum Suum™
-            </h1>
-          </div>
-          <p className="text-muted-foreground text-sm ml-14">
-            Unified Operations Hub • Multi-Facility Command Center
+      <NexumBranding />
+
+      <div className="space-y-8">
+        {/* Hero Section */}
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-blue-500 to-purple-500 bg-clip-text text-transparent">
+            Operations Hub
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Real-time facility intelligence and equipment management
           </p>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-10">
-        {/* Active Modules */}
-        <section className="rounded-xl border border-green-500/20 bg-card/30 backdrop-blur-xl p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-green-500/50 to-transparent" />
-            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              Active Modules
-            </h2>
-            <div className="h-px flex-1 bg-gradient-to-l from-green-500/50 to-transparent" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <ModuleCard
-              title="Facility Intelligence"
-              description="Real-time dashboards for energy, operations, and performance analytics"
-              route="/facility-intelligence"
-              icon={<BarChart3 className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
-            <ModuleCard
-              title="Equipment Intelligence"
-              description="AI-powered nameplate analysis and equipment specs extraction"
-              route="/equipment-intelligence"
-              icon={<Camera className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
-            <ModuleCard
-              title="Equipment Metrics"
-              description="Real-time equipment performance and operational data"
-              route="/equipment"
-              icon={<Activity className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
-            <ModuleCard
-              title="Facility Data Source"
-              description="Log daily operational readings and equipment data"
-              route="/data-source"
-              icon={<Upload className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
-            <ModuleCard
-              title="Compliance Logger"
-              description="Log violations, PM checks, and safety observations"
-              route="/compliance-logger"
-              icon={<Shield className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
-            />
-          </div>
-        </section>
-
-        {/* Modules In Progress */}
-        <section className="rounded-xl border border-blue-500/20 bg-card/30 backdrop-blur-xl p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent" />
-            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-500" />
-              Modules In Progress
-            </h2>
-            <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <ModuleCard
-              title="Facility Command Center"
-              description="Work orders, maintenance scheduling, and operations management"
-              route="/command-center"
-              icon={<Command className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="secondary"
-            />
-            <ModuleCard
-              title="Facility Instructor"
-              description="AI chat assistant for technical, safety, and HR questions"
-              route="/instructor"
-              icon={<MessageSquare className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Compliance Analyzer"
-              description="Automated compliance analysis and regulatory tracking"
-              route="/compliance-analyzer"
-              icon={<ShieldCheck className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Optimize & Learn"
-              description="Training modules and continuous improvement programs"
-              route="/optimize-learn"
-              icon={<GraduationCap className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="secondary"
-            />
-          </div>
-        </section>
-
-        {/* ✅ NEW: Equipment Library Section */}
-        <section className="rounded-xl border border-primary/20 bg-card/30 backdrop-blur-xl p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-primary/50 to-transparent" />
-            <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
-              <Database className="w-4 h-4 text-primary" />
-              Equipment Library
-            </h2>
-            <div className="h-px flex-1 bg-gradient-to-l from-primary/50 to-transparent" />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Quick Stats */}
-            <Card 
-              className="neon-border cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => navigate('/equipment-library')}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <Database className="w-8 h-8 text-primary" />
-                  <Badge variant="outline" className="bg-primary/10 text-primary">
-                    {equipmentCount} Items
-                  </Badge>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="neon-border">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Equipment</p>
+                  <p className="text-3xl font-bold">{equipmentRegistry.length}</p>
                 </div>
-                <h3 className="font-semibold text-lg mb-2">Equipment Registry</h3>
-                <p className="text-sm text-muted-foreground">
-                  View all scanned equipment, specifications, and AI analysis
-                </p>
-              </CardContent>
-            </Card>
+                <Package className="w-8 h-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Recent Scans */}
-            <Card className="neon-border col-span-1 md:col-span-2">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-primary" />
-                    Recent Equipment Scans
-                  </h3>
-                  <button 
-                    onClick={() => navigate('/equipment-library')}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    View All →
-                  </button>
+          <Card className="neon-border">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Active Systems</p>
+                  <p className="text-3xl font-bold">{Object.keys(equipmentByType).length}</p>
                 </div>
-                <div className="space-y-2">
-                  {[
-                    { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
-                    { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
-                    { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <item.icon className={cn('w-4 h-4', item.color)} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.type}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{item.date}</span>
-                    </div>
-                  ))}
+                <Activity className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="neon-border">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Recent Logs</p>
+                  <p className="text-3xl font-bold">{facilityTelemetry.length}</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+                <TrendingUp className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* ✅ ENHANCED: Live Facility Telemetry */}
-        <section className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 backdrop-blur-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-muted-foreground animate-pulse" />
-            <h2 className="text-lg font-semibold text-muted-foreground">Live Facility Telemetry</h2>
-            <Badge variant="outline" className="ml-auto text-xs">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-1.5" />
-              Live
-            </Badge>
-          </div>
-          <div className="min-h-[200px]">
-            <LiveTelemetry />
-          </div>
-        </section>
-
-        {/* System Feed */}
-        <section>
-          <SystemFeed />
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border/50 bg-card/30 backdrop-blur-xl mt-12">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-muted-foreground text-sm">
-              Nexum Suum™ © 2025 • Powered by AWS + Lovable AI
-            </p>
-            <div className="flex gap-6 text-sm">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                Support
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                Terms
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                Privacy
-              </a>
-            </div>
-          </div>
+          <Card className="neon-border">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">System Health</p>
+                  <p className="text-3xl font-bold text-green-500">98%</p>
+                </div>
+                <AlertTriangle className="w-8 h-8 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </footer>
-    </div>
-  );
-};
 
-export default Index;
+        {/* Equipment Library */}
+        <Card className="neon-border">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Equipment Registry
+                <Badge variant="outline">{equipmentRegistry.length} Total</Badge>
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchEquipmentRegistry}
+                  disabled={isLoadingEquipment}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingEquipment ? 'animate-spin' : ''}`} />
+                </Button>
+                <Link to="/equipment-intelligence">
+                  <Button size="sm">
+                    View Full Library
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingEquipment ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : equipmentRegistry.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground mb-2">No equipment registered</p>
+                <p className="text-xs text-muted-foreground">
+                  Add equipment via Equipment Intelligence page
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(equipmentByType).map(([type, items]) => {
+                  const Icon = getEquipmentIcon(type);
+                  const colors = getEquipmentColor(type);
+                  
+                  return (
+                    <div key={type} className="border border-border/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${colors}`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold capitalize">
+                              {type.replace('_', ' ')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              {items.length} {items.length === 1 ? 'unit' : 'units'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {items.slice(0, 6).map((eq) => (
+                          <div
+                            key={eq.equipmentId}
+                            className="text-sm p-2 rounded bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="font-mono text-xs text-primary">
+                              {eq.equipmentId}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {eq.name || `${eq.manufacturer} ${eq.model}`}
+                            </div>
+                          </div>
+                        ))}
+                        {items.length > 6 && (
+                          <div className="text-sm p-2 rounded bg-muted/20 flex items-center justify-center text-muted-foreground">
+                            +{items.length - 6} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Live Facility Telemetry */}
+        <Card className="neon-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary animate-pulse" />
+              Live Facility Telemetry
+              <Badge variant="outline" className="animate-pulse">Live</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingTelemetry ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : facilityTelemetry.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No recent telemetry data</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {facilityTelemetry.map((event, idx) => {
+                  const Icon = getEquipmentIcon(event.systemType);
+                  const colors = getEquipmentColor(event.systemType);
+                  const timestamp = new Date(event.timestamp);
+                  
+                  return (
+                    <div
+                      key={event.logId || idx}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-card/50"
+                    >
+                      <div className={`p-2 rounded ${colors}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-medium">
+                            {event.equipmentId}
+                          </span>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {event.systemType}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {event.operator?.name || event.operatorId || 'Unknown'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs text-muted-foreground">
+                          {timestamp.toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
+  );
+}
