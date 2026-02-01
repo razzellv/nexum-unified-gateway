@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Flame, Snowflake, Wind, Droplets, Waves, Camera, FileText, Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, Flame, Snowflake, Wind, Droplets, Waves, Camera, FileText, Activity, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,9 +14,12 @@ interface RecentEquipmentItem {
   model?: string;
   addedMethod: 'manual_entry' | 'nameplate_scan';
   addedAt: string;
+  createdAt?: string;
   addedBy?: string;
   confidence?: number;
 }
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getEquipmentIcon = (type: string) => {
   const icons: Record<string, any> = {
@@ -59,91 +63,79 @@ export default function RecentEquipment() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchRecentEquipment();
-  }, []);
-
   const fetchRecentEquipment = async () => {
+    setIsLoading(true);
     try {
-      // TODO: Replace with actual API endpoint
-      // const response = await fetch(`${API_BASE_URL}/equipment?days=7&sort=recent`);
-      // const data = await response.json();
-      // setRecentEquipment(data.equipment || []);
-
-      // Mock data for demonstration
-      setTimeout(() => {
-        const mockData: RecentEquipmentItem[] = [
-          {
-            equipmentId: 'B-03',
-            name: 'Cleaver-Brooks CB-700',
-            type: 'boiler',
-            manufacturer: 'Cleaver-Brooks',
-            model: 'CB-700-150',
-            addedMethod: 'nameplate_scan',
-            addedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            addedBy: 'John Operator',
-            confidence: 98
-          },
-          {
-            equipmentId: 'C-04',
-            name: 'Trane CVHE-500',
-            type: 'chiller',
-            manufacturer: 'Trane',
-            model: 'CVHE-500',
-            addedMethod: 'nameplate_scan',
-            addedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-            addedBy: 'Sarah Tech',
-            confidence: 95
-          },
-          {
-            equipmentId: 'P-08',
-            name: 'Armstrong S-65',
-            type: 'pump',
-            manufacturer: 'Armstrong',
-            model: 'S-65',
-            addedMethod: 'manual_entry',
-            addedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            addedBy: 'Mike Engineer'
-          },
-          {
-            equipmentId: 'AHU-12',
-            name: 'Carrier 39M-250',
-            type: 'ahu',
-            manufacturer: 'Carrier',
-            model: '39M-250',
-            addedMethod: 'nameplate_scan',
-            addedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            addedBy: 'John Operator',
-            confidence: 92
-          },
-        ];
-        setRecentEquipment(mockData);
-        setIsLoading(false);
-      }, 500);
-
-    } catch (error) {
-      console.error('Error fetching recent equipment:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load recent equipment',
-        variant: 'destructive'
+      // ✅ Try to fetch from real API
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/equipment?days=7&sort=recent`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Recent equipment from API:', data);
+        
+        // Handle different response structures
+        const equipment = data.equipment || data.items || data || [];
+        setRecentEquipment(equipment);
+      } else {
+        console.warn('⚠️ API returned error, using empty list');
+        setRecentEquipment([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching recent equipment:', error);
+      // Don't show error toast, just show empty state
+      setRecentEquipment([]);
+    } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchRecentEquipment();
+
+    // ✅ Auto-refresh every 30 seconds
+    const interval = setInterval(fetchRecentEquipment, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ✅ Listen for custom event when equipment is added
+  useEffect(() => {
+    const handleEquipmentAdded = () => {
+      console.log('🔄 Equipment added, refreshing...');
+      fetchRecentEquipment();
+    };
+
+    window.addEventListener('equipmentAdded', handleEquipmentAdded);
+    return () => window.removeEventListener('equipmentAdded', handleEquipmentAdded);
+  }, []);
+
   return (
     <Card className="neon-border">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-primary" />
-          Recently Added Equipment (Last 7 Days)
-          {recentEquipment.length > 0 && (
-            <Badge variant="outline" className="ml-auto">
-              {recentEquipment.length} Added
-            </Badge>
-          )}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-primary" />
+            Recently Added Equipment (Last 7 Days)
+            {recentEquipment.length > 0 && (
+              <Badge variant="outline" className="ml-2">
+                {recentEquipment.length} Added
+              </Badge>
+            )}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchRecentEquipment}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -156,13 +148,17 @@ export default function RecentEquipment() {
         ) : recentEquipment.length === 0 ? (
           <div className="text-center py-12">
             <Activity className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">No equipment added in the last 7 days</p>
+            <p className="text-muted-foreground mb-2">No equipment added in the last 7 days</p>
+            <p className="text-xs text-muted-foreground">
+              Equipment added through scanning or manual entry will appear here
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {recentEquipment.map((item, index) => {
               const Icon = getEquipmentIcon(item.type);
               const typeColors = getTypeColor(item.type);
+              const timestamp = item.addedAt || item.createdAt || new Date().toISOString();
 
               return (
                 <div
@@ -193,7 +189,7 @@ export default function RecentEquipment() {
                   {/* Equipment Details */}
                   <div className="space-y-1 mb-3">
                     <h4 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                      {item.name}
+                      {item.name || `${item.manufacturer} ${item.model}` || item.equipmentId}
                     </h4>
                     <p className="text-xs text-muted-foreground font-mono">
                       {item.equipmentId}
@@ -242,7 +238,7 @@ export default function RecentEquipment() {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {getTimeAgo(item.addedAt)}
+                      {getTimeAgo(timestamp)}
                     </span>
                     {item.addedBy && (
                       <span className="truncate ml-2 max-w-[100px]">
