@@ -9,143 +9,173 @@ export function cn(...inputs: ClassValue[]) {
 
 }
 
-export async function fileToBase64WithResize(file: File): Promise<string> {
+/**
 
-  const maxSizeKB = 8000;
+ * Check if image needs resizing
+
+ */
+
+export function shouldResizeImage(file: File, maxSizeKB = 8000): boolean {
 
   const sizeKB = file.size / 1024;
 
-  let imageFile = file;
+  return sizeKB > maxSizeKB;
 
-  
+}
 
-  if (sizeKB > maxSizeKB) {
+/**
 
-    console.log('📸 Resizing image...');
+ * Resize an image file to fit within max dimensions
 
-    console.logOriginal: ${Math.round(sizeKB)}KB);
+ */
 
-    
+export async function resizeImage(
 
-    try {
+  file: File, 
 
-      imageFile = await new Promise<File>((resolve, reject) => {
+  maxWidth = 1920, 
 
-        const reader = new FileReader();
+  maxHeight = 1080, 
 
-        reader.onerror = () => reject(new Error('Failed to read file'));
+  quality = 0.85
 
-        reader.onload = (e) => {
+): Promise<File> {
 
-          const img = new Image();
+  return new Promise((resolve, reject) => {
 
-          img.onerror = () => reject(new Error('Failed to load image'));
+    const reader = new FileReader();
 
-          img.onload = () => {
+    reader.onerror = () => reject(new Error('Failed to read file'));
 
-            let width = img.width;
+    reader.onload = (e) => {
 
-            let height = img.height;
+      const img = new Image();
 
-            const maxWidth = 1920;
+      img.onerror = () => reject(new Error('Failed to load image'));
 
-            const maxHeight = 1080;
+      img.onload = () => {
 
-            
+        let width = img.width;
 
-            if (width > height) {
+        let height = img.height;
 
-              if (width > maxWidth) {
+        
 
-                height = Math.round((height * maxWidth) / width);
+        if (width > height) {
 
-                width = maxWidth;
+          if (width > maxWidth) {
 
-              }
+            height = Math.round((height * maxWidth) / width);
 
-            } else {
+            width = maxWidth;
 
-              if (height > maxHeight) {
+          }
 
-                width = Math.round((width * maxHeight) / height);
+        } else {
 
-                height = maxHeight;
+          if (height > maxHeight) {
 
-              }
+            width = Math.round((width * maxHeight) / height);
 
-            }
+            height = maxHeight;
 
-            
+          }
 
-            const canvas = document.createElement('canvas');
+        }
 
-            canvas.width = width;
+        
 
-            canvas.height = height;
+        const canvas = document.createElement('canvas');
 
-            const ctx = canvas.getContext('2d');
+        canvas.width = width;
 
-            
+        canvas.height = height;
 
-            if (!ctx) {
+        
 
-              reject(new Error('Failed to get canvas context'));
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+
+          reject(new Error('Failed to get canvas context'));
+
+          return;
+
+        }
+
+        
+
+        ctx.imageSmoothingEnabled = true;
+
+        ctx.imageSmoothingQuality = 'high';
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        
+
+        canvas.toBlob(
+
+          (blob) => {
+
+            if (!blob) {
+
+              reject(new Error('Failed to create blob'));
 
               return;
 
             }
 
-            
+            resolve(new File([blob], file.name, {
 
-            ctx.imageSmoothingEnabled = true;
+              type: 'image/jpeg',
 
-            ctx.imageSmoothingQuality = 'high';
+              lastModified: Date.now()
 
-            ctx.drawImage(img, 0, 0, width, height);
+            }));
 
-            
+          },
 
-            canvas.toBlob(
+          'image/jpeg',
 
-              (blob) => {
+          quality
 
-                if (!blob) {
+        );
 
-                  reject(new Error('Failed to create blob'));
+      };
 
-                  return;
+      img.src = e.target?.result as string;
 
-                }
+    };
 
-                resolve(new File([blob], file.name, {
+    reader.readAsDataURL(file);
 
-                  type: 'image/jpeg',
+  });
 
-                  lastModified: Date.now()
+}
 
-                }));
+/**
 
-              },
+ * Auto-resizes images before base64 conversion
 
-              'image/jpeg',
+ */
 
-              0.85
+export async function fileToBase64WithResize(file: File): Promise<string> {
 
-            );
+  let imageFile = file;
 
-          };
+  
 
-          img.src = e.target?.result as string;
+  if (shouldResizeImage(file)) {
 
-        };
+    console.log('📸 Resizing image...');
 
-        reader.readAsDataURL(file);
+    console.log(`   Original: ${Math.round(file.size / 1024)}KB`);
 
-      });
+    try {
 
-      
+      imageFile = await resizeImage(file);
 
-      console.logResized: ${Math.round(imageFile.size / 1024)}KB);
+      console.log(`   Resized: ${Math.round(imageFile.size / 1024)}KB`);
 
       console.log('✅ Resized successfully');
 
@@ -176,4 +206,5 @@ export async function fileToBase64WithResize(file: File): Promise<string> {
   });
 
 }
+
 
