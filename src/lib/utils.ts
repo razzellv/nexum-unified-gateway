@@ -9,37 +9,25 @@ export function cn(...inputs: ClassValue[]) {
 
 }
 
-/**
-
- * Auto-resizes images before base64 conversion (all-in-one function)
-
- */
-
 export async function fileToBase64WithResize(file: File): Promise<string> {
 
   const maxSizeKB = 8000;
 
   const sizeKB = file.size / 1024;
 
-  
-
   let imageFile = file;
 
   
-
-  // Check if resize needed
 
   if (sizeKB > maxSizeKB) {
 
     console.log('📸 Resizing image...');
 
-    console.log(`   Original: ${Math.round(sizeKB)}KB);
+    console.logOriginal: ${Math.round(sizeKB)}KB);
 
     
 
     try {
-
-      // Resize inline
 
       imageFile = await new Promise<File>((resolve, reject) => {
 
@@ -157,7 +145,7 @@ export async function fileToBase64WithResize(file: File): Promise<string> {
 
       
 
-      console.log   Resized: ${Math.round(imageFile.size / 1024)}KB);
+      console.logResized: ${Math.round(imageFile.size / 1024)}KB);
 
       console.log('✅ Resized successfully');
 
@@ -174,8 +162,6 @@ export async function fileToBase64WithResize(file: File): Promise<string> {
   }
 
   
-
-  // Convert to base64
 
   return new Promise((resolve, reject) => {
 
