@@ -138,6 +138,9 @@ const DonutChart = ({ data }: { data: Array<{ type: string; count: number }> }) 
   );
 };
 
+// src/pages/EmployeeDashboard.tsx
+// FIND AND REPLACE the entire top section with this:
+
 export default function EmployeeDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
   const { id } = useParams<{ id: string }>();
@@ -145,15 +148,12 @@ export default function EmployeeDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIXED: Use user.sub, wait for it to be available
+  // ✅ SIMPLE FIX: Just use the ID from URL or user.sub
+  // No complex logic, no waiting
   const employeeId = id || user?.sub;
 
   const fetchData = useCallback(async () => {
-    // ✅ CRITICAL: Don't fetch if we don't have an employeeId yet
-    if (!employeeId) {
-      console.log('⏳ Waiting for employeeId...');
-      return;
-    }
+    if (!employeeId) return; // Skip if no ID yet
     
     setError(null);
     setIsLoading(true);
@@ -172,17 +172,34 @@ export default function EmployeeDashboard() {
   }, [employeeId]);
 
   useEffect(() => {
-    // ✅ CRITICAL: Only fetch when authenticated AND we have employeeId
-    if (isAuthenticated && employeeId) {
+    if (isAuthenticated) {
       fetchData();
     }
-  }, [isAuthenticated, employeeId, fetchData]);
+  }, [isAuthenticated, fetchData]);
 
-  // ✅ Show loading while auth is checking OR user not loaded yet
-  if (loading || (isAuthenticated && !employeeId)) {
-    return <NexumPageLoader message="Loading your dashboard..." />;
+  // ✅ SIMPLE: Just check if auth is loading
+  if (loading) {
+    return <NexumPageLoader message="Authenticating..." />;
   }
 
+  // Rest stays the same...
+  
+  if (error && !data) {
+    return <NexumError message={error} onRetry={fetchData} />;
+  }
+
+  if (isLoading && !data) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center py-20">
+          <NexumLoader message="Loading your dashboard..." />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Rest of your component...
+}
   const getSeverityColor = (severity: number) => {
     if (severity >= 4) return 'bg-destructive text-destructive-foreground';
     if (severity >= 3) return 'bg-yellow-500 text-yellow-950';
