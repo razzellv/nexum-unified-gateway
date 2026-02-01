@@ -145,11 +145,16 @@ export default function EmployeeDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIXED: Use user.sub if no id param
+  // ✅ FIXED: Use user.sub, wait for it to be available
   const employeeId = id || user?.sub;
 
   const fetchData = useCallback(async () => {
-    if (!employeeId) return;
+    // ✅ CRITICAL: Don't fetch if we don't have an employeeId yet
+    if (!employeeId) {
+      console.log('⏳ Waiting for employeeId...');
+      return;
+    }
+    
     setError(null);
     setIsLoading(true);
     
@@ -167,13 +172,15 @@ export default function EmployeeDashboard() {
   }, [employeeId]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    // ✅ CRITICAL: Only fetch when authenticated AND we have employeeId
+    if (isAuthenticated && employeeId) {
       fetchData();
     }
-  }, [isAuthenticated, fetchData]);
+  }, [isAuthenticated, employeeId, fetchData]);
 
-  if (loading) {
-    return <NexumPageLoader message="Authenticating..." />;
+  // ✅ Show loading while auth is checking OR user not loaded yet
+  if (loading || (isAuthenticated && !employeeId)) {
+    return <NexumPageLoader message="Loading your dashboard..." />;
   }
 
   const getSeverityColor = (severity: number) => {
