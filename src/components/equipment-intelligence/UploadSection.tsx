@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
+import { fileToBase64WithResize } from "@/lib/utils";
 
 const UploadSection = () => {
   const { 
@@ -56,14 +57,8 @@ const UploadSection = () => {
         fileSize: file.size,
       });
 
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      
-      const base64Full = await base64Promise;
-      const base64 = base64Full.split(',')[1];
+      const base64Full = await fileToBase64WithResize(file);
+const base64 = base64Full.split(',')[1];
 
       // Get the correct access token
       const accessToken = localStorage.getItem('nexum_access_token');

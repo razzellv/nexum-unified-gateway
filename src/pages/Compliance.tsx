@@ -29,25 +29,56 @@ const SYSTEM_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-const COMPLIANCE_CATEGORIES = [
-  { value: 'safety', label: 'Safety' },
-  { value: 'environmental', label: 'Environmental' },
-  { value: 'quality', label: 'Quality' },
-  { value: 'regulatory', label: 'Regulatory' },
-  { value: 'procedural', label: 'Procedural' },
-  { value: 'documentation', label: 'Documentation' },
-];
-
+// ✅ FIXED: Match Lambda's VIOLATION_TYPES exactly
 const VIOLATION_TYPES = [
-  { value: 'safety_protocol', label: 'Safety Protocol Violation' },
-  { value: 'equipment_misuse', label: 'Equipment Misuse' },
-  { value: 'documentation_failure', label: 'Documentation Failure' },
-  { value: 'procedural_deviation', label: 'Procedural Deviation' },
-  { value: 'environmental_breach', label: 'Environmental Breach' },
-  { value: 'regulatory_non_compliance', label: 'Regulatory Non-Compliance' },
+  // Equipment violations
+  { value: 'MISSING_LOG', label: 'Missing Equipment Log', severity: 25 },
+  { value: 'LATE_LOG', label: 'Late Log Entry', severity: 15 },
+  { value: 'INCOMPLETE_DATA', label: 'Incomplete Data Entry', severity: 35 },
+  { value: 'OUT_OF_RANGE', label: 'Out of Range Reading', severity: 50 },
+  { value: 'CRITICAL_FAILURE', label: 'Critical Equipment Failure', severity: 100 },
+  { value: 'UNSAFE_OPERATION', label: 'Unsafe Operation', severity: 90 },
+  
+  // Compliance violations
+  { value: 'MISSED_ROUND', label: 'Missed Equipment Round', severity: 40 },
+  { value: 'DOCUMENTATION_ERROR', label: 'Documentation Error', severity: 30 },
+  { value: 'UNAUTHORIZED_CHANGE', label: 'Unauthorized System Change', severity: 75 },
+  { value: 'SAFETY_VIOLATION', label: 'Safety Protocol Violation', severity: 95 },
+  { value: 'TRAINING_LAPSE', label: 'Training/Certification Lapse', severity: 35 },
+  
+  // Operational violations
+  { value: 'PROCEDURE_DEVIATION', label: 'Procedure Deviation', severity: 45 },
+  { value: 'POOR_COMMUNICATION', label: 'Poor Communication', severity: 25 },
+  { value: 'QUALITY_ISSUE', label: 'Quality Issue', severity: 40 },
+  { value: 'RESPONSE_DELAY', label: 'Delayed Response to Issue', severity: 55 },
+  
+  // Unethical behavior
+  { value: 'UNETHICAL_CONDUCT', label: 'Unethical Conduct', severity: 85 },
+  { value: 'DISHONESTY', label: 'Dishonesty/Falsification', severity: 95 },
+  { value: 'POLICY_VIOLATION', label: 'Company Policy Violation', severity: 65 },
 ];
 
-const IMPACT_LEVELS = ['low', 'medium', 'high', 'critical'];
+// Positive behaviors
+const POSITIVE_BEHAVIORS = [
+  { value: 'EXEMPLARY_SAFETY', label: 'Exemplary Safety Practice', severity: -20 },
+  { value: 'PROACTIVE_REPORTING', label: 'Proactive Issue Reporting', severity: -15 },
+  { value: 'EXCELLENCE', label: 'Operational Excellence', severity: -25 },
+  { value: 'MENTORSHIP', label: 'Mentorship/Training Others', severity: -15 },
+];
+
+const POLICY_REFERENCES = [
+  { value: 'OSHA-1910.134', label: 'OSHA 1910.134 - Respiratory Protection' },
+  { value: 'OSHA-1910.147', label: 'OSHA 1910.147 - Lockout/Tagout' },
+  { value: 'OSHA-1910.1200', label: 'OSHA 1910.1200 - Hazard Communication' },
+  { value: 'OSHA-1926.501', label: 'OSHA 1926.501 - Fall Protection' },
+  { value: 'NFPA-70', label: 'NFPA 70 - National Electrical Code' },
+  { value: 'NFPA-101', label: 'NFPA 101 - Life Safety Code' },
+  { value: 'ASHRAE-62.1', label: 'ASHRAE 62.1 - Ventilation Standards' },
+  { value: 'COMPANY-SOP-001', label: 'Company SOP-001 - General Safety' },
+  { value: 'COMPANY-SOP-002', label: 'Company SOP-002 - Equipment Operation' },
+  { value: 'COMPANY-SOP-003', label: 'Company SOP-003 - Emergency Response' },
+  { value: 'other', label: 'Other (specify in notes)' },
+];
 
 const HAZARD_TYPES = [
   { value: 'slip_trip_fall', label: 'Slip / Trip / Fall' },
@@ -80,9 +111,9 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Facility *</Label>
+            <Label>Facility</Label>
             <Select onValueChange={(v) => setValue('facility', v)}>
-              <SelectTrigger className={errors.facility ? 'border-destructive' : ''}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select facility" />
               </SelectTrigger>
               <SelectContent>
@@ -91,12 +122,11 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
                 ))}
               </SelectContent>
             </Select>
-            {errors.facility && <p className="text-xs text-destructive">Required</p>}
           </div>
           <div className="space-y-2">
-            <Label>Building *</Label>
+            <Label>Building</Label>
             <Select onValueChange={(v) => setValue('building', v)}>
-              <SelectTrigger className={errors.building ? 'border-destructive' : ''}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select building" />
               </SelectTrigger>
               <SelectContent>
@@ -105,7 +135,6 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
                 ))}
               </SelectContent>
             </Select>
-            {errors.building && <p className="text-xs text-destructive">Required</p>}
           </div>
         </div>
       </div>
@@ -114,13 +143,13 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <Cpu className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-foreground">System</h3>
+          <h3 className="font-semibold text-foreground">System / Equipment</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>System Type *</Label>
-            <Select onValueChange={(v) => setValue('systemType', v)}>
-              <SelectTrigger className={errors.systemType ? 'border-destructive' : ''}>
+            <Label>System Type</Label>
+            <Select onValueChange={(v) => setValue('equipmentType', v)}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select system type" />
               </SelectTrigger>
               <SelectContent>
@@ -129,108 +158,78 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
                 ))}
               </SelectContent>
             </Select>
-            {errors.systemType && <p className="text-xs text-destructive">Required</p>}
           </div>
           <div className="space-y-2">
-            <Label>System ID *</Label>
+            <Label>Equipment ID</Label>
             <Input
-              {...register('systemId', { required: true })}
-              placeholder="e.g., HVAC-001"
-              className={`font-mono ${errors.systemId ? 'border-destructive' : ''}`}
+              {...register('equipmentId')}
+              placeholder="e.g., HVAC-001, B-01"
+              className="font-mono"
             />
-            {errors.systemId && <p className="text-xs text-destructive">Required</p>}
           </div>
         </div>
       </div>
 
-      {/* Personnel Section */}
+      {/* ✅ FIXED: Employee ID field */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <User className="w-5 h-5 text-primary" />
           <h3 className="font-semibold text-foreground">Personnel</h3>
         </div>
-        <div className="space-y-2">
-          <Label>Employee Involved *</Label>
-          <Input
-            {...register('employeeInvolved', { required: true })}
-            placeholder="Full name of employee"
-            className={errors.employeeInvolved ? 'border-destructive' : ''}
-          />
-          {errors.employeeInvolved && <p className="text-xs text-destructive">Required</p>}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Employee ID *</Label>
+            <Input
+              {...register('operatorId', { required: true })}
+              placeholder="e.g., EMP001"
+              className={`font-mono ${errors.operatorId ? 'border-destructive' : ''}`}
+            />
+            {errors.operatorId && <p className="text-xs text-destructive">Required</p>}
+            <p className="text-xs text-muted-foreground">Employee's ID from system</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Employee Name</Label>
+            <Input
+              {...register('operator')}
+              placeholder="Full name (optional)"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Compliance Details Section */}
+      {/* Details Section */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-foreground">Compliance Details</h3>
+          <h3 className="font-semibold text-foreground">Event Details</h3>
         </div>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Compliance Category *</Label>
-              <Select onValueChange={(v) => setValue('complianceCategory', v)}>
-                <SelectTrigger className={errors.complianceCategory ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPLIANCE_CATEGORIES.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.complianceCategory && <p className="text-xs text-destructive">Required</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Severity Level (1-5) *</Label>
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setValue('severityLevel', level)}
-                    className={`w-10 h-10 rounded-lg font-bold transition-all ${
-                      severityLevel === level 
-                        ? 'scale-110 ring-2 ring-offset-2 ring-primary' 
-                        : 'opacity-50 hover:opacity-75'
-                    } ${
-                      level === 1 ? 'bg-green-500 text-white' :
-                      level === 2 ? 'bg-blue-500 text-white' :
-                      level === 3 ? 'bg-yellow-500 text-white' :
-                      level === 4 ? 'bg-orange-500 text-white' :
-                      'bg-red-500 text-white'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <Label>Description *</Label>
             <Textarea
               {...register('description', { required: true, minLength: 10 })}
-              placeholder="Provide a detailed description of the compliance event..."
+              placeholder="Provide a detailed description of the event..."
               rows={4}
               className={errors.description ? 'border-destructive' : ''}
             />
             {errors.description && <p className="text-xs text-destructive">Required (min 10 characters)</p>}
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-warning" />
-              <div>
-                <Label className="text-foreground">Corrective Action Required</Label>
-                <p className="text-xs text-muted-foreground">Mark if follow-up action is needed</p>
-              </div>
-            </div>
-            <Switch
-              checked={watch('correctiveActionRequired')}
-              onCheckedChange={(checked) => setValue('correctiveActionRequired', checked)}
+          <div className="space-y-2">
+            <Label>Notes / Evidence</Label>
+            <Textarea
+              {...register('notes')}
+              placeholder="Additional notes, evidence, or context..."
+              rows={2}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Corrective Action Taken</Label>
+            <Textarea
+              {...register('correctiveAction')}
+              placeholder="What action was taken or is planned..."
+              rows={2}
             />
           </div>
         </div>
@@ -246,59 +245,62 @@ export default function Compliance() {
 
   const violationForm = useForm({
     defaultValues: {
-      severityLevel: 3,
-      correctiveActionRequired: false,
-      repeatOffense: false,
+      operatorId: '',
     }
   });
 
   const pmForm = useForm({
     defaultValues: {
-      severityLevel: 3,
-      correctiveActionRequired: false,
-      completedOnTime: true,
+      operatorId: '',
     }
   });
 
   const safetyForm = useForm({
     defaultValues: {
-      severityLevel: 3,
-      correctiveActionRequired: false,
-      immediateRisk: false,
+      operatorId: '',
     }
   });
 
   const handleViolationSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
+      console.log('Submitting violation:', data);
+      
+      // ✅ FIXED: Send payload matching Lambda's expected format
       const payload = {
-        type: 'violation',
-        ...data,
+        type: data.violationType, // e.g., "SAFETY_VIOLATION"
+        operatorId: data.operatorId, // Required!
+        operator: data.operator || data.operatorId,
+        description: data.description,
+        equipmentId: data.equipmentId,
+        equipmentType: data.equipmentType,
+        notes: data.notes,
+        correctiveAction: data.correctiveAction,
       };
 
+      console.log('Payload:', payload);
+
       const response = await logComplianceEvent(payload);
+      console.log('Response:', response);
       
-      // Extract virtuous score from response
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
+      if (virtuousScore !== undefined) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
         title: '✅ Violation Logged Successfully',
-        description: virtuousScore 
-          ? `Employee Virtuous Score: ${virtuousScore.toFixed(1)}%`
-          : 'The compliance violation has been recorded.',
+        description: virtuousScore !== undefined
+          ? `Employee Virtuous Score: ${virtuousScore}%`
+          : 'The violation has been recorded.',
       });
 
-      violationForm.reset({
-        severityLevel: 3,
-        correctiveActionRequired: false,
-        repeatOffense: false,
-      });
-    } catch (error) {
+      violationForm.reset({ operatorId: '' });
+    } catch (error: any) {
       console.error('Compliance logging error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to log violation. Please try again.',
+        title: 'Error Logging Violation',
+        description: error.message || 'Failed to log violation. Check console for details.',
         variant: 'destructive'
       });
     } finally {
@@ -310,31 +312,35 @@ export default function Compliance() {
     setIsSubmitting(true);
     try {
       const payload = {
-        type: 'pm_check',
-        ...data,
+        type: 'MISSED_ROUND', // Or appropriate type
+        operatorId: data.operatorId,
+        operator: data.operator || data.operatorId,
+        description: `PM Check: ${data.pmTask}`,
+        equipmentId: data.equipmentId,
+        equipmentType: data.equipmentType,
+        notes: `Scheduled: ${data.scheduledDate}. ${!data.completedOnTime ? 'LATE: ' + data.missedReason : 'On time'}`,
       };
 
       const response = await logComplianceEvent(payload);
       
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore;
+      if (virtuousScore !== undefined) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
-        title: '✅ PM Check Logged Successfully',
-        description: virtuousScore 
-          ? `Employee Virtuous Score: ${virtuousScore.toFixed(1)}%`
-          : 'The preventive maintenance check has been recorded.',
+        title: '✅ PM Check Logged',
+        description: virtuousScore !== undefined
+          ? `Virtuous Score: ${virtuousScore}%`
+          : 'PM check recorded.',
       });
 
-      pmForm.reset({
-        severityLevel: 3,
-        correctiveActionRequired: false,
-        completedOnTime: true,
-      });
-    } catch (error) {
+      pmForm.reset({ operatorId: '' });
+    } catch (error: any) {
+      console.error('PM logging error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to log PM check. Please try again.',
+        description: error.message || 'Failed to log PM check.',
         variant: 'destructive'
       });
     } finally {
@@ -346,31 +352,36 @@ export default function Compliance() {
     setIsSubmitting(true);
     try {
       const payload = {
-        type: 'safety_observation',
-        ...data,
+        type: data.immediateRisk ? 'SAFETY_VIOLATION' : 'PROACTIVE_REPORTING',
+        operatorId: data.operatorId,
+        operator: data.operator || data.operatorId,
+        description: data.description,
+        equipmentId: data.equipmentId,
+        equipmentType: data.equipmentType,
+        notes: `Hazard: ${data.hazardType}. Action: ${data.actionTaken}`,
+        correctiveAction: data.actionTaken,
       };
 
       const response = await logComplianceEvent(payload);
       
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore;
-      setLastVirtuousScore(virtuousScore);
+      const virtuousScore = response?.employeeScores?.virtuousScore;
+      if (virtuousScore !== undefined) {
+        setLastVirtuousScore(virtuousScore);
+      }
 
       toast({
-        title: '✅ Safety Observation Logged Successfully',
-        description: virtuousScore 
-          ? `Employee Virtuous Score: ${virtuousScore.toFixed(1)}%`
-          : 'The safety observation has been recorded.',
+        title: '✅ Safety Observation Logged',
+        description: virtuousScore !== undefined
+          ? `Virtuous Score: ${virtuousScore}%`
+          : 'Safety observation recorded.',
       });
 
-      safetyForm.reset({
-        severityLevel: 3,
-        correctiveActionRequired: false,
-        immediateRisk: false,
-      });
-    } catch (error) {
+      safetyForm.reset({ operatorId: '' });
+    } catch (error: any) {
+      console.error('Safety logging error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to log safety observation. Please try again.',
+        description: error.message || 'Failed to log safety observation.',
         variant: 'destructive'
       });
     } finally {
@@ -398,7 +409,7 @@ export default function Compliance() {
                 <Award className="w-5 h-5 text-green-500" />
                 <div>
                   <p className="text-xs text-muted-foreground">Last Virtuous Score</p>
-                  <p className="text-lg font-bold text-green-500">{lastVirtuousScore.toFixed(1)}%</p>
+                  <p className="text-lg font-bold text-green-500">{lastVirtuousScore}%</p>
                 </div>
               </div>
             )}
@@ -439,60 +450,57 @@ export default function Compliance() {
                   <div className="space-y-4 p-6 rounded-lg border border-warning/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <AlertTriangle className="w-5 h-5 text-warning" />
-                      <h3 className="font-semibold text-foreground">Violation Details</h3>
+                      <h3 className="font-semibold text-foreground">Violation Type</h3>
                     </div>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Violation Type *</Label>
-                          <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select violation type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {VIOLATION_TYPES.map(({ value, label }) => (
-                                <SelectItem key={value} value={value}>{label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Policy / Code Reference *</Label>
-                          <Input
-                            {...violationForm.register('policyReference', { required: true })}
-                            placeholder="e.g., OSHA 1910.134"
-                            className="font-mono"
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Violation Type *</Label>
+                        <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
+                          <SelectTrigger className={violationForm.formState.errors.violationType ? 'border-destructive' : ''}>
+                            <SelectValue placeholder="Select violation type" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[400px]">
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Equipment Violations</div>
+                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(0, 6).map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Compliance Violations</div>
+                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(6, 11).map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Operational Issues</div>
+                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(11, 15).map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Serious Violations</div>
+                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(15).map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-green-500 mt-2">✅ Positive Behaviors</div>
+                            {POSITIVE_BEHAVIORS.map(({ value, label }) => (
+                              <SelectItem key={value} value={value} className="text-green-500">{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {violationForm.formState.errors.violationType && (
+                          <p className="text-xs text-destructive">Required</p>
+                        )}
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Estimated Impact Level *</Label>
-                          <Select onValueChange={(v) => violationForm.setValue('estimatedImpactLevel', v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select impact level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {IMPACT_LEVELS.map((level) => (
-                                <SelectItem key={level} value={level} className="capitalize">{level}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border h-fit">
-                          <div className="flex items-center gap-3">
-                            <RotateCcw className="w-5 h-5 text-destructive" />
-                            <div>
-                              <Label className="text-foreground">Repeat Offense</Label>
-                              <p className="text-xs text-muted-foreground">Previous occurrence recorded</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={violationForm.watch('repeatOffense')}
-                            onCheckedChange={(checked) => violationForm.setValue('repeatOffense', checked)}
-                          />
-                        </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Policy / Code Reference</Label>
+                        <Select onValueChange={(v) => violationForm.setValue('policyReference', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select policy or code" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {POLICY_REFERENCES.map(({ value, label }) => (
+                              <SelectItem key={value} value={value} className="font-mono text-sm">
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
@@ -514,68 +522,48 @@ export default function Compliance() {
                     setValue={pmForm.setValue}
                   />
 
-                  {/* PM Check-Specific Fields */}
                   <div className="space-y-4 p-6 rounded-lg border border-green-500/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <ClipboardCheck className="w-5 h-5 text-green-500" />
-                      <h3 className="font-semibold text-foreground">PM Compliance Check Details</h3>
+                      <h3 className="font-semibold text-foreground">PM Details</h3>
                     </div>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>PM Task *</Label>
-                          <Input
-                            {...pmForm.register('pmTask', { required: true })}
-                            placeholder="e.g., Quarterly HVAC Filter Replacement"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Scheduled Date *</Label>
-                          <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                              type="date"
-                              {...pmForm.register('scheduledDate', { required: true })}
-                              className="pl-10"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
-                        <div className="flex items-center gap-3">
-                          <ClipboardCheck className={`w-5 h-5 ${pmForm.watch('completedOnTime') ? 'text-green-500' : 'text-destructive'}`} />
-                          <div>
-                            <Label className="text-foreground">Completed On Time</Label>
-                            <p className="text-xs text-muted-foreground">Was this PM task completed by the scheduled date?</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={pmForm.watch('completedOnTime')}
-                          onCheckedChange={(checked) => pmForm.setValue('completedOnTime', checked)}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>PM Task *</Label>
+                        <Input
+                          {...pmForm.register('pmTask', { required: true })}
+                          placeholder="e.g., Quarterly Filter Replacement"
                         />
                       </div>
-
-                      {!pmForm.watch('completedOnTime') && (
-                        <div className="space-y-2 animate-in slide-in-from-top">
-                          <Label className="flex items-center gap-2 text-destructive">
-                            <AlertCircle className="w-4 h-4" />
-                            Missed Reason *
-                          </Label>
-                          <Textarea
-                            {...pmForm.register('missedReason', { required: !pmForm.watch('completedOnTime') })}
-                            placeholder="Explain why the PM task was not completed on time..."
-                            rows={3}
-                            className="border-destructive/50"
-                          />
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        <Label>Scheduled Date *</Label>
+                        <Input
+                          type="date"
+                          {...pmForm.register('scheduledDate', { required: true })}
+                        />
+                      </div>
                     </div>
+
+                    <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
+                      <Label>Completed On Time</Label>
+                      <Switch
+                        checked={pmForm.watch('completedOnTime')}
+                        onCheckedChange={(checked) => pmForm.setValue('completedOnTime', checked)}
+                      />
+                    </div>
+
+                    {!pmForm.watch('completedOnTime') && (
+                      <Textarea
+                        {...pmForm.register('missedReason')}
+                        placeholder="Reason for delay..."
+                        rows={2}
+                      />
+                    )}
                   </div>
 
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-green-600 hover:bg-green-700">
                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                    {isSubmitting ? 'Logging PM Check...' : 'Log PM Check Entry'}
+                    {isSubmitting ? 'Logging PM Check...' : 'Log PM Check'}
                   </Button>
                 </form>
               </TabsContent>
@@ -590,50 +578,41 @@ export default function Compliance() {
                     setValue={safetyForm.setValue}
                   />
 
-                  {/* Safety Observation-Specific Fields */}
                   <div className="space-y-4 p-6 rounded-lg border border-primary/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <Eye className="w-5 h-5 text-primary" />
-                      <h3 className="font-semibold text-foreground">Safety Observation Details</h3>
+                      <h3 className="font-semibold text-foreground">Safety Details</h3>
                     </div>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Hazard Type *</Label>
-                          <Select onValueChange={(v) => safetyForm.setValue('hazardType', v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select hazard type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {HAZARD_TYPES.map(({ value, label }) => (
-                                <SelectItem key={value} value={value}>{label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className={`flex items-center justify-between p-4 rounded-lg border ${safetyForm.watch('immediateRisk') ? 'bg-destructive/10 border-destructive/30' : 'bg-secondary/50 border-border'}`}>
-                          <div className="flex items-center gap-3">
-                            <Zap className={`w-5 h-5 ${safetyForm.watch('immediateRisk') ? 'text-destructive' : 'text-muted-foreground'}`} />
-                            <div>
-                              <Label className="text-foreground">Immediate Risk</Label>
-                              <p className="text-xs text-muted-foreground">Poses immediate danger</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={safetyForm.watch('immediateRisk')}
-                            onCheckedChange={(checked) => safetyForm.setValue('immediateRisk', checked)}
-                          />
-                        </div>
-                      </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Action Taken *</Label>
-                        <Textarea
-                          {...safetyForm.register('actionTaken', { required: true, minLength: 10 })}
-                          placeholder="Describe the corrective or preventive action taken..."
-                          rows={4}
+                        <Label>Hazard Type *</Label>
+                        <Select onValueChange={(v) => safetyForm.setValue('hazardType', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select hazard type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {HAZARD_TYPES.map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
+                        <Label>Immediate Risk</Label>
+                        <Switch
+                          checked={safetyForm.watch('immediateRisk')}
+                          onCheckedChange={(checked) => safetyForm.setValue('immediateRisk', checked)}
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Action Taken *</Label>
+                      <Textarea
+                        {...safetyForm.register('actionTaken', { required: true })}
+                        placeholder="Corrective/preventive action..."
+                        rows={3}
+                      />
                     </div>
                   </div>
 
