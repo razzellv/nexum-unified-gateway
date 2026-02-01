@@ -30,11 +30,14 @@ import {
   Flame,
   Snowflake,
   Wind,
-  Droplets
+  Droplets,
+  RefreshCw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 type ModuleStatus = "active" | "in-progress";
 
@@ -144,7 +147,7 @@ const ModuleCard = ({
   );
 };
 
-// ✅ NEW: Live Telemetry Component
+// ✅ Live Telemetry Component
 const LiveTelemetry = () => {
   const [telemetryData, setTelemetryData] = useState<any[]>([]);
   
@@ -221,12 +224,115 @@ const Index = () => {
   const { userRole } = useAuth();
   const navigate = useNavigate();
   
-  // ✅ NEW: Equipment Library stats
+  // ✅ Equipment Library with API
   const [equipmentCount, setEquipmentCount] = useState(0);
-  
+  const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
+
+  // Helper functions
+  const getTimeAgo = (timestamp: string) => {
+    if (!timestamp) return 'Unknown';
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now.getTime() - then.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffHours < 1) return 'Just now';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return '1 day ago';
+    return `${diffDays} days ago`;
+  };
+
+  const getEquipmentIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      boiler: Flame,
+      chiller: Snowflake,
+      ahu: Wind,
+      pump: Droplets,
+      cooling_tower: Droplets,
+      tower: Droplets,
+    };
+    return icons[type?.toLowerCase()] || Database;
+  };
+
+  const getEquipmentColor = (type: string) => {
+    const colors: Record<string, string> = {
+      boiler: 'text-orange-500',
+      chiller: 'text-blue-500',
+      ahu: 'text-cyan-500',
+      pump: 'text-green-500',
+      cooling_tower: 'text-purple-500',
+      tower: 'text-purple-500',
+    };
+    return colors[type?.toLowerCase()] || 'text-primary';
+  };
+
+  const fetchEquipment = async () => {
+    setIsLoadingEquipment(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/equipment?days=7&sort=recent`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Equipment loaded:', data);
+        const equipment = data.equipment || data.items || data || [];
+        setEquipmentCount(equipment.length);
+        
+        // Get recent scans with proper icons
+        const recent = equipment.slice(0, 3).map((item: any) => ({
+          name: item.name || `${item.manufacturer} ${item.model}`,
+          type: item.type || 'Unknown',
+          date: getTimeAgo(item.addedAt || item.createdAt),
+          icon: getEquipmentIcon(item.type),
+          color: getEquipmentColor(item.type)
+        }));
+        setRecentScans(recent);
+      } else {
+        console.warn('⚠️ Equipment API error, using fallback');
+        // Keep mock data as fallback
+        setRecentScans([
+          { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
+          { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
+          { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
+        ]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading equipment:', error);
+      // Show mock data as fallback
+      setRecentScans([
+        { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
+        { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
+        { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
+      ]);
+    } finally {
+      setIsLoadingEquipment(false);
+    }
+  };
+
   useEffect(() => {
-    // Simulate fetching equipment count
-    setEquipmentCount(12);
+    fetchEquipment();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchEquipment, 30000);
+    
+    // Listen for equipment added events
+    const handleEquipmentAdded = () => {
+      console.log('🔄 Equipment added, refreshing...');
+      fetchEquipment();
+    };
+    window.addEventListener('equipmentAdded', handleEquipmentAdded);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('equipmentAdded', handleEquipmentAdded);
+    };
   }, []);
 
   return (
@@ -350,7 +456,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* ✅ NEW: Equipment Library Section */}
+        {/* ✅ Equipment Library Section with API */}
         <section className="rounded-xl border border-primary/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <div className="h-px flex-1 bg-gradient-to-r from-primary/50 to-transparent" />
@@ -365,14 +471,25 @@ const Index = () => {
             {/* Quick Stats */}
             <Card 
               className="neon-border cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => navigate('/equipment-library')}
+              onClick={() => navigate('/equipment-intelligence')}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <Database className="w-8 h-8 text-primary" />
-                  <Badge variant="outline" className="bg-primary/10 text-primary">
-                    {equipmentCount} Items
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                      {equipmentCount} Items
+                    </Badge>
+                    {!isLoadingEquipment && (
+                      <RefreshCw 
+                        className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchEquipment();
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Equipment Registry</h3>
                 <p className="text-sm text-muted-foreground">
@@ -390,34 +507,36 @@ const Index = () => {
                     Recent Equipment Scans
                   </h3>
                   <button 
-                    onClick={() => navigate('/equipment-library')}
+                    onClick={() => navigate('/equipment-intelligence')}
                     className="text-sm text-primary hover:underline"
                   >
                     View All →
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {[
-                    { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
-                    { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
-                    { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <item.icon className={cn('w-4 h-4', item.color)} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.type}</p>
+                {isLoadingEquipment ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentScans.map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <item.icon className={cn('w-4 h-4', item.color)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.type}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{item.date}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{item.date}</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         </section>
 
-        {/* ✅ ENHANCED: Live Facility Telemetry */}
+        {/* ✅ Live Facility Telemetry */}
         <section className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-muted-foreground animate-pulse" />
