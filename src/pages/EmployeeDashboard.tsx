@@ -146,7 +146,7 @@ export default function EmployeeDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   // ✅ FIXED: Use user.sub if no id param
-  const employeeId = id || user?.sub || "EMP001";
+  const employeeId = id || user?.sub;
 
   const fetchData = useCallback(async () => {
     if (!employeeId) return;
