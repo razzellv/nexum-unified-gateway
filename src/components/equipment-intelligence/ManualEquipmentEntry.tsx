@@ -87,6 +87,15 @@ export default function ManualEquipmentEntry() {
         description: `${formData.type.toUpperCase()} ${formData.equipmentId} added to equipment library`,
       });
 
+      // ✅ Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('equipmentAdded', { 
+        detail: { 
+          ...formData,
+          addedMethod: 'manual_entry',
+          addedAt: new Date().toISOString()
+        }
+      }));
+
       // Reset form
       setFormData({
         equipmentId: '',
