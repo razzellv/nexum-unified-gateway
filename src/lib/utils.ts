@@ -15,7 +15,7 @@ export function cn(...inputs: ClassValue[]) {
 
  */
 
-export function shouldResizeImage(file: File, maxSizeKB = 8000): boolean {
+export function shouldResizeImage(file: File, maxSizeKB = 3000): boolean {
 
   const sizeKB = file.size / 1024;
 
