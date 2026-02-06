@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { getRecentEquipment } from "@/lib/nexum-api";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { SystemFeed } from "@/components/SystemFeed";
 import { 
@@ -37,7 +38,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 type ModuleStatus = "active" | "in-progress";
 
@@ -271,41 +271,21 @@ const Index = () => {
   const fetchEquipment = async () => {
     setIsLoadingEquipment(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/equipment?days=7&sort=recent`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Equipment loaded:', data);
-        const equipment = data.equipment || data.items || data || [];
-        setEquipmentCount(equipment.length);
-        
-        // Get recent scans with proper icons
-        const recent = equipment.slice(0, 3).map((item: any) => ({
-          name: item.name || `${item.manufacturer} ${item.model}`,
-          type: item.type || 'Unknown',
-          date: getTimeAgo(item.addedAt || item.createdAt),
-          icon: getEquipmentIcon(item.type),
-          color: getEquipmentColor(item.type)
-        }));
-        setRecentScans(recent);
-      } else {
-        console.warn('⚠️ Equipment API error, using fallback');
-        // Keep mock data as fallback
-        setRecentScans([
-          { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
-          { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
-          { name: 'Armstrong S-65', type: 'Pump', date: '1 day ago', icon: Droplets, color: 'text-green-500' },
-        ]);
-      }
+      const data = await getRecentEquipment(7);
+      console.log('✅ Equipment loaded:', data);
+      const equipment = data.equipment || data.items || data || [];
+      setEquipmentCount(equipment.length);
+      
+      const recent = equipment.slice(0, 3).map((item: any) => ({
+        name: item.name || `${item.manufacturer} ${item.model}`,
+        type: item.type || 'Unknown',
+        date: getTimeAgo(item.addedAt || item.createdAt),
+        icon: getEquipmentIcon(item.type),
+        color: getEquipmentColor(item.type)
+      }));
+      setRecentScans(recent);
     } catch (error) {
       console.error('❌ Error loading equipment:', error);
-      // Show mock data as fallback
       setRecentScans([
         { name: 'Cleaver-Brooks CB-700', type: 'Boiler', date: '2 hours ago', icon: Flame, color: 'text-orange-500' },
         { name: 'Trane CVHE-500', type: 'Chiller', date: '5 hours ago', icon: Snowflake, color: 'text-blue-500' },
@@ -315,6 +295,7 @@ const Index = () => {
       setIsLoadingEquipment(false);
     }
   };
+
 
   useEffect(() => {
     fetchEquipment();
