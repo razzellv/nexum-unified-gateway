@@ -447,3 +447,12 @@ export async function getRecentEquipment(days: number = 7) {
     return { equipment: [] };
   }
 }
+
+export async function getManagerConfidenceMetrics(facilityId: string = 'facility-001', days: number = 7) {
+  try {
+    return await apiRequest<any>(`/dashboard/manager/confidence?facilityId=${facilityId}&days=${days}`);
+  } catch (error) {
+    console.warn('Manager confidence API error, using mock data');
+    return null;
+  }
+}

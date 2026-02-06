@@ -11,6 +11,8 @@ import { ExportButtons } from '@/components/global/ExportButtons';
 import { NexumLoader } from '@/components/global/NexumLoader';
 import { getManagerDashboard } from '@/lib/nexum-api';
 import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
+import ConfidenceMetrics from "@/components/manager/ConfidenceMetrics";
+import { getManagerConfidenceMetrics } from "@/lib/nexum-api";
 import { 
   Activity, 
   Shield, 
@@ -136,6 +138,7 @@ export default function ManagerDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [energyTrend, setEnergyTrend] = useState<any[]>([]);
   const [budgetData, setBudgetData] = useState<any>(null);
+  const [confidenceData, setConfidenceData] = useState<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -655,6 +658,33 @@ export default function ManagerDashboard() {
 
         {/* Budget vs Cost */}
         <BudgetVsCost budgetData={budgetData} isLoading={loading} />
+
+        {/* System Confidence Metrics */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Weekly System Confidence Levels</h2>
+            <Badge variant="outline" className="text-sm">
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Last 7 Days
+            </Badge>
+          </div>
+          {loading ? (
+            <Card className="neon-border">
+              <CardContent className="p-12">
+                <NexumLoader message="Loading confidence metrics..." />
+              </CardContent>
+            </Card>
+          ) : confidenceData ? (
+            <ConfidenceMetrics data={confidenceData} />
+          ) : (
+            <Card className="neon-border">
+              <CardContent className="p-12 text-center">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">No confidence data available</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
       </div>
     </MainLayout>
