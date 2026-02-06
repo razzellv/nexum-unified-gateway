@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Flame, Snowflake, Gauge, Wind, Droplets, Zap, ChevronRight, Building2, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockFacilities } from '@/data/mockData';
+import { useFacilityEquipment } from '@/hooks/useFacilityEquipment';
 import { SystemType, SystemInfo, Facility, Building } from '@/types/logging';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,10 @@ export function SystemSelector({ onSelect }: SystemSelectorProps) {
   const [selectedFacility, setSelectedFacility] = useState<string>('');
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
 
-  const facility = mockFacilities.find((f) => f.id === selectedFacility);
+  // Fetch real equipment from API
+  const { facilities, loading, error } = useFacilityEquipment();
+
+  const facility = facilities.find((f) => f.id === selectedFacility);
   const building = facility?.buildings.find((b) => b.id === selectedBuilding);
 
   // Group systems by type, excluding energy (handled separately at building level)
@@ -68,11 +71,19 @@ export function SystemSelector({ onSelect }: SystemSelectorProps) {
                   <SelectValue placeholder="Select facility..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockFacilities.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                    </SelectItem>
-                  ))}
+                  {loading ? (
+                    <SelectItem value="loading" disabled>Loading facilities...</SelectItem>
+                  ) : error ? (
+                    <SelectItem value="error" disabled>Error loading equipment</SelectItem>
+                  ) : facilities.length === 0 ? (
+                    <SelectItem value="none" disabled>No equipment registered yet</SelectItem>
+                  ) : (
+                    facilities.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
