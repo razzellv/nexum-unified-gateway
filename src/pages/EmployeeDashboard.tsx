@@ -151,7 +151,7 @@ export default function EmployeeDashboard() {
   // ✅ SIMPLE FIX: Just use the ID from URL or user.sub
   // No complex logic, no waiting
   const employeeId = id || user?.sub;
-
+console.log('🔍 EmployeeDashboard - employeeId:', employeeId, 'id:', id, 'user.sub:', user?.sub, 'user:', user);
   const fetchData = useCallback(async () => {
     if (!employeeId) return; // Skip if no ID yet
     
