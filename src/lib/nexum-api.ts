@@ -438,3 +438,12 @@ export async function logComplianceEvent(payload: ComplianceLogPayload) {
     throw error;
   }
 }
+
+export async function getRecentEquipment(days: number = 7) {
+  try {
+    return await apiRequest<any>(`/equipment?days=${days}&sort=recent`);
+  } catch (error) {
+    console.warn('Equipment API error, using empty list');
+    return { equipment: [] };
+  }
+}
