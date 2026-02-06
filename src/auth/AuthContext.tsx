@@ -29,6 +29,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   userRole: string | null;
+  user: { sub: string; email?: string; [key: string]: any } | null;
   login: () => void;
   logout: () => void;
   authEvents: AuthEvent[];
@@ -36,6 +37,7 @@ export interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType>({
   userRole: null,
+  user: null,
   isAuthenticated: false,
   loading: true,
   login: () => {},
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   const addAuthEvent = (type: string, message: string) => {
     setAuthEvents(prev => [{ type, message, timestamp: new Date() }, ...prev.slice(0, 49)]);
@@ -76,17 +79,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log("🔍 Decoded JWT:", decoded);
         const role = decoded?.["custom:role"] || decoded?.role || "employee";
         setUserRole(role);
+        setUser(decoded);
         addAuthEvent("role_detected", `User role: ${role}`);
         addAuthEvent("success", "User authenticated");
         console.log("✅ User is authenticated");
       } else {
         setIsAuthenticated(false);
+        setUser(null);
         clearTokens();
         addAuthEvent("expired", "Token invalid, cleared");
         console.log("❌ Token invalid, cleared");
       }
     } else {
       setIsAuthenticated(false);
+      setUser(null);
       addAuthEvent("info", "No token found");
       console.log("❌ No token found");
     }
@@ -118,6 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     addAuthEvent("logout", "User logged out");
     clearTokens();
     setIsAuthenticated(false);
+    setUser(null);
     
     const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
@@ -129,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, userRole, login, logout, authEvents }}>
+    <AuthContext.Provider value={{ isAuthenticated, loading, userRole, user, login, logout, authEvents }}>
       {children}
     </AuthContext.Provider>
   );
