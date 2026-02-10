@@ -4,6 +4,7 @@ import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import { fileToBase64WithResize } from "@/lib/utils";
+import { saveEquipmentFromAnalysis } from "@/lib/saveEquipmentFromAnalysis";
 
 const UploadSection = () => {
   const { 
@@ -16,6 +17,7 @@ const UploadSection = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'warning'>('idle');
   const [lastFileName, setLastFileName] = useState<string | null>(null);
+  const [isSavingToDB, setIsSavingToDB] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
@@ -58,7 +60,7 @@ const UploadSection = () => {
       });
 
       const base64Full = await fileToBase64WithResize(file);
-const base64 = base64Full.split(',')[1];
+      const base64 = base64Full.split(',')[1];
 
       // Get the correct access token
       const accessToken = localStorage.getItem('nexum_access_token');
@@ -125,12 +127,47 @@ Format the response with clear labels and values.`,
           confidence: 85,
         });
 
-        setUploadStatus('success');
-        
-        toast({
-          title: "✅ Analysis Complete",
-          description: "Equipment nameplate analyzed successfully.",
-        });
+        // 🔥 NEW: Save equipment to DynamoDB automatically after AI analysis
+        setIsSavingToDB(true);
+        try {
+          const saveResult = await saveEquipmentFromAnalysis({
+            aiData: {
+              analysis: data.response,
+              specs: specs,
+              imageBase64: base64,
+              imageType: file.type,
+              fileName: file.name,
+            },
+            facilityId: 'facility-001', // TODO: Get from auth context
+          });
+
+          if (saveResult.success) {
+            setUploadStatus('success');
+            
+            toast({
+              title: saveResult.isDuplicate ? "⚠️ Equipment Saved (Duplicate Detected)" : "✅ Equipment Saved Successfully",
+              description: saveResult.isDuplicate 
+                ? "This serial number already exists in the system."
+                : "Equipment has been added to your library.",
+            });
+
+            // Trigger equipment list refresh
+            window.dispatchEvent(new CustomEvent('equipment-updated'));
+          } else {
+            throw new Error('Failed to save equipment');
+          }
+        } catch (saveError) {
+          console.error('Error saving equipment to DB:', saveError);
+          setUploadStatus('warning');
+          toast({
+            title: "⚠️ Analysis Complete, But Save Failed",
+            description: "Equipment was analyzed but couldn't be saved to database.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsSavingToDB(false);
+        }
+
       } else {
         throw new Error('No response from AI');
       }
@@ -184,17 +221,23 @@ Format the response with clear labels and values.`,
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {isProcessing ? (
+            {isProcessing || isSavingToDB ? (
               <div className="space-y-4">
                 <Loader2 className="w-12 h-12 mx-auto animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Analyzing {lastFileName}...
+                  {isSavingToDB ? 'Saving equipment to database...' : `Analyzing ${lastFileName}...`}
                 </p>
               </div>
             ) : uploadStatus === 'success' ? (
               <div className="space-y-4">
                 <CheckCircle2 className="w-12 h-12 mx-auto text-green-500" />
-                <p className="text-sm font-medium">Analysis complete!</p>
+                <p className="text-sm font-medium">Equipment saved successfully!</p>
+              </div>
+            ) : uploadStatus === 'warning' ? (
+              <div className="space-y-4">
+                <CheckCircle2 className="w-12 h-12 mx-auto text-yellow-500" />
+                <p className="text-sm font-medium">Analysis complete, but save failed</p>
+                <p className="text-xs text-muted-foreground">Check console for details</p>
               </div>
             ) : (
               <label className="cursor-pointer">
@@ -223,7 +266,10 @@ Format the response with clear labels and values.`,
             <div className="mt-4 text-center">
               <Button
                 variant="outline"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  setUploadStatus('idle');
+                  fileInputRef.current?.click();
+                }}
               >
                 Upload Another
               </Button>
