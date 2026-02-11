@@ -4,30 +4,30 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, Flame, Snowflake, Wind, Droplets, Waves, Camera, FileText, Activity, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 interface RecentEquipmentItem {
   equipmentId: string;
-  name: string;
-  type: string;
-  manufacturer?: string;
-  model?: string;
-  addedMethod: 'manual_entry' | 'nameplate_scan';
-  addedAt: string;
-  createdAt?: string;
-  addedBy?: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  equipmentType: string;
+  aiExtracted: boolean;
+  source: string;
+  createdAt: string;
   confidence?: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getEquipmentIcon = (type: string) => {
   const icons: Record<string, any> = {
     boiler: Flame,
     chiller: Snowflake,
     ahu: Wind,
+    'air handler': Wind,
     pump: Droplets,
-    cooling_tower: Waves,
+    'cooling tower': Waves,
+    'cooling_tower': Waves,
     tower: Waves,
   };
   return icons[type?.toLowerCase()] || Activity;
@@ -38,8 +38,10 @@ const getTypeColor = (type: string) => {
     boiler: 'text-orange-500 bg-orange-500/10',
     chiller: 'text-blue-500 bg-blue-500/10',
     ahu: 'text-cyan-500 bg-cyan-500/10',
+    'air handler': 'text-cyan-500 bg-cyan-500/10',
     pump: 'text-green-500 bg-green-500/10',
-    cooling_tower: 'text-purple-500 bg-purple-500/10',
+    'cooling tower': 'text-purple-500 bg-purple-500/10',
+    'cooling_tower': 'text-purple-500 bg-purple-500/10',
     tower: 'text-purple-500 bg-purple-500/10',
   };
   return colors[type?.toLowerCase()] || 'text-primary bg-primary/10';
@@ -61,26 +63,30 @@ const getTimeAgo = (timestamp: string) => {
 export default function RecentEquipment() {
   const [recentEquipment, setRecentEquipment] = useState<RecentEquipmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   const fetchRecentEquipment = async () => {
     setIsLoading(true);
     try {
-      // ✅ Try to fetch from real API
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/equipment?days=7&sort=recent`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const accessToken = localStorage.getItem('nexum_access_token');
+      
+      console.log('📥 Fetching recent equipment from /equipment/intelligence...');
+      
+      const response = await fetch(
+        `${API_BASE_URL}/equipment/intelligence?facilityId=facility-001&recent=true&limit=5`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Recent equipment from API:', data);
+        console.log('✅ Recent equipment received:', data);
         
-        // Handle different response structures
-        const equipment = data.equipment || data.items || data || [];
+        const equipment = data.equipment || [];
         setRecentEquipment(equipment);
       } else {
         console.warn('⚠️ API returned error, using empty list');
@@ -88,7 +94,6 @@ export default function RecentEquipment() {
       }
     } catch (error) {
       console.error('❌ Error fetching recent equipment:', error);
-      // Don't show error toast, just show empty state
       setRecentEquipment([]);
     } finally {
       setIsLoading(false);
@@ -98,20 +103,23 @@ export default function RecentEquipment() {
   useEffect(() => {
     fetchRecentEquipment();
 
-    // ✅ Auto-refresh every 30 seconds
+    // Auto-refresh every 30 seconds
     const interval = setInterval(fetchRecentEquipment, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ✅ Listen for custom event when equipment is added
-  useEffect(() => {
+    
+    // Listen for equipment-updated event
     const handleEquipmentAdded = () => {
-      console.log('🔄 Equipment added, refreshing...');
+      console.log('🔄 Equipment added, refreshing recent...');
       fetchRecentEquipment();
     };
-
-    window.addEventListener('equipmentAdded', handleEquipmentAdded);
-    return () => window.removeEventListener('equipmentAdded', handleEquipmentAdded);
+    
+    window.addEventListener('equipment-updated', handleEquipmentAdded);
+    window.addEventListener('equipmentAdded', handleEquipmentAdded); // Legacy support
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('equipment-updated', handleEquipmentAdded);
+      window.removeEventListener('equipmentAdded', handleEquipmentAdded);
+    };
   }, []);
 
   return (
@@ -120,7 +128,7 @@ export default function RecentEquipment() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
-            Recently Added Equipment (Last 7 Days)
+            Recently Added Equipment
             {recentEquipment.length > 0 && (
               <Badge variant="outline" className="ml-2">
                 {recentEquipment.length} Added
@@ -148,7 +156,7 @@ export default function RecentEquipment() {
         ) : recentEquipment.length === 0 ? (
           <div className="text-center py-12">
             <Activity className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground mb-2">No equipment added in the last 7 days</p>
+            <p className="text-muted-foreground mb-2">No equipment added yet</p>
             <p className="text-xs text-muted-foreground">
               Equipment added through scanning or manual entry will appear here
             </p>
@@ -156,9 +164,9 @@ export default function RecentEquipment() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {recentEquipment.map((item, index) => {
-              const Icon = getEquipmentIcon(item.type);
-              const typeColors = getTypeColor(item.type);
-              const timestamp = item.addedAt || item.createdAt || new Date().toISOString();
+              const Icon = getEquipmentIcon(item.equipmentType);
+              const typeColors = getTypeColor(item.equipmentType);
+              const isNameplateScan = item.source === 'nameplate-scan' || item.aiExtracted;
 
               return (
                 <div
@@ -171,8 +179,8 @@ export default function RecentEquipment() {
                     <div className={cn('p-2.5 rounded-lg', typeColors)}>
                       <Icon className="w-5 h-5" />
                     </div>
-                    <Badge variant={item.addedMethod === 'nameplate_scan' ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
-                      {item.addedMethod === 'nameplate_scan' ? (
+                    <Badge variant={isNameplateScan ? 'default' : 'secondary'} className="text-[10px] px-2 py-0.5">
+                      {isNameplateScan ? (
                         <>
                           <Camera className="w-2.5 h-2.5 mr-1" />
                           Scan
@@ -189,21 +197,14 @@ export default function RecentEquipment() {
                   {/* Equipment Details */}
                   <div className="space-y-1 mb-3">
                     <h4 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                      {item.name || `${item.manufacturer} ${item.model}` || item.equipmentId}
+                      {item.manufacturer} {item.model}
                     </h4>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {item.equipmentId}
+                    <p className="text-xs text-muted-foreground">
+                      {item.equipmentType}
                     </p>
-                    {item.manufacturer && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {item.manufacturer}
-                      </p>
-                    )}
-                    {item.model && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {item.model}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground font-mono">
+                      SN: {item.serialNumber}
+                    </p>
                   </div>
 
                   {/* Confidence Bar */}
@@ -234,17 +235,10 @@ export default function RecentEquipment() {
                     </div>
                   )}
 
-                  {/* Footer: Time & User */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {getTimeAgo(timestamp)}
-                    </span>
-                    {item.addedBy && (
-                      <span className="truncate ml-2 max-w-[100px]">
-                        {item.addedBy}
-                      </span>
-                    )}
+                  {/* Footer: Time */}
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {getTimeAgo(item.createdAt)}
                   </div>
                 </div>
               );
