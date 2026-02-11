@@ -4,7 +4,6 @@ import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import { fileToBase64WithResize } from "@/lib/utils";
-import { saveEquipmentFromAnalysis } from "@/lib/saveEquipmentFromAnalysis";
 
 const UploadSection = () => {
   const { 
@@ -130,34 +129,82 @@ Format the response with clear labels and values.`,
         // 🔥 NEW: Save equipment to DynamoDB automatically after AI analysis
         setIsSavingToDB(true);
         try {
-          const saveResult = await saveEquipmentFromAnalysis({
-            aiData: {
-              analysis: data.response,
-              specs: specs,
-              imageBase64: base64,
-              imageType: file.type,
-              fileName: file.name,
+          console.log('💾 Attempting to save equipment to DynamoDB...');
+          
+          const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+          
+          // Parse AI analysis to extract equipment data
+          const analysisText = data.response;
+          
+          // Simple regex extraction from AI response
+          const manufacturerMatch = analysisText.match(/Manufacturer[:\s]+([^\n]+)/i) ||
+                                   analysisText.match(/Brand[:\s]+([^\n]+)/i);
+          const modelMatch = analysisText.match(/Model[:\s]+([^\n]+)/i);
+          const serialMatch = analysisText.match(/Serial Number[:\s]+([^\n]+)/i) ||
+                             analysisText.match(/Serial[:\s]+([^\n]+)/i);
+          const typeMatch = analysisText.match(/Equipment Type[:\s]+([^\n]+)/i);
+          const voltageMatch = analysisText.match(/Voltage[:\s]+([^\n]+)/i);
+          const capacityMatch = analysisText.match(/Capacity[:\s]+([^\n]+)/i) ||
+                               analysisText.match(/Size[:\s]+([^\n]+)/i);
+          
+          const equipmentData = {
+            facilityId: 'facility-001',
+            manufacturer: manufacturerMatch ? manufacturerMatch[1].trim() : 'Unknown',
+            model: modelMatch ? modelMatch[1].trim() : 'Unknown',
+            serialNumber: serialMatch ? serialMatch[1].trim() : 'N/A',
+            equipmentType: typeMatch ? typeMatch[1].trim() : 'Other',
+            specifications: {
+              raw_analysis: analysisText
             },
-            facilityId: 'facility-001', // TODO: Get from auth context
+            voltage: voltageMatch ? voltageMatch[1].trim() : null,
+            capacity: capacityMatch ? capacityMatch[1].trim() : null,
+            photos: [], // TODO: Add S3 URL here later
+            aiExtracted: true,
+            source: 'nameplate-scan',
+            notes: `AI-analyzed on ${new Date().toISOString()}`
+          };
+          
+          console.log('📤 Sending equipment data:', equipmentData);
+          
+          const saveResponse = await fetch(`${API_BASE_URL}/equipment/intelligence`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(equipmentData)
           });
-
-          if (saveResult.success) {
+          
+          console.log('📡 Save response status:', saveResponse.status);
+          
+          if (saveResponse.ok) {
+            const saveResult = await saveResponse.json();
+            console.log('✅ Equipment saved successfully:', saveResult);
+            
             setUploadStatus('success');
             
             toast({
               title: saveResult.isDuplicate ? "⚠️ Equipment Saved (Duplicate Detected)" : "✅ Equipment Saved Successfully",
               description: saveResult.isDuplicate 
                 ? "This serial number already exists in the system."
-                : "Equipment has been added to your library.",
+                : `${equipmentData.manufacturer} ${equipmentData.model} added to library`,
             });
-
+            
             // Trigger equipment list refresh
             window.dispatchEvent(new CustomEvent('equipment-updated'));
           } else {
-            throw new Error('Failed to save equipment');
+            const errorData = await saveResponse.json();
+            console.error('❌ Save failed:', errorData);
+            
+            setUploadStatus('warning');
+            toast({
+              title: "⚠️ Save Failed",
+              description: errorData.error || 'Could not save equipment to database',
+              variant: "destructive",
+            });
           }
         } catch (saveError) {
-          console.error('Error saving equipment to DB:', saveError);
+          console.error('❌ Error saving equipment:', saveError);
           setUploadStatus('warning');
           toast({
             title: "⚠️ Analysis Complete, But Save Failed",
