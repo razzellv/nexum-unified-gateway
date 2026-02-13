@@ -5,7 +5,7 @@ import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHeal
 import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
 import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { dashboardMetrics, mockEmergencies } from '@/data/mockData';
-import { EmergencyCard } from '@/components/emergency/EmergencyCard';
+import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard';
 import { AlertTriangle } from 'lucide-react';
 
 const Index = () => {
