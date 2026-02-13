@@ -12,10 +12,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { WorkOrder, WorkOrderType, WorkOrderPriority, EquipmentType } from '@/types/workOrder';
-import { mockEquipment } from '@/data/workOrderData';
+import { WorkOrder, WorkOrderType, WorkOrderPriority, EquipmentType } from '@/types/command-hub/workOrder';
+import { mockEquipment } from '@/data/command-hub/workOrderData';
 import { mockEmployees } from '@/data/mockData';
-import { getEquipmentTypeLabel } from '@/lib/workOrderService';
+import { getEquipmentTypeLabel } from '@/lib/command-hub/workOrderService';
 
 interface WorkOrderModalProps {
   open: boolean;

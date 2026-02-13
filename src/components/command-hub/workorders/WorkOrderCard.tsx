@@ -2,8 +2,8 @@ import { AlertCircle, Calendar, Clock, MoreVertical, Eye, Edit, Trash2, Copy, Us
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { WorkOrder } from '@/types/workOrder';
-import { mockEquipment } from '@/data/workOrderData';
+import { WorkOrder } from '@/types/command-hub/workOrder';
+import { mockEquipment } from '@/data/command-hub/workOrderData';
 import { 
   getPriorityBgColor, 
   getStatusBgColor, 
@@ -13,7 +13,7 @@ import {
   getStatusLabel,
   isOverdue,
   formatDate 
-} from '@/lib/workOrderService';
+} from '@/lib/command-hub/workOrderService';
 import { cn } from '@/lib/utils';
 
 interface WorkOrderCardProps {

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { User, Calendar, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getSeverityColor, getSeverityBgColor } from '@/lib/violationService';
+import { getSeverityColor, getSeverityBgColor } from '@/lib/command-hub/violationService';
 
 interface ViolationCardProps {
   violation: Violation;

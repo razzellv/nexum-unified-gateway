@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { getStatusColor, getStatusBgColor } from '@/lib/violationService';
+import { getStatusColor, getStatusBgColor } from '@/lib/command-hub/violationService';
 
 interface EmployeeAccountabilityTableProps {
   data: EmployeeAccountability[];

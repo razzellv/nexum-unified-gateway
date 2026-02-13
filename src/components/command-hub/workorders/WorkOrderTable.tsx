@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { WorkOrder } from '@/types/workOrder';
-import { mockEquipment } from '@/data/workOrderData';
+import { WorkOrder } from '@/types/command-hub/workOrder';
+import { mockEquipment } from '@/data/command-hub/workOrderData';
 import { 
   getPriorityBgColor, 
   getStatusBgColor, 
@@ -15,7 +15,7 @@ import {
   getStatusLabel,
   isOverdue,
   formatDate 
-} from '@/lib/workOrderService';
+} from '@/lib/command-hub/workOrderService';
 import { cn } from '@/lib/utils';
 
 interface WorkOrderTableProps {

@@ -1,6 +1,6 @@
 import { Flame, Snowflake, Wind, Droplets, Gauge, Zap, Thermometer, Wrench, ShieldAlert, Cpu, LucideIcon, Fan } from 'lucide-react';
-import { WorkOrder, WorkOrderPriority, WorkOrderStatus, EquipmentType, WorkOrderNote } from '@/types/workOrder';
-import { mockWorkOrders } from '@/data/workOrderData';
+import { WorkOrder, WorkOrderPriority, WorkOrderStatus, EquipmentType, WorkOrderNote } from '@/types/command-hub/workOrder';
+import { mockWorkOrders } from '@/data/command-hub/workOrderData';
 
 // TODO: Replace with actual API configuration
 // const API_BASE_URL = 'https://your-api-gateway.execute-api.region.amazonaws.com/prod';

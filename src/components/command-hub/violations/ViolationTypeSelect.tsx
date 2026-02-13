@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ViolationType, ViolationTypeConfig } from '@/types/facility';
 import { violationTypeConfigs } from '@/data/mockData';
 import { cn } from '@/lib/utils';
-import { getSeverityColor } from '@/lib/violationService';
+import { getSeverityColor } from '@/lib/command-hub/violationService';
 
 interface ViolationTypeSelectProps {
   value: ViolationType | '';

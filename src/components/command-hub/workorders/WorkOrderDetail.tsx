@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { WorkOrder, WorkOrderStatus } from '@/types/workOrder';
-import { mockEquipment } from '@/data/workOrderData';
+import { WorkOrder, WorkOrderStatus } from '@/types/command-hub/workOrder';
+import { mockEquipment } from '@/data/command-hub/workOrderData';
 import { 
   getPriorityBgColor, 
   getStatusBgColor, 
@@ -19,7 +19,7 @@ import {
   isOverdue,
   formatDate,
   formatDateTime
-} from '@/lib/workOrderService';
+} from '@/lib/command-hub/workOrderService';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 

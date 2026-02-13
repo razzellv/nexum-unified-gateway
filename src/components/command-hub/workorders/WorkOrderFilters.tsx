@@ -2,7 +2,7 @@ import { Search, X, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { WorkOrderFilters as Filters, WorkOrderStatus, WorkOrderPriority, WorkOrderType, EquipmentType } from '@/types/workOrder';
+import { WorkOrderFilters as Filters, WorkOrderStatus, WorkOrderPriority, WorkOrderType, EquipmentType } from '@/types/command-hub/workOrder';
 import { mockEmployees } from '@/data/mockData';
 
 interface WorkOrderFiltersProps {

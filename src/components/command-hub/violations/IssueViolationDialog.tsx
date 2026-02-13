@@ -9,7 +9,7 @@ import { ViolationType, ViolationTypeConfig, ComplianceCategory, Violation } fro
 import { mockEmployees, mockTasks } from '@/data/mockData';
 import { ViolationTypeSelect } from './ViolationTypeSelect';
 import { cn } from '@/lib/utils';
-import { getSeverityColor, getSeverityBgColor } from '@/lib/violationService';
+import { getSeverityColor, getSeverityBgColor } from '@/lib/command-hub/violationService';
 
 interface IssueViolationDialogProps {
   open: boolean;
