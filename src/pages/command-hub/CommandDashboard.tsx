@@ -1,9 +1,9 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { MetricCard } from '@/components/dashboard/MetricCard';
-import { SignalsPanel } from '@/components/dashboard/SignalsPanel';
-import { SystemHealthChart } from '@/components/dashboard/SystemHealthChart';
-import { WorkloadChart } from '@/components/dashboard/WorkloadChart';
-import { RecentTasks } from '@/components/dashboard/RecentTasks';
+import { MetricCard } from '@/components/command-hub/dashboard/MetricCard';
+import { SignalsPanel } from '@/components/command-hub/dashboard/SignalsPanel';
+import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHealthChart';
+import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
+import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { dashboardMetrics, mockEmergencies } from '@/data/mockData';
 import { EmergencyCard } from '@/components/emergency/EmergencyCard';
 import { AlertTriangle } from 'lucide-react';

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertOctagon, ClipboardList, Plus, Filter, Download, Users, AlertTriangle, Scale } from 'lucide-react';
 import { mockViolations, mockEmployeeAccountability } from '@/data/mockData';
-import { ViolationCard } from '@/components/violations/ViolationCard';
-import { IssueViolationDialog } from '@/components/violations/IssueViolationDialog';
-import { AssignWorkOrderDialog } from '@/components/violations/AssignWorkOrderDialog';
-import { EmployeeAccountabilityTable } from '@/components/violations/EmployeeAccountabilityTable';
+import { ViolationCard } from '@/components/command-hub/violations/ViolationCard';
+import { IssueViolationDialog } from '@/components/command-hub/violations/IssueViolationDialog';
+import { AssignWorkOrderDialog } from '@/components/command-hub/violations/AssignWorkOrderDialog';
+import { EmployeeAccountabilityTable } from '@/components/command-hub/violations/EmployeeAccountabilityTable';
 import { Violation } from '@/types/facility';
 import { useToast } from '@/hooks/use-toast';
 

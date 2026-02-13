@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { WorkOrderStats } from '@/components/workorders/WorkOrderStats';
-import { WorkOrderFilters } from '@/components/workorders/WorkOrderFilters';
-import { WorkOrderCard } from '@/components/workorders/WorkOrderCard';
-import { WorkOrderTable } from '@/components/workorders/WorkOrderTable';
-import { WorkOrderModal } from '@/components/workorders/WorkOrderModal';
-import { WorkOrderDetail } from '@/components/workorders/WorkOrderDetail';
-import { mockWorkOrders, getWorkOrderStats } from '@/data/workOrderData';
-import { WorkOrder, WorkOrderFilters as FilterType, WorkOrderStatus } from '@/types/workOrder';
+import { WorkOrderStats } from '@/components/command-hub/workorders/WorkOrderStats';
+import { WorkOrderFilters } from '@/components/command-hub/workorders/WorkOrderFilters';
+import { WorkOrderCard } from '@/components/command-hub/workorders/WorkOrderCard';
+import { WorkOrderTable } from '@/components/command-hub/workorders/WorkOrderTable';
+import { WorkOrderModal } from '@/components/command-hub/workorders/WorkOrderModal';
+import { WorkOrderDetail } from '@/components/command-hub/workorders/WorkOrderDetail';
+import { mockWorkOrders, getWorkOrderStats } from '@/data/command-hub/workOrderData';
+import { WorkOrder, WorkOrderFilters as FilterType, WorkOrderStatus } from '@/types/command-hub/workOrder';
 import { useToast } from '@/hooks/use-toast';
 import { 
   AlertDialog,
