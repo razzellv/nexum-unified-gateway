@@ -467,3 +467,34 @@ export const mockEmployeeAccountability: EmployeeAccountability[] = [
     performanceStatus: 'good'
   }
 ];
+
+// Mock user for GlobalFields
+
+export const mockUser = {
+
+  id: 'user-001',
+
+  name: 'Razzell Taylor',
+
+  email: 'razzell@nexumsuum.com',
+
+  role: 'admin',
+
+  facilityId: 'facility-001'
+
+};
+
+// Get current shift helper
+
+export const getCurrentShift = (): 'day' | 'night' | 'swing' => {
+
+  const hour = new Date().getHours();
+
+  if (hour >= 6 && hour < 14) return 'day';
+
+  if (hour >= 14 && hour < 22) return 'swing';
+
+  return 'night';
+
+};
+
