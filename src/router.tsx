@@ -19,6 +19,11 @@ import EmployeeDashboard from "./pages/EmployeeDashboard";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
 
+// 🔥 NEW: Command Hub Imports
+import WorkOrders from "./pages/command-hub/WorkOrders";
+import Violations from "./pages/command-hub/Violations";
+import CommandDashboard from "./pages/command-hub/CommandDashboard";
+
 import ProtectedRoute from "./auth/ProtectedRoute";
 
 // Placeholder component for modules in progress
@@ -99,6 +104,24 @@ export const router = createBrowserRouter([
             path: "compliance-logger",
             element: <Compliance />,
           },
+          // 🔥 NEW: Command Hub Routes
+          {
+            path: "command-hub",
+            element: <CommandDashboard />,
+          },
+          {
+            path: "work-orders",
+            element: <WorkOrders />,
+          },
+          {
+            path: "violations",
+            element: <Violations />,
+          },
+          // 🔥 UPDATED: Replace placeholder with Violations page
+          {
+            path: "compliance-analyzer",
+            element: <Violations />, // Using Violations page for Compliance Analyzer
+          },
           {
             path: "command-center",
             element: <ComingSoon title="Facility Command Center" />,
@@ -106,10 +129,6 @@ export const router = createBrowserRouter([
           {
             path: "instructor",
             element: <ComingSoon title="Facility Instructor" />,
-          },
-          {
-            path: "compliance-analyzer",
-            element: <ComingSoon title="Compliance Analyzer" />,
           },
           {
             path: "optimize-learn",
