@@ -388,7 +388,33 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
-          </div>
+            <ModuleCard
+  title="Command Hub"
+  subtitle="Operations Control"
+  description="Centralized facility operations with real-time alerts and system monitoring"
+  route="/command-hub"
+  icon={<Command className="w-5 h-5" />}
+  status="active"
+  colorTheme="accent"
+/>
+<ModuleCard
+  title="Work Orders"
+  subtitle="Task Management"
+  description="Create, assign, and track maintenance work orders"
+  route="/work-orders"
+  icon={<Briefcase className="w-5 h-5" />}
+  status="active"
+  colorTheme="secondary"
+/>
+<ModuleCard
+  title="Violations"
+  subtitle="Compliance Tracking"
+  description="Safety violations and employee accountability scores"
+  route="/violations"
+  icon={<ShieldCheck className="w-5 h-5" />}
+  status="active"
+  colorTheme="primary"
+/>          </div>
         </section>
 
         {/* Modules In Progress */}
@@ -402,15 +428,8 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <ModuleCard
-              title="Facility Command Center"
-              description="Work orders, maintenance scheduling, and operations management"
-              route="/command-center"
-              icon={<Command className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="secondary"
-            />
-            <ModuleCard
+            
+          <ModuleCard
               title="Facility Instructor"
               description="AI chat assistant for technical, safety, and HR questions"
               route="/instructor"
