@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { WorkOrderCard } from '@/components/command-hub/workorders/WorkOrderCard
 import { WorkOrderTable } from '@/components/command-hub/workorders/WorkOrderTable';
 import { WorkOrderModal } from '@/components/command-hub/workorders/WorkOrderModal';
 import { WorkOrderDetail } from '@/components/command-hub/workorders/WorkOrderDetail';
-import { mockWorkOrders, getWorkOrderStats } from '@/data/command-hub/workOrderData';
+import { getWorkOrderStats } from '@/data/command-hub/workOrderData';
 import { WorkOrder, WorkOrderFilters as FilterType, WorkOrderStatus } from '@/types/command-hub/workOrder';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -24,9 +25,11 @@ import {
 
 export default function WorkOrders() {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // State
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(mockWorkOrders);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterType>({
     search: '',
     status: 'all',
@@ -43,6 +46,75 @@ export default function WorkOrders() {
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
   const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null);
   const [deletingWorkOrder, setDeletingWorkOrder] = useState<WorkOrder | null>(null);
+
+  // Load work orders from API
+
+  const loadWorkOrders = useCallback(async () => {
+
+    if (!user?.facilityId) {
+
+      console.log('⏳ Waiting for facilityId...');
+
+      return;
+
+    }
+
+    setIsLoading(true);
+
+    try {
+
+      const response = await fetch(
+
+        ${API_BASE_URL}/work-orders?facilityId=${user.facilityId},
+
+        {
+
+          headers: {
+
+            'Authorization': Bearer ${localStorage.getItem('nexum_access_token')}
+
+          }
+
+        }
+
+      );
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        console.log('✅ Work orders loaded:', data);
+
+        setWorkOrders(data.workOrders || data || []);
+
+      } else {
+
+        console.warn('⚠️ API returned error, using empty array');
+
+        setWorkOrders([]);
+
+      }
+
+    } catch (error) {
+
+      console.error('❌ Error loading work orders:', error);
+
+      setWorkOrders([]);
+
+    } finally {
+
+      setIsLoading(false);
+
+    }
+
+  }, [user?.facilityId]);
+
+  useEffect(() => {
+
+    loadWorkOrders();
+
+  }, [loadWorkOrders]);
+
 
   // Filter work orders
   const filteredWorkOrders = useMemo(() => {
