@@ -439,7 +439,7 @@ export async function logComplianceEvent(payload: ComplianceLogPayload) {
   }
 }
 
-export async function getRecentEquipment(days: number = 7) {
+export async function getRecentEquipment(facilityId: string, days: number = 7) {
   try {
     return await apiRequest<any>(`/equipment?days=${days}&sort=recent`);
   } catch (error) {
