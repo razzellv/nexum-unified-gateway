@@ -29,7 +29,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   userRole: string | null;
-  user: { sub: string; email?: string; [key: string]: any } | null;
+  user: { sub: string; email?: string; role?: string; facilityId?: string; orgId?: string; [key: string]: any } | null;
   login: () => void;
   logout: () => void;
   authEvents: AuthEvent[];
@@ -74,51 +74,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (valid) {
         setIsAuthenticated(true);
         
-        // Decode JWT to get role
-        const decoded = decodeJWT(token);
-
         // Decode JWT to get role and facilityId
-
         const decoded = decodeJWT(token);
-
         console.log("🔍 Decoded JWT:", decoded);
 
         const role = decoded?.["custom:role"] || decoded?.role || "employee";
-
         const facilityId = decoded?.["custom:facilityId"] || "facility-001";
-
         const orgId = decoded?.["custom:orgId"] || "org-001";
 
         // Create user object with custom attributes
-
         const userData = {
-
           sub: decoded?.sub,
-
           email: decoded?.email,
-
           name: decoded?.name || decoded?.email,
-
           role: role,
-
           facilityId: facilityId,
-
           orgId: orgId,
-
           ...decoded
-
         };
 
         setUserRole(role);
-
         setUser(userData);
 
         console.log("✅ User data:", userData);
-
-        addAuthEvent("role_detected", User role: ${role});
-
-        addAuthEvent("facility_detected", Facility: ${facilityId});
-
+        addAuthEvent("role_detected", `User role: ${role}`);
+        addAuthEvent("facility_detected", `Facility: ${facilityId}`);
+        addAuthEvent("success", "User authenticated");
         console.log("✅ User is authenticated");
       } else {
         setIsAuthenticated(false);
