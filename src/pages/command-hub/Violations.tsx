@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,9 +18,56 @@ const currentUserRole = 'manager';
 
 export default function Violations() {
   const { toast } = useToast();
-  const [violations, setViolations] = useState(mockViolations);
+  const { user } = useAuth();
+  const [violations, setViolations] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showIssueDialog, setShowIssueDialog] = useState(false);
   const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
+
+  // Load violations
+
+  const loadViolations = useCallback(async () => {
+
+    if (!user?.facilityId) return;
+
+    
+
+    setIsLoading(true);
+
+    try {
+
+      const response = await fetch(
+
+        ${API_BASE_URL}/violations?facilityId=${user.facilityId},
+
+        { headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} }}
+
+      );
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        setViolations(data.violations || data || []);
+
+      }
+
+    } catch (error) {
+
+      console.error('Load violations error:', error);
+
+      setViolations([]);
+
+    } finally {
+
+      setIsLoading(false);
+
+    }
+
+  }, [user?.facilityId]);
+
+  useEffect(() => { loadViolations(); }, [loadViolations]);
+
 
   const canManageViolations = ['manager', 'supervisor'].includes(currentUserRole);
 
