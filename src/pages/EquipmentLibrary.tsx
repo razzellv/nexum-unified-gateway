@@ -48,7 +48,7 @@ interface LibraryEquipment {
 }
 
 export default function EquipmentLibrary() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [equipment, setEquipment] = useState<LibraryEquipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<LibraryEquipment[]>([]);
   const [isLoading, setIsLoading] = useState(true);

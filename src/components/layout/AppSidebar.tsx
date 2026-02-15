@@ -87,7 +87,7 @@ export function AppSidebar() {
               )}
               activeClassName="bg-sidebar-accent text-sidebar-primary"
             >
-              <item.icon! className="w-5 h-5 shrink-0" />
+              <item.icon className="w-5 h-5 shrink-0" />
               {!collapsed && <span className="truncate">{item.name}</span>}
             </NavLink>
           );
