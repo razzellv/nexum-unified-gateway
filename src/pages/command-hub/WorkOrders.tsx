@@ -23,6 +23,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function WorkOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -44,8 +46,6 @@ export default function WorkOrders() {
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
-  const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null);
-  const [deletingWorkOrder, setDeletingWorkOrder] = useState<WorkOrder | null>(null);
 
   // Load work orders from API
 
@@ -89,7 +89,7 @@ export default function WorkOrders() {
 
       } else {
 
-        console.warn('⚠️ API returned error, using empty array');
+        console.warn('⚠️ API error');
 
         setWorkOrders([]);
 
@@ -97,7 +97,7 @@ export default function WorkOrders() {
 
     } catch (error) {
 
-      console.error('❌ Error loading work orders:', error);
+      console.error('❌ Error:', error);
 
       setWorkOrders([]);
 
@@ -114,6 +114,28 @@ export default function WorkOrders() {
     loadWorkOrders();
 
   }, [loadWorkOrders]);
+
+
+    } catch (error) {
+
+      console.error('❌ Error:', error);
+
+      setWorkOrders([]);
+
+    } finally {
+
+      setIsLoading(false);
+
+    }
+
+  }, [user?.facilityId]);
+
+  useEffect(() => {
+
+    loadWorkOrders();
+
+  }, [loadWorkOrders]);
+
 
 
   // Filter work orders
