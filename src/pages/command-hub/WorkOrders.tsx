@@ -23,6 +23,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function WorkOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -48,73 +50,42 @@ export default function WorkOrders() {
   const [deletingWorkOrder, setDeletingWorkOrder] = useState<WorkOrder | null>(null);
 
   // Load work orders from API
-
   const loadWorkOrders = useCallback(async () => {
-
     if (!user?.facilityId) {
-
       console.log('⏳ Waiting for facilityId...');
-
       return;
-
     }
 
     setIsLoading(true);
-
     try {
-
       const response = await fetch(
-
-        ${API_BASE_URL}/work-orders?facilityId=${user.facilityId},
-
+        `${API_BASE_URL}/work-orders?facilityId=${user.facilityId}`,
         {
-
           headers: {
-
-            'Authorization': Bearer ${localStorage.getItem('nexum_access_token')}
-
+            'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}`
           }
-
         }
-
       );
 
       if (response.ok) {
-
         const data = await response.json();
-
         console.log('✅ Work orders loaded:', data);
-
         setWorkOrders(data.workOrders || data || []);
-
       } else {
-
-        console.warn('⚠️ API returned error, using empty array');
-
+        console.warn('⚠️ API error');
         setWorkOrders([]);
-
       }
-
     } catch (error) {
-
-      console.error('❌ Error loading work orders:', error);
-
+      console.error('❌ Error:', error);
       setWorkOrders([]);
-
     } finally {
-
       setIsLoading(false);
-
     }
-
   }, [user?.facilityId]);
 
   useEffect(() => {
-
     loadWorkOrders();
-
   }, [loadWorkOrders]);
-
 
   // Filter work orders
   const filteredWorkOrders = useMemo(() => {
@@ -158,40 +129,42 @@ export default function WorkOrders() {
   ).length;
 
   // Handlers
-  const handleCreateWorkOrder = (data: Partial<WorkOrder>) => {
-    const newWorkOrder: WorkOrder = {
-      workOrderId: `wo-2026-${String(workOrders.length + 1).padStart(3, '0')}`,
-      facilityId: 'facility-001',
-      orgId: 'org-demo-001',
-      equipmentId: data.equipmentId || '',
-      equipmentType: data.equipmentType || 'hvac',
-      type: data.type || 'corrective',
-      priority: data.priority || 'normal',
-      status: 'open',
-      title: data.title || '',
-      description: data.description || '',
-      assignedTo: data.assignedTo,
-      assignedToName: data.assignedToName,
-      createdBy: 'current-user',
-      createdByName: 'Current User',
-      createdAt: new Date().toISOString(),
-      dueDate: data.dueDate || new Date().toISOString(),
-      scheduledDate: data.scheduledDate,
-      estimatedHours: data.estimatedHours,
-      partsRequired: data.partsRequired || [],
-      estimatedCost: data.estimatedCost,
-      tags: data.tags || [],
-      attachments: [],
-      notes: [],
-      safetyPrecautions: data.safetyPrecautions,
-      violationId: data.violationId,
-    };
+  const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
+    if (!user?.facilityId) {
+      toast({ title: "Error", description: "No facility ID", variant: "destructive" });
+      return;
+    }
 
-    setWorkOrders([newWorkOrder, ...workOrders]);
-    toast({
-      title: 'Work Order Created',
-      description: `${newWorkOrder.workOrderId.toUpperCase()} has been created successfully.`,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/work-orders`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...data,
+          facilityId: user.facilityId,
+          orgId: user.orgId || 'org-001',
+          createdBy: user.sub,
+          createdByName: user.name || user.email,
+          createdAt: new Date().toISOString(),
+          status: 'open'
+        })
+      });
+
+      if (response.ok) {
+        const newWO = await response.json();
+        setWorkOrders(prev => [newWO, ...prev]);
+        setShowCreateModal(false);
+        toast({ title: "✅ Work order created!" });
+      } else {
+        throw new Error('API error');
+      }
+    } catch (error) {
+      console.error('Create WO error:', error);
+      toast({ title: "❌ Failed to create", variant: "destructive" });
+    }
   };
 
   const handleUpdateWorkOrder = (data: Partial<WorkOrder>) => {
@@ -251,7 +224,6 @@ export default function WorkOrders() {
         : wo
     ));
     
-    // Update viewing work order if it's the one being changed
     if (viewingWorkOrder?.workOrderId === workOrderId) {
       setViewingWorkOrder({
         ...viewingWorkOrder,
@@ -281,7 +253,6 @@ export default function WorkOrders() {
         : wo
     ));
 
-    // Update viewing work order
     if (viewingWorkOrder?.workOrderId === workOrderId) {
       setViewingWorkOrder({
         ...viewingWorkOrder,
@@ -305,7 +276,7 @@ export default function WorkOrders() {
   };
 
   const handleRefresh = () => {
-    // TODO: Replace with actual API call
+    loadWorkOrders();
     toast({
       title: 'Refreshing',
       description: 'Fetching latest work orders from server...',
@@ -315,7 +286,6 @@ export default function WorkOrders() {
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Work Orders</h1>
@@ -326,8 +296,8 @@ export default function WorkOrders() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="w-4 h-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button onClick={() => setShowCreateModal(true)}>
@@ -337,10 +307,8 @@ export default function WorkOrders() {
           </div>
         </div>
 
-        {/* Stats */}
         <WorkOrderStats {...stats} />
 
-        {/* Filters */}
         <WorkOrderFilters
           filters={filters}
           onFiltersChange={setFilters}
@@ -348,30 +316,24 @@ export default function WorkOrders() {
           onViewModeChange={setViewMode}
         />
 
-        {/* Bulk Actions */}
         {selectedIds.length > 0 && (
           <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
             <span className="text-sm font-medium">{selectedIds.length} selected</span>
-            <Button 
-              variant="destructive" 
-              size="sm"
-              onClick={handleBulkDelete}
-            >
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
               <Trash2 className="w-4 h-4 mr-1" />
               Delete Selected
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setSelectedIds([])}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
               Clear Selection
             </Button>
           </div>
         )}
 
-        {/* Work Orders List */}
-        {viewMode === 'cards' ? (
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredWorkOrders.map((workOrder) => (
               <WorkOrderCard
@@ -401,14 +363,12 @@ export default function WorkOrders() {
           />
         )}
 
-        {/* Create Modal */}
         <WorkOrderModal
           open={showCreateModal}
           onOpenChange={setShowCreateModal}
           onSave={handleCreateWorkOrder}
         />
 
-        {/* Edit Modal */}
         <WorkOrderModal
           open={!!editingWorkOrder}
           onOpenChange={(open) => !open && setEditingWorkOrder(null)}
@@ -416,7 +376,6 @@ export default function WorkOrders() {
           onSave={handleUpdateWorkOrder}
         />
 
-        {/* Detail View */}
         <WorkOrderDetail
           workOrder={viewingWorkOrder}
           open={!!viewingWorkOrder}
@@ -427,7 +386,6 @@ export default function WorkOrders() {
           onDuplicate={(wo) => { setViewingWorkOrder(null); handleDuplicateWorkOrder(wo); }}
         />
 
-        {/* Delete Confirmation */}
         <AlertDialog open={!!deletingWorkOrder} onOpenChange={(open) => !open && setDeletingWorkOrder(null)}>
           <AlertDialogContent className="bg-card border-border">
             <AlertDialogHeader>
