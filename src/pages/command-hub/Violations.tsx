@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertOctagon, ClipboardList, Plus, Filter, Download, Users, AlertTriangle, Scale } from 'lucide-react';
-import { mockViolations, mockEmployeeAccountability } from '@/data/mockData';
+import { mockEmployeeAccountability } from '@/data/mockData';
 import { ViolationCard } from '@/components/command-hub/violations/ViolationCard';
 import { IssueViolationDialog } from '@/components/command-hub/violations/IssueViolationDialog';
 import { AssignWorkOrderDialog } from '@/components/command-hub/violations/AssignWorkOrderDialog';
@@ -13,7 +13,7 @@ import { EmployeeAccountabilityTable } from '@/components/command-hub/violations
 import { Violation } from '@/types/facility';
 import { useToast } from '@/hooks/use-toast';
 
-// Placeholder for current user role - would come from auth context
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const currentUserRole = 'manager';
 
 export default function Violations() {
@@ -25,90 +25,27 @@ export default function Violations() {
   const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
 
   const loadViolations = useCallback(async () => {
-
     if (!user?.facilityId) return;
-
-    setIsLoading(true);
-
-    try {
-
-      const response = await fetch/violations?facilityId=, {
-
-        headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} }
-
-      });
-
-      if (response.ok) {
-
-        const data = await response.json();
-
-        setViolations(data.violations || data || []);
-
-      }
-
-    } catch (error) {
-
-      console.error(error);
-
-    } finally {
-
-      setIsLoading(false);
-
-    }
-
-  }, [user?.facilityId]);
-
-  useEffect(() => { loadViolations(); }, [loadViolations]);
-
-
-
-  // Load violations
-
-  const loadViolations = useCallback(async () => {
-
-    if (!user?.facilityId) return;
-
     
-
     setIsLoading(true);
-
     try {
-
-      const response = await fetch(
-
-        ${API_BASE_URL}/violations?facilityId=${user.facilityId},
-
-        { headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} }}
-
-      );
-
+      const response = await fetch(`${API_BASE_URL}/violations?facilityId=${user.facilityId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` }
+      });
       if (response.ok) {
-
         const data = await response.json();
-
         setViolations(data.violations || data || []);
-
       }
-
     } catch (error) {
-
-      console.error('Load violations error:', error);
-
-      setViolations([]);
-
+      console.error(error);
     } finally {
-
       setIsLoading(false);
-
     }
-
   }, [user?.facilityId]);
 
   useEffect(() => { loadViolations(); }, [loadViolations]);
-
 
   const canManageViolations = ['manager', 'supervisor'].includes(currentUserRole);
-
   const activeViolations = violations.filter(v => !v.acknowledged).length;
   const criticalCount = violations.filter(v => v.severityScore >= 8).length;
   const avgWeight = violations.length > 0 
@@ -145,7 +82,6 @@ export default function Violations() {
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -179,7 +115,6 @@ export default function Violations() {
           )}
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-4">
@@ -238,9 +173,7 @@ export default function Violations() {
           </Card>
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Recent Violations */}
           <Card className="bg-card/50 border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -258,7 +191,6 @@ export default function Violations() {
             </CardContent>
           </Card>
 
-          {/* Employee Accountability */}
           <Card className="bg-card/50 border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -276,7 +208,6 @@ export default function Violations() {
         </div>
       </div>
 
-      {/* Dialogs */}
       <IssueViolationDialog
         open={showIssueDialog}
         onOpenChange={setShowIssueDialog}
