@@ -19,7 +19,6 @@ const currentUserRole = 'manager';
 export default function Violations() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { user } = useAuth();
   const [violations, setViolations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showIssueDialog, setShowIssueDialog] = useState(false);
