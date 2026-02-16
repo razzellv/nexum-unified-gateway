@@ -203,7 +203,7 @@ export const router = createBrowserRouter([
           // 🔥 UPDATED: Replace placeholder with Violations page
           {
             path: "compliance-analyzer",
-            element: <Violations />, // Using Violations page for Compliance Analyzer
+            element: <ComplianceAnalyzer />
           },
           {
             path: "command-center",
