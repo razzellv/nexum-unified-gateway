@@ -1,16 +1,46 @@
+
 import { 
+
   LayoutDashboard, 
+
   AlertTriangle, 
+
   ClipboardList,
+
   ShieldCheck,
+
   Command,
+
   BarChart3,
+
   Camera,
+
   Upload,
+
   Activity,
+
   Database,
-  Home
+
+  Home,
+
+  MessageSquare,
+
+  Columns3,
+
+  AlertOctagon,
+
+  Building2,
+
+  Calendar,
+
+  Workflow,
+
+  Settings,
+
+  Users
+
 } from 'lucide-react';
+
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
