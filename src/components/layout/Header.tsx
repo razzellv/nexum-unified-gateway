@@ -1,10 +1,12 @@
 import { Bell, Search, User, ChevronDown, Menu, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { mockSignals } from '@/data/mockData';
 import { useSidebar } from '@/contexts/SidebarContext';
 
 export function Header() {
+  const navigate = useNavigate();
   const { collapsed, toggle } = useSidebar();
   const unacknowledgedSignals = mockSignals.filter(s => !s.acknowledged).length;
   const criticalSignals = mockSignals.filter(s => s.severity === 'critical' && !s.acknowledged).length;
@@ -42,7 +44,7 @@ export function Header() {
 
         {/* Signals indicator */}
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
+          <Bell className="w-5 h-5 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate('/messages')} />
           {unacknowledgedSignals > 0 && (
             <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium ${
               criticalSignals > 0 ? 'bg-critical text-critical-foreground animate-pulse' : 'bg-warning text-warning-foreground'

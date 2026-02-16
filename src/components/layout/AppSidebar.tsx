@@ -20,6 +20,14 @@ const navigation = [
   { name: 'Command Hub', href: '/command-hub', icon: Command },
   { name: 'Work Orders', href: '/work-orders', icon: ClipboardList },
   { name: 'Violations', href: '/violations', icon: AlertTriangle },
+  { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Kanban', href: '/kanban', icon: Columns3 },
+  { name: 'Emergency', href: '/emergency', icon: AlertOctagon },
+  { name: 'Vendors', href: '/vendors', icon: Building2 },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
+  { name: 'Workflows', href: '/workflows', icon: Workflow },
+  { name: 'Workload', href: '/workload', icon: Users },
+  { name: 'Settings', href: '/settings', icon: Settings },
   { 
     type: 'separator',
     name: 'Operations'
