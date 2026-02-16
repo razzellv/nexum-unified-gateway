@@ -8,7 +8,7 @@ import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import FacilityDataSource from "./pages/FacilityDataSource";
-import Compliance from "./pages/Compliance";
+import ComplianceAnalyzer from "./pages/Compliance";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
@@ -121,7 +121,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "compliance-logger",
-            element: <Compliance />,
+            element: <ComplianceAnalyzer />,
           },
           // 🔥 NEW: Command Hub Routes
           {
