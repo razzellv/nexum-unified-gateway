@@ -26,6 +26,50 @@ export default function Violations() {
 
   const loadViolations = useCallback(async () => {
     if (!user?.facilityId) return;
+<<<<<<< HEAD
+=======
+
+    setIsLoading(true);
+
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/violations?facilityId=${user.facilityId}`, {
+
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` }
+
+      });
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        setViolations(data.violations || data || []);
+
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setIsLoading(false);
+
+    }
+
+  }, [user?.facilityId]);
+
+  useEffect(() => { loadViolations(); }, [loadViolations]);
+
+
+
+  // Load violations
+
+  const loadViolations = useCallback(async () => {
+
+    if (!user?.facilityId) return;
+
+>>>>>>> 52f8d2f5f8b89924107e17cdb07a16f5f5c832a9
     
     setIsLoading(true);
     try {
