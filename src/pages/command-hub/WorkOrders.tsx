@@ -1,51 +1,99 @@
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
+
 import { useAuth } from '@/hooks/useAuth';
+
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
+
 import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Button } from '@/components/ui/button';
+
 import { WorkOrderStats } from '@/components/command-hub/workorders/WorkOrderStats';
+
 import { WorkOrderFilters } from '@/components/command-hub/workorders/WorkOrderFilters';
+
 import { WorkOrderCard } from '@/components/command-hub/workorders/WorkOrderCard';
+
 import { WorkOrderTable } from '@/components/command-hub/workorders/WorkOrderTable';
+
 import { WorkOrderModal } from '@/components/command-hub/workorders/WorkOrderModal';
+
 import { WorkOrderDetail } from '@/components/command-hub/workorders/WorkOrderDetail';
+
 import { getWorkOrderStats } from '@/data/command-hub/workOrderData';
+
 import { WorkOrder, WorkOrderFilters as FilterType, WorkOrderStatus } from '@/types/command-hub/workOrder';
+
 import { useToast } from '@/hooks/use-toast';
+
 import { 
+
   AlertDialog,
+
   AlertDialogAction,
+
   AlertDialogCancel,
+
   AlertDialogContent,
+
   AlertDialogDescription,
+
   AlertDialogFooter,
+
   AlertDialogHeader,
+
   AlertDialogTitle,
+
 } from '@/components/ui/alert-dialog';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function WorkOrders() {
+
   const { toast } = useToast();
+
   const { user } = useAuth();
+
   
+
   // State
+
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
+
   const [filters, setFilters] = useState<FilterType>({
+
     search: '',
+
     status: 'all',
+
     priority: 'all',
+
     type: 'all',
+
     equipmentType: 'all',
+
     assignedTo: 'all',
+
   });
+
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   
+
   // Modal states
+
   const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
+
+  const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null);
+
+  const [deletingWorkOrder, setDeletingWorkOrder] = useState<WorkOrder | null>(null);
 
   // Load work orders from API
 
@@ -115,142 +163,6 @@ export default function WorkOrders() {
 
   }, [loadWorkOrders]);
 
-
-    } catch (error) {
-
-      console.error('❌ Error:', error);
-
-      setWorkOrders([]);
-
-    } finally {
-
-      setIsLoading(false);
-
-    }
-
-  }, [user?.facilityId]);
-
-  useEffect(() => {
-
-    loadWorkOrders();
-
-  }, [loadWorkOrders]);
-
-
-
-  // Filter work orders
-  const filteredWorkOrders = useMemo(() => {
-    return workOrders.filter(wo => {
-      // Search filter
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesSearch = 
-          wo.workOrderId.toLowerCase().includes(searchLower) ||
-          wo.title.toLowerCase().includes(searchLower) ||
-          wo.equipmentId.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
-      }
-      
-      // Status filter
-      if (filters.status !== 'all' && wo.status !== filters.status) return false;
-      
-      // Priority filter
-      if (filters.priority !== 'all' && wo.priority !== filters.priority) return false;
-      
-      // Type filter
-      if (filters.type !== 'all' && wo.type !== filters.type) return false;
-      
-      // Equipment type filter
-      if (filters.equipmentType !== 'all' && wo.equipmentType !== filters.equipmentType) return false;
-      
-      // Assigned to filter
-      if (filters.assignedTo === 'unassigned' && wo.assignedTo) return false;
-      if (filters.assignedTo !== 'all' && filters.assignedTo !== 'unassigned' && wo.assignedTo !== filters.assignedTo) return false;
-      
-      return true;
-    });
-  }, [workOrders, filters]);
-
-  // Calculate stats
-  const stats = useMemo(() => getWorkOrderStats(workOrders), [workOrders]);
-
-  // Count open work orders for subtitle
-  const openCount = workOrders.filter(wo => 
-    ['open', 'assigned', 'in_progress', 'on_hold'].includes(wo.status)
-  ).length;
-
-  // Handlers
-  const handleCreateWorkOrder = (data: Partial<WorkOrder>) => {
-    const newWorkOrder: WorkOrder = {
-      workOrderId: `wo-2026-${String(workOrders.length + 1).padStart(3, '0')}`,
-      facilityId: 'facility-001',
-      orgId: 'org-demo-001',
-      equipmentId: data.equipmentId || '',
-      equipmentType: data.equipmentType || 'hvac',
-      type: data.type || 'corrective',
-      priority: data.priority || 'normal',
-      status: 'open',
-      title: data.title || '',
-      description: data.description || '',
-      assignedTo: data.assignedTo,
-      assignedToName: data.assignedToName,
-      createdBy: 'current-user',
-      createdByName: 'Current User',
-      createdAt: new Date().toISOString(),
-      dueDate: data.dueDate || new Date().toISOString(),
-      scheduledDate: data.scheduledDate,
-      estimatedHours: data.estimatedHours,
-      partsRequired: data.partsRequired || [],
-      estimatedCost: data.estimatedCost,
-      tags: data.tags || [],
-      attachments: [],
-      notes: [],
-      safetyPrecautions: data.safetyPrecautions,
-      violationId: data.violationId,
-    };
-
-    setWorkOrders([newWorkOrder, ...workOrders]);
-    toast({
-      title: 'Work Order Created',
-      description: `${newWorkOrder.workOrderId.toUpperCase()} has been created successfully.`,
-    });
-  };
-
-  const handleUpdateWorkOrder = (data: Partial<WorkOrder>) => {
-    if (!data.workOrderId) return;
-    
-    setWorkOrders(workOrders.map(wo => 
-      wo.workOrderId === data.workOrderId ? { ...wo, ...data } : wo
-    ));
-    setEditingWorkOrder(null);
-    
-    toast({
-      title: 'Work Order Updated',
-      description: `${data.workOrderId.toUpperCase()} has been updated.`,
-    });
-  };
-
-  const handleDeleteWorkOrder = () => {
-    if (!deletingWorkOrder) return;
-    
-    setWorkOrders(workOrders.filter(wo => wo.workOrderId !== deletingWorkOrder.workOrderId));
-    setDeletingWorkOrder(null);
-    
-    toast({
-      title: 'Work Order Deleted',
-      description: `${deletingWorkOrder.workOrderId.toUpperCase()} has been deleted.`,
-    });
-  };
-
-  const handleDuplicateWorkOrder = (workOrder: WorkOrder) => {
-    const duplicate: WorkOrder = {
-      ...workOrder,
-      workOrderId: `wo-2026-${String(workOrders.length + 1).padStart(3, '0')}`,
-      status: 'open',
-      createdAt: new Date().toISOString(),
-      completedAt: undefined,
-      actualHours: undefined,
-      actualCost: undefined,
       notes: [],
       attachments: [],
     };
