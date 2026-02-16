@@ -169,7 +169,7 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit }: IssueViol
                 <SelectValue placeholder="Select work order..." />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border z-50">
-                <!-- None option removed - use placeholder instead -->
+                {/* None option removed - use placeholder instead */}
                 {mockTasks.map((task) => (
                   <SelectItem key={task.id} value={task.id}>
                     #{task.id} - {task.title.substring(0, 40)}...
