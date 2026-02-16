@@ -19,10 +19,49 @@ const currentUserRole = 'manager';
 export default function Violations() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { user } = useAuth();
   const [violations, setViolations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showIssueDialog, setShowIssueDialog] = useState(false);
   const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
+
+  const loadViolations = useCallback(async () => {
+
+    if (!user?.facilityId) return;
+
+    setIsLoading(true);
+
+    try {
+
+      const response = await fetch${API_BASE_URL}/violations?facilityId=${user.facilityId}, {
+
+        headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} }
+
+      });
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        setViolations(data.violations || data || []);
+
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setIsLoading(false);
+
+    }
+
+  }, [user?.facilityId]);
+
+  useEffect(() => { loadViolations(); }, [loadViolations]);
+
+
 
   // Load violations
 
