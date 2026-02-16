@@ -395,15 +395,15 @@ const Index = () => {
   route="/command-hub"
   icon={<Command className="w-5 h-5" />}
   status="active"
-  colorTheme="accent"
+  colorTheme="primary"
 />
             <ModuleCard
               title="Compliance Analyzer"
               description="Automated compliance analysis and regulatory tracking"
               route="/compliance-analyzer"
               icon={<ShieldCheck className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
+              status="active"
+              colorTheme="primary"
             />
           </div>
         </section>
