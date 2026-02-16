@@ -8,7 +8,8 @@ import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import FacilityDataSource from "./pages/FacilityDataSource";
-import ComplianceAnalyzer from "./pages/Compliance";
+import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
+import ComplianceLogger from "./pages/Compliance";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
