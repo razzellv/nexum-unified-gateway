@@ -72,9 +72,15 @@ export default function ManualEquipmentEntry() {
 
         const response = await fetch(
 
+
+        const response = await fetch(
+
           ${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId},
 
           { headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} } }
+
+        );
+
 
         );
 
