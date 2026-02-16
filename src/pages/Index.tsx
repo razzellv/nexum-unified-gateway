@@ -397,24 +397,7 @@ const Index = () => {
   status="active"
   colorTheme="accent"
 />
-<ModuleCard
-  title="Work Orders"
-  subtitle="Task Management"
-  description="Create, assign, and track maintenance work orders"
-  route="/work-orders"
-  icon={<Briefcase className="w-5 h-5" />}
-  status="active"
-  colorTheme="secondary"
-/>
-<ModuleCard
-  title="Violations"
-  subtitle="Compliance Tracking"
-  description="Safety violations and employee accountability scores"
-  route="/violations"
-  icon={<ShieldCheck className="w-5 h-5" />}
-  status="active"
-  colorTheme="primary"
-/>          </div>
+         </div>
         </section>
 
         {/* Modules In Progress */}
