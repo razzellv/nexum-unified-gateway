@@ -397,7 +397,15 @@ const Index = () => {
   status="active"
   colorTheme="accent"
 />
-         </div>
+            <ModuleCard
+              title="Compliance Analyzer"
+              description="Automated compliance analysis and regulatory tracking"
+              route="/compliance-analyzer"
+              icon={<ShieldCheck className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="accent"
+            />
+          </div>
         </section>
 
         {/* Modules In Progress */}
@@ -417,14 +425,6 @@ const Index = () => {
               description="AI chat assistant for technical, safety, and HR questions"
               route="/instructor"
               icon={<MessageSquare className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
-            />
-            <ModuleCard
-              title="Compliance Analyzer"
-              description="Automated compliance analysis and regulatory tracking"
-              route="/compliance-analyzer"
-              icon={<ShieldCheck className="w-5 h-5" />}
               status="in-progress"
               colorTheme="accent"
             />
