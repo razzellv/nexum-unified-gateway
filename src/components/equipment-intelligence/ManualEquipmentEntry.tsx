@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,56 @@ export default function ManualEquipmentEntry() {
     notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [buildings, setBuildings] = useState<any[]>([]);
+
+  const [selectedBuilding, setSelectedBuilding] = useState('');
+
+  const { user } = useAuth();
+
+  // Load buildings
+
+  useEffect(() => {
+
+    const loadBuildings = async () => {
+
+      if (!user?.facilityId) return;
+
+      try {
+
+        const response = await fetch(
+
+          ${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId},
+
+          { headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} } }
+
+        );
+
+        if (response.ok) {
+
+          const data = await response.json();
+
+          setBuildings(data.buildings || []);
+
+          if (data.buildings?.length > 0) {
+
+            setSelectedBuilding(data.buildings[0].buildingId);
+
+          }
+
+        }
+
+      } catch (error) {
+
+        console.error('Error loading buildings:', error);
+
+      }
+
+    };
+
+    loadBuildings();
+
+  }, [user?.facilityId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
