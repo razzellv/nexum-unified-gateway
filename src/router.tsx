@@ -122,7 +122,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "compliance-logger",
-            element: <ComplianceAnalyzer />,
+            element: <ComplianceLogger />,
           },
           // 🔥 NEW: Command Hub Routes
           {
