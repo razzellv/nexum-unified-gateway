@@ -323,7 +323,7 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <!-- Unassigned option removed - use placeholder instead -->
                     {mockEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
                         {emp.name} - {emp.role}
