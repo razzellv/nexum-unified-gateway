@@ -2,7 +2,9 @@ import { Upload, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEquipment } from "@/contexts/EquipmentContext";
 import { toast } from "@/hooks/use-toast";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fileToBase64WithResize } from "@/lib/utils";
 
 const UploadSection = () => {
@@ -17,7 +19,36 @@ const UploadSection = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'warning'>('idle');
   const [lastFileName, setLastFileName] = useState<string | null>(null);
   const [isSavingToDB, setIsSavingToDB] = useState(false);
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  
+  // Load buildings for facility
+  useEffect(() => {
+    const loadBuildings = async () => {
+      if (!user?.facilityId) return;
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId}`,
+          { headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setBuildings(data.buildings || []);
+          if (data.buildings?.length > 0) {
+            setSelectedBuilding(data.buildings[0].buildingId);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading buildings:', error);
+      }
+    };
+    loadBuildings();
+  }, [user?.facilityId]);
 
   const handleFile = async (file: File) => {
     const isHEIC = file.name.toLowerCase().endsWith('.heic') || 
@@ -258,6 +289,60 @@ Format the response with clear labels and values.`,
             <p className="text-muted-foreground">
               Upload a photo or PDF of equipment nameplate for AI analysis
             </p>
+          </div>
+
+
+          {/* Building Selection */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Building *</label>
+              <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select building" />
+                </SelectTrigger>
+                <SelectContent>
+                  {buildings.map(building => (
+                    <SelectItem key={building.buildingId} value={building.buildingId}>
+                      {building.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Floor (Optional)</label>
+              <Select value={selectedFloor} onValueChange={setSelectedFloor}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select floor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {buildings.find(b => b.buildingId === selectedBuilding)?.floors && 
+                    Array.from({ length: buildings.find(b => b.buildingId === selectedBuilding)?.floors || 0 }, (_, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)}>
+                        Floor {i + 1}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Zone (Optional)</label>
+              <Select value={selectedZone} onValueChange={setSelectedZone}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {buildings.find(b => b.buildingId === selectedBuilding)?.zones?.map((zone: string) => (
+                    <SelectItem key={zone} value={zone}>
+                      {zone}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div
