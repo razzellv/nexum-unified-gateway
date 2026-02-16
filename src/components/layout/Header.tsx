@@ -1,5 +1,6 @@
-import { Bell, Search, User, ChevronDown, Menu, X } from 'lucide-react';
+import { Bell, Search, User, ChevronDown, Menu, X, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { mockSignals } from '@/data/mockData';
@@ -7,6 +8,16 @@ import { useSidebar } from '@/contexts/SidebarContext';
 
 export function Header() {
   const navigate = useNavigate();
+
+  const { logout, user } = useAuth();
+
+  const handleLogout = () => {
+
+    logout();
+
+    navigate('/login');
+
+  };
   const { collapsed, toggle } = useSidebar();
   const unacknowledgedSignals = mockSignals.filter(s => !s.acknowledged).length;
   const criticalSignals = mockSignals.filter(s => s.severity === 'critical' && !s.acknowledged).length;
