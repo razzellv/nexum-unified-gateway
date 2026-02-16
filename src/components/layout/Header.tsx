@@ -82,6 +82,25 @@ export function Header() {
           </div>
           <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
         </Button>
+
+
+          <Button 
+
+            variant="outline" 
+
+            size="sm" 
+
+            onClick={handleLogout}
+
+            className="flex items-center gap-2"
+
+          >
+
+            <LogOut className="w-4 h-4" />
+
+            <span>Logout</span>
+
+          </Button>
       </div>
     </header>
   );
