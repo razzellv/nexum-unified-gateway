@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Edit, Flame, Snowflake, Wind, Droplets, Waves, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 const EQUIPMENT_TYPES = [
@@ -37,8 +38,13 @@ interface ManualEquipmentData {
   notes: string;
 }
 
-export default function ManualEquipmentEntry() {
+const ManualEquipmentEntry = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
   const [formData, setFormData] = useState<ManualEquipmentData>({
     equipmentId: '',
     type: 'boiler',
@@ -54,65 +60,33 @@ export default function ManualEquipmentEntry() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [buildings, setBuildings] = useState<any[]>([]);
-
-  const [selectedBuilding, setSelectedBuilding] = useState('');
-
-  const { user } = useAuth();
-
   // Load buildings
-
   useEffect(() => {
-
     const loadBuildings = async () => {
-
       if (!user?.facilityId) return;
-
       try {
-
-        const response = await fetch(
-
-
-        const response = await fetch(
-
-          ${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId},
-
-          { headers: { 'Authorization': Bearer ${localStorage.getItem('nexum_access_token')} } }
-
-        );
-
-
-        );
-
+        const token = localStorage.getItem('nexum_access_token');
+        const url = `${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId}`;
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (response.ok) {
-
           const data = await response.json();
-
           setBuildings(data.buildings || []);
-
           if (data.buildings?.length > 0) {
-
             setSelectedBuilding(data.buildings[0].buildingId);
-
           }
-
         }
-
       } catch (error) {
-
         console.error('Error loading buildings:', error);
-
       }
-
     };
-
     loadBuildings();
-
   }, [user?.facilityId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.equipmentId || !formData.manufacturer || !formData.model) {
       toast({
         title: 'Missing Information',
@@ -125,53 +99,55 @@ export default function ManualEquipmentEntry() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`${API_BASE_URL}/equipment`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     ...formData,
-      //     addedMethod: 'manual_entry',
-      //     addedAt: new Date().toISOString()
-      //   })
-      // });
-
-      console.log('📝 Manual equipment entry:', formData);
-
-      toast({
-        title: 'Success!',
-        description: `${formData.type.toUpperCase()} ${formData.equipmentId} added to equipment library`,
-      });
-
-      // ✅ Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent('equipmentAdded', { 
-        detail: { 
+      const token = localStorage.getItem('nexum_access_token');
+      const url = `${import.meta.env.VITE_API_BASE_URL}/equipment/intelligence`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
           ...formData,
+          buildingId: selectedBuilding,
+          floor: selectedFloor,
+          zone: selectedZone,
           addedMethod: 'manual_entry',
           addedAt: new Date().toISOString()
-        }
-      }));
-
-      // Reset form
-      setFormData({
-        equipmentId: '',
-        type: 'boiler',
-        manufacturer: '',
-        model: '',
-        serialNumber: '',
-        location: '',
-        installDate: '',
-        capacity: '',
-        voltage: '',
-        phase: '',
-        notes: '',
+        })
       });
 
+      if (response.ok) {
+        toast({
+          title: '✅ Equipment Added',
+          description: `${formData.manufacturer} ${formData.model} saved successfully`,
+        });
+
+        // Reset form
+        setFormData({
+          equipmentId: '',
+          type: 'boiler',
+          manufacturer: '',
+          model: '',
+          serialNumber: '',
+          location: '',
+          installDate: '',
+          capacity: '',
+          voltage: '',
+          phase: '',
+          notes: '',
+        });
+        setSelectedFloor('');
+        setSelectedZone('');
+
+        window.dispatchEvent(new CustomEvent('equipment-updated'));
+      } else {
+        throw new Error('Failed to save equipment');
+      }
     } catch (error) {
-      console.error('Error adding equipment:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to add equipment. Please try again.',
+        title: '⚠️ Save Failed',
+        description: 'Could not save equipment. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -179,207 +155,205 @@ export default function ManualEquipmentEntry() {
     }
   };
 
-  const selectedType = EQUIPMENT_TYPES.find(t => t.value === formData.type);
-  const Icon = selectedType?.icon || Edit;
+  const selectedBuildingData = buildings.find(b => b.buildingId === selectedBuilding);
 
   return (
-    <Card className="neon-border">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Edit className="w-5 h-5 text-primary" />
-          Manual Equipment Entry
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Equipment Type Selection */}
-          <div className="grid gap-3">
-            <Label>Equipment Type *</Label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {EQUIPMENT_TYPES.map((type) => {
-                const TypeIcon = type.icon;
-                const isSelected = formData.type === type.value;
-                
-                return (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, type: type.value })}
-                    className={cn(
-                      'p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2',
-                      isSelected
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border/50 hover:border-primary/50'
-                    )}
-                  >
-                    <TypeIcon className={cn('w-8 h-8', isSelected ? 'text-primary' : type.color)} />
-                    <span className="text-xs font-medium">{type.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+    <section className="py-8">
+      <div className="container mx-auto px-4">
+        <Card className="max-w-3xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-primary" />
+              Manual Equipment Entry
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="equipmentId">Equipment ID *</Label>
-              <Input
-                id="equipmentId"
-                value={formData.equipmentId}
-                onChange={(e) => setFormData({ ...formData, equipmentId: e.target.value })}
-                placeholder="B-01, CH-02, AHU-03"
-                required
-              />
-            </div>
+              {/* Building Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg border border-border bg-muted/20">
+                <div>
+                  <Label className="mb-2 block">Building *</Label>
+                  <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select building" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {buildings.map(building => (
+                        <SelectItem key={building.buildingId} value={building.buildingId}>
+                          {building.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="serialNumber">Serial Number</Label>
-              <Input
-                id="serialNumber"
-                value={formData.serialNumber}
-                onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                placeholder="SN123456789"
-              />
-            </div>
-          </div>
+                <div>
+                  <Label className="mb-2 block">Floor (Optional)</Label>
+                  <Select value={selectedFloor} onValueChange={setSelectedFloor}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select floor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedBuildingData && Array.from(
+                        { length: selectedBuildingData.floors || 0 },
+                        (_, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>
+                            Floor {i + 1}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Manufacturer & Model */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="manufacturer">Manufacturer *</Label>
-              <Input
-                id="manufacturer"
-                value={formData.manufacturer}
-                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                placeholder="Cleaver-Brooks, Trane, Carrier"
-                required
-              />
-            </div>
+                <div>
+                  <Label className="mb-2 block">Zone (Optional)</Label>
+                  <Select value={selectedZone} onValueChange={setSelectedZone}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select zone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedBuildingData?.zones?.map((zone: string) => (
+                        <SelectItem key={zone} value={zone}>
+                          {zone}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="model">Model *</Label>
-              <Input
-                id="model"
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                placeholder="CB-700-150, CVHE-500"
-                required
-              />
-            </div>
-          </div>
+              {/* Equipment Type */}
+              <div>
+                <Label className="mb-2 block">Equipment Type *</Label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {EQUIPMENT_TYPES.map((type) => {
+                    const Icon = type.icon;
+                    return (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, type: type.value }))}
+                        className={cn(
+                          'flex flex-col items-center gap-2 p-3 rounded-lg border transition-all',
+                          formData.type === type.value
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        <Icon className={cn('w-5 h-5', type.color)} />
+                        <span className="text-xs font-medium">{type.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          {/* Location & Install Date */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Mechanical Room 1, Roof"
-              />
-            </div>
+              {/* Equipment Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="equipmentId" className="mb-2 block">Equipment ID *</Label>
+                  <Input
+                    id="equipmentId"
+                    placeholder="e.g. BOILER-001"
+                    value={formData.equipmentId}
+                    onChange={e => setFormData(prev => ({ ...prev, equipmentId: e.target.value }))}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="installDate">Install Date</Label>
-              <Input
-                id="installDate"
-                type="date"
-                value={formData.installDate}
-                onChange={(e) => setFormData({ ...formData, installDate: e.target.value })}
-              />
-            </div>
-          </div>
+                <div>
+                  <Label htmlFor="manufacturer" className="mb-2 block">Manufacturer *</Label>
+                  <Input
+                    id="manufacturer"
+                    placeholder="e.g. Cleaver-Brooks"
+                    value={formData.manufacturer}
+                    onChange={e => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
+                  />
+                </div>
 
-          {/* Specifications */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="capacity">Capacity</Label>
-              <Input
-                id="capacity"
-                value={formData.capacity}
-                onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                placeholder="500 tons, 1000 MBH"
-              />
-            </div>
+                <div>
+                  <Label htmlFor="model" className="mb-2 block">Model *</Label>
+                  <Input
+                    id="model"
+                    placeholder="e.g. CB-700"
+                    value={formData.model}
+                    onChange={e => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="voltage">Voltage</Label>
-              <Input
-                id="voltage"
-                value={formData.voltage}
-                onChange={(e) => setFormData({ ...formData, voltage: e.target.value })}
-                placeholder="480V, 208V"
-              />
-            </div>
+                <div>
+                  <Label htmlFor="serialNumber" className="mb-2 block">Serial Number</Label>
+                  <Input
+                    id="serialNumber"
+                    placeholder="e.g. SN-2024-001"
+                    value={formData.serialNumber}
+                    onChange={e => setFormData(prev => ({ ...prev, serialNumber: e.target.value }))}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phase">Phase</Label>
-              <Select
-                value={formData.phase}
-                onValueChange={(value) => setFormData({ ...formData, phase: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Single Phase</SelectItem>
-                  <SelectItem value="3">Three Phase</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                <div>
+                  <Label htmlFor="capacity" className="mb-2 block">Capacity</Label>
+                  <Input
+                    id="capacity"
+                    placeholder="e.g. 500 MBH, 100 Tons"
+                    value={formData.capacity}
+                    onChange={e => setFormData(prev => ({ ...prev, capacity: e.target.value }))}
+                  />
+                </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Additional notes, maintenance history, special requirements..."
-              rows={3}
-            />
-          </div>
+                <div>
+                  <Label htmlFor="installDate" className="mb-2 block">Install Date</Label>
+                  <Input
+                    id="installDate"
+                    type="date"
+                    value={formData.installDate}
+                    onChange={e => setFormData(prev => ({ ...prev, installDate: e.target.value }))}
+                  />
+                </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setFormData({
-                equipmentId: '',
-                type: 'boiler',
-                manufacturer: '',
-                model: '',
-                serialNumber: '',
-                location: '',
-                installDate: '',
-                capacity: '',
-                voltage: '',
-                phase: '',
-                notes: '',
-              })}
-            >
-              Clear Form
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Equipment
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+                <div>
+                  <Label htmlFor="voltage" className="mb-2 block">Voltage</Label>
+                  <Input
+                    id="voltage"
+                    placeholder="e.g. 460V"
+                    value={formData.voltage}
+                    onChange={e => setFormData(prev => ({ ...prev, voltage: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phase" className="mb-2 block">Phase</Label>
+                  <Input
+                    id="phase"
+                    placeholder="e.g. 3-Phase"
+                    value={formData.phase}
+                    onChange={e => setFormData(prev => ({ ...prev, phase: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes" className="mb-2 block">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Additional notes about this equipment..."
+                  value={formData.notes}
+                  onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <Button type="submit" disabled={isSubmitting} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                {isSubmitting ? 'Saving...' : 'Add Equipment'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
   );
-}
+};
+
+export default ManualEquipmentEntry;
