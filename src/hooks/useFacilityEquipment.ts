@@ -68,9 +68,15 @@ export function useFacilityEquipment() {
                   id: item.equipmentId || item.id,
                   assetTag: item.equipmentId || item.id,
                   type: systemType,
-                  name: item.manufacturer && item.model
-                    ? item.manufacturer + ' ' + item.model
-                    : item.equipmentId,
+                  name: (() => {
+                    const mfr = item.manufacturer && !item.manufacturer.includes('**') && !item.manufacturer.toLowerCase().includes('information') ? item.manufacturer : '';
+                    const mdl = item.model && !item.model.includes('**') && !item.model.toLowerCase().includes('information') ? item.model : '';
+                    if (mfr && mdl) return mfr + ' ' + mdl;
+                    if (mfr) return mfr;
+                    if (mdl) return mdl;
+                    const type = item.equipmentType ? item.equipmentType.charAt(0).toUpperCase() + item.equipmentType.slice(1) : 'Equipment';
+                    return type + ' ' + (item.equipmentId || '').slice(-6);
+                  })(),
                   location: item.zone || item.floor || item.location || bld.name,
                 };
               })
