@@ -1,4 +1,4 @@
-export type UserRole = 'operator' | 'supervisor' | 'manager' | 'executive';
+export type UserRole = 'operator' | 'supervisor' | 'manager' | 'executive' | 'admin';
 
 export type MeasurementType = 'measured' | 'estimated';
 
