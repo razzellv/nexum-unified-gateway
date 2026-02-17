@@ -74,7 +74,6 @@ export default function ManualEquipmentEntry() {
           `${import.meta.env.VITE_API_BASE_URL}/buildings?facilityId=${user.facilityId}`,
           { headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` } }
         );
-        );
 
         if (response.ok) {
 
