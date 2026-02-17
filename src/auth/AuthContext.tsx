@@ -88,9 +88,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: decoded?.email,
           name: decoded?.name || decoded?.email,
           role: role,
+          ...decoded,
           facilityId: facilityId,
           orgId: orgId,
-          ...decoded
         };
 
         setUserRole(role);
