@@ -441,7 +441,7 @@ export async function logComplianceEvent(payload: ComplianceLogPayload) {
 
 export async function getRecentEquipment(facilityId: string, days: number = 7) {
   try {
-    return await apiRequest<any>/equipment?facilityId=${facilityId}&days=${days}&sort=recent);
+    return await apiRequest<any>(`/equipment?facilityId=${facilityId}&days=${days}&sort=recent`);
   } catch (error) {
     console.warn('Equipment API error, using empty list');
     return { equipment: [] };
