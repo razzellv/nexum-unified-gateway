@@ -223,7 +223,7 @@ export default function ExecutiveDashboard() {
         trends: {
           boiler: Array.from({ length: 30 }, (_, i) => ({
             date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-            value: 82 + Math.random() * 10,
+            value: apiData.kpis?.overall_efficiency || (82 + Math.random() * 10),
           })),
           chiller: Array.from({ length: 30 }, (_, i) => ({
             date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
@@ -231,15 +231,27 @@ export default function ExecutiveDashboard() {
           })),
           savings: Array.from({ length: 30 }, (_, i) => ({
             date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-            value: 800 + Math.random() * 400,
+            value: (apiData.financial?.potential_monthly_savings || 0) / 30 || (800 + Math.random() * 400),
           })),
         },
         topSites: [
-          { name: 'Main Campus', boilerEfficiency: 89, cop: 4.3, dailyCost: 5200, facilityIntegrity: 92 },
+          { 
+            name: 'Main Campus', 
+            boilerEfficiency: apiData.kpis?.overall_efficiency || 89, 
+            cop: 4.3, 
+            dailyCost: Math.round((apiData.financial?.estimated_monthly_energy_cost || 35000) / 30), 
+            facilityIntegrity: apiData.compliance?.score || 92 
+          },
         ],
-        topEmployees: [
-          { id: '1', name: 'John Smith', riskLevel: 'Low', complianceScore: 95, violations: 1 },
-        ],
+        topEmployees: apiData.compliance?.recent_violations?.map((v: any, i: number) => ({
+          id: v.id || String(i),
+          name: v.operator || 'Unknown Operator',
+          riskLevel: v.severity >= 80 ? 'High' : v.severity >= 50 ? 'Medium' : 'Low',
+          complianceScore: 100 - v.severity,
+          violations: 1,
+          description: v.description,
+          equipment: v.equipment,
+        })) || [{ id: '1', name: 'No violations', riskLevel: 'Low', complianceScore: 100, violations: 0 }],
       };
       
       setData(transformedData as any);
