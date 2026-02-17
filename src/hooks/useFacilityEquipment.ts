@@ -1,22 +1,14 @@
 import { useState, useEffect } from 'react';
-import { getRecentEquipment } from '@/lib/nexum-api';
+import { useAuth } from '@/hooks/useAuth';
 import { Facility, Building, SystemInfo, SystemType } from '@/types/logging';
 
-// Map equipment types from API to our SystemType
 const mapEquipmentType = (apiType: string): SystemType | null => {
   const typeMap: Record<string, SystemType> = {
-    'boiler': 'boiler',
-    'boilers': 'boiler',
-    'chiller': 'chiller',
-    'chillers': 'chiller',
-    'pump': 'pump',
-    'pumps': 'pump',
-    'compressor': 'pump',
-    'ahu': 'ahu',
-    'air_handler': 'ahu',
-    'rtu': 'ahu',
-    'cooling_tower': 'tower',
-    'tower': 'tower',
+    'boiler': 'boiler', 'boilers': 'boiler',
+    'chiller': 'chiller', 'chillers': 'chiller',
+    'pump': 'pump', 'pumps': 'pump', 'compressor': 'pump',
+    'ahu': 'ahu', 'air_handler': 'ahu', 'rtu': 'ahu',
+    'cooling_tower': 'tower', 'tower': 'tower',
   };
   return typeMap[apiType?.toLowerCase()] || null;
 };
@@ -25,104 +17,111 @@ export function useFacilityEquipment() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const fetchEquipment = async () => {
+    const fetchData = async () => {
+      if (!user?.facilityId) return;
       setLoading(true);
       setError(null);
-      
+
       try {
-        // Fetch all equipment (not just recent)
-        const data = await getRecentEquipment(365); // Get all equipment from last year
-        const equipment = data.equipment || data.items || data || [];
-        
-        console.log('🏗️ Building facility structure from equipment:', equipment);
+        const token = localStorage.getItem('nexum_access_token');
+        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        const headers = { Authorization: 'Bearer ' + token };
 
-        // Group equipment by facility and building
-        const facilityMap = new Map<string, Facility>();
+        // Step 1: Load buildings
+        const buildingsRes = await fetch(
+          baseUrl + '/buildings?facilityId=' + user.facilityId,
+          { headers }
+        );
+        const buildingsData = await buildingsRes.json();
+        const buildingsList = buildingsData.buildings || [];
 
-        equipment.forEach((item: any) => {
-          const facilityId = item.facilityId || item.facility_id || 'facility-001';
-          const buildingId = item.buildingId || item.building_id || 'bld-001';
-          const buildingName = item.buildingName || item.building_name || 'Main Building';
-          
-          // Get or create facility
-          let facility = facilityMap.get(facilityId);
-          if (!facility) {
-            facility = {
-              id: facilityId,
-              name: item.facilityName || item.facility_name || 'Main Campus',
-              buildings: [],
-            };
-            facilityMap.set(facilityId, facility);
-          }
+        console.log('Buildings loaded:', buildingsList.length);
 
-          // Get or create building
-          let building = facility.buildings.find(b => b.id === buildingId);
-          if (!building) {
-            building = {
-              id: buildingId,
-              name: buildingName,
-              systems: [],
-            };
-            facility.buildings.push(building);
-          }
+        // Step 2: Load equipment
+        const equipmentRes = await fetch(
+          baseUrl + '/equipment?facilityId=' + user.facilityId + '&days=365',
+          { headers }
+        );
+        const equipmentData = await equipmentRes.json();
+        const equipmentList = equipmentData.equipment || equipmentData.items || [];
 
-          // Map equipment type
-          const systemType = mapEquipmentType(item.type || item.equipmentType);
-          if (!systemType) {
-            console.warn('⚠️ Unknown equipment type:', item.type);
-            return;
-          }
+        console.log('Equipment loaded:', equipmentList.length);
 
-          // Create system from equipment
-          const system: SystemInfo = {
-            id: item.equipmentId || item.id,
-            assetTag: item.assetTag || item.equipmentId || item.id,
-            type: systemType,
-            name: item.name || `${item.manufacturer} ${item.model}` || item.equipmentId,
-            location: item.location || 'Not specified',
-          };
+        // Step 3: Build facility structure
+        const facility: Facility = {
+          id: user.facilityId,
+          name: user.facilityName || 'Main Facility',
+          buildings: buildingsList.map((bld: any) => {
+            // Filter equipment for this building
+            const bldEquipment = equipmentList.filter((e: any) =>
+              e.buildingId === bld.buildingId || (!e.buildingId && bld.buildingId === buildingsList[0]?.buildingId)
+            );
 
-          // Add to building if not duplicate
-          if (!building.systems.find(s => s.id === system.id)) {
-            building.systems.push(system);
-          }
-        });
+            const systems: SystemInfo[] = bldEquipment
+              .map((item: any) => {
+                const systemType = mapEquipmentType(item.equipmentType || item.type);
+                if (!systemType) return null;
+                return {
+                  id: item.equipmentId || item.id,
+                  assetTag: item.equipmentId || item.id,
+                  type: systemType,
+                  name: item.manufacturer && item.model
+                    ? item.manufacturer + ' ' + item.model
+                    : item.equipmentId,
+                  location: item.zone || item.floor || item.location || bld.name,
+                };
+              })
+              .filter(Boolean) as SystemInfo[];
 
-        const facilitiesList = Array.from(facilityMap.values());
-        
-        // Add energy system to each building
-        facilitiesList.forEach(facility => {
-          facility.buildings.forEach(building => {
-            // Add energy/utilities option if not present
-            if (!building.systems.find(s => s.type === 'energy')) {
-              building.systems.push({
-                id: `${building.id}-energy`,
-                assetTag: 'ENERGY',
-                type: 'energy',
-                name: 'Energy & Utilities',
-                location: 'Building Level',
-              });
-            }
-          });
-        });
+            // Always add energy option
+            systems.push({
+              id: bld.buildingId + '-energy',
+              assetTag: 'ENERGY',
+              type: 'energy',
+              name: 'Energy & Utilities',
+              location: 'Building Level',
+            });
 
-        console.log('✅ Built facility structure:', facilitiesList);
-        setFacilities(facilitiesList);
-        
+            return {
+              id: bld.buildingId,
+              name: bld.name,
+              systems,
+            } as Building;
+          }),
+        };
+
+        // If no buildings, create default
+        if (facility.buildings.length === 0) {
+          facility.buildings = [{
+            id: 'default',
+            name: 'Main Building',
+            systems: [{
+              id: 'default-energy',
+              assetTag: 'ENERGY',
+              type: 'energy',
+              name: 'Energy & Utilities',
+              location: 'Building Level',
+            }],
+          }];
+        }
+
+        setFacilities([facility]);
+        console.log('Facility structure built:', facility);
+
       } catch (err) {
-        console.error('❌ Error fetching equipment:', err);
-        setError('Failed to load equipment');
-        // Return empty array on error - SystemSelector will show "no equipment" message
+        console.error('Error fetching facility data:', err);
+        setError('Failed to load facility data');
         setFacilities([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEquipment();
-  }, []);
+    fetchData();
+  }, [user?.facilityId]);
 
   return { facilities, loading, error };
 }
