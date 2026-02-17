@@ -35,7 +35,14 @@ export function useRoleAccess(role: UserRole): RolePermissions {
         canSubmit: false,
         canAddReviewNotes: false,
         isReadOnly: true,
-        hasAccess: false,
+        hasAccess: true,
+      };
+    case 'admin':
+      return {
+        canSubmit: true,
+        canAddReviewNotes: true,
+        isReadOnly: false,
+        hasAccess: true,
       };
     default:
       return {
