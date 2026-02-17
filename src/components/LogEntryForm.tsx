@@ -11,6 +11,7 @@ import { TowerForm, initialTowerData, validateTowerForm } from '@/components/for
 import { EnergyForm, initialEnergyData, validateEnergyForm } from '@/components/forms/EnergyForm';
 import { Facility, Building, SystemInfo, Shift, MeasurementType } from '@/types/logging';
 import { getCurrentShift, mockUser } from '@/data/mockData';
+import { useAuth } from '@/hooks/useAuth';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { submitFacilityLog } from "@/lib/equipment-api";
 import {
@@ -44,7 +45,8 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Role-based access
-  const permissions = useRoleAccess(mockUser.role);
+  const { user: authUser } = useAuth();
+  const permissions = useRoleAccess(authUser?.role || mockUser.role);
 
   // Form data states
   const [boilerData, setBoilerData] = useState(initialBoilerData);
@@ -124,8 +126,8 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
         systemId: system?.id || 'energy-log',
         timestamp: new Date().toISOString(),
         shift,
-        operator: mockUser.name,
-        operatorId: mockUser.id,
+        operator: authUser?.name || authUser?.email || mockUser.name,
+        operatorId: authUser?.sub || mockUser.id,
         measurementType,
         abnormalCondition,
         operatorNotes: notes,
