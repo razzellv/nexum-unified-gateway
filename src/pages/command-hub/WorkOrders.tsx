@@ -57,7 +57,7 @@ export default function WorkOrders() {
 
     try {
 
-      const response = await fetch${API_BASE_URL}/work-orders?facilityId=${user.facilityId}, {
+      const response = await fetch(`${API_BASE_URL}/work-orders?facilityId=${user.facilityId}`, {
         
         headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` }
       });
