@@ -1,3 +1,22 @@
+/**
+ * ROLE-BASED ACCESS CONTROL
+ * 
+ * SECURITY MODEL:
+ * - Each role has strict data isolation
+ * - Employees only see their assigned work orders and team data
+ * - Supervisors see their team's data only
+ * - Managers see facility-level data
+ * - Executives see aggregated metrics only (no personal data)
+ * - Admin role is for TESTING ONLY - not client-facing
+ * 
+ * DATA ISOLATION:
+ * - Work orders filtered by assignedTo (employees)
+ * - Work orders filtered by team (supervisors)
+ * - Violations are role-appropriate
+ * - Messages filtered by recipient
+ * - No cross-tenant data leakage
+ */
+
 export type UserRole = 'operator' | 'tech' | 'engineer' | 'custodian' | 'mechanic' | 'supervisor' | 'manager' | 'executive' | 'admin';
 
 export interface RoleAccess {
@@ -268,7 +287,10 @@ export const ROLE_ACCESS: Record<UserRole, RoleAccess> = {
     canAccessPerformanceCompass: true,
   },
 
-  // Admin - Full Access
+  // Admin - Development/Testing Only
+  // IMPORTANT: Admin role is for system testing and development.
+  // It allows viewing all roles and data. This is NOT a client-facing role.
+  // Production deployments should restrict admin to system owners only.
   admin: {
     role: 'admin',
     displayName: 'Admin',
