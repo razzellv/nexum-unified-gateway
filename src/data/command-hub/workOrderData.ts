@@ -278,11 +278,13 @@ export function getWorkOrderStats(workOrders: WorkOrder[]) {
   
   const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const dueThisWeek = workOrders.filter(wo => {
+    if (!wo.dueDate) return false;
     const dueDate = new Date(wo.dueDate);
     return dueDate <= weekFromNow && openStatuses.includes(wo.status);
   });
   
   const overdue = workOrders.filter(wo => {
+    if (!wo.dueDate) return false;
     const dueDate = new Date(wo.dueDate);
     return dueDate < now && openStatuses.includes(wo.status);
   });
