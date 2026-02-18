@@ -1,28 +1,59 @@
-import { NavLink as RouterNavLink, NavLinkProps } from "react-router-dom";
-import { forwardRef } from "react";
+
+import { NavLink as RouterNavLink } from "react-router-dom";
+
+import { LucideIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
-interface NavLinkCompatProps extends Omit<NavLinkProps, "className"> {
-  className?: string;
-  activeClassName?: string;
-  pendingClassName?: string;
+interface NavLinkProps {
+
+  to: string;
+
+  icon: LucideIcon;
+
+  collapsed: boolean;
+
+  children: React.ReactNode;
+
 }
 
-const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
-  ({ className, activeClassName, pendingClassName, to, ...props }, ref) => {
-    return (
-      <RouterNavLink
-        ref={ref}
-        to={to}
-        className={({ isActive, isPending }) =>
-          cn(className, isActive && activeClassName, isPending && pendingClassName)
-        }
-        {...props}
-      />
-    );
-  },
-);
+export function NavLink({ to, icon: Icon, collapsed, children }: NavLinkProps) {
 
-NavLink.displayName = "NavLink";
+  return (
 
-export { NavLink };
+    <RouterNavLink
+
+      to={to}
+
+      className={({ isActive }) =>
+
+        cn(
+
+          "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+
+          "hover:bg-sidebar-accent",
+
+          isActive 
+
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground",
+
+          collapsed && "justify-center px-2"
+
+        )
+
+      }
+
+    >
+
+      <Icon className="w-5 h-5 shrink-0" />
+
+      {!collapsed && <span className="truncate">{children}</span>}
+
+    </RouterNavLink>
+
+  );
+
+}
+
