@@ -35,6 +35,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -335,6 +336,106 @@ const Index = () => {
           </p>
         </div>
       </header>
+
+
+      {/* Admin Role Toggle */}
+
+      {userRole === 'admin' && (
+
+        <div className="border-b border-border/50 bg-card/20 backdrop-blur-xl">
+
+          <div className="container mx-auto px-4 py-3">
+
+            <div className="flex items-center gap-3">
+
+              <Shield className="w-4 h-4 text-primary" />
+
+              <span className="text-sm font-medium">View as:</span>
+
+              <div className="flex gap-2">
+
+                <Button 
+
+                  variant="ghost" 
+
+                  size="sm"
+
+                  className="h-8"
+
+                  onClick={() => navigate('/employee')}
+
+                >
+
+                  <User className="w-3 h-3 mr-1" />
+
+                  Employee
+
+                </Button>
+
+                <Button 
+
+                  variant="ghost" 
+
+                  size="sm"
+
+                  className="h-8"
+
+                  onClick={() => navigate('/supervisor')}
+
+                >
+
+                  <Users className="w-3 h-3 mr-1" />
+
+                  Supervisor
+
+                </Button>
+
+                <Button 
+
+                  variant="ghost" 
+
+                  size="sm"
+
+                  className="h-8"
+
+                  onClick={() => navigate('/manager')}
+
+                >
+
+                  <Briefcase className="w-3 h-3 mr-1" />
+
+                  Manager
+
+                </Button>
+
+                <Button 
+
+                  variant="ghost" 
+
+                  size="sm"
+
+                  className="h-8"
+
+                  onClick={() => navigate('/executive')}
+
+                >
+
+                  <TrendingUp className="w-3 h-3 mr-1" />
+
+                  Executive
+
+                </Button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
 
       <main className="container mx-auto px-4 py-8 space-y-10">
         {/* Active Modules */}
