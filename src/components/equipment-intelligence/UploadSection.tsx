@@ -180,6 +180,9 @@ Format the response with clear labels and values.`,
           
           const equipmentData = {
             facilityId: 'facility-001',
+            buildingId: selectedBuilding,
+            floor: selectedFloor || null,
+            zone: selectedZone || null,
             manufacturer: manufacturerMatch ? manufacturerMatch[1].trim() : 'Unknown',
             model: modelMatch ? modelMatch[1].trim() : 'Unknown',
             serialNumber: serialMatch ? serialMatch[1].trim() : 'N/A',
