@@ -155,9 +155,9 @@ export default function WorkOrders() {
         const result = await response.json();
         toast({
           title: 'Work Order Created',
-          description: `Work order created successfully!`,
+          description: `${result.workOrder?.title || 'Work order'} created successfully!`,
         });
-        // Refresh work orders list
+        setShowCreateModal(false);
         fetchWorkOrders();
       } else {
         throw new Error('Failed to create work order');
@@ -166,7 +166,7 @@ export default function WorkOrders() {
       console.error('Error creating work order:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create work order',
+        description: 'Failed to create work order. Please try again.',
         variant: 'destructive'
       });
     }
