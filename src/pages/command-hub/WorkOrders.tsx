@@ -66,7 +66,35 @@ export default function WorkOrders() {
 
         const data = await response.json();
 
-        setWorkOrders(data.workOrders || data || []);
+        
+
+        // Transform API data to WorkOrder format
+
+        const workOrders = (data.workOrders || data || []).map((wo: any) => ({
+
+          ...wo,
+
+          description: wo.description || wo.reason || '',
+
+          assignedTo: wo.assignedTo || null,
+
+          assignedToName: wo.assignedToName || wo.createdByName || 'Unassigned',
+
+          equipmentType: wo.system || wo.equipmentType || 'general',
+
+          dueDate: wo.dueDate || wo.createdAt,
+
+          notes: wo.notes || [],
+
+          partsRequired: wo.partsRequired || [],
+
+          tags: wo.tags || [],
+
+          attachments: wo.attachments || []
+
+        }));
+
+        setWorkOrders(workOrders);
 
       }
 
