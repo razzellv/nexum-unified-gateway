@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { ROLE_ACCESS, UserRole } from "@/config/roleAccess";
 import { getRecentEquipment } from "@/lib/nexum-api";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { SystemFeed } from "@/components/SystemFeed";
