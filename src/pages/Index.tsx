@@ -335,11 +335,6 @@ const Index = () => {
           </p>
         </div>
       </header>
-                <p className="text-sm text-muted-foreground">
-                  View all scanned equipment, specifications, and AI analysis
-                </p>
-              </CardContent>
-            </Card>
 
             {/* Recent Scans */}
             <Card className="neon-border col-span-1 md:col-span-2">
