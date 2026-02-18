@@ -299,7 +299,7 @@ export async function getMasterExecutive() {
 
 export async function getMasterWorkOrders() {
   try {
-    return await apiRequest<WorkOrder[]>('/work-orders/list');
+    return await apiRequest<any>('/work-orders');
   } catch (error) {
     console.warn('📊 Using mock data for Work Orders');
     return [];
@@ -317,7 +317,7 @@ export async function getManagerDashboard() {
 
 export async function getWorkOrders() {
   try {
-    return await apiRequest<WorkOrder[]>('/work-orders/list');
+    return await apiRequest<any>('/work-orders');
   } catch (error) {
     console.warn('📊 Using mock data for Work Orders');
     return [];
