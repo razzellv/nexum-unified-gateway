@@ -362,7 +362,7 @@ const Index = () => {
 
                   className="h-8"
 
-                  onClick={() => navigate('/employee')}
+                  onClick={() => navigate('/dashboard/employee')}
 
                 >
 
@@ -380,7 +380,7 @@ const Index = () => {
 
                   className="h-8"
 
-                  onClick={() => navigate('/supervisor')}
+                  onClick={() => navigate('/dashboard/supervisor')}
 
                 >
 
@@ -398,7 +398,7 @@ const Index = () => {
 
                   className="h-8"
 
-                  onClick={() => navigate('/manager')}
+                  onClick={() => navigate('/dashboard/manager')}
 
                 >
 
@@ -416,7 +416,7 @@ const Index = () => {
 
                   className="h-8"
 
-                  onClick={() => navigate('/executive')}
+                  onClick={() => navigate('/dashboard/executive')}
 
                 >
 
