@@ -84,11 +84,55 @@ export function AppSidebar() {
   const roleAccess = getRoleAccess(effectiveRole);
   
   // Build navigation from role access
-  const navigation = roleAccess.navItems.map(item => ({
+  let navigation = roleAccess.navItems.map(item => ({
     name: item.label,
     href: item.path,
     icon: iconMap[item.label] || Database
   }));
+  
+  // Add Command Hub sub-items based on permissions
+  const commandHubIndex = navigation.findIndex(item => item.name === 'Command Hub');
+  if (commandHubIndex !== -1) {
+    const hubItems = [];
+    
+    if (roleAccess.commandHubAccess.workOrders) {
+      hubItems.push({ name: 'Work Orders', href: '/work-orders', icon: ClipboardList });
+    }
+    if (roleAccess.commandHubAccess.violations) {
+      hubItems.push({ name: 'Violations', href: '/violations', icon: AlertTriangle });
+    }
+    if (roleAccess.commandHubAccess.messages) {
+      hubItems.push({ name: 'Messages', href: '/messages', icon: MessageSquare });
+    }
+    if (roleAccess.commandHubAccess.emergency) {
+      hubItems.push({ name: 'Emergency', href: '/emergency', icon: AlertOctagon });
+    }
+    if (roleAccess.commandHubAccess.kanban) {
+      hubItems.push({ name: 'Kanban', href: '/kanban', icon: Columns3 });
+    }
+    if (roleAccess.commandHubAccess.calendar) {
+      hubItems.push({ name: 'Calendar', href: '/calendar', icon: Calendar });
+    }
+    if (roleAccess.commandHubAccess.vendors) {
+      hubItems.push({ name: 'Vendors', href: '/vendors', icon: Building2 });
+    }
+    if (roleAccess.commandHubAccess.workflows) {
+      hubItems.push({ name: 'Workflows', href: '/workflows', icon: Workflow });
+    }
+    if (roleAccess.commandHubAccess.workload) {
+      hubItems.push({ name: 'Workload', href: '/workload', icon: Users });
+    }
+    if (roleAccess.commandHubAccess.settings) {
+      hubItems.push({ name: 'Settings', href: '/settings', icon: Settings });
+    }
+    
+    // Insert hub items after Command Hub
+    navigation = [
+      ...navigation.slice(0, commandHubIndex + 1),
+      ...hubItems,
+      ...navigation.slice(commandHubIndex + 1)
+    ];
+  }
 
   return (
     <aside className={cn(
