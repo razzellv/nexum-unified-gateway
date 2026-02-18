@@ -335,11 +335,6 @@ const Index = () => {
           </p>
         </div>
       </header>
-                      />
-                    )}
-                  </div>
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Equipment Registry</h3>
                 <p className="text-sm text-muted-foreground">
                   View all scanned equipment, specifications, and AI analysis
                 </p>
