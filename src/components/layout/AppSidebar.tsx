@@ -44,39 +44,51 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useAuth } from '@/hooks/useAuth';
+import { getRoleAccess } from '@/config/roleAccess';
 
-const navigation = [
-  { name: 'Main Hub', href: '/', icon: Home },
-  { name: 'Command Hub', href: '/command-hub', icon: Command },
-  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle },
-  { name: 'Messages', href: '/messages', icon: MessageSquare },
-  { name: 'Kanban', href: '/kanban', icon: Columns3 },
-  { name: 'Emergency', href: '/emergency', icon: AlertOctagon },
-  { name: 'Vendors', href: '/vendors', icon: Building2 },
-  { name: 'Calendar', href: '/calendar', icon: Calendar },
-  { name: 'Workflows', href: '/workflows', icon: Workflow },
-  { name: 'Workload', href: '/workload', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
-  { 
-    type: 'separator',
-    name: 'Operations'
-  },
-  { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera },
-  { name: 'Facility Data Source', href: '/data-source', icon: Upload },
-  { name: 'Equipment Metrics', href: '/equipment', icon: Activity },
-  { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck },
-  { 
-    type: 'separator',
-    name: 'Dashboards'
-  },
-  { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3 },
-  { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3 },
-  { name: 'Executive Dashboard', href: '/dashboard/executive', icon: LayoutDashboard },
-];
+// Icon mapping for role-based nav
+const iconMap: Record<string, any> = {
+  'Main Hub': Home,
+  'Command Hub': Command,
+  'Work Orders': ClipboardList,
+  'Violations': AlertTriangle,
+  'Messages': MessageSquare,
+  'Kanban': Columns3,
+  'Emergency': AlertOctagon,
+  'Vendors': Building2,
+  'Calendar': Calendar,
+  'Workflows': Workflow,
+  'Workload': Users,
+  'Settings': Settings,
+  'Equipment Intelligence': Camera,
+  'Facility Data Source': Upload,
+  'Equipment Metrics': Activity,
+  'Compliance Logger': ShieldCheck,
+  'Facility Intelligence': BarChart3,
+  'Energy Dashboard': BarChart3,
+  'Executive Dashboard': LayoutDashboard,
+  'Manager Dashboard': LayoutDashboard,
+  'Supervisor Dashboard': LayoutDashboard,
+  'Employee Dashboard': LayoutDashboard,
+  'Performance Compass': Database,
+};
 
 export function AppSidebar() {
   const { collapsed } = useSidebar();
+  const { user } = useAuth();
+  
+  // Get effective role (simulated or real)
+  const simulatedRole = localStorage.getItem('simulated_role');
+  const effectiveRole = simulatedRole || user?.role || 'operator';
+  const roleAccess = getRoleAccess(effectiveRole);
+  
+  // Build navigation from role access
+  const navigation = roleAccess.navItems.map(item => ({
+    name: item.label,
+    href: item.path,
+    icon: iconMap[item.label] || Database
+  }));
 
   return (
     <aside className={cn(
