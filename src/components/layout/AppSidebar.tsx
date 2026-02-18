@@ -1,138 +1,60 @@
-
 import { 
-
   LayoutDashboard, 
-
   AlertTriangle, 
-
   ClipboardList,
-
   ShieldCheck,
-
   Command,
-
   BarChart3,
-
   Camera,
-
   Upload,
-
   Activity,
-
   Database,
-
   Home,
-
   MessageSquare,
-
   Columns3,
-
   AlertOctagon,
-
   Building2,
-
   Calendar,
-
   Workflow,
-
   Settings,
-
   Users
-
 } from 'lucide-react';
-
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useAuth } from '@/hooks/useAuth';
-import { getRoleAccess } from '@/config/roleAccess';
 
-// Icon mapping for role-based nav
-const iconMap: Record<string, any> = {
-  'Main Hub': Home,
-  'Command Hub': Command,
-  'Work Orders': ClipboardList,
-  'Violations': AlertTriangle,
-  'Messages': MessageSquare,
-  'Kanban': Columns3,
-  'Emergency': AlertOctagon,
-  'Vendors': Building2,
-  'Calendar': Calendar,
-  'Workflows': Workflow,
-  'Workload': Users,
-  'Settings': Settings,
-  'Equipment Intelligence': Camera,
-  'Facility Data Source': Upload,
-  'Equipment Metrics': Activity,
-  'Compliance Logger': ShieldCheck,
-  'Facility Intelligence': BarChart3,
-  'Energy Dashboard': BarChart3,
-  'Executive Dashboard': LayoutDashboard,
-  'Manager Dashboard': LayoutDashboard,
-  'Supervisor Dashboard': LayoutDashboard,
-  'Employee Dashboard': LayoutDashboard,
-  'Performance Compass': Database,
-};
+const navigation = [
+  { name: 'Main Hub', href: '/', icon: Home },
+  { name: 'Command Hub', href: '/command-hub', icon: Command },
+  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList },
+  { name: 'Violations', href: '/violations', icon: AlertTriangle },
+  { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Kanban', href: '/kanban', icon: Columns3 },
+  { name: 'Emergency', href: '/emergency', icon: AlertOctagon },
+  { name: 'Vendors', href: '/vendors', icon: Building2 },
+  { name: 'Calendar', href: '/calendar', icon: Calendar },
+  { name: 'Workflows', href: '/workflows', icon: Workflow },
+  { name: 'Workload', href: '/workload', icon: Users },
+  { name: 'Settings', href: '/settings', icon: Settings },
+  { 
+    type: 'separator',
+    name: 'Operations'
+  },
+  { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera },
+  { name: 'Facility Data Source', href: '/data-source', icon: Upload },
+  { name: 'Equipment Metrics', href: '/equipment', icon: Activity },
+  { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck },
+  { 
+    type: 'separator',
+    name: 'Dashboards'
+  },
+  { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3 },
+  { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3 },
+  { name: 'Executive Dashboard', href: '/dashboard/executive', icon: LayoutDashboard },
+];
 
 export function AppSidebar() {
   const { collapsed } = useSidebar();
-  const { user } = useAuth();
-  
-  // Get effective role (simulated or real)
-  const simulatedRole = localStorage.getItem('simulated_role');
-  const effectiveRole = simulatedRole || user?.role || 'operator';
-  const roleAccess = getRoleAccess(effectiveRole);
-  
-  // Build navigation from role access
-  let navigation = roleAccess.navItems.map(item => ({
-    name: item.label,
-    href: item.path,
-    icon: iconMap[item.label] || Database
-  }));
-  
-  // Add Command Hub sub-items based on permissions
-  const commandHubIndex = navigation.findIndex(item => item.name === 'Command Hub');
-  if (commandHubIndex !== -1) {
-    const hubItems = [];
-    
-    if (roleAccess.commandHubAccess.workOrders) {
-      hubItems.push({ name: 'Work Orders', href: '/work-orders', icon: ClipboardList });
-    }
-    if (roleAccess.commandHubAccess.violations) {
-      hubItems.push({ name: 'Violations', href: '/violations', icon: AlertTriangle });
-    }
-    if (roleAccess.commandHubAccess.messages) {
-      hubItems.push({ name: 'Messages', href: '/messages', icon: MessageSquare });
-    }
-    if (roleAccess.commandHubAccess.emergency) {
-      hubItems.push({ name: 'Emergency', href: '/emergency', icon: AlertOctagon });
-    }
-    if (roleAccess.commandHubAccess.kanban) {
-      hubItems.push({ name: 'Kanban', href: '/kanban', icon: Columns3 });
-    }
-    if (roleAccess.commandHubAccess.calendar) {
-      hubItems.push({ name: 'Calendar', href: '/calendar', icon: Calendar });
-    }
-    if (roleAccess.commandHubAccess.vendors) {
-      hubItems.push({ name: 'Vendors', href: '/vendors', icon: Building2 });
-    }
-    if (roleAccess.commandHubAccess.workflows) {
-      hubItems.push({ name: 'Workflows', href: '/workflows', icon: Workflow });
-    }
-    if (roleAccess.commandHubAccess.workload) {
-      hubItems.push({ name: 'Workload', href: '/workload', icon: Users });
-    }
-    if (roleAccess.commandHubAccess.settings) {
-      hubItems.push({ name: 'Settings', href: '/settings', icon: Settings });
-    }
-    
-    // Insert hub items after Command Hub
-    navigation = [
-      ...navigation.slice(0, commandHubIndex + 1),
-      ...hubItems,
-      ...navigation.slice(commandHubIndex + 1)
-    ];
-  }
 
   return (
     <aside className={cn(
@@ -155,37 +77,30 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {navigation.map((item, index) => {
-          if (item.type === 'separator') {
+      <nav className="flex-1 overflow-y-auto py-4 px-2">
+        <div className="space-y-1">
+          {navigation.map((item) => {
+            if (item.type === 'separator') {
+              return (
+                <div key={item.name} className="px-3 pt-4 pb-2">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                    {!collapsed && item.name}
+                  </h3>
+                </div>
+              );
+            }
             return (
-              <div key={`separator-${index}`} className="pt-4 pb-2">
-                {!collapsed && (
-                  <p className="px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-                    {item.name}
-                  </p>
-                )}
-                {collapsed && <div className="h-px bg-sidebar-border mx-2" />}
-              </div>
+              <NavLink
+                key={item.name}
+                to={item.href}
+                icon={item.icon}
+                collapsed={collapsed}
+              >
+                {item.name}
+              </NavLink>
             );
-          }
-
-          return (
-            <NavLink
-              key={item.name}
-              to={item.href!}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                collapsed && "justify-center px-2"
-              )}
-              activeClassName="bg-sidebar-accent text-sidebar-primary"
-            >
-              <item.icon className="w-5 h-5 shrink-0" />
-              {!collapsed && <span className="truncate">{item.name}</span>}
-            </NavLink>
-          );
-        })}
+          })}
+        </div>
       </nav>
     </aside>
   );
