@@ -30,6 +30,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { cn } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
