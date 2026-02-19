@@ -107,7 +107,7 @@ export default function TechDashboard() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -130,7 +130,7 @@ export default function TechDashboard() {
 
         {/* Performance Score */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-blue-500/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="border-blue-500/20">
             <CardContent className="p-6 text-center">
               <div className="mb-4">
                 <div className="inline-flex p-4 rounded-full bg-blue-500/20 mb-4">
@@ -143,7 +143,7 @@ export default function TechDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-blue-500/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="border-blue-500/20">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-4">Work Order Summary</h3>
               <div className="space-y-3">
@@ -170,7 +170,7 @@ export default function TechDashboard() {
 
         {/* Performance Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -186,7 +186,7 @@ export default function TechDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -198,7 +198,7 @@ export default function TechDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -210,7 +210,7 @@ export default function TechDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -224,7 +224,7 @@ export default function TechDashboard() {
         </div>
 
         {/* Activity Timeline */}
-        <Card>
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-blue-500" />
@@ -237,7 +237,7 @@ export default function TechDashboard() {
         </Card>
 
         {/* My Work Orders */}
-        <Card>
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle>My Assigned Work Orders</CardTitle>
           </CardHeader>
@@ -278,7 +278,7 @@ export default function TechDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <Card>
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
