@@ -459,6 +459,14 @@ const Index = () => {
               colorTheme="primary"
             />
             <ModuleCard
+              title="Employee Dashboards"
+              description="Role-specific portals for technicians, operators, engineers, and custodians"
+              route="/dashboard/employees"
+              icon={<Users className="w-5 h-5" />}
+              status="active"
+              colorTheme="secondary"
+            />
+            <ModuleCard
               title="Equipment Intelligence"
               description="AI-powered nameplate analysis and equipment specs extraction"
               route="/equipment-intelligence"
