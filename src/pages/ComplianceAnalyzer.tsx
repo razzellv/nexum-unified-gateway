@@ -86,7 +86,7 @@ export default function ComplianceAnalyzer() {
   ] : [];
 
   const employeeData = analysisData?.employeeScores?.map((emp: any) => ({
-    name: `Emp ${emp.operatorId.slice(-4)}`,
+    name: `Emp ${String(emp.operatorId || emp.employeeId || 'Unknown').slice(-4)}`,
     score: emp.virtuousScore,
     violations: emp.violationCount
   })) || [];
