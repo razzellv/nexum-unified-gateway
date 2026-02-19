@@ -92,7 +92,7 @@ const CommandDashboard = () => {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Command Dashboard</h1>
@@ -116,7 +116,7 @@ const CommandDashboard = () => {
 
         {/* Critical Violations Banner */}
         {highSeverityViolations.length > 0 && (
-          <div className="bg-critical/10 border border-critical/30 rounded-lg p-4">
+          <div className="glass-panel neon-border border-critical/30 rounded-lg p-4 bg-critical/5 backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-6 h-6 text-critical" />
               <div>
