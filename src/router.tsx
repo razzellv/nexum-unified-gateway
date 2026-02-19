@@ -17,6 +17,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import EmployeeDashboards from "./pages/EmployeeDashboards";
 import TechDashboard from "./pages/TechDashboard";
 import OperatorDashboard from "./pages/OperatorDashboard";
 import EngineerDashboard from "./pages/EngineerDashboard";
@@ -108,6 +109,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/supervisor",
             element: <SupervisorDashboard />,
+          },
+          {
+            path: "dashboard/employees",
+            element: <EmployeeDashboards />,
           },
           {
             path: "dashboard/employee",
