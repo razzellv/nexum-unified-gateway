@@ -31,6 +31,7 @@ import {
   Cell
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { getViolationDetails, getCategoryColor } from '@/lib/complianceConstants';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -464,21 +465,8 @@ export default function ComplianceAnalyzer() {
                       </thead>
                       <tbody>
                         {analysisData.violations?.map((v: any, i: number) => {
-                          // Categorize violations
-                          const getCategory = (type: string) => {
-                            const lower = type.toLowerCase();
-                            if (lower.includes('safety') || lower.includes('ppe') || lower.includes('lockout') || lower.includes('emergency')) return 'Safety';
-                            if (lower.includes('harassment') || lower.includes('disrespectful') || lower.includes('profanity') || lower.includes('unprofessional')) return 'Conduct';
-                            if (lower.includes('tardiness') || lower.includes('breaks') || lower.includes('sleeping') || lower.includes('time')) return 'Attendance';
-                            if (lower.includes('maintenance') || lower.includes('equipment') || lower.includes('tools') || lower.includes('pm tasks')) return 'Maintenance';
-                            if (lower.includes('log') || lower.includes('report') || lower.includes('withholding') || lower.includes('false')) return 'Documentation';
-                            if (lower.includes('substance') || lower.includes('willful') || lower.includes('insubordination') || lower.includes('refusal')) return 'Serious';
-                            if (lower.includes('system') || lower.includes('misconfiguration') || lower.includes('restricted')) return 'Technical';
-                            if (lower.includes('cleanliness') || lower.includes('property')) return 'Facility';
-                            return 'General';
-                          };
-                          
-                          const category = getCategory(v.violationType || '');
+                          const violationDetails = getViolationDetails(v.violationType || '');
+                          const category = violationDetails.category;
                           const severity = v.severity || 50;
                           
                           return (
@@ -537,16 +525,7 @@ export default function ComplianceAnalyzer() {
                               <td className="p-3">
                                 <Badge 
                                   variant="outline"
-                                  className={cn(
-                                    category === 'Safety' && "border-red-500/50 text-red-400",
-                                    category === 'Serious' && "border-red-600/50 text-red-500",
-                                    category === 'Conduct' && "border-orange-500/50 text-orange-400",
-                                    category === 'Maintenance' && "border-blue-500/50 text-blue-400",
-                                    category === 'Documentation' && "border-purple-500/50 text-purple-400",
-                                    category === 'Technical' && "border-cyan-500/50 text-cyan-400",
-                                    category === 'Attendance' && "border-yellow-500/50 text-yellow-400",
-                                    category === 'Facility' && "border-green-500/50 text-green-400"
-                                  )}
+                                  className={getCategoryColor(category)}
                                 >
                                   {category}
                                 </Badge>
