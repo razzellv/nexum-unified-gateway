@@ -456,7 +456,7 @@ export default function ComplianceAnalyzer() {
                         <tr className="border-b-2 border-primary/30 bg-primary/10">
                           <th className="text-left p-3 font-semibold text-sm">Code</th>
                           <th className="text-left p-3 font-semibold text-sm">Violation Type</th>
-                          <th className="text-left p-3 font-semibold text-sm">Equipment</th>
+                          <th className="text-left p-3 font-semibold text-sm">Description</th>
                           <th className="text-left p-3 font-semibold text-sm">Operator</th>
                           <th className="text-center p-3 font-semibold text-sm">Severity</th>
                           <th className="text-left p-3 font-semibold text-sm">Timestamp</th>
@@ -492,8 +492,8 @@ export default function ComplianceAnalyzer() {
                                 </div>
                               </td>
                               <td className="p-3">
-                                <span className="text-sm font-mono text-muted-foreground">
-                                  {v.equipmentId || 'N/A'}
+                                <span className="text-sm text-muted-foreground">
+                                  {v.description || violationDetails.label || 'No description'}
                                 </span>
                               </td>
                               <td className="p-3">
