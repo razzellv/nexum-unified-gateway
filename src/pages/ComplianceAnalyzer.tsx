@@ -335,8 +335,8 @@ export default function ComplianceAnalyzer() {
                         <Tooltip 
                           contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #00d9ff' }}
                         />
-                        <Bar dataKey="score" fill="#22c55e" />
-                      </BarChart>
+                        <Area type="monotone" dataKey="score" stroke="#00d9ff" strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>

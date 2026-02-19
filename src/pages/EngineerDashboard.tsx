@@ -132,7 +132,7 @@ export default function EngineerDashboard() {
 
         {/* Performance Score */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="border-purple-500/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-6 text-center">
               <div className="mb-4">
                 <div className="inline-flex p-4 rounded-full bg-purple-500/20 mb-4">
@@ -145,7 +145,7 @@ export default function EngineerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="border-purple-500/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-6">
               <h3 className="font-semibold mb-4">Project Summary</h3>
               <div className="space-y-3">
@@ -172,7 +172,7 @@ export default function EngineerDashboard() {
 
         {/* Performance Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -184,7 +184,7 @@ export default function EngineerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -196,7 +196,7 @@ export default function EngineerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -208,7 +208,7 @@ export default function EngineerDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -222,7 +222,7 @@ export default function EngineerDashboard() {
         </div>
 
         {/* Activity Timeline */}
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-purple-500" />
@@ -235,7 +235,7 @@ export default function EngineerDashboard() {
         </Card>
 
         {/* Project Progress */}
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="w-5 h-5 text-purple-500" />
@@ -248,7 +248,7 @@ export default function EngineerDashboard() {
         </Card>
 
         {/* Recent Recommendations */}
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-yellow-500" />
@@ -282,7 +282,7 @@ export default function EngineerDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20" className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
