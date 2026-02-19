@@ -46,7 +46,7 @@ const Messages = () => {
           <div className="space-y-1">
             {channels.map((channel, i) => (
               <button key={i} className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left" onClick={() => setShowChannels(false)}>
-                <div className="flex items-center gap-2"><Hash className="w-4 h-4 text-muted-foreground" /><span className="text-sm">{channel.name}</span></div>
+                <div className="flex items-center gap-2"><Hash className="w-4 h-4 text-muted-foreground" /><span className="text-sm">{typeof channel.name === "string" ? channel.name : channel.name?.S || "Channel"}</span></div>
                 {channel.unread > 0 && <Badge className="bg-primary text-primary-foreground text-xs">{channel.unread}</Badge>}
               </button>
             ))}
@@ -81,7 +81,7 @@ const Messages = () => {
           <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
             {messages.map((msg, i) => (
               <div key={i} className="flex gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center text-xs md:text-sm font-medium text-primary shrink-0">{msg.avatar}</div>
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center text-xs md:text-sm font-medium text-primary shrink-0">{typeof msg.avatar === "string" ? msg.avatar : msg.avatar?.S || "?"}</div>
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2"><span className="font-medium text-sm">{msg.author}</span><span className="text-xs text-muted-foreground">{msg.time}</span></div>
                   <p className="text-sm text-muted-foreground mt-1">{msg.content}</p>
