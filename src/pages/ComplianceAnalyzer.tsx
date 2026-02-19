@@ -228,46 +228,113 @@ export default function ComplianceAnalyzer() {
 
             <TabsContent value="overview" className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Severity Distribution */}
-                <Card className="bg-card/50 border-border/50">
+                {/* Violations by Type Table */}
+                <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
                   <CardHeader>
-                    <CardTitle className="text-lg">Violations by Severity</CardTitle>
+                    <CardTitle className="text-lg">Active Violation Types</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={severityData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, value }) => `${name}: ${value}`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {severityData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b-2 border-primary/30 bg-primary/10">
+                            <th className="text-left p-3 font-semibold text-sm">Violation Type</th>
+                            <th className="text-center p-3 font-semibold text-sm">Count</th>
+                            <th className="text-center p-3 font-semibold text-sm">Avg Severity</th>
+                            <th className="text-right p-3 font-semibold text-sm">Total Impact</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(
+                            (analysisData?.violations || []).reduce((acc: any, v: any) => {
+                              const type = v.violationType || 'Unknown';
+                              if (!acc[type]) {
+                                acc[type] = { count: 0, totalSeverity: 0 };
+                              }
+                              acc[type].count += 1;
+                              acc[type].totalSeverity += (v.severity || 50);
+                              return acc;
+                            }, {})
+                          )
+                          .sort((a: any, b: any) => b[1].count - a[1].count)
+                          .map(([type, data]: [string, any], i: number) => {
+                            const avgSeverity = Math.round(data.totalSeverity / data.count);
+                            return (
+                              <tr 
+                                key={i}
+                                className="border-b border-border/30 hover:bg-primary/5 transition-colors"
+                              >
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle className={cn(
+                                      "w-4 h-4",
+                                      avgSeverity >= 80 ? "text-red-500" :
+                                      avgSeverity >= 60 ? "text-orange-500" :
+                                      avgSeverity >= 40 ? "text-yellow-500" :
+                                      "text-green-500"
+                                    )} />
+                                    <span className="font-medium text-sm">{type}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="px-3 py-1 rounded-full bg-primary/20 text-primary font-bold">
+                                    {data.count}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className={cn(
+                                    "px-3 py-1 rounded-full font-semibold text-sm",
+                                    avgSeverity >= 80 ? "bg-red-500/20 text-red-400" :
+                                    avgSeverity >= 60 ? "bg-orange-500/20 text-orange-400" :
+                                    avgSeverity >= 40 ? "bg-yellow-500/20 text-yellow-400" :
+                                    "bg-green-500/20 text-green-400"
+                                  )}>
+                                    {avgSeverity}%
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <span className="font-bold text-lg">
+                                    {data.totalSeverity}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Employee Scores */}
-                <Card className="bg-card/50 border-border/50">
+                <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
                   <CardHeader>
-                    <CardTitle className="text-lg">Employee Performance</CardTitle>
+                    <CardTitle className="text-lg">Employee Performance Trends</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={employeeData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
+                      <AreaChart data={employeeData}>
+                        <defs>
+                          <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#00d9ff" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#00d9ff" stopOpacity={0.1}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="#888"
+                          tick={{ fill: '#888', fontSize: 12 }}
+                          label={{ value: 'Employees', position: 'insideBottom', offset: -5, fill: '#888' }}
+                        />
+                        <YAxis 
+                          stroke="#888"
+                          tick={{ fill: '#888', fontSize: 12 }}
+                          label={{ value: 'Virtuous Score', angle: -90, position: 'insideLeft', fill: '#888' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #00d9ff' }}
+                        />
                         <Bar dataKey="score" fill="#22c55e" />
                       </BarChart>
                     </ResponsiveContainer>
