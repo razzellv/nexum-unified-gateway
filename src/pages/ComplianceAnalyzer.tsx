@@ -276,33 +276,100 @@ export default function ComplianceAnalyzer() {
             </TabsContent>
 
             <TabsContent value="employees">
-              <Card className="bg-card/50 border-border/50">
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
                 <CardHeader>
-                  <CardTitle>Employee Accountability</CardTitle>
+                  <CardTitle>Employee Accountability & Performance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {analysisData.employeeScores?.map((emp: any) => (
-                      <div key={emp.operatorId} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                        <div className="flex items-center gap-3">
-                          <Users className="w-5 h-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">Employee {emp.operatorId.slice(-4)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {emp.violationCount} violations
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge variant={emp.virtuousScore > 80 ? "default" : emp.virtuousScore > 60 ? "secondary" : "destructive"}>
-                            Score: {emp.virtuousScore}
-                          </Badge>
-                          <Badge variant="outline">
-                            Risk: {emp.riskScore}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2 border-primary/30 bg-primary/10">
+                          <th className="text-left p-3 font-semibold text-sm">Employee ID</th>
+                          <th className="text-right p-3 font-semibold text-sm">Logs Submitted</th>
+                          <th className="text-right p-3 font-semibold text-sm">Violations</th>
+                          <th className="text-right p-3 font-semibold text-sm">Avg Severity</th>
+                          <th className="text-right p-3 font-semibold text-sm">Virtuous Score</th>
+                          <th className="text-right p-3 font-semibold text-sm">Risk Score</th>
+                          <th className="text-right p-3 font-semibold text-sm">Compliance %</th>
+                          <th className="text-left p-3 font-semibold text-sm">Level</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analysisData.employeeScores?.map((emp: any, i: number) => (
+                          <tr 
+                            key={i}
+                            className="border-b border-border/30 hover:bg-primary/5 transition-colors"
+                          >
+                            <td className="p-3">
+                              <span className="font-mono text-sm font-medium">
+                                {String(emp.operatorId).slice(-8)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right font-medium">
+                              {emp.logsSubmitted || 0}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={cn(
+                                "px-2 py-1 rounded font-semibold text-sm",
+                                (emp.violationCount || 0) === 0 ? "text-green-400" :
+                                (emp.violationCount || 0) <= 2 ? "text-yellow-400" :
+                                "text-red-400"
+                              )}>
+                                {emp.violationCount || 0}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={cn(
+                                "px-2 py-1 rounded text-xs font-semibold",
+                                (emp.avgSeverity || 0) < 30 ? "bg-green-500/20 text-green-400" :
+                                (emp.avgSeverity || 0) < 60 ? "bg-yellow-500/20 text-yellow-400" :
+                                "bg-red-500/20 text-red-400"
+                              )}>
+                                {emp.avgSeverity || 0}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="text-primary font-bold text-lg">
+                                {emp.virtuousScore || 100}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className={cn(
+                                "font-semibold",
+                                (emp.riskScore || 0) < 30 ? "text-green-400" :
+                                (emp.riskScore || 0) < 60 ? "text-yellow-400" :
+                                "text-red-400"
+                              )}>
+                                {emp.riskScore || 0}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="text-green-400 font-semibold">
+                                {emp.complianceRate || 100}%
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <Badge 
+                                variant={
+                                  emp.cumulativeLevel === "Excellent" ? "default" :
+                                  emp.cumulativeLevel === "Good" ? "secondary" :
+                                  "outline"
+                                }
+                                className={cn(
+                                  emp.cumulativeLevel === "Excellent" && "bg-green-500/20 text-green-400 border-green-500/30",
+                                  emp.cumulativeLevel === "Good" && "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                                  emp.cumulativeLevel === "Fair" && "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+                                  emp.cumulativeLevel === "Needs Improvement" && "bg-red-500/20 text-red-400 border-red-500/30"
+                                )}
+                              >
+                                {emp.cumulativeLevel || "Good"}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
