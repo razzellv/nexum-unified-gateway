@@ -39,12 +39,14 @@ export default function ComplianceAnalyzer() {
   const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(7);
 
   const runAnalysis = async () => {
     if (!user?.facilityId) return;
 
     setIsAnalyzing(true);
+    setError(null);
     try {
       const response = await fetch(
         `${API_BASE_URL}/compliance-analyzer?days=${days}`,
@@ -57,10 +59,16 @@ export default function ComplianceAnalyzer() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Compliance analysis data:', data);
         setAnalysisData(data);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Analysis failed:', response.status, errorText);
+        setError(`Analysis failed: ${response.status} - ${errorText}`);
       }
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('❌ Analysis error:', error);
+      setError(`Network error: ${error.message || 'Unable to connect to analysis service'}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -121,6 +129,31 @@ export default function ComplianceAnalyzer() {
             </Button>
           </div>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="bg-destructive/10 border-destructive/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <XCircle className="w-5 h-5 text-destructive" />
+                <div>
+                  <p className="font-semibold text-destructive">Analysis Error</p>
+                  <p className="text-sm text-muted-foreground">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {isAnalyzing && !analysisData && (
+          <Card className="bg-card/50 border-border/50">
+            <CardContent className="p-8 text-center">
+              <RefreshCw className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Analyzing compliance data...</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Summary Cards */}
         {analysisData && (
