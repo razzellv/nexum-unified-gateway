@@ -123,7 +123,7 @@ function SiteCard({ site, index }: { site: ExecutiveData['topSites'][0]; index: 
     >
       <div className="flex items-center gap-3 mb-3">
         <Building2 className="h-5 w-5 text-primary" />
-        <span className="font-semibold">{site.name}</span>
+        <span className="font-semibold">{typeof site.name === "string" ? site.name : site.name?.S || "Unknown Site"}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
@@ -171,7 +171,7 @@ function EmployeeRiskCard({ employee, index }: { employee: ExecutiveData['topEmp
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Users className="h-4 w-4" />
-          <span className="font-medium">{employee.name}</span>
+          <span className="font-medium">{typeof employee.name === "string" ? employee.name : employee.name?.S || "Unknown Employee"}</span>
         </div>
         <Badge className={riskColors[employee.riskLevel]}>
           {employee.riskLevel}
@@ -422,7 +422,7 @@ export default function ExecutiveDashboard() {
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredSites.map((site, i) => (
-                    <SiteCard key={site.name} site={site} index={i} />
+                    <SiteCard key={i} site={site} index={i} />
                   ))}
                 </div>
               </div>
@@ -436,7 +436,7 @@ export default function ExecutiveDashboard() {
               </h2>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {data.topEmployees.map((employee, i) => (
-                  <EmployeeRiskCard key={employee.id} employee={employee} index={i} />
+                  <EmployeeRiskCard key={i} employee={employee} index={i} />
                 ))}
               </div>
             </div>
