@@ -17,6 +17,11 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import TechDashboard from "./pages/TechDashboard";
+import OperatorDashboard from "./pages/OperatorDashboard";
+import EngineerDashboard from "./pages/EngineerDashboard";
+import CustodianDashboard from "./pages/CustodianDashboard";
+
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
 
@@ -108,6 +113,23 @@ export const router = createBrowserRouter([
             path: "dashboard/employee",
             element: <EmployeeDashboard />,
           },
+          {
+            path: "dashboard/tech",
+            element: <TechDashboard />,
+          },
+          {
+            path: "dashboard/operator",
+            element: <OperatorDashboard />,
+          },
+          {
+            path: "dashboard/engineer",
+            element: <EngineerDashboard />,
+          },
+          {
+            path: "dashboard/custodian",
+            element: <CustodianDashboard />,
+          },
+
           {
             path: "dashboard/executive",
             element: <ExecutiveDashboard />,
