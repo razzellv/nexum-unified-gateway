@@ -186,7 +186,7 @@ export default function Violations() {
             </CardHeader>
             <CardContent className="space-y-3 max-h-[500px] overflow-y-auto">
               {violations.map((violation) => (
-                <ViolationCard key={violation.id} violation={violation} />
+                <ViolationCard key={i} violation={violation} />
               ))}
             </CardContent>
           </Card>
