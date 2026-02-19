@@ -444,33 +444,118 @@ export default function ComplianceAnalyzer() {
             </TabsContent>
 
             <TabsContent value="violations">
-              <Card className="bg-card/50 border-border/50">
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
                 <CardHeader>
                   <CardTitle>Detected Violations</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {analysisData.violations?.map((v: any, i: number) => (
-                      <div key={i} className="p-3 rounded-lg border border-border">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className={`w-4 h-4 ${
-                              v.severity >= 90 ? 'text-critical' :
-                              v.severity >= 70 ? 'text-warning' :
-                              v.severity >= 40 ? 'text-yellow-500' : 'text-green-500'
-                            }`} />
-                            <span className="font-medium">{v.violationType}</span>
-                          </div>
-                          <Badge>{v.severity}% severity</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{v.description}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{v.equipmentId}</span>
-                          <span>•</span>
-                          <span>{new Date(v.timestamp).toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2 border-primary/30 bg-primary/10">
+                          <th className="text-left p-3 font-semibold text-sm">Code</th>
+                          <th className="text-left p-3 font-semibold text-sm">Violation Type</th>
+                          <th className="text-left p-3 font-semibold text-sm">Equipment</th>
+                          <th className="text-left p-3 font-semibold text-sm">Operator</th>
+                          <th className="text-center p-3 font-semibold text-sm">Severity</th>
+                          <th className="text-left p-3 font-semibold text-sm">Timestamp</th>
+                          <th className="text-left p-3 font-semibold text-sm">Category</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analysisData.violations?.map((v: any, i: number) => {
+                          // Categorize violations
+                          const getCategory = (type: string) => {
+                            const lower = type.toLowerCase();
+                            if (lower.includes('safety') || lower.includes('ppe') || lower.includes('lockout') || lower.includes('emergency')) return 'Safety';
+                            if (lower.includes('harassment') || lower.includes('disrespectful') || lower.includes('profanity') || lower.includes('unprofessional')) return 'Conduct';
+                            if (lower.includes('tardiness') || lower.includes('breaks') || lower.includes('sleeping') || lower.includes('time')) return 'Attendance';
+                            if (lower.includes('maintenance') || lower.includes('equipment') || lower.includes('tools') || lower.includes('pm tasks')) return 'Maintenance';
+                            if (lower.includes('log') || lower.includes('report') || lower.includes('withholding') || lower.includes('false')) return 'Documentation';
+                            if (lower.includes('substance') || lower.includes('willful') || lower.includes('insubordination') || lower.includes('refusal')) return 'Serious';
+                            if (lower.includes('system') || lower.includes('misconfiguration') || lower.includes('restricted')) return 'Technical';
+                            if (lower.includes('cleanliness') || lower.includes('property')) return 'Facility';
+                            return 'General';
+                          };
+                          
+                          const category = getCategory(v.violationType || '');
+                          const severity = v.severity || 50;
+                          
+                          return (
+                            <tr 
+                              key={i}
+                              className="border-b border-border/30 hover:bg-primary/5 transition-colors"
+                            >
+                              <td className="p-3">
+                                <span className="font-mono text-xs font-semibold text-primary">
+                                  {v.code || `V-${String(i).padStart(3, '0')}`}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className={cn(
+                                    "w-4 h-4",
+                                    severity >= 80 ? "text-red-500" :
+                                    severity >= 60 ? "text-orange-500" :
+                                    severity >= 40 ? "text-yellow-500" :
+                                    "text-green-500"
+                                  )} />
+                                  <span className="text-sm">{v.violationType || 'Unknown'}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-sm font-mono text-muted-foreground">
+                                  {v.equipmentId || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-sm font-mono">
+                                  {String(v.operatorId || 'Unknown').slice(-8)}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={cn(
+                                  "px-3 py-1 rounded-full font-semibold text-sm",
+                                  severity >= 80 ? "bg-red-500/20 text-red-400" :
+                                  severity >= 60 ? "bg-orange-500/20 text-orange-400" :
+                                  severity >= 40 ? "bg-yellow-500/20 text-yellow-400" :
+                                  "bg-green-500/20 text-green-400"
+                                )}>
+                                  {severity}%
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(v.timestamp).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    category === 'Safety' && "border-red-500/50 text-red-400",
+                                    category === 'Serious' && "border-red-600/50 text-red-500",
+                                    category === 'Conduct' && "border-orange-500/50 text-orange-400",
+                                    category === 'Maintenance' && "border-blue-500/50 text-blue-400",
+                                    category === 'Documentation' && "border-purple-500/50 text-purple-400",
+                                    category === 'Technical' && "border-cyan-500/50 text-cyan-400",
+                                    category === 'Attendance' && "border-yellow-500/50 text-yellow-400",
+                                    category === 'Facility' && "border-green-500/50 text-green-400"
+                                  )}
+                                >
+                                  {category}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
