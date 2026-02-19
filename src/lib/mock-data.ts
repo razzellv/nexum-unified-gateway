@@ -47,7 +47,7 @@ export const mockTopSites = [
 export const mockTopEmployees = [
   { id: '1', name: 'John Smith', riskLevel: 'Low' as const, complianceScore: 95, violations: 1 },
   { id: '2', name: 'Jane Doe', riskLevel: 'Moderate' as const, complianceScore: 78, violations: 3 },
-  { id: '3', name: 'Mike Johnson', riskLevel: 'High' as const, complianceScore: 62, violations: 7 },
+  { id: '3', name: 'Razzell Taylor1', riskLevel: 'High' as const, complianceScore: 62, violations: 7 },
 ];
 
 // ============================================
@@ -213,7 +213,7 @@ export const mockSupervisorStats = {
 export const mockViolationsSummary = [
   { employeeId: 'E001', employeeName: 'John Smith', violationCount: 1, avgWeight: 0.3, avgSeverity: 25 },
   { employeeId: 'E002', employeeName: 'Jane Doe', violationCount: 3, avgWeight: 0.5, avgSeverity: 55 },
-  { employeeId: 'E003', employeeName: 'Mike Johnson', violationCount: 7, avgWeight: 0.8, avgSeverity: 85 },
+  { employeeId: 'E003', employeeName: 'Razzell Taylor1', violationCount: 7, avgWeight: 0.8, avgSeverity: 85 },
 ];
 
 export const mockDepartmentMetrics = [

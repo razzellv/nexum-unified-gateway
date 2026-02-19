@@ -118,7 +118,7 @@ export default function EquipmentLibrary() {
           equipmentType: 'pump',
           yearManufactured: 2015,
           scannedAt: '2025-12-20T09:15:00Z',
-          scannedBy: 'Mike Johnson',
+          scannedBy: 'Razzell Taylor1',
           photos: [
             { s3_url: '/placeholder-nameplate.jpg', type: 'nameplate' }
           ],

@@ -19,9 +19,9 @@ const Messages = () => {
   ];
 
   const messages = [
-    { id: '1', author: 'Mike Johnson', content: 'Boiler #3 inspection complete. Burner adjustment scheduled for tomorrow.', time: '10:30 AM', avatar: 'M' },
-    { id: '2', author: 'Sarah Chen', content: 'Vendor confirmed for electrical thermal scan on Thursday.', time: '10:15 AM', avatar: 'S' },
-    { id: '3', author: 'David Park', content: 'Chiller backup is running smoothly. Main unit repair in progress.', time: '9:45 AM', avatar: 'D' },
+    { id: '1', author: 'Razzell Taylor1', content: 'Boiler #3 inspection complete. Burner adjustment scheduled for tomorrow.', time: '10:30 AM', avatar: 'M' },
+    { id: '2', author: 'Razzell Taylor2', content: 'Vendor confirmed for electrical thermal scan on Thursday.', time: '10:15 AM', avatar: 'S' },
+    { id: '3', author: 'Razzell Taylor3', content: 'Chiller backup is running smoothly. Main unit repair in progress.', time: '9:45 AM', avatar: 'D' },
     { id: '4', author: 'System', content: 'New signal received: Pump #2 vibration alert acknowledged.', time: '9:30 AM', avatar: '⚡' }
   ];
 
@@ -54,7 +54,7 @@ const Messages = () => {
           <div className="mt-6">
             <h3 className="font-semibold mb-3">Direct Messages</h3>
             <div className="space-y-1">
-              {['Mike Johnson', 'Sarah Chen', 'David Park'].map((name) => (
+              {['Razzell Taylor1', 'Razzell Taylor2', 'Razzell Taylor3'].map((name) => (
                 <button key={name} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left" onClick={() => setShowChannels(false)}>
                   <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">{name.charAt(0)}</div>
                   <span className="text-sm">{name}</span>

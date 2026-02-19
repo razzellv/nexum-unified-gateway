@@ -31,7 +31,7 @@ export const mockWorkOrders: WorkOrder[] = [
     title: 'Replace boiler pressure relief valve',
     description: 'Annual PRV replacement per ASME code requirements. Must be completed before inspection on 1/15.',
     assignedTo: 'emp-1',
-    assignedToName: 'Mike Johnson',
+    assignedToName: 'Razzell Taylor1',
     createdBy: 'user-123',
     createdByName: 'Jane Smith',
     createdAt: '2026-01-02T10:00:00Z',
@@ -47,7 +47,7 @@ export const mockWorkOrders: WorkOrder[] = [
         id: 'note-1',
         content: 'Parts ordered and expected to arrive 1/6',
         author: 'emp-1',
-        authorName: 'Mike Johnson',
+        authorName: 'Razzell Taylor1',
         createdAt: '2026-01-03T14:30:00Z'
       }
     ],
@@ -65,7 +65,7 @@ export const mockWorkOrders: WorkOrder[] = [
     title: 'Chiller tube cleaning',
     description: 'Annual condenser tube cleaning to maintain efficiency. Current approach temp is 3°F above design.',
     assignedTo: 'emp-2',
-    assignedToName: 'Sarah Chen',
+    assignedToName: 'Razzell Taylor2',
     createdBy: 'user-123',
     createdByName: 'Jane Smith',
     createdAt: '2026-01-03T08:00:00Z',
@@ -92,7 +92,7 @@ export const mockWorkOrders: WorkOrder[] = [
     title: 'AHU-7 VFD failure - production cooling affected',
     description: 'Variable frequency drive failed causing AHU to run at fixed speed. Production area temperature rising. Vendor dispatched.',
     assignedTo: 'emp-3',
-    assignedToName: 'David Park',
+    assignedToName: 'Razzell Taylor3',
     createdBy: 'user-456',
     createdByName: 'Tom Wilson',
     createdAt: '2026-01-03T06:45:00Z',
@@ -108,14 +108,14 @@ export const mockWorkOrders: WorkOrder[] = [
         id: 'note-2',
         content: 'Vendor on-site. VFD confirmed failed. Replacement being sourced.',
         author: 'emp-3',
-        authorName: 'David Park',
+        authorName: 'Razzell Taylor3',
         createdAt: '2026-01-03T09:15:00Z'
       },
       {
         id: 'note-3',
         content: 'Temporary portable cooler deployed to production area.',
         author: 'emp-3',
-        authorName: 'David Park',
+        authorName: 'Razzell Taylor3',
         createdAt: '2026-01-03T10:00:00Z'
       }
     ],
@@ -156,7 +156,7 @@ export const mockWorkOrders: WorkOrder[] = [
     title: 'Electrical Panel E-12 thermal scan',
     description: 'Annual thermal imaging inspection. No hot spots detected.',
     assignedTo: 'emp-2',
-    assignedToName: 'Sarah Chen',
+    assignedToName: 'Razzell Taylor2',
     createdBy: 'user-123',
     createdByName: 'Jane Smith',
     createdAt: '2025-12-28T09:00:00Z',
@@ -175,7 +175,7 @@ export const mockWorkOrders: WorkOrder[] = [
         id: 'note-4',
         content: 'Inspection complete. All connections within normal temperature range. Report uploaded.',
         author: 'emp-2',
-        authorName: 'Sarah Chen',
+        authorName: 'Razzell Taylor2',
         createdAt: '2026-01-02T11:30:00Z'
       }
     ],
@@ -249,7 +249,7 @@ export const mockWorkOrders: WorkOrder[] = [
     title: 'Boiler #2 low water cutoff replacement',
     description: 'LWCO failed during testing. Must replace before boiler can return to service.',
     assignedTo: 'emp-1',
-    assignedToName: 'Mike Johnson',
+    assignedToName: 'Razzell Taylor1',
     createdBy: 'user-456',
     createdByName: 'Tom Wilson',
     createdAt: '2026-01-03T07:30:00Z',

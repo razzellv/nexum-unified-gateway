@@ -9,14 +9,14 @@ export const mockTasks: Task[] = [
     priority: 'high',
     riskCategory: 'energy',
     status: 'in-progress',
-    assignedPersonnel: ['Mike Johnson', 'Sarah Chen'],
+    assignedPersonnel: ['Razzell Taylor1', 'Razzell Taylor2'],
     assignedVendor: 'Combustion Systems Inc.',
     dueDate: new Date('2024-12-15'),
     estimatedHours: 8,
     actualHours: 4,
     attachments: [],
     comments: [
-      { id: '1', content: 'Initial inspection complete. Burner adjustment needed.', author: 'Mike Johnson', createdAt: new Date(), mentions: [] }
+      { id: '1', content: 'Initial inspection complete. Burner adjustment needed.', author: 'Razzell Taylor1', createdAt: new Date(), mentions: [] }
     ],
     createdAt: new Date('2024-12-01'),
     updatedAt: new Date()
@@ -29,7 +29,7 @@ export const mockTasks: Task[] = [
     priority: 'critical',
     riskCategory: 'reliability',
     status: 'ready',
-    assignedPersonnel: ['David Park'],
+    assignedPersonnel: ['Razzell Taylor3'],
     dueDate: new Date('2024-12-10'),
     estimatedHours: 12,
     attachments: [],
@@ -61,7 +61,7 @@ export const mockTasks: Task[] = [
     priority: 'medium',
     riskCategory: 'safety',
     status: 'waiting-vendor',
-    assignedPersonnel: ['Sarah Chen'],
+    assignedPersonnel: ['Razzell Taylor2'],
     assignedVendor: 'ElectroPro Services',
     dueDate: new Date('2024-12-18'),
     estimatedHours: 4,
@@ -78,7 +78,7 @@ export const mockTasks: Task[] = [
     priority: 'high',
     riskCategory: 'production',
     status: 'qa',
-    assignedPersonnel: ['Mike Johnson'],
+    assignedPersonnel: ['Razzell Taylor1'],
     dueDate: new Date('2024-12-12'),
     estimatedHours: 6,
     actualHours: 5,
@@ -95,7 +95,7 @@ export const mockTasks: Task[] = [
     priority: 'low',
     riskCategory: 'compliance',
     status: 'completed',
-    assignedPersonnel: ['David Park'],
+    assignedPersonnel: ['Razzell Taylor3'],
     dueDate: new Date('2024-12-08'),
     estimatedHours: 2,
     actualHours: 2,
@@ -171,14 +171,14 @@ export const mockEmergencies: Emergency[] = [
     status: 'contained',
     location: 'Mechanical Room B',
     startTime: new Date('2024-12-08T14:30:00'),
-    personnelNotified: ['Mike Johnson', 'Sarah Chen', 'David Park'],
+    personnelNotified: ['Razzell Taylor1', 'Razzell Taylor2', 'Razzell Taylor3'],
     vendorsContacted: ['ChillerTech Solutions'],
     resources: ['Portable cooling unit deployed', 'Backup chiller online'],
     timeline: [
       { id: '1', timestamp: new Date('2024-12-08T14:30:00'), action: 'Alarm received - Chiller #2 low refrigerant', author: 'System' },
       { id: '2', timestamp: new Date('2024-12-08T14:32:00'), action: 'Emergency team notified', author: 'System' },
-      { id: '3', timestamp: new Date('2024-12-08T14:45:00'), action: 'Backup chiller brought online', author: 'Mike Johnson' },
-      { id: '4', timestamp: new Date('2024-12-08T15:00:00'), action: 'Vendor contacted - ETA 2 hours', author: 'Sarah Chen' }
+      { id: '3', timestamp: new Date('2024-12-08T14:45:00'), action: 'Backup chiller brought online', author: 'Razzell Taylor1' },
+      { id: '4', timestamp: new Date('2024-12-08T15:00:00'), action: 'Vendor contacted - ETA 2 hours', author: 'Razzell Taylor2' }
     ],
     attachments: []
   }
@@ -269,9 +269,9 @@ export const dashboardMetrics: MetricCard[] = [
 ];
 
 export const workloadData = [
-  { name: 'Mike Johnson', tasks: 8, hours: 42, capacity: 85 },
-  { name: 'Sarah Chen', tasks: 6, hours: 38, capacity: 76 },
-  { name: 'David Park', tasks: 5, hours: 32, capacity: 64 },
+  { name: 'Razzell Taylor1', tasks: 8, hours: 42, capacity: 85 },
+  { name: 'Razzell Taylor2', tasks: 6, hours: 38, capacity: 76 },
+  { name: 'Razzell Taylor3', tasks: 5, hours: 32, capacity: 64 },
   { name: 'Tom Wilson', tasks: 4, hours: 28, capacity: 56 },
   { name: 'Lisa Brown', tasks: 3, hours: 18, capacity: 36 }
 ];
@@ -303,9 +303,9 @@ export const violationTypeConfigs: ViolationTypeConfig[] = [
 
 // Mock Employees
 export const mockEmployees: Employee[] = [
-  { id: 'emp-1', name: 'Mike Johnson', role: 'Technician', department: 'Maintenance' },
-  { id: 'emp-2', name: 'Sarah Chen', role: 'Engineer', department: 'Engineering' },
-  { id: 'emp-3', name: 'David Park', role: 'Technician', department: 'Maintenance' },
+  { id: 'emp-1', name: 'Razzell Taylor1', role: 'Technician', department: 'Maintenance' },
+  { id: 'emp-2', name: 'Razzell Taylor2', role: 'Engineer', department: 'Engineering' },
+  { id: 'emp-3', name: 'Razzell Taylor3', role: 'Technician', department: 'Maintenance' },
   { id: 'emp-4', name: 'Tom Wilson', role: 'Technician', department: 'Production' },
   { id: 'emp-5', name: 'Lisa Brown', role: 'Supervisor', department: 'Operations' },
   { id: 'emp-6', name: 'James Rodriguez', role: 'Technician', department: 'HVAC' },
@@ -316,7 +316,7 @@ export const mockViolations: Violation[] = [
   {
     id: 'vio-1',
     employeeId: 'emp-1',
-    employeeName: 'Mike Johnson',
+    employeeName: 'Razzell Taylor1',
     type: 'ppe-compliance',
     complianceCategory: 'safety',
     severityScore: 7,
@@ -332,7 +332,7 @@ export const mockViolations: Violation[] = [
   {
     id: 'vio-2',
     employeeId: 'emp-3',
-    employeeName: 'David Park',
+    employeeName: 'Razzell Taylor3',
     type: 'lockout-tagout',
     complianceCategory: 'safety',
     severityScore: 10,
@@ -364,7 +364,7 @@ export const mockViolations: Violation[] = [
   {
     id: 'vio-4',
     employeeId: 'emp-1',
-    employeeName: 'Mike Johnson',
+    employeeName: 'Razzell Taylor1',
     type: 'attendance',
     complianceCategory: 'operational',
     severityScore: 3,
@@ -399,7 +399,7 @@ export const mockViolations: Violation[] = [
 export const mockEmployeeAccountability: EmployeeAccountability[] = [
   {
     employeeId: 'emp-1',
-    employeeName: 'Mike Johnson',
+    employeeName: 'Razzell Taylor1',
     role: 'Technician',
     department: 'Maintenance',
     violations30Days: 2,
@@ -413,7 +413,7 @@ export const mockEmployeeAccountability: EmployeeAccountability[] = [
   },
   {
     employeeId: 'emp-2',
-    employeeName: 'Sarah Chen',
+    employeeName: 'Razzell Taylor2',
     role: 'Engineer',
     department: 'Engineering',
     violations30Days: 0,
@@ -426,7 +426,7 @@ export const mockEmployeeAccountability: EmployeeAccountability[] = [
   },
   {
     employeeId: 'emp-3',
-    employeeName: 'David Park',
+    employeeName: 'Razzell Taylor3',
     role: 'Technician',
     department: 'Maintenance',
     violations30Days: 1,

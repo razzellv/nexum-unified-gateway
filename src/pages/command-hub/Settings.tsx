@@ -21,9 +21,9 @@ const Settings = () => {
 
   const teamMembers = [
     { name: 'Razzell Valentine', email: 'razzellv@nexumsuum.com', role: 'Owner/Admin', status: 'active' },
-    { name: 'Mike Johnson', email: 'mjohnson@facility.com', role: 'Supervisor', status: 'active' },
-    { name: 'Sarah Chen', email: 'schen@facility.com', role: 'Technician', status: 'active' },
-    { name: 'David Park', email: 'dpark@facility.com', role: 'Technician', status: 'active' },
+    { name: 'Razzell Taylor1', email: 'mjohnson@facility.com', role: 'Supervisor', status: 'active' },
+    { name: 'Razzell Taylor2', email: 'schen@facility.com', role: 'Technician', status: 'active' },
+    { name: 'Razzell Taylor3', email: 'dpark@facility.com', role: 'Technician', status: 'active' },
     { name: 'Tom Wilson', email: 'twilson@facility.com', role: 'Technician', status: 'active' }
   ];
 
