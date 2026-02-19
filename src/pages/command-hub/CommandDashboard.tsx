@@ -157,7 +157,7 @@ const CommandDashboard = () => {
           <div>
             <h2 className="text-lg font-semibold mb-4">Recent Violations</h2>
             <div className="grid md:grid-cols-2 gap-4">
-              {violations.slice(0, 4).map((v) => (
+              {violations.slice(0, 4).map((v, i) => (
                 <div key={i} className="border border-border rounded-lg p-4 bg-card">
                   <div className="flex items-start justify-between gap-2">
                     <div>
