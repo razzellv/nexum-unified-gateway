@@ -29,7 +29,7 @@ export default function Violations() {
     
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/violations?facilityId=${user.facilityId}`, {
+      const response = await fetch(`${API_BASE_URL}/compliance-analyzer?facilityId=${user.facilityId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` }
       });
       if (response.ok) {
