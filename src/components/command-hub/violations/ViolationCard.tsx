@@ -157,3 +157,4 @@ export function ViolationCard({ violation }: ViolationCardProps) {
     </Card>
   );
 }
+// Force rebuild Fri Feb 27 00:04:24 EST 2026
