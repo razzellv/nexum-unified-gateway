@@ -122,10 +122,12 @@ export function ViolationCard({ violation }: ViolationCardProps) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span>{violation.employeeName || 
-   (typeof violation.operator === 'string' ? violation.operator : violation.operator?.name) || 
-   violation.operatorId || 
-   'Unknown'}</span>
+              <span>
+                {violation.employeeName || 
+                 (typeof violation.operator === 'string' ? violation.operator : violation.operator?.name) || 
+                 violation.operatorId || 
+                 'Unknown'}
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
@@ -153,11 +155,12 @@ export function ViolationCard({ violation }: ViolationCardProps) {
             </div>
           )}
           <span className="text-xs text-muted-foreground">
-            by {violation.issuedBy || violation.loggedBy || 'System'}
+            by {(typeof violation.issuedBy === 'string' ? violation.issuedBy : violation.issuedBy?.name) || 
+                (typeof violation.loggedBy === 'string' ? violation.loggedBy : violation.loggedBy?.name) || 
+                'System'}
           </span>
         </div>
       </div>
     </Card>
   );
 }
-// Force rebuild Fri Feb 27 00:04:24 EST 2026
