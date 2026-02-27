@@ -155,10 +155,10 @@ export function ViolationCard({ violation }: ViolationCardProps) {
             </div>
           )}
           <span className="text-xs text-muted-foreground">
-            by {(typeof violation.issuedBy === 'string' ? violation.issuedBy : violation.issuedBy?.name) || 
-                (typeof violation.loggedBy === 'string' ? violation.loggedBy : violation.loggedBy?.name) || 
-                'System'}
-          </span>
+  by {(typeof violation.issuedBy === 'string' ? violation.issuedBy : violation.issuedBy?.name) || 
+      (typeof violation.loggedBy === 'string' ? violation.loggedBy : violation.loggedBy?.name) || 
+      'System'}
+</span>
         </div>
       </div>
     </Card>
