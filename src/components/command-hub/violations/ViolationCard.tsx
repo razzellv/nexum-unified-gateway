@@ -15,7 +15,12 @@ const categoryLabels: Record<string, string> = {
   operational: 'Operational',
   regulatory: 'Regulatory',
   environmental: 'Environmental',
-  quality: 'Quality'
+  quality: 'Quality',
+  EQUIPMENT: 'Equipment',
+  COMPLIANCE: 'Compliance',
+  OPERATIONAL: 'Operational',
+  UNETHICAL: 'Unethical',
+  VIRTUOUS: 'Virtuous'
 };
 
 const typeLabels: Record<string, string> = {
@@ -30,8 +35,50 @@ const typeLabels: Record<string, string> = {
   'unauthorized-access': 'Unauthorized Access',
   'quality-control': 'Quality Control',
   'time-reporting': 'Time Reporting',
-  'housekeeping': 'Housekeeping'
+  'housekeeping': 'Housekeeping',
+  'MISSING_LOG': 'Missing Log',
+  'LATE_LOG': 'Late Log',
+  'INCOMPLETE_DATA': 'Incomplete Data',
+  'OUT_OF_RANGE': 'Out of Range',
+  'CRITICAL_FAILURE': 'Critical Failure',
+  'UNSAFE_OPERATION': 'Unsafe Operation',
+  'MISSED_ROUND': 'Missed Round',
+  'DOCUMENTATION_ERROR': 'Documentation Error',
+  'UNAUTHORIZED_CHANGE': 'Unauthorized Change',
+  'SAFETY_VIOLATION': 'Safety Violation',
+  'TRAINING_LAPSE': 'Training Lapse',
+  'PROCEDURE_DEVIATION': 'Procedure Deviation',
+  'POOR_COMMUNICATION': 'Poor Communication',
+  'QUALITY_ISSUE': 'Quality Issue',
+  'RESPONSE_DELAY': 'Response Delay',
+  'UNETHICAL_CONDUCT': 'Unethical Conduct',
+  'DISHONESTY': 'Dishonesty',
+  'POLICY_VIOLATION': 'Policy Violation',
+  'EXEMPLARY_SAFETY': 'Exemplary Safety',
+  'PROACTIVE_REPORTING': 'Proactive Reporting',
+  'EXCELLENCE': 'Excellence',
+  'MENTORSHIP': 'Mentorship'
 };
+
+// Safe date formatter
+function formatDate(dateValue: any): string {
+  if (!dateValue) return 'N/A';
+  
+  try {
+    // Handle different date formats
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+    
+    return format(date, 'MMM d, yyyy');
+  } catch (error) {
+    console.error('Date formatting error:', error, dateValue);
+    return 'Invalid Date';
+  }
+}
 
 export function ViolationCard({ violation }: ViolationCardProps) {
   const severityColor = getSeverityColor(violation.severityScore);
@@ -46,12 +93,12 @@ export function ViolationCard({ violation }: ViolationCardProps) {
               variant="outline" 
               className={cn("text-xs", severityColor, severityBg)}
             >
-              Severity: {violation.severityScore}/10
+              Severity: {violation.severityScore || violation.severity || 0}/100
             </Badge>
             <Badge variant="outline" className="text-xs text-muted-foreground">
-              {categoryLabels[violation.complianceCategory]}
+              {categoryLabels[violation.complianceCategory || violation.category] || violation.category || 'Unknown'}
             </Badge>
-            {violation.weightFactor > 1 && (
+            {violation.weightFactor && violation.weightFactor > 1 && (
               <Badge 
                 variant="outline" 
                 className={cn(
@@ -65,21 +112,21 @@ export function ViolationCard({ violation }: ViolationCardProps) {
           </div>
 
           <h4 className="font-medium text-foreground mb-1">
-            {typeLabels[violation.type]}
+            {typeLabels[violation.type] || violation.type || 'Unknown Type'}
           </h4>
           
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {violation.description}
+            {violation.description || 'No description provided'}
           </p>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span>{violation.employeeName}</span>
+              <span>{violation.employeeName || violation.operator || violation.operatorId || 'Unknown'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              <span>{format(violation.issuedAt, 'MMM d, yyyy')}</span>
+              <span>{formatDate(violation.issuedAt || violation.timestamp || violation.createdAt)}</span>
             </div>
             {violation.workOrderId && (
               <div className="flex items-center gap-1">
@@ -103,7 +150,7 @@ export function ViolationCard({ violation }: ViolationCardProps) {
             </div>
           )}
           <span className="text-xs text-muted-foreground">
-            by {violation.issuedBy}
+            by {violation.issuedBy || violation.loggedBy || 'System'}
           </span>
         </div>
       </div>
