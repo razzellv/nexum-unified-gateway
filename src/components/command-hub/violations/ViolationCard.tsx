@@ -122,7 +122,10 @@ export function ViolationCard({ violation }: ViolationCardProps) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span>{violation.employeeName || violation.operator || violation.operatorId || 'Unknown'}</span>
+              <span>{violation.employeeName || 
+   (typeof violation.operator === 'string' ? violation.operator : violation.operator?.name) || 
+   violation.operatorId || 
+   'Unknown'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
