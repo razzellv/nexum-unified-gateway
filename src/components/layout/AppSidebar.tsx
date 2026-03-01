@@ -17,7 +17,8 @@ import {
   Calendar,
   Workflow,
   Settings,
-  Users
+  Users,
+  Package  // ✅ ADDED for Equipment Library
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ const navigation = [
   { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera },
   { name: 'Facility Data Source', href: '/data-source', icon: Upload },
   { name: 'Equipment Metrics', href: '/equipment', icon: Activity },
+  { name: 'Equipment Library', href: '/equipment-library', icon: Package },  // ✅ ADDED
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck },
   { 
     type: 'separator',
