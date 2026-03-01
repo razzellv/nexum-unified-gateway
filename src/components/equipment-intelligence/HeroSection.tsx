@@ -44,7 +44,7 @@ const HeroSection = () => {
             </div>
           </div>
           
-          {/* ✅ NEW: Equipment Library Button */}
+          {/* ✅ ADDED: Equipment Library Button */}
           <div className="pt-6">
             <Button 
               size="lg"
