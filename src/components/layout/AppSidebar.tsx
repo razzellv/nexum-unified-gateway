@@ -18,7 +18,7 @@ import {
   Workflow,
   Settings,
   Users,
-  Package  // ✅ ADDED for Equipment Library
+  Package  // ✅ ADDED
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
