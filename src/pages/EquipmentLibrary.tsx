@@ -1,18 +1,66 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Edit, Trash2, Settings } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Search, Edit, Settings, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+
+interface Equipment {
+  equipmentId: string;
+  equipmentType: string;
+  manufacturer: string;
+  model: string;
+  serialNumber?: string;
+  location?: string;
+  installDate?: string;
+  status?: string;
+  buildingId?: string;
+}
+
+const equipmentTypes = [
+  'boiler',
+  'chiller',
+  'pump',
+  'ahu',
+  'cooling_tower',
+  'fan',
+  'vav',
+  'air_handler',
+  'heat_exchanger',
+  'compressor',
+  'condenser',
+  'evaporator',
+];
 
 export default function EquipmentLibrary() {
   const { user } = useAuth();
-  const [equipment, setEquipment] = useState<any[]>([]);
+  const { toast } = useToast();
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    equipmentType: '',
+    manufacturer: '',
+    model: '',
+    serialNumber: '',
+    location: '',
+    installDate: '',
+    buildingId: '',
+    status: 'active',
+  });
 
   useEffect(() => {
     loadEquipment();
@@ -22,13 +70,69 @@ export default function EquipmentLibrary() {
     if (!user?.facilityId) return;
     
     try {
-      const data = await apiRequest(`/equipment?facilityId=${user.facilityId}`);
+      setLoading(true);
+      const data = await apiRequest(`/equipment?facility_id=${user.facilityId}`);
       setEquipment(data.equipment || []);
     } catch (error) {
       console.error('Failed to load equipment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load equipment',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAdd = async () => {
+    if (!formData.equipmentType || !formData.manufacturer || !formData.model) {
+      toast({
+        title: 'Validation Error',
+        description: 'Equipment type, manufacturer, and model are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await apiRequest('/equipment', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+
+      toast({
+        title: 'Success',
+        description: 'Equipment added successfully',
+      });
+
+      setAddDialogOpen(false);
+      resetForm();
+      loadEquipment();
+    } catch (error: any) {
+      console.error('Failed to add equipment:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add equipment',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      equipmentType: '',
+      manufacturer: '',
+      model: '',
+      serialNumber: '',
+      location: '',
+      installDate: '',
+      buildingId: '',
+      status: 'active',
+    });
   };
 
   const filteredEquipment = equipment.filter(eq =>
@@ -37,7 +141,7 @@ export default function EquipmentLibrary() {
     eq.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canEdit = ['admin', 'executive'].includes(user?.role || '');
+  const canEdit = ['admin', 'executive', 'manager'].includes(user?.role || '');
 
   return (
     <MainLayout>
@@ -48,10 +152,140 @@ export default function EquipmentLibrary() {
             <p className="text-muted-foreground">Manage facility equipment and baselines</p>
           </div>
           {canEdit && (
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Equipment
-            </Button>
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Equipment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add New Equipment</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="equipmentType">Equipment Type *</Label>
+                      <Select
+                        value={formData.equipmentType}
+                        onValueChange={(value) => setFormData({ ...formData, equipmentType: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {equipmentTypes.map(type => (
+                            <SelectItem key={type} value={type}>
+                              {type.replace(/_/g, ' ').toUpperCase()}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Status</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData({ ...formData, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manufacturer">Manufacturer *</Label>
+                      <Input
+                        id="manufacturer"
+                        value={formData.manufacturer}
+                        onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                        placeholder="e.g., Trane, Carrier, York"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="model">Model *</Label>
+                      <Input
+                        id="model"
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                        placeholder="e.g., RTAC-150"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="serialNumber">Serial Number</Label>
+                      <Input
+                        id="serialNumber"
+                        value={formData.serialNumber}
+                        onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="installDate">Install Date</Label>
+                      <Input
+                        id="installDate"
+                        type="date"
+                        value={formData.installDate}
+                        onChange={(e) => setFormData({ ...formData, installDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        placeholder="e.g., Mechanical Room 2"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="buildingId">Building ID</Label>
+                      <Input
+                        id="buildingId"
+                        value={formData.buildingId}
+                        onChange={(e) => setFormData({ ...formData, buildingId: e.target.value })}
+                        placeholder="e.g., BLDG-A"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAddDialogOpen(false);
+                        resetForm();
+                      }}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAdd} disabled={submitting}>
+                      {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Add Equipment
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
 
@@ -71,6 +305,7 @@ export default function EquipmentLibrary() {
         {loading ? (
           <Card>
             <CardContent className="p-12 text-center text-muted-foreground">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
               Loading equipment...
             </CardContent>
           </Card>
@@ -89,7 +324,7 @@ export default function EquipmentLibrary() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold">{eq.equipmentId}</h3>
-                        <Badge>{eq.equipmentType}</Badge>
+                        <Badge>{eq.equipmentType?.replace(/_/g, ' ').toUpperCase()}</Badge>
                         {eq.status && (
                           <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>
                             {eq.status}
