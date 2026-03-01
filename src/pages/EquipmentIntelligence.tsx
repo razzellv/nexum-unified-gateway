@@ -6,7 +6,7 @@ import UploadSection from "@/components/equipment-intelligence/UploadSection";
 import ManualEquipmentEntry from "@/components/equipment-intelligence/ManualEquipmentEntry";
 import AnalysisResults from "@/components/equipment-intelligence/AnalysisResults";
 import RecentEquipment from "@/components/equipment-intelligence/RecentEquipment";
-import EquipmentLibrary from "@/components/equipment-intelligence/EquipmentLibrary";
+// ❌ REMOVED: import EquipmentLibrary from "@/components/equipment-intelligence/EquipmentLibrary";
 import InventorySection from "@/components/equipment-intelligence/InventorySection";
 import { EquipmentProvider } from "@/contexts/EquipmentContext";
 
@@ -18,7 +18,7 @@ export default function EquipmentIntelligence() {
       
       <EquipmentProvider>
         <div className="space-y-8">
-          {/* Hero Section */}
+          {/* Hero Section (now with "View Equipment Library" button) */}
           <HeroSection />
           
           {/* Upload Section */}
@@ -33,8 +33,7 @@ export default function EquipmentIntelligence() {
           {/* Recent Equipment (Last 7 Days) */}
           <RecentEquipment />
           
-          {/* Equipment Library */}
-          <EquipmentLibrary />
+          {/* ❌ REMOVED: <EquipmentLibrary /> */}
           
           {/* Parts & Supplies Inventory */}
           <InventorySection />
