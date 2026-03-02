@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { NexumBranding } from "@/components/NexumBranding";
-
-import { getExecutiveDashboard } from "@/lib/nexum-api";
-
 import { ParticleBackground } from "@/components/ParticleBackground";
-
 import { MainLayout } from '@/components/MainLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +10,8 @@ import { NexumError } from '@/components/global/NexumError';
 import { FacilityGauge } from '@/components/global/FacilityGauge';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
-import { getMasterExecutive, type ExecutiveData } from '@/lib/nexum-api';
-import { getAvailableFacilities, ROLE_DEFINITIONS } from '@/lib/role-filters';
+import { getExecutiveDashboard } from '@/lib/nexum-api';
+import { getAvailableFacilities } from '@/lib/role-filters';
 import { 
   LineChart, 
   Line, 
@@ -25,23 +21,19 @@ import {
   Tooltip, 
   ResponsiveContainer,
   BarChart,
-  Bar,
-  AreaChart,
-  Area
+  Bar
 } from 'recharts';
 import { 
   Flame, 
-  Snowflake, 
   DollarSign, 
   AlertTriangle, 
-  Clock, 
   TrendingUp, 
   BarChart3,
   ClipboardList,
   Building2,
   Users,
   RefreshCw,
-  Layers
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -114,82 +106,42 @@ function KPICard({
   );
 }
 
-// Site Card component
-function SiteCard({ site, index }: { site: ExecutiveData['topSites'][0]; index: number }) {
-  return (
-    <Card 
-      className="executive-card neon-border p-4"
-      style={{ animationDelay: `${600 + index * 100}ms` }}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <Building2 className="h-5 w-5 text-primary" />
-        <span className="font-semibold">{typeof site.name === "string" ? site.name : site.name?.S || "Unknown Site"}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-muted-foreground">Boiler Eff.</p>
-          <p className="font-medium text-primary">{site.boilerEfficiency}%</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Chiller COP</p>
-          <p className="font-medium text-secondary">{site.cop}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Daily Cost</p>
-          <p className="font-medium">${site.dailyCost.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Integrity</p>
-          <p className={cn(
-            'font-medium',
-            site.facilityIntegrity >= 80 ? 'text-green-400' : site.facilityIntegrity >= 60 ? 'text-yellow-400' : 'text-destructive'
-          )}>
-            {site.facilityIntegrity}%
-          </p>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-// Employee Risk Card
-function EmployeeRiskCard({ employee, index }: { employee: ExecutiveData['topEmployees'][0]; index: number }) {
-  const riskColors = {
-    Low: 'bg-green-500/20 text-green-400 border-green-500/30',
-    Moderate: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    High: 'bg-destructive/20 text-destructive border-destructive/30',
-  };
-
+// Violation Card
+function ViolationCard({ violation, index }: { violation: any; index: number }) {
+  const severityColor = violation.severity >= 80 ? 'destructive' : violation.severity >= 50 ? 'warning' : 'default';
+  
   return (
     <div 
       className={cn(
         'p-4 rounded-lg border',
-        riskColors[employee.riskLevel]
+        violation.severity >= 80 ? 'border-destructive/50 bg-destructive/10' : 
+        violation.severity >= 50 ? 'border-yellow-500/50 bg-yellow-500/10' :
+        'border-border/50'
       )}
       style={{ animationDelay: `${800 + index * 100}ms` }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-4 w-4" />
-          <span className="font-medium">{typeof employee.name === "string" ? employee.name : employee.name?.S || "Unknown Employee"}</span>
-        </div>
-        <Badge className={riskColors[employee.riskLevel]}>
-          {employee.riskLevel}
+      <div className="flex items-center justify-between mb-2">
+        <Badge variant={severityColor as any}>
+          {violation.type || 'Unknown Type'}
         </Badge>
+        <span className="text-xs text-muted-foreground">
+          {new Date(violation.timestamp).toLocaleDateString()}
+        </span>
       </div>
-      <div className="flex gap-4 mt-2 text-sm">
-        <span>Score: {employee.complianceScore}%</span>
-        <span>Violations: {employee.violations}</span>
+      <p className="text-sm font-medium mb-1">{violation.description || 'No description'}</p>
+      <div className="flex gap-3 text-xs text-muted-foreground">
+        <span>Operator: {violation.operator || 'Unknown'}</span>
+        <span>Equipment: {violation.equipmentId || 'N/A'}</span>
       </div>
     </div>
   );
 }
 
 export default function ExecutiveDashboard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const currentRole = "executive";
   const roleScope = { facilityScope: "multi" };
-  const [data, setData] = useState<ExecutiveData | null>(null);
+  const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -204,98 +156,55 @@ export default function ExecutiveDashboard() {
     setError(null);
     
     try {
-      // Call real executive-dash Lambda
+      console.log("🔍 Fetching executive dashboard data...");
       const apiData = await getExecutiveDashboard();
       console.log("✅ Executive API data:", apiData);
       
-      // Transform API data to match component expectations
-      const transformedData = {
-        metrics: {
-          boilerAvgEfficiency: apiData.kpis?.overall_efficiency || 87,
-          chillerCOP: 4.2, // Not in API yet
-          dailyCost: Math.round((apiData.financial?.estimated_monthly_energy_cost || 35000) / 30),
-          riskIndex: 100 - (apiData.compliance?.score || 100),
-          mttr: apiData.operations?.average_response_time_hours || 4.5,
-          uptime: apiData.kpis?.uptime_percentage || 95.5,
-          roi: apiData.financial?.roi_percentage || 15.2,
-          openWorkOrders: apiData.operations?.work_orders_open || 0,
-        },
-        trends: {
-          boiler: Array.from({ length: 30 }, (_, i) => ({
-            date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-            value: apiData.kpis?.overall_efficiency || (82 + Math.random() * 10),
-          })),
-          chiller: Array.from({ length: 30 }, (_, i) => ({
-            date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-            value: 3.8 + Math.random() * 0.8,
-          })),
-          savings: Array.from({ length: 30 }, (_, i) => ({
-            date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-            value: (apiData.financial?.potential_monthly_savings || 0) / 30 || (800 + Math.random() * 400),
-          })),
-        },
-        topSites: [
-          { 
-            name: 'Main Campus', 
-            boilerEfficiency: apiData.kpis?.overall_efficiency || 89, 
-            cop: 4.3, 
-            dailyCost: Math.round((apiData.financial?.estimated_monthly_energy_cost || 35000) / 30), 
-            facilityIntegrity: apiData.compliance?.score || 92 
-          },
-        ],
-        topEmployees: apiData.compliance?.recent_violations?.map((v: any, i: number) => ({
-          id: v.id || String(i),
-          name: v.operator || 'Unknown Operator',
-          riskLevel: v.severity >= 80 ? 'High' : v.severity >= 50 ? 'Medium' : 'Low',
-          complianceScore: 100 - v.severity,
-          violations: 1,
-          description: v.description,
-          equipment: v.equipment,
-        })) || [{ id: '1', name: 'No violations', riskLevel: 'Low', complianceScore: 100, violations: 0 }],
-      };
-      
-      setData(transformedData as any);
+      // Set the raw data - no transformation needed
+      setData(apiData);
       setLastUpdated(new Date());
     } catch (err: any) {
-      console.error('Error:', err);
-      setError(err.message || 'Failed to load executive data');
+      console.error('❌ Executive Dashboard Error:', err);
+      setError(err.message || 'Failed to load executive dashboard data');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       fetchData();
-      const interval = setInterval(fetchData, 60000);
+      const interval = setInterval(fetchData, 60000); // Refresh every minute
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, fetchData]);
+  }, [isAuthenticated, user, fetchData]);
 
   if (loading) {
     return <NexumPageLoader message="Loading..." />;
   }
 
-  // Filter sites based on role scope
-  const filteredSites = data?.topSites?.filter(site => {
-    if (selectedFacility === 'all') return true;
-    return site.name === selectedFacility;
-  }) || [];
-
-  const overallScore = (data && data.metrics) ? Math.round(
-    (data.metrics.boilerAvgEfficiency + data.metrics.uptime + (100 - data.metrics.riskIndex)) / 3
-  ) : 0;
-
   const availableFacilities = getAvailableFacilities(currentRole);
   const showMultiFacility = roleScope.facilityScope === 'multi';
+
+  // Calculate overall score
+  const overallScore = data ? Math.round(
+    ((data.summary?.active_equipment / (data.summary?.total_equipment || 1)) * 100 + 
+     (100 - ((data.violations?.active || 0) / Math.max(data.summary?.total_equipment || 1, 1)) * 100)) / 2
+  ) : 0;
 
   return (
     <MainLayout>
       <ParticleBackground />
-        <NexumBranding />
+      <NexumBranding />
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Executive Dashboard</h1>
+            <p className="text-muted-foreground">
+              Facility-wide intelligence and performance metrics
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -307,15 +216,17 @@ export default function ExecutiveDashboard() {
               <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
               Refresh
             </Button>
-            <ExportButtons 
-              title="Executive Report"
-              metrics={(data && data.metrics) ? [
-                { label: 'Daily Cost', value: `$${data.metrics.dailyCost.toLocaleString()}` },
-                { label: 'Boiler Efficiency', value: `${data.metrics.boilerAvgEfficiency}%` },
-                { label: 'Chiller COP', value: `${data.metrics.chillerCOP}` },
-                { label: 'Uptime', value: `${data.metrics.uptime}%` },
-              ] : undefined}
-            />
+            {data && (
+              <ExportButtons 
+                title="Executive Report"
+                metrics={[
+                  { label: 'Total Equipment', value: String(data.summary?.total_equipment || 0) },
+                  { label: 'Active Equipment', value: String(data.summary?.active_equipment || 0) },
+                  { label: 'Open Work Orders', value: String(data.work_orders?.open || 0) },
+                  { label: 'Active Violations', value: String(data.violations?.active || 0) },
+                ]}
+              />
+            )}
           </div>
         </div>
 
@@ -338,108 +249,154 @@ export default function ExecutiveDashboard() {
           <div className="flex justify-center py-20">
             <NexumLoader message="Loading executive metrics..." />
           </div>
-        ) : (data && data.metrics) && (
+        ) : data && (
           <>
             {/* KPI Row */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              <KPICard title="Boiler Avg Efficiency" value={data.metrics.boilerAvgEfficiency} unit="%" icon={Flame} delay={0} trend="up" />
-              <KPICard title="Chiller COP" value={Math.round(data.metrics.chillerCOP * 10) / 10} icon={Snowflake} delay={50} />
-              <KPICard title="Daily Cost" value={data.metrics.dailyCost} unit="$" icon={DollarSign} delay={100} />
-              <KPICard title="Risk Index" value={data.metrics.riskIndex} icon={AlertTriangle} delay={150} trend="down" />
-              <KPICard title="MTTR (hrs)" value={data.metrics.mttr} icon={Clock} delay={200} />
-              <KPICard title="Uptime %" value={data.metrics.uptime} unit="%" icon={TrendingUp} delay={250} trend="up" />
-              <KPICard title="ROI %" value={data.metrics.roi} unit="%" icon={BarChart3} delay={300} />
-              <KPICard title="Open Work Orders" value={data.metrics.openWorkOrders} icon={ClipboardList} delay={350} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <KPICard 
+                title="Total Equipment" 
+                value={data.summary?.total_equipment || 0} 
+                icon={Activity} 
+                delay={0} 
+              />
+              <KPICard 
+                title="Active Equipment" 
+                value={data.summary?.active_equipment || 0} 
+                icon={TrendingUp} 
+                delay={50}
+                trend="up"
+              />
+              <KPICard 
+                title="Open Work Orders" 
+                value={data.work_orders?.open || 0} 
+                icon={ClipboardList} 
+                delay={100}
+              />
+              <KPICard 
+                title="Active Violations" 
+                value={data.violations?.active || 0} 
+                icon={AlertTriangle} 
+                delay={150}
+                trend="down"
+              />
             </div>
 
-            {/* Facility Gauge */}
+            {/* Facility Intelligence Score */}
             <div className="flex justify-center">
               <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>
                 <FacilityGauge value={overallScore} label="Overall Facility Intelligence Score" size="lg" />
               </Card>
             </div>
 
-            {/* Trends Section */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* Boiler Trend */}
+            {/* Equipment Breakdown */}
+            <div className="grid gap-6 lg:grid-cols-2">
               <Card className="executive-card neon-border p-6" style={{ animationDelay: '450ms' }}>
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-primary" />
-                  Boiler Efficiency Trend
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Equipment by Type
                 </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={data.trends.boiler}>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={Object.entries(data.equipment?.by_type || {}).map(([type, count]) => ({
+                    type: type.replace(/_/g, ' ').replace(/\*\*/g, '').trim(),
+                    count
+                  }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={(v) => v.slice(5)} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} domain={[70, 100]} />
+                    <XAxis 
+                      dataKey="type" 
+                      stroke="hsl(var(--muted-foreground))" 
+                      fontSize={10} 
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
                     <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  </LineChart>
+                    <Bar dataKey="count" fill="hsl(var(--primary))" />
+                  </BarChart>
                 </ResponsiveContainer>
               </Card>
 
-              {/* Chiller Trend */}
               <Card className="executive-card neon-border p-6" style={{ animationDelay: '500ms' }}>
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Snowflake className="h-5 w-5 text-secondary" />
-                  Chiller COP Trend
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Violations by Severity
                 </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={data.trends.chiller}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={(v) => v.slice(5)} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} domain={[3, 5]} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--secondary))" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Card>
-
-              {/* Savings Trend */}
-              <Card className="executive-card neon-border p-6" style={{ animationDelay: '550ms' }}>
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-green-400" />
-                  30-Day Savings Trend
-                </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={data.trends.savings}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={(v) => v.slice(5)} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [`$${v.toFixed(0)}`, 'Savings']} />
-                    <Area type="monotone" dataKey="value" stroke="hsl(142, 76%, 36%)" fill="hsl(142, 76%, 36%, 0.3)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="space-y-4">
+                  {Object.entries(data.violations?.by_severity || {}).map(([severity, count], i) => (
+                    <div key={severity} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="capitalize">{severity}</span>
+                        <span className="font-medium">{count as number}</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className={cn(
+                            "h-2 rounded-full transition-all",
+                            severity === 'high' ? 'bg-destructive' : 
+                            severity === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                          )}
+                          style={{ 
+                            width: `${((count as number) / (data.violations?.total || 1)) * 100}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
 
-            {/* Top Sites - filtered by role */}
-            {showMultiFacility && (
+            {/* Recent Violations */}
+            {data.violations?.recent && data.violations.recent.length > 0 && (
               <div>
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  {selectedFacility === 'all' ? 'All Facilities' : selectedFacility}
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Recent Violations
                 </h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredSites.map((site, i) => (
-                    <SiteCard key={i} site={site} index={i} />
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {data.violations.recent.map((violation: any, i: number) => (
+                    <ViolationCard key={violation.id || i} violation={violation} index={i} />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Top Employees (Compliance Risk) */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Employee Compliance Risk
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {data.topEmployees.map((employee, i) => (
-                  <EmployeeRiskCard key={i} employee={employee} index={i} />
-                ))}
+            {/* Recent Activity */}
+            {data.recent_logs && data.recent_logs.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Recent Equipment Logs
+                </h2>
+                <div className="grid gap-3">
+                  {data.recent_logs.slice(0, 5).map((log: any, i: number) => (
+                    <Card key={i} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Flame className="h-4 w-4 text-primary" />
+                          <div>
+                            <p className="font-medium">{log.equipmentId || 'Unknown Equipment'}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {log.equipmentType || 'Unknown Type'} • {log.data?.operator?.name || 'Unknown Operator'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Last Updated */}
+            {lastUpdated && (
+              <div className="text-center text-sm text-muted-foreground">
+                Last updated: {lastUpdated.toLocaleString()}
+              </div>
+            )}
           </>
         )}
       </div>
