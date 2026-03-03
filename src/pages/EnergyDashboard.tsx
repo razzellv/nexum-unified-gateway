@@ -126,13 +126,19 @@ export default function EnergyDashboard() {
         <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-end">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={fetchData}
-            disabled={isLoading}
-          >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Energy Dashboard</h1>
+            <p className="text-muted-foreground">Multi-utility consumption and cost analysis</p>
+          </div>
+          <div className="flex gap-2">
+            <BaselineRatesManager />
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={fetchData}
+              disabled={isLoading}
+            >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
