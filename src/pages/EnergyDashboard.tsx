@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { NexumBranding } from "@/components/NexumBranding";
-
+import { BaselineRatesManager } from "@/components/BaselineRatesManager";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -111,25 +111,26 @@ export default function EnergyDashboard() {
   }
 
   const getSystemIcon = (type: string) => {
-    switch(type) {
-      case 'boiler': return <Flame className="h-5 w-5 text-orange-500" />;
-      case 'chiller': return <Snowflake className="h-5 w-5 text-blue-500" />;
-      case 'ahu': return <Wind className="h-5 w-5 text-cyan-500" />;
-      case 'pump': return <Droplets className="h-5 w-5 text-indigo-500" />;
-      default: return <Zap className="h-5 w-5 text-yellow-500" />;
-    }
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('boiler')) return <Flame className="h-5 w-5 text-orange-500" />;
+    if (lowerType.includes('chiller')) return <Snowflake className="h-5 w-5 text-blue-500" />;
+    if (lowerType.includes('ahu') || lowerType.includes('air')) return <Wind className="h-5 w-5 text-cyan-500" />;
+    if (lowerType.includes('pump') || lowerType.includes('tower')) return <Droplets className="h-5 w-5 text-indigo-500" />;
+    return <Zap className="h-5 w-5 text-yellow-500" />;
   };
 
   return (
     <MainLayout>
       <ParticleBackground />
-        <NexumBranding />
+      <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Energy Dashboard</h1>
-            <p className="text-muted-foreground">Multi-utility consumption and cost analysis</p>
+            <p className="text-muted-foreground">
+              Multi-utility consumption and cost analysis
+            </p>
           </div>
           <div className="flex gap-2">
             <BaselineRatesManager />
@@ -139,9 +140,10 @@ export default function EnergyDashboard() {
               onClick={fetchData}
               disabled={isLoading}
             >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {error && <NexumError message={error} onRetry={fetchData} />}
@@ -248,32 +250,38 @@ export default function EnergyDashboard() {
                     <CardTitle>Electric by System</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {data.by_utility.electric.map((system) => (
-                        <div key={system.system_type} className="flex items-center gap-4">
-                          <div className="flex-shrink-0">
-                            {getSystemIcon(system.system_type)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {system.kwh} kWh ({(system.percentage_of_electric || 0).toFixed(1)}%)
-                              </span>
+                    {data.by_utility.electric.length > 0 ? (
+                      <div className="space-y-4">
+                        {data.by_utility.electric.map((system) => (
+                          <div key={system.system_type} className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                              {getSystemIcon(system.system_type)}
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-yellow-500 h-2 rounded-full transition-all"
-                                style={{ width: `${system.percentage_of_electric}%` }}
-                              />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {system.kwh} kWh ({(system.percentage_of_electric || 0).toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div 
+                                  className="bg-yellow-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${system.percentage_of_electric}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Est. ${(system.estimated_cost || 0).toFixed(2)} • {system.runtime_hours} hrs
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Est. ${(system.estimated_cost || 0).toFixed(2)} • {system.runtime_hours} hrs
-                            </p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No electric usage data available. Log equipment data to see breakdowns.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -315,32 +323,38 @@ export default function EnergyDashboard() {
                     <CardTitle>Natural Gas by System</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {data.by_utility.gas.map((system) => (
-                        <div key={system.system_type} className="flex items-center gap-4">
-                          <div className="flex-shrink-0">
-                            {getSystemIcon(system.system_type)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {(system.therms || 0)} Therms ({(system.percentage_of_gas || 0).toFixed(1)}%)
-                              </span>
+                    {data.by_utility.gas.length > 0 ? (
+                      <div className="space-y-4">
+                        {data.by_utility.gas.map((system) => (
+                          <div key={system.system_type} className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                              {getSystemIcon(system.system_type)}
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-orange-500 h-2 rounded-full transition-all"
-                                style={{ width: `${system.percentage_of_gas}%` }}
-                              />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {(system.therms || 0)} Therms ({(system.percentage_of_gas || 0).toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div 
+                                  className="bg-orange-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${system.percentage_of_gas}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Est. ${(system.estimated_cost || 0).toFixed(2)} • {(system.btus / 1000000).toFixed(2)}M BTUs
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Est. ${(system.estimated_cost || 0).toFixed(2)} • {(system.btus / 1000000).toFixed(2)}M BTUs
-                            </p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No gas usage data available. Log boiler/heating equipment data to see breakdowns.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -370,32 +384,38 @@ export default function EnergyDashboard() {
                     <CardTitle>Water Usage by System</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {data.by_utility.water.map((system) => (
-                        <div key={system.system_type} className="flex items-center gap-4">
-                          <div className="flex-shrink-0">
-                            {getSystemIcon(system.system_type)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium capitalize">{system.system_type}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {(system.gallons || 0).toLocaleString()} gal ({(system.percentage_of_water || 0).toFixed(1)}%)
-                              </span>
+                    {data.by_utility.water.length > 0 ? (
+                      <div className="space-y-4">
+                        {data.by_utility.water.map((system) => (
+                          <div key={system.system_type} className="flex items-center gap-4">
+                            <div className="flex-shrink-0">
+                              {getSystemIcon(system.system_type)}
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-blue-500 h-2 rounded-full transition-all"
-                                style={{ width: `${system.percentage_of_water}%` }}
-                              />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {(system.gallons || 0).toLocaleString()} gal ({(system.percentage_of_water || 0).toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div 
+                                  className="bg-blue-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${system.percentage_of_water}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Est. ${(system.estimated_cost || 0).toFixed(2)}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Est. ${(system.estimated_cost || 0).toFixed(2)}
-                            </p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No water usage data available. Log cooling tower/domestic water data to see breakdowns.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
