@@ -26,30 +26,20 @@ import CustodianDashboard from "./pages/CustodianDashboard";
 
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
+import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
 
 // 🔥 NEW: Command Hub Imports
 import WorkOrders from "./pages/command-hub/WorkOrders";
-
 import Violations from "./pages/command-hub/Violations";
-
 import CommandDashboard from "./pages/command-hub/CommandDashboard";
-
 import Messages from "./pages/command-hub/Messages";
-
 import Kanban from "./pages/command-hub/Kanban";
-
 import Emergency from "./pages/command-hub/Emergency";
-
 import Vendors from "./pages/command-hub/Vendors";
-
 import Calendar from "./pages/command-hub/Calendar";
-
 import Workflows from "./pages/command-hub/Workflows";
-
 import Settings from "./pages/command-hub/Settings";
-
 import Workload from "./pages/command-hub/Workload";
-
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 
@@ -139,10 +129,13 @@ export const router = createBrowserRouter([
             path: "dashboard/custodian",
             element: <CustodianDashboard />,
           },
-
           {
             path: "dashboard/executive",
             element: <ExecutiveDashboard />,
+          },
+          {
+            path: "staff-performance",
+            element: <StaffPerformanceCompass />,
           },
           {
             path: "facility-intelligence",
@@ -168,71 +161,39 @@ export const router = createBrowserRouter([
           {
             path: "violations",
             element: <Violations />,
-          },          {
-
+          },
+          {
             path: "messages",
-
             element: <Messages />,
-
           },
-
           {
-
             path: "kanban",
-
             element: <Kanban />,
-
           },
-
           {
-
             path: "emergency",
-
             element: <Emergency />,
-
           },
-
           {
-
             path: "vendors",
-
             element: <Vendors />,
-
           },
-
           {
-
             path: "calendar",
-
             element: <Calendar />,
-
           },
-
           {
-
             path: "workflows",
-
             element: <Workflows />,
-
           },
-
           {
-
             path: "settings",
-
             element: <Settings />,
-
           },
-
           {
-
             path: "workload",
-
             element: <Workload />,
-
           },
-
-
           // 🔥 UPDATED: Replace placeholder with Violations page
           {
             path: "compliance-analyzer",
