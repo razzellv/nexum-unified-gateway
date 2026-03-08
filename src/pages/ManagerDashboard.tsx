@@ -238,74 +238,76 @@ export default function ManagerDashboard() {
     ? Math.round((activeViolations / totalEquipment) * 100)
     : 0;
 
-  // PM Completion: Based on closed work orders
+// PM Completion: Based on closed work orders
   const closedWO = data?.work_orders?.by_status?.Completed || 0;
   const pmCompletionRate = totalWorkOrders > 0
     ? Math.round((closedWO / totalWorkOrders) * 100)
     : 0;
 
-// Calculate Work Order Age from real data
+  // Calculate Work Order Age - USE LAMBDA VALUE
   const workOrders = data?.work_orders?.recent || [];
-  const avgWorkOrderAge = data?.summary?.avg_work_order_age_days || 0; // USE LAMBDA CALCULATED VALUE
-    ? workOrders.reduce((sum: number, wo: any) => {
-        const createdDate = new Date(wo.createdAt);
-        const ageInDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-        return sum + ageInDays;
-      }, 0) / workOrders.length
-    : 0;
+  const avgWorkOrderAge = data?.summary?.avg_work_order_age_days || 0;
 
   // Group work orders by age range with hover data
   const workOrderAging = [
     { 
       range: '0-3 days', 
       count: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age <= 3;
       }).length,
       color: '#00f2ea',
       workOrders: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age <= 3;
       })
     },
     { 
       range: '4-7 days', 
       count: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 3 && age <= 7;
       }).length,
       color: '#22c55e',
       workOrders: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 3 && age <= 7;
       })
     },
     { 
       range: '8-14 days', 
       count: workOrders.filter((wo: any) => {
+        if (!wo.created_at) return false;
         const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
         return age > 7 && age <= 14;
       }).length,
       color: '#eab308',
       workOrders: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 7 && age <= 14;
       })
     },
     { 
       range: '15+ days', 
       count: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 14;
       }).length,
       color: '#ef4444',
       workOrders: workOrders.filter((wo: any) => {
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (!wo.created_at) return false;
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 14;
       })
     },
   ];
-
+  
   // Log Consistency: Based on recent logs
   const loggingConsistency = data?.performance?.logs_last_7_days || 0;
   const expectedLogs = 7;
