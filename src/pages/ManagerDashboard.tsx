@@ -244,9 +244,9 @@ export default function ManagerDashboard() {
     ? Math.round((closedWO / totalWorkOrders) * 100)
     : 0;
 
-  // Calculate Work Order Age from real data
+// Calculate Work Order Age from real data
   const workOrders = data?.work_orders?.recent || [];
-  const avgWorkOrderAge = workOrders.length > 0
+  const avgWorkOrderAge = data?.summary?.avg_work_order_age_days || 0; // USE LAMBDA CALCULATED VALUE
     ? workOrders.reduce((sum: number, wo: any) => {
         const createdDate = new Date(wo.createdAt);
         const ageInDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
