@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useRole } from '@/contexts/RoleContext';
 import { ParticleBackground } from "@/components/ParticleBackground";
@@ -148,7 +149,6 @@ export default function ManagerDashboard() {
         console.log('📊 Manager Dashboard Data:', result);
         setData(result);
         
-        // Fetch budget data
         const token = localStorage.getItem('nexum_id_token');
         if (token) {
           try {
@@ -174,7 +174,6 @@ export default function ManagerDashboard() {
 
     loadData();
     
-    // Auto-refresh every 60 seconds
     const interval = setInterval(() => {
       setRefreshKey(prev => prev + 1);
     }, 60000);
@@ -182,7 +181,6 @@ export default function ManagerDashboard() {
     return () => clearInterval(interval);
   }, [refreshKey]);
 
-  // Fetch energy logs
   useEffect(() => {
     const fetchEnergyLogs = async () => {
       const token = localStorage.getItem('nexum_id_token');
@@ -219,7 +217,6 @@ export default function ManagerDashboard() {
     );
   }
 
-  // Calculate KPIs from real data
   const totalEquipment = data?.summary?.total_equipment || 0;
   const activeEquipment = data?.summary?.active_equipment || 0;
   const recentLogsCount = data?.summary?.recent_logs_count || 0;
@@ -227,28 +224,23 @@ export default function ManagerDashboard() {
   const totalWorkOrders = data?.work_orders?.total || 0;
   const activeViolations = data?.violations?.active || 0;
   
-  // Asset Health: Based on equipment with recent data
   const equipmentWithData = data?.performance?.equipment_with_recent_data || 0;
   const overallAssetHealth = totalEquipment > 0 
     ? Math.min(100, Math.round((equipmentWithData / totalEquipment) * 100)) 
     : 0;
 
-  // Compliance Risk: Based on active violations
   const complianceRisk30Day = totalEquipment > 0
     ? Math.round((activeViolations / totalEquipment) * 100)
     : 0;
 
-// PM Completion: Based on closed work orders
   const closedWO = data?.work_orders?.by_status?.Completed || 0;
   const pmCompletionRate = totalWorkOrders > 0
     ? Math.round((closedWO / totalWorkOrders) * 100)
     : 0;
 
-  // Calculate Work Order Age - USE LAMBDA VALUE
   const workOrders = data?.work_orders?.recent || [];
   const avgWorkOrderAge = data?.summary?.avg_work_order_age_days || 0;
 
-  // Group work orders by age range with hover data
   const workOrderAging = [
     { 
       range: '0-3 days', 
@@ -282,7 +274,7 @@ export default function ManagerDashboard() {
       range: '8-14 days', 
       count: workOrders.filter((wo: any) => {
         if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
         return age > 7 && age <= 14;
       }).length,
       color: '#eab308',
@@ -308,15 +300,12 @@ export default function ManagerDashboard() {
     },
   ];
   
-  // Log Consistency: Based on recent logs
   const loggingConsistency = data?.performance?.logs_last_7_days || 0;
   const expectedLogs = 7;
   const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / expectedLogs) * 100));
 
-  // Downtime: Currently mock
   const downtimeFrequency = 0;
 
-  // Equipment by type for health scores - based on recent logs
   const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
   const recentLogs = data?.summary?.recent_logs_count || 0;
   
@@ -343,7 +332,6 @@ export default function ManagerDashboard() {
     };
   });
 
-  // Custom tooltip for work order aging
   const CustomWorkOrderTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -374,13 +362,11 @@ export default function ManagerDashboard() {
     return null;
   };
 
-  // Custom tooltip for energy costs
   const CustomEnergyTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const primaryGas = data.primary || 0;
       const secondaryGas = data.secondary || 0;
-      
       
       const THERM_COST = 1.52;
       const primaryCost = primaryGas * THERM_COST;
@@ -442,6 +428,14 @@ export default function ManagerDashboard() {
             <p className="text-muted-foreground mt-1">Operations overview and facility management</p>
           </div>
           <div className="flex gap-3 items-center">
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.href = '/staff-performance'}
+              className="border-primary/30 hover:border-primary"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Staff Performance
+            </Button>
             <ExportButtons 
               data={data} 
               filename="manager-dashboard" 
