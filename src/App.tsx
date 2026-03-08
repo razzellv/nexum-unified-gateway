@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Outlet } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RoleProvider } from "./contexts/RoleContext";
+import StaffPerformanceCompass from './pages/StaffPerformanceCompass';
 
 const queryClient = new QueryClient();
 
@@ -21,5 +22,6 @@ export default function App() {
         </RoleProvider>
       </AuthProvider>
     </QueryClientProvider>
+    <Route path="/staff-performance" element={<StaffPerformanceCompass />} />
   );
 }
