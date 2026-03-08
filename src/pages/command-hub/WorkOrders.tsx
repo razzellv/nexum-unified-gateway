@@ -186,7 +186,7 @@ export default function WorkOrders() {
           description: `${result.workOrder?.title || 'Work order'} created successfully!`,
         });
         setShowCreateModal(false);
-        fetchWorkOrders();
+      loadWorkOrders(); // ✅ USE THE CORRECT FUNCTION NAME
       } else {
         throw new Error('Failed to create work order');
       }
