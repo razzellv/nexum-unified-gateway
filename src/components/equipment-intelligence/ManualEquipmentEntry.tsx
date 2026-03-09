@@ -84,76 +84,101 @@ const ManualEquipmentEntry = () => {
     loadBuildings();
   }, [user?.facilityId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!formData.equipmentId || !formData.manufacturer || !formData.model) {
+  if (!formData.equipmentId || !formData.manufacturer || !formData.model) {
+    toast({
+      title: 'Missing Information',
+      description: 'Please fill in Equipment ID, Manufacturer, and Model',
+      variant: 'destructive'
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const token = localStorage.getItem('nexum_access_token');
+    
+    // 🔥 CORRECT ENDPOINT
+    const url = `https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/equipment`;
+    
+    const equipmentData = {
+      facilityId: user?.facilityId || 'facility-001',
+      buildingId: selectedBuilding || 'building-001',
+      equipmentId: formData.equipmentId,
+      equipmentType: formData.type,
+      manufacturer: formData.manufacturer,
+      model: formData.model,
+      serialNumber: formData.serialNumber || null,
+      location: selectedFloor && selectedZone 
+        ? `Floor ${selectedFloor}, Zone ${selectedZone}` 
+        : selectedFloor 
+          ? `Floor ${selectedFloor}` 
+          : 'Not specified',
+      installDate: formData.installDate || null,
+      capacity: formData.capacity || null,
+      voltage: formData.voltage || null,
+      phase: formData.phase || null,
+      notes: formData.notes || `Manually added via Equipment Intelligence on ${new Date().toLocaleDateString()}`,
+      status: 'active',
+      source: 'manual-entry',
+    };
+
+    console.log('📤 Submitting equipment:', equipmentData);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(equipmentData)
+    });
+
+    const result = await response.json();
+    console.log('📥 Response:', result);
+
+    if (response.ok) {
       toast({
-        title: 'Missing Information',
-        description: 'Please fill in Equipment ID, Manufacturer, and Model',
-        variant: 'destructive'
+        title: '✅ Equipment Added',
+        description: `${formData.manufacturer} ${formData.model} saved successfully`,
       });
-      return;
+
+      // Reset form
+      setFormData({
+        equipmentId: '',
+        type: 'boiler',
+        manufacturer: '',
+        model: '',
+        serialNumber: '',
+        location: '',
+        installDate: '',
+        capacity: '',
+        voltage: '',
+        phase: '',
+        notes: '',
+      });
+      setSelectedFloor('');
+      setSelectedZone('');
+
+      // Trigger refresh
+      window.dispatchEvent(new CustomEvent('equipment-updated'));
+    } else {
+      throw new Error(result.message || 'Failed to save equipment');
     }
-
-    setIsSubmitting(true);
-
-    try {
-      const token = localStorage.getItem('nexum_access_token');
-      const url = `${import.meta.env.VITE_API_BASE_URL}/equipment/intelligence`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          buildingId: selectedBuilding,
-          floor: selectedFloor,
-          zone: selectedZone,
-          addedMethod: 'manual_entry',
-          addedAt: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        toast({
-          title: '✅ Equipment Added',
-          description: `${formData.manufacturer} ${formData.model} saved successfully`,
-        });
-
-        // Reset form
-        setFormData({
-          equipmentId: '',
-          type: 'boiler',
-          manufacturer: '',
-          model: '',
-          serialNumber: '',
-          location: '',
-          installDate: '',
-          capacity: '',
-          voltage: '',
-          phase: '',
-          notes: '',
-        });
-        setSelectedFloor('');
-        setSelectedZone('');
-
-        window.dispatchEvent(new CustomEvent('equipment-updated'));
-      } else {
-        throw new Error('Failed to save equipment');
-      }
-    } catch (error) {
-      toast({
-        title: '⚠️ Save Failed',
-        description: 'Could not save equipment. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } catch (error: any) {
+    console.error('❌ Error saving equipment:', error);
+    toast({
+      title: '⚠️ Save Failed',
+      description: error.message || 'Could not save equipment. Please try again.',
+      variant: 'destructive'
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const selectedBuildingData = buildings.find(b => b.buildingId === selectedBuilding);
 
