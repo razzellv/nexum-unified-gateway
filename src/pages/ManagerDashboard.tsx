@@ -141,45 +141,55 @@ export default function ManagerDashboard() {
   const [budgetData, setBudgetData] = useState<any>(null);
   const [confidenceData, setConfidenceData] = useState<any>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
+useEffect(() => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const result = await getManagerDashboard();
+      console.log('📊 Manager Dashboard Data:', result);
+      setData(result);
+      
+      // Fetch confidence metrics
       try {
-        const result = await getManagerDashboard();
-        console.log('📊 Manager Dashboard Data:', result);
-        setData(result);
-        
-        const token = localStorage.getItem('nexum_id_token');
-        if (token) {
-          try {
-            const budgetResponse = await fetch(
-              'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
-              { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-            if (budgetResponse.ok) {
-              const budget = await budgetResponse.json();
-              console.log('💰 Budget Data:', budget);
-              setBudgetData(budget);
-            }
-          } catch (budgetError) {
-            console.error('Failed to load budget data:', budgetError);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load manager data:', error);
-      } finally {
-        setLoading(false);
+        const confidence = await getManagerConfidenceMetrics();
+        console.log('📊 Confidence Metrics:', confidence);
+        setConfidenceData(confidence);
+      } catch (confidenceError) {
+        console.error('Failed to load confidence metrics:', confidenceError);
       }
-    };
-
-    loadData();
-    
-    const interval = setInterval(() => {
-      setRefreshKey(prev => prev + 1);
-    }, 60000);
-    
-    return () => clearInterval(interval);
-  }, [refreshKey]);
+      
+      // Fetch budget data
+      const token = localStorage.getItem('nexum_id_token');
+      if (token) {
+        try {
+          const budgetResponse = await fetch(
+            'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          );
+          if (budgetResponse.ok) {
+            const budget = await budgetResponse.json();
+            console.log('💰 Budget Data:', budget);
+            setBudgetData(budget);
+          }
+        } catch (budgetError) {
+          console.error('Failed to load budget data:', budgetError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load manager data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  loadData();
+  
+  const interval = setInterval(() => {
+    setRefreshKey(prev => prev + 1);
+  }, 60000);
+  
+  return () => clearInterval(interval);
+}, [refreshKey]);
 
   useEffect(() => {
     const fetchEnergyLogs = async () => {
