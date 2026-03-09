@@ -101,7 +101,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     const token = localStorage.getItem('nexum_access_token');
     
-    // 🔥 CORRECT ENDPOINT
+    // ✅ CORRECT ENDPOINT - NOT /equipment/intelligence!
     const url = `https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/equipment`;
     
     const equipmentData = {
@@ -179,7 +179,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     setIsSubmitting(false);
   }
 };
-
   const selectedBuildingData = buildings.find(b => b.buildingId === selectedBuilding);
 
   return (
