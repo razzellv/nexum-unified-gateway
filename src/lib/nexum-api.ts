@@ -206,5 +206,5 @@ export async function getRecentEquipment(facilityId: string, days: number = 7) {
 }
 
 export async function getManagerConfidenceMetrics(facilityId: string = 'facility-001', days: number = 7) {
-  return await apiRequest<any>(`/dashboard/manager/confidence?facilityId=${facilityId}&days=${days}`);
+  return await apiRequest<any>(`/manager/confidence-metrics?facilityId=${facilityId}&days=${days}`);
 }
