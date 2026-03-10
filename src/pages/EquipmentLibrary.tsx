@@ -24,8 +24,8 @@ interface Equipment {
   status?: string;
   buildingId?: string;
   baseline?: any;
+  equipmentName?: string;  // ✅ ADD THIS
 }
-
 // Helper to clean equipment names
 const cleanText = (text: string) => {
   if (!text) return 'N/A';
@@ -65,16 +65,17 @@ export default function EquipmentLibrary() {
   const [submitting, setSubmitting] = useState(false);
 
   // Form state
-  const [formData, setFormData] = useState({
-    equipmentType: '',
-    manufacturer: '',
-    model: '',
-    serialNumber: '',
-    location: '',
-    installDate: '',
-    buildingId: '',
-    status: 'active',
-  });
+const [formData, setFormData] = useState({
+  equipmentType: '',
+  manufacturer: '',
+  model: '',
+  serialNumber: '',
+  location: '',
+  installDate: '',
+  buildingId: '',
+  status: 'active',
+  equipmentName: '',  // ✅ ADD THIS
+});
 
   // Baseline form state (expanded for all equipment types)
   const [baselineData, setBaselineData] = useState<any>({
@@ -277,20 +278,21 @@ export default function EquipmentLibrary() {
     }
   };
 
-  const openEditDialog = (eq: Equipment) => {
-    setSelectedEquipment(eq);
-    setFormData({
-      equipmentType: eq.equipmentType,
-      manufacturer: eq.manufacturer,
-      model: eq.model,
-      serialNumber: eq.serialNumber || '',
-      location: eq.location || '',
-      installDate: eq.installDate || '',
-      buildingId: eq.buildingId || '',
-      status: eq.status || 'active',
-    });
-    setEditDialogOpen(true);
-  };
+const openEditDialog = (eq: Equipment) => {
+  setSelectedEquipment(eq);
+  setFormData({
+    equipmentType: eq.equipmentType,
+    manufacturer: eq.manufacturer,
+    model: eq.model,
+    serialNumber: eq.serialNumber || '',
+    location: eq.location || '',
+    installDate: eq.installDate || '',
+    buildingId: eq.buildingId || '',
+    status: eq.status || 'active',
+    equipmentName: eq.equipmentName || '',  // ✅ ADD THIS
+  });
+  setEditDialogOpen(true);
+};
 
   const openBaselineDialog = (eq: Equipment) => {
     setSelectedEquipment(eq);
@@ -334,18 +336,19 @@ export default function EquipmentLibrary() {
     setBaselineDialogOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      equipmentType: '',
-      manufacturer: '',
-      model: '',
-      serialNumber: '',
-      location: '',
-      installDate: '',
-      buildingId: '',
-      status: 'active',
-    });
-  };
+const resetForm = () => {
+  setFormData({
+    equipmentType: '',
+    manufacturer: '',
+    model: '',
+    serialNumber: '',
+    location: '',
+    installDate: '',
+    buildingId: '',
+    status: 'active',
+    equipmentName: '',  // ✅ ADD THIS
+  });
+};
 
   const resetBaselineForm = () => {
     setBaselineData({
@@ -659,7 +662,16 @@ export default function EquipmentLibrary() {
                     </SelectContent>
                   </Select>
                 </div>
-
+                <div className="space-y-2">
+  <Label htmlFor="edit-equipmentName">Equipment Name/Nickname</Label>
+  <Input
+    id="edit-equipmentName"
+    value={formData.equipmentName || ''}
+    onChange={(e) => setFormData({ ...formData, equipmentName: e.target.value })}
+    placeholder="e.g., Main Boiler, Chiller #1"
+  />
+  <p className="text-xs text-muted-foreground">Optional: Give this equipment a friendly name</p>
+</div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-status">Status</Label>
                   <Select
