@@ -587,32 +587,32 @@ const resetForm = () => {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold">
-  {eq.equipmentName || eq.equipmentId}
-</h3>
+<div className="flex items-center gap-3 mb-2">
+  <h3 className="text-lg font-semibold">
+    {eq.equipmentName || eq.equipmentId}
+  </h3>
+  <Badge>{eq.equipmentType?.replace(/_/g, ' ').toUpperCase()}</Badge>
+  {eq.status && (
+    <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>
+      {eq.status}
+    </Badge>
+  )}
+  {eq.baseline && (
+    <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+      Baseline Set
+    </Badge>
+  )}
+</div>
 {eq.equipmentName && (
-  <p className="text-xs text-muted-foreground font-mono">ID: {eq.equipmentId}</p>
+  <p className="text-xs text-muted-foreground font-mono mb-1">ID: {eq.equipmentId}</p>
 )}
-                        <Badge>{eq.equipmentType?.replace(/_/g, ' ').toUpperCase()}</Badge>
-                        {eq.status && (
-                          <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>
-                            {eq.status}
-                          </Badge>
-                        )}
-                        {eq.baseline && (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
-                            Baseline Set
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p><strong>Manufacturer:</strong> {cleanText(eq.manufacturer)}</p>
-                        <p><strong>Model:</strong> {cleanText(eq.model)}</p>
-                        {eq.serialNumber && <p><strong>Serial:</strong> {cleanText(eq.serialNumber)}</p>}
-                        {eq.location && <p><strong>Location:</strong> {eq.location}</p>}
-                        {eq.installDate && <p><strong>Installed:</strong> {eq.installDate}</p>}
-                      </div>
+<div className="space-y-1 text-sm text-muted-foreground">
+  <p><strong>Manufacturer:</strong> {cleanText(eq.manufacturer)}</p>
+  <p><strong>Model:</strong> {cleanText(eq.model)}</p>
+  {eq.serialNumber && <p><strong>Serial:</strong> {cleanText(eq.serialNumber)}</p>}
+  {eq.location && <p><strong>Location:</strong> {eq.location}</p>}
+  {eq.installDate && <p><strong>Installed:</strong> {eq.installDate}</p>}
+</div>
                     </div>
                     {canEdit && (
                       <div className="flex gap-2">
