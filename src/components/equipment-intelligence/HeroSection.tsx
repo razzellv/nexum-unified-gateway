@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Package } from "lucide-react";
+import { Package, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroBg from "@/assets/hero-bg.jpg";
 
 const HeroSection = () => {
   const navigate = useNavigate();
-
+  
   return (
     <section className="relative min-h-[400px] flex items-center justify-center overflow-hidden">
       <div 
@@ -44,15 +44,25 @@ const HeroSection = () => {
             </div>
           </div>
           
-          {/* ✅ ADDED: Equipment Library Button */}
-          <div className="pt-6">
+          {/* ✅ UPDATED: Both Library Buttons */}
+          <div className="pt-6 flex items-center justify-center gap-4">
             <Button 
               size="lg"
               onClick={() => navigate('/equipment-library')}
               className="gap-2"
             >
               <Package className="w-5 h-5" />
-              View Equipment Library
+              Equipment Library
+            </Button>
+            
+            <Button 
+              size="lg"
+              variant="outline"
+              onClick={() => navigate('/inventory-library')}
+              className="gap-2"
+            >
+              <Boxes className="w-5 h-5" />
+              Inventory Library
             </Button>
           </div>
         </div>
