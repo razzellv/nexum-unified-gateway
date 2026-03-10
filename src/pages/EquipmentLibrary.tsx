@@ -122,7 +122,6 @@ const [baselineData, setBaselineData] = useState<any>({
   // Common
   notes: '',
 });
-  });
 
   useEffect(() => {
     loadEquipment();
