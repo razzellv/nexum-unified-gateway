@@ -60,69 +60,69 @@ export function useFacilityEquipment() {
               e.buildingId === bld.buildingId || (!e.buildingId && bld.buildingId === buildingsList[0]?.buildingId)
             );
 
-            const systems: SystemInfo[] = bldEquipment
-              .map((item: any) => {
-                const systemType = mapEquipmentType(item.equipmentType || item.type);
-                if (!systemType) return null;
-                
-                return {
-                  id: item.equipmentId || item.id,
-                  assetTag: item.equipmentId || item.id,
-                  type: systemType,
-                  name: (() => {
-                    // Clean helper function
-                    const clean = (str: string) => {
-                      if (!str) return '';
-                      return str
-                        .replace(/\*\*/g, '')
-                        .replace(/™/g, '')
-                        .replace(/®/g, '')
-                        .split('(')[0]
-                        .trim();
-                    };
+const systems: SystemInfo[] = bldEquipment
+  .map((item: any) => {
+    const equipmentSystemType = mapEquipmentType(item.equipmentType || item.type);  // ✅ RENAMED
+    if (!equipmentSystemType) return null;
+    
+    return {
+      id: item.equipmentId || item.id,
+      assetTag: item.equipmentId || item.id,
+      type: equipmentSystemType,  // ✅ USE RENAMED VARIABLE
+      name: (() => {
+        // Clean helper function
+        const clean = (str: string) => {
+          if (!str) return '';
+          return str
+            .replace(/\*\*/g, '')
+            .replace(/™/g, '')
+            .replace(/®/g, '')
+            .split('(')[0]
+            .trim();
+        };
 
-                    const mfr = clean(item.manufacturer);
-                    const mdl = clean(item.model);
-                    const equipId = item.equipmentId || item.id || '';
-                    
-                    // Skip generic/invalid manufacturers
-                    const invalidMfr = !mfr || 
-                                       mfr.toLowerCase().includes('information') || 
-                                       mfr.toLowerCase().includes('not') ||
-                                       mfr.toLowerCase().includes('unknown');
-                    
-                    // Skip generic/invalid models
-                    const invalidMdl = !mdl || 
-                                       mdl.toLowerCase().includes('information') || 
-                                       mdl.toLowerCase().includes('not') ||
-                                       mdl.toLowerCase().includes('number');
+        const mfr = clean(item.manufacturer);
+        const mdl = clean(item.model);
+        const equipId = item.equipmentId || item.id || '';
+        
+        // Skip generic/invalid manufacturers
+        const invalidMfr = !mfr || 
+                           mfr.toLowerCase().includes('information') || 
+                           mfr.toLowerCase().includes('not') ||
+                           mfr.toLowerCase().includes('unknown');
+        
+        // Skip generic/invalid models
+        const invalidMdl = !mdl || 
+                           mdl.toLowerCase().includes('information') || 
+                           mdl.toLowerCase().includes('not') ||
+                           mdl.toLowerCase().includes('number');
 
-                    // Build display name
-                    const parts = [];
-                    
-                    // Add type
-                    const typeLabel = item.equipmentType 
-                      ? item.equipmentType.charAt(0).toUpperCase() + item.equipmentType.slice(1)
-                      : 'Equipment';
-                    parts.push(typeLabel);
-                    
-                    // Add manufacturer if valid
-                    if (!invalidMfr) {
-                      parts.push(`(${mfr})`);
-                    }
-                    
-                    // Add equipment ID
-                    const shortId = equipId.includes('-') 
-                      ? equipId.split('-').pop() 
-                      : equipId.slice(-6);
-                    parts.push(`[${shortId}]`);
-                    
-                    return parts.join(' ');
-                  })(),
-                  location: item.zone || item.floor || item.location || bld.name,
-                };
-              })
-              .filter(Boolean) as SystemInfo[];
+        // Build display name
+        const parts = [];
+        
+        // Add type
+        const typeLabel = item.equipmentType 
+          ? item.equipmentType.charAt(0).toUpperCase() + item.equipmentType.slice(1)
+          : 'Equipment';
+        parts.push(typeLabel);
+        
+        // Add manufacturer if valid
+        if (!invalidMfr) {
+          parts.push(`(${mfr})`);
+        }
+        
+        // Add equipment ID
+        const shortId = equipId.includes('-') 
+          ? equipId.split('-').pop() 
+          : equipId.slice(-6);
+        parts.push(`[${shortId}]`);
+        
+        return parts.join(' ');
+      })(),
+      location: item.zone || item.floor || item.location || bld.name,
+    };
+  })
+  .filter(Boolean) as SystemInfo[];
 
             // Always add energy option
             systems.push({
