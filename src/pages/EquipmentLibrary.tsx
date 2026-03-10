@@ -454,7 +454,16 @@ export default function EquipmentLibrary() {
                       </Select>
                     </div>
                   </div>
-
+                  <div className="space-y-2">
+  <Label htmlFor="equipmentName">Equipment Name/Nickname</Label>
+  <Input
+    id="equipmentName"
+    value={formData.equipmentName || ''}
+    onChange={(e) => setFormData({ ...formData, equipmentName: e.target.value })}
+    placeholder="e.g., Main Boiler, Chiller #1"
+  />
+  <p className="text-xs text-muted-foreground">Optional: Give this equipment a friendly name</p>
+</div>   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="manufacturer">Manufacturer *</Label>
