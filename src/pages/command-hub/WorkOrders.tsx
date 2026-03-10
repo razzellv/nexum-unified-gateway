@@ -155,50 +155,52 @@ export default function WorkOrders() {
     ['open', 'assigned', 'in_progress', 'on_hold'].includes(wo.status)
   ).length;
 
-  // Handlers
-  const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
-    try {
-      const token = localStorage.getItem('nexum_access_token');
-      const response = await fetch(`${API_BASE_URL}/work-orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system: data.equipmentType || 'general',
-          equipmentId: data.equipmentId,
-          equipmentName: data.equipmentId,
-          buildingId: 'building-001',
-          type: data.type || 'manual',
-          priority: data.priority || 'medium',
-          title: data.title || 'Work Order',
-          description: data.description || '',
-          reason: data.description || '',
-          createdByName: user?.name || user?.email || 'User',
-        })
-      });
+const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
+  try {
+    const token = localStorage.getItem('nexum_access_token');
+    const response = await fetch(`${API_BASE_URL}/work-orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system: data.equipmentType || 'general',
+        equipmentId: data.equipmentId,
+        equipmentName: data.equipmentId,
+        buildingId: 'building-001',
+        type: data.type || 'manual',
+        priority: data.priority || 'medium',
+        title: data.title || 'Work Order',
+        description: data.description || '',
+        reason: data.description || '',
+        createdByName: user?.name || user?.email || 'User',
+        estimatedCost: data.estimatedCost || 0,  // ✅ ADD THIS LINE
+        estimatedHours: data.estimatedHours || 0, // ✅ ADD THIS LINE
+        partsRequired: data.partsRequired || [],   // ✅ ADD THIS LINE
+      })
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        toast({
-          title: 'Work Order Created',
-          description: `${result.workOrder?.title || 'Work order'} created successfully!`,
-        });
-        setShowCreateModal(false);
-      loadWorkOrders(); // ✅ USE THE CORRECT FUNCTION NAME
-      } else {
-        throw new Error('Failed to create work order');
-      }
-    } catch (error) {
-      console.error('Error creating work order:', error);
+    if (response.ok) {
+      const result = await response.json();
       toast({
-        title: 'Error',
-        description: 'Failed to create work order. Please try again.',
-        variant: 'destructive'
+        title: 'Work Order Created',
+        description: `${result.workOrder?.title || 'Work order'} created successfully!`,
       });
+      setShowCreateModal(false);
+      loadWorkOrders();
+    } else {
+      throw new Error('Failed to create work order');
     }
-  };
+  } catch (error) {
+    console.error('Error creating work order:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to create work order. Please try again.',
+      variant: 'destructive'
+    });
+  }
+};
 
   const handleUpdateWorkOrder = (data: Partial<WorkOrder>) => {
     if (!data.workOrderId) return;
