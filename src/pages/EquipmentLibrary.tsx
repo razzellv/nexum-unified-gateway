@@ -588,7 +588,12 @@ const resetForm = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold">{eq.equipmentId}</h3>
+                        <h3 className="text-lg font-semibold">
+  {eq.equipmentName || eq.equipmentId}
+</h3>
+{eq.equipmentName && (
+  <p className="text-xs text-muted-foreground font-mono">ID: {eq.equipmentId}</p>
+)}
                         <Badge>{eq.equipmentType?.replace(/_/g, ' ').toUpperCase()}</Badge>
                         {eq.status && (
                           <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>
