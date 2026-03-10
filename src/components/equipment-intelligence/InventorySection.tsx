@@ -172,42 +172,48 @@ export default function InventorySection() {
     }
   };
 
-  const handleUpdateQuantity = async (partId: string, change: number) => {
-    const part = inventory.find(p => p.partId === partId);
-    if (!part) return;
+const handleUpdateQuantity = async (partId: string, change: number) => {
+  const part = inventory.find(p => p.partId === partId);
+  if (!part) return;
 
-    const newQuantity = Math.max(0, part.quantity + change);
+  const newQuantity = Math.max(0, part.quantity + change);
 
-    try {
-      const token = localStorage.getItem('nexum_access_token');
-      
-      const response = await fetch(`${API_BASE_URL}/inventory/${partId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ quantity: newQuantity })
-      });
+  try {
+    const token = localStorage.getItem('nexum_access_token');
+    
+    console.log(`📤 Updating ${partId}: ${part.quantity} → ${newQuantity}`);
+    
+    const response = await fetch(`${API_BASE_URL}/inventory/${partId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ 
+        quantity: newQuantity  // Send new quantity, not change
+      })
+    });
 
-      if (!response.ok) throw new Error('Failed to update quantity');
+    const result = await response.json();
+    console.log('📥 Update result:', result);
 
-      toast({
-        title: '✅ Success',
-        description: `Quantity updated to ${newQuantity}`
-      });
-      
-      fetchInventory();
-    } catch (error) {
-      console.error('Error updating quantity:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update quantity',
-        variant: 'destructive'
-      });
-    }
-  };
+    if (!response.ok) throw new Error(result.message || 'Failed to update quantity');
 
+    toast({
+      title: '✅ Success',
+      description: `Quantity updated to ${newQuantity}`
+    });
+    
+    fetchInventory();
+  } catch (error: any) {
+    console.error('Error updating quantity:', error);
+    toast({
+      title: 'Error',
+      description: error.message || 'Failed to update quantity',
+      variant: 'destructive'
+    });
+  }
+};
   const handleDeletePart = async (partId: string) => {
     if (!confirm('Remove this part from inventory?')) return;
 
