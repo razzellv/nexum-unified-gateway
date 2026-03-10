@@ -18,9 +18,11 @@ import {
   Workflow,
   Settings,
   Users,
-  Package,  // ✅ ADDED
+  Package,
+  Boxes,  // ✅ ADD THIS
   Network
 } from 'lucide-react';
+
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -45,7 +47,8 @@ const navigation = [
   { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera },
   { name: 'Facility Data Source', href: '/data-source', icon: Upload },
   { name: 'Equipment Metrics', href: '/equipment', icon: Activity },
-  { name: 'Equipment Library', href: '/equipment-library', icon: Package },  // ✅ ADDED
+  { name: 'Equipment Library', href: '/equipment-library', icon: Package },
+  { name: 'Inventory Library', href: '/inventory-library', icon: Boxes },  // ✅ ADD THIS
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck },
   { 
@@ -59,7 +62,7 @@ const navigation = [
 
 export function AppSidebar() {
   const { collapsed } = useSidebar();
-
+  
   return (
     <aside className={cn(
       "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
@@ -93,6 +96,7 @@ export function AppSidebar() {
                 </div>
               );
             }
+
             return (
               <NavLink
                 key={item.name}
