@@ -7,6 +7,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
+import InventoryLibrary from "./pages/InventoryLibrary";
 import EquipmentSystems from "./pages/EquipmentSystems";
 import FacilityDataSource from "./pages/FacilityDataSource";
 import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
@@ -85,7 +86,9 @@ export const router = createBrowserRouter([
             path: "equipment-library",
             element: <EquipmentLibrary />,
           },
-          {
+          { path: "inventory-library", 
+           element: <InventoryLibrary /> 
+          },          {
             path: "equipment-systems",
             element: <EquipmentSystems />,
           },
