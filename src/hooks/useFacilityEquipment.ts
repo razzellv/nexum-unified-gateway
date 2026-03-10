@@ -68,15 +68,57 @@ export function useFacilityEquipment() {
                   id: item.equipmentId || item.id,
                   assetTag: item.equipmentId || item.id,
                   type: systemType,
-                  name: (() => {
-                    const mfr = item.manufacturer && !item.manufacturer.includes('**') && !item.manufacturer.toLowerCase().includes('information') ? item.manufacturer : '';
-                    const mdl = item.model && !item.model.includes('**') && !item.model.toLowerCase().includes('information') ? item.model : '';
-                    if (mfr && mdl) return mfr + ' ' + mdl;
-                    if (mfr) return mfr;
-                    if (mdl) return mdl;
-                    const type = item.equipmentType ? item.equipmentType.charAt(0).toUpperCase() + item.equipmentType.slice(1) : 'Equipment';
-                    return type + ' ' + (item.equipmentId || '').slice(-6);
-                  })(),
+name: (() => {
+  // Clean helper function
+  const clean = (str: string) => {
+    if (!str) return '';
+    return str
+      .replace(/\*\*/g, '')
+      .replace(/™/g, '')
+      .replace(/®/g, '')
+      .split('(')[0]
+      .trim();
+  };
+
+  const mfr = clean(item.manufacturer);
+  const mdl = clean(item.model);
+  const equipId = item.equipmentId || item.id || '';
+  const systemType = systemType || 'Equipment';
+  
+  // Skip generic/invalid manufacturers
+  const invalidMfr = !mfr || 
+                     mfr.toLowerCase().includes('information') || 
+                     mfr.toLowerCase().includes('not') ||
+                     mfr.toLowerCase().includes('unknown');
+  
+  // Skip generic/invalid models
+  const invalidMdl = !mdl || 
+                     mdl.toLowerCase().includes('information') || 
+                     mdl.toLowerCase().includes('not') ||
+                     mdl.toLowerCase().includes('number');
+
+  // Build display name
+  const parts = [];
+  
+  // Add type
+  const typeLabel = item.equipmentType 
+    ? item.equipmentType.charAt(0).toUpperCase() + item.equipmentType.slice(1)
+    : 'Equipment';
+  parts.push(typeLabel);
+  
+  // Add manufacturer if valid
+  if (!invalidMfr) {
+    parts.push(`(${mfr})`);
+  }
+  
+  // Add equipment ID
+  const shortId = equipId.includes('-') 
+    ? equipId.split('-').pop() 
+    : equipId.slice(-6);
+  parts.push(`[${shortId}]`);
+  
+  return parts.join(' ');
+})(),
                   location: item.zone || item.floor || item.location || bld.name,
                 };
               })
