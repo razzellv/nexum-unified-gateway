@@ -23,14 +23,7 @@ interface Equipment {
   installDate?: string;
   status?: string;
   buildingId?: string;
-  baseline?: {
-    temperature?: number;
-    pressure?: number;
-    flowRate?: number;
-    powerConsumption?: number;
-    efficiency?: number;
-    notes?: string;
-  };
+  baseline?: any;
 }
 
 // Helper to clean equipment names
@@ -83,45 +76,45 @@ export default function EquipmentLibrary() {
     status: 'active',
   });
 
-// Baseline form state (expanded for all equipment types)
-const [baselineData, setBaselineData] = useState<any>({
-  // Boiler
-  mawp: '',
-  capacity: '',
-  minTemp: '',
-  maxTemp: '',
-  efficiency: '',
-  firingRate: '',
-  
-  // Chiller
-  tons: '',
-  kwPerTon: '',
-  minChilledTemp: '',
-  maxChilledTemp: '',
-  minCondenserTemp: '',
-  maxCondenserTemp: '',
-  refrigerant: '',
-  
-  // Pump
-  gpm: '',
-  head: '',
-  motorHp: '',
-  operatingPressure: '',
-  
-  // AHU
-  cfm: '',
-  staticPressure: '',
-  supplyTemp: '',
-  returnTemp: '',
-  
-  // Cooling Tower
-  fanHp: '',
-  approachTemp: '',
-  rangeTemp: '',
-  
-  // Common
-  notes: '',
-});
+  // Baseline form state (expanded for all equipment types)
+  const [baselineData, setBaselineData] = useState<any>({
+    // Boiler
+    mawp: '',
+    capacity: '',
+    minTemp: '',
+    maxTemp: '',
+    efficiency: '',
+    firingRate: '',
+    
+    // Chiller
+    tons: '',
+    kwPerTon: '',
+    minChilledTemp: '',
+    maxChilledTemp: '',
+    minCondenserTemp: '',
+    maxCondenserTemp: '',
+    refrigerant: '',
+    
+    // Pump
+    gpm: '',
+    head: '',
+    motorHp: '',
+    operatingPressure: '',
+    
+    // AHU
+    cfm: '',
+    staticPressure: '',
+    supplyTemp: '',
+    returnTemp: '',
+    
+    // Cooling Tower
+    fanHp: '',
+    approachTemp: '',
+    rangeTemp: '',
+    
+    // Common
+    notes: '',
+  });
 
   useEffect(() => {
     loadEquipment();
@@ -219,14 +212,44 @@ const [baselineData, setBaselineData] = useState<any>({
 
     try {
       setSubmitting(true);
-      const baseline = {
-        temperature: baselineData.temperature ? parseFloat(baselineData.temperature) : undefined,
-        pressure: baselineData.pressure ? parseFloat(baselineData.pressure) : undefined,
-        flowRate: baselineData.flowRate ? parseFloat(baselineData.flowRate) : undefined,
-        powerConsumption: baselineData.powerConsumption ? parseFloat(baselineData.powerConsumption) : undefined,
-        efficiency: baselineData.efficiency ? parseFloat(baselineData.efficiency) : undefined,
+      
+      // Build baseline object based on equipment type
+      const baseline: any = {
         notes: baselineData.notes || undefined,
       };
+
+      // Add equipment-specific fields
+      if (selectedEquipment.equipmentType === 'boiler') {
+        baseline.mawp = baselineData.mawp ? parseFloat(baselineData.mawp) : undefined;
+        baseline.capacity = baselineData.capacity ? parseFloat(baselineData.capacity) : undefined;
+        baseline.minTemp = baselineData.minTemp ? parseFloat(baselineData.minTemp) : undefined;
+        baseline.maxTemp = baselineData.maxTemp ? parseFloat(baselineData.maxTemp) : undefined;
+        baseline.efficiency = baselineData.efficiency ? parseFloat(baselineData.efficiency) : undefined;
+        baseline.firingRate = baselineData.firingRate ? parseFloat(baselineData.firingRate) : undefined;
+      } else if (selectedEquipment.equipmentType === 'chiller') {
+        baseline.tons = baselineData.tons ? parseFloat(baselineData.tons) : undefined;
+        baseline.kwPerTon = baselineData.kwPerTon ? parseFloat(baselineData.kwPerTon) : undefined;
+        baseline.minChilledTemp = baselineData.minChilledTemp ? parseFloat(baselineData.minChilledTemp) : undefined;
+        baseline.maxChilledTemp = baselineData.maxChilledTemp ? parseFloat(baselineData.maxChilledTemp) : undefined;
+        baseline.minCondenserTemp = baselineData.minCondenserTemp ? parseFloat(baselineData.minCondenserTemp) : undefined;
+        baseline.maxCondenserTemp = baselineData.maxCondenserTemp ? parseFloat(baselineData.maxCondenserTemp) : undefined;
+        baseline.refrigerant = baselineData.refrigerant || undefined;
+      } else if (selectedEquipment.equipmentType === 'pump') {
+        baseline.gpm = baselineData.gpm ? parseFloat(baselineData.gpm) : undefined;
+        baseline.head = baselineData.head ? parseFloat(baselineData.head) : undefined;
+        baseline.motorHp = baselineData.motorHp ? parseFloat(baselineData.motorHp) : undefined;
+        baseline.operatingPressure = baselineData.operatingPressure ? parseFloat(baselineData.operatingPressure) : undefined;
+      } else if (selectedEquipment.equipmentType === 'ahu' || selectedEquipment.equipmentType === 'air_handler') {
+        baseline.cfm = baselineData.cfm ? parseFloat(baselineData.cfm) : undefined;
+        baseline.staticPressure = baselineData.staticPressure ? parseFloat(baselineData.staticPressure) : undefined;
+        baseline.supplyTemp = baselineData.supplyTemp ? parseFloat(baselineData.supplyTemp) : undefined;
+        baseline.returnTemp = baselineData.returnTemp ? parseFloat(baselineData.returnTemp) : undefined;
+      } else if (selectedEquipment.equipmentType === 'cooling_tower') {
+        baseline.gpm = baselineData.gpm ? parseFloat(baselineData.gpm) : undefined;
+        baseline.fanHp = baselineData.fanHp ? parseFloat(baselineData.fanHp) : undefined;
+        baseline.approachTemp = baselineData.approachTemp ? parseFloat(baselineData.approachTemp) : undefined;
+        baseline.rangeTemp = baselineData.rangeTemp ? parseFloat(baselineData.rangeTemp) : undefined;
+      }
 
       await apiRequest(`/equipment/${selectedEquipment.equipmentId}`, {
         method: 'PUT',
@@ -271,14 +294,43 @@ const [baselineData, setBaselineData] = useState<any>({
 
   const openBaselineDialog = (eq: Equipment) => {
     setSelectedEquipment(eq);
-    setBaselineData({
-      temperature: eq.baseline?.temperature?.toString() || '',
-      pressure: eq.baseline?.pressure?.toString() || '',
-      flowRate: eq.baseline?.flowRate?.toString() || '',
-      powerConsumption: eq.baseline?.powerConsumption?.toString() || '',
-      efficiency: eq.baseline?.efficiency?.toString() || '',
-      notes: eq.baseline?.notes || '',
-    });
+    
+    // Load existing baseline data if it exists
+    if (eq.baseline) {
+      setBaselineData({
+        ...baselineData,
+        ...eq.baseline,
+        // Convert numbers back to strings for input fields
+        mawp: eq.baseline.mawp?.toString() || '',
+        capacity: eq.baseline.capacity?.toString() || '',
+        minTemp: eq.baseline.minTemp?.toString() || '',
+        maxTemp: eq.baseline.maxTemp?.toString() || '',
+        efficiency: eq.baseline.efficiency?.toString() || '',
+        firingRate: eq.baseline.firingRate?.toString() || '',
+        tons: eq.baseline.tons?.toString() || '',
+        kwPerTon: eq.baseline.kwPerTon?.toString() || '',
+        minChilledTemp: eq.baseline.minChilledTemp?.toString() || '',
+        maxChilledTemp: eq.baseline.maxChilledTemp?.toString() || '',
+        minCondenserTemp: eq.baseline.minCondenserTemp?.toString() || '',
+        maxCondenserTemp: eq.baseline.maxCondenserTemp?.toString() || '',
+        refrigerant: eq.baseline.refrigerant || '',
+        gpm: eq.baseline.gpm?.toString() || '',
+        head: eq.baseline.head?.toString() || '',
+        motorHp: eq.baseline.motorHp?.toString() || '',
+        operatingPressure: eq.baseline.operatingPressure?.toString() || '',
+        cfm: eq.baseline.cfm?.toString() || '',
+        staticPressure: eq.baseline.staticPressure?.toString() || '',
+        supplyTemp: eq.baseline.supplyTemp?.toString() || '',
+        returnTemp: eq.baseline.returnTemp?.toString() || '',
+        fanHp: eq.baseline.fanHp?.toString() || '',
+        approachTemp: eq.baseline.approachTemp?.toString() || '',
+        rangeTemp: eq.baseline.rangeTemp?.toString() || '',
+        notes: eq.baseline.notes || '',
+      });
+    } else {
+      resetBaselineForm();
+    }
+    
     setBaselineDialogOpen(true);
   };
 
@@ -297,11 +349,41 @@ const [baselineData, setBaselineData] = useState<any>({
 
   const resetBaselineForm = () => {
     setBaselineData({
-      temperature: '',
-      pressure: '',
-      flowRate: '',
-      powerConsumption: '',
+      // Boiler
+      mawp: '',
+      capacity: '',
+      minTemp: '',
+      maxTemp: '',
       efficiency: '',
+      firingRate: '',
+      
+      // Chiller
+      tons: '',
+      kwPerTon: '',
+      minChilledTemp: '',
+      maxChilledTemp: '',
+      minCondenserTemp: '',
+      maxCondenserTemp: '',
+      refrigerant: '',
+      
+      // Pump
+      gpm: '',
+      head: '',
+      motorHp: '',
+      operatingPressure: '',
+      
+      // AHU
+      cfm: '',
+      staticPressure: '',
+      supplyTemp: '',
+      returnTemp: '',
+      
+      // Cooling Tower
+      fanHp: '',
+      approachTemp: '',
+      rangeTemp: '',
+      
+      // Common
       notes: '',
     });
   };
@@ -549,7 +631,6 @@ const [baselineData, setBaselineData] = useState<any>({
               <DialogTitle>Edit Equipment</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {/* Same form fields as Add dialog */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-equipmentType">Equipment Type *</Label>
@@ -670,410 +751,410 @@ const [baselineData, setBaselineData] = useState<any>({
           </DialogContent>
         </Dialog>
 
-{/* Baseline Dialog */}
-<Dialog open={baselineDialogOpen} onOpenChange={setBaselineDialogOpen}>
-  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>
-        Set Equipment Baseline - {selectedEquipment?.equipmentId}
-        <Badge className="ml-2" variant="outline">
-          {selectedEquipment?.equipmentType?.toUpperCase()}
-        </Badge>
-      </DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4 py-4">
-      <p className="text-sm text-muted-foreground">
-        Set baseline operational parameters for this equipment. These will be used for performance comparison and anomaly detection.
-      </p>
+        {/* Baseline Dialog */}
+        <Dialog open={baselineDialogOpen} onOpenChange={setBaselineDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+  Set Equipment Baseline - {selectedEquipment?.equipmentId}
+  <Badge className="ml-2" variant="outline">
+    {selectedEquipment?.equipmentType?.toUpperCase()}
+  </Badge>
+</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Set baseline operational parameters for this equipment. These will be used for performance comparison and anomaly detection.
+              </p>
 
-      {/* BOILER BASELINE */}
-      {selectedEquipment?.equipmentType === 'boiler' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-mawp">MAWP (PSI) *</Label>
-              <Input
-                id="baseline-mawp"
-                type="number"
-                step="0.1"
-                value={baselineData.mawp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, mawp: e.target.value })}
-                placeholder="e.g., 150"
-              />
+              {/* BOILER BASELINE */}
+              {selectedEquipment?.equipmentType === 'boiler' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-mawp">MAWP (PSI) *</Label>
+                      <Input
+                        id="baseline-mawp"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.mawp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, mawp: e.target.value })}
+                        placeholder="e.g., 150"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-capacity">Capacity (MBH)</Label>
+                      <Input
+                        id="baseline-capacity"
+                        type="number"
+                        step="1"
+                        value={baselineData.capacity || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, capacity: e.target.value })}
+                        placeholder="e.g., 5000"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-min-temp">Min Operating Temp (°F)</Label>
+                      <Input
+                        id="baseline-min-temp"
+                        type="number"
+                        step="1"
+                        value={baselineData.minTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, minTemp: e.target.value })}
+                        placeholder="e.g., 140"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-max-temp">Max Operating Temp (°F)</Label>
+                      <Input
+                        id="baseline-max-temp"
+                        type="number"
+                        step="1"
+                        value={baselineData.maxTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, maxTemp: e.target.value })}
+                        placeholder="e.g., 200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-efficiency">Combustion Efficiency (%)</Label>
+                      <Input
+                        id="baseline-efficiency"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.efficiency || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, efficiency: e.target.value })}
+                        placeholder="e.g., 82.5"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-firing-rate">Max Firing Rate (MBH)</Label>
+                      <Input
+                        id="baseline-firing-rate"
+                        type="number"
+                        step="1"
+                        value={baselineData.firingRate || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, firingRate: e.target.value })}
+                        placeholder="e.g., 5500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CHILLER BASELINE */}
+              {selectedEquipment?.equipmentType === 'chiller' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-tons">Capacity (Tons) *</Label>
+                      <Input
+                        id="baseline-tons"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.tons || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, tons: e.target.value })}
+                        placeholder="e.g., 400"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-kw-ton">kW/Ton (Efficiency)</Label>
+                      <Input
+                        id="baseline-kw-ton"
+                        type="number"
+                        step="0.01"
+                        value={baselineData.kwPerTon || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, kwPerTon: e.target.value })}
+                        placeholder="e.g., 0.58"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-min-chwt">Min Chilled Water Temp (°F)</Label>
+                      <Input
+                        id="baseline-min-chwt"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.minChilledTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, minChilledTemp: e.target.value })}
+                        placeholder="e.g., 42"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-max-chwt">Max Chilled Water Temp (°F)</Label>
+                      <Input
+                        id="baseline-max-chwt"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.maxChilledTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, maxChilledTemp: e.target.value })}
+                        placeholder="e.g., 54"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-min-cond">Min Condenser Temp (°F)</Label>
+                      <Input
+                        id="baseline-min-cond"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.minCondenserTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, minCondenserTemp: e.target.value })}
+                        placeholder="e.g., 75"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-max-cond">Max Condenser Temp (°F)</Label>
+                      <Input
+                        id="baseline-max-cond"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.maxCondenserTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, maxCondenserTemp: e.target.value })}
+                        placeholder="e.g., 95"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="baseline-refrigerant">Refrigerant Type</Label>
+                    <Input
+                      id="baseline-refrigerant"
+                      value={baselineData.refrigerant || ''}
+                      onChange={(e) => setBaselineData({ ...baselineData, refrigerant: e.target.value })}
+                      placeholder="e.g., R-134a"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* PUMP BASELINE */}
+              {selectedEquipment?.equipmentType === 'pump' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-gpm">Flow Rate (GPM) *</Label>
+                      <Input
+                        id="baseline-gpm"
+                        type="number"
+                        step="1"
+                        value={baselineData.gpm || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, gpm: e.target.value })}
+                        placeholder="e.g., 500"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-head">Head (Feet)</Label>
+                      <Input
+                        id="baseline-head"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.head || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, head: e.target.value })}
+                        placeholder="e.g., 100"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-motor-hp">Motor HP</Label>
+                      <Input
+                        id="baseline-motor-hp"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.motorHp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, motorHp: e.target.value })}
+                        placeholder="e.g., 15"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-operating-pressure">Operating Pressure (PSI)</Label>
+                      <Input
+                        id="baseline-operating-pressure"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.operatingPressure || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, operatingPressure: e.target.value })}
+                        placeholder="e.g., 50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* AHU/RTU BASELINE */}
+              {(selectedEquipment?.equipmentType === 'ahu' || selectedEquipment?.equipmentType === 'air_handler') && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-cfm">Airflow (CFM) *</Label>
+                      <Input
+                        id="baseline-cfm"
+                        type="number"
+                        step="1"
+                        value={baselineData.cfm || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, cfm: e.target.value })}
+                        placeholder="e.g., 10000"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-static">Static Pressure (in. w.c.)</Label>
+                      <Input
+                        id="baseline-static"
+                        type="number"
+                        step="0.01"
+                        value={baselineData.staticPressure || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, staticPressure: e.target.value })}
+                        placeholder="e.g., 1.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-supply-temp">Supply Air Temp (°F)</Label>
+                      <Input
+                        id="baseline-supply-temp"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.supplyTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, supplyTemp: e.target.value })}
+                        placeholder="e.g., 55"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-return-temp">Return Air Temp (°F)</Label>
+                      <Input
+                        id="baseline-return-temp"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.returnTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, returnTemp: e.target.value })}
+                        placeholder="e.g., 72"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* COOLING TOWER BASELINE */}
+              {selectedEquipment?.equipmentType === 'cooling_tower' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-tower-gpm">Flow Rate (GPM) *</Label>
+                      <Input
+                        id="baseline-tower-gpm"
+                        type="number"
+                        step="1"
+                        value={baselineData.gpm || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, gpm: e.target.value })}
+                        placeholder="e.g., 1200"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-fan-hp">Fan HP</Label>
+                      <Input
+                        id="baseline-fan-hp"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.fanHp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, fanHp: e.target.value })}
+                        placeholder="e.g., 25"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-approach">Approach Temp (°F)</Label>
+                      <Input
+                        id="baseline-approach"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.approachTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, approachTemp: e.target.value })}
+                        placeholder="e.g., 7"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseline-range">Range Temp (°F)</Label>
+                      <Input
+                        id="baseline-range"
+                        type="number"
+                        step="0.1"
+                        value={baselineData.rangeTemp || ''}
+                        onChange={(e) => setBaselineData({ ...baselineData, rangeTemp: e.target.value })}
+                        placeholder="e.g., 10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* NOTES (ALL EQUIPMENT TYPES) */}
+              <div className="space-y-2">
+                <Label htmlFor="baseline-notes">Notes</Label>
+                <Textarea
+                  id="baseline-notes"
+                  value={baselineData.notes || ''}
+                  onChange={(e) => setBaselineData({ ...baselineData, notes: e.target.value })}
+                  placeholder="Add any relevant notes about baseline conditions, source documents (Certificate of Inspection), or operational context..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
+                <strong>Note:</strong> Baseline values should come from:
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>Certificate of Inspection (nameplate MAWP, capacity, etc.)</li>
+                  <li>Manufacturer specifications</li>
+                  <li>Verified operational readings under normal conditions</li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBaselineDialogOpen(false);
+                    setSelectedEquipment(null);
+                    resetBaselineForm();
+                  }}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveBaseline} disabled={submitting}>
+                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Baseline
+                </Button>
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-capacity">Capacity (MBH)</Label>
-              <Input
-                id="baseline-capacity"
-                type="number"
-                step="1"
-                value={baselineData.capacity || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, capacity: e.target.value })}
-                placeholder="e.g., 5000"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-min-temp">Min Operating Temp (°F)</Label>
-              <Input
-                id="baseline-min-temp"
-                type="number"
-                step="1"
-                value={baselineData.minTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, minTemp: e.target.value })}
-                placeholder="e.g., 140"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-max-temp">Max Operating Temp (°F)</Label>
-              <Input
-                id="baseline-max-temp"
-                type="number"
-                step="1"
-                value={baselineData.maxTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, maxTemp: e.target.value })}
-                placeholder="e.g., 200"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-efficiency">Combustion Efficiency (%)</Label>
-              <Input
-                id="baseline-efficiency"
-                type="number"
-                step="0.1"
-                value={baselineData.efficiency || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, efficiency: e.target.value })}
-                placeholder="e.g., 82.5"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-firing-rate">Max Firing Rate (MBH)</Label>
-              <Input
-                id="baseline-firing-rate"
-                type="number"
-                step="1"
-                value={baselineData.firingRate || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, firingRate: e.target.value })}
-                placeholder="e.g., 5500"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CHILLER BASELINE */}
-      {selectedEquipment?.equipmentType === 'chiller' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-tons">Capacity (Tons) *</Label>
-              <Input
-                id="baseline-tons"
-                type="number"
-                step="0.1"
-                value={baselineData.tons || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, tons: e.target.value })}
-                placeholder="e.g., 400"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-kw-ton">kW/Ton (Efficiency)</Label>
-              <Input
-                id="baseline-kw-ton"
-                type="number"
-                step="0.01"
-                value={baselineData.kwPerTon || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, kwPerTon: e.target.value })}
-                placeholder="e.g., 0.58"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-min-chwt">Min Chilled Water Temp (°F)</Label>
-              <Input
-                id="baseline-min-chwt"
-                type="number"
-                step="0.1"
-                value={baselineData.minChilledTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, minChilledTemp: e.target.value })}
-                placeholder="e.g., 42"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-max-chwt">Max Chilled Water Temp (°F)</Label>
-              <Input
-                id="baseline-max-chwt"
-                type="number"
-                step="0.1"
-                value={baselineData.maxChilledTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, maxChilledTemp: e.target.value })}
-                placeholder="e.g., 54"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-min-cond">Min Condenser Temp (°F)</Label>
-              <Input
-                id="baseline-min-cond"
-                type="number"
-                step="0.1"
-                value={baselineData.minCondenserTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, minCondenserTemp: e.target.value })}
-                placeholder="e.g., 75"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-max-cond">Max Condenser Temp (°F)</Label>
-              <Input
-                id="baseline-max-cond"
-                type="number"
-                step="0.1"
-                value={baselineData.maxCondenserTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, maxCondenserTemp: e.target.value })}
-                placeholder="e.g., 95"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="baseline-refrigerant">Refrigerant Type</Label>
-            <Input
-              id="baseline-refrigerant"
-              value={baselineData.refrigerant || ''}
-              onChange={(e) => setBaselineData({ ...baselineData, refrigerant: e.target.value })}
-              placeholder="e.g., R-134a"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* PUMP BASELINE */}
-      {selectedEquipment?.equipmentType === 'pump' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-gpm">Flow Rate (GPM) *</Label>
-              <Input
-                id="baseline-gpm"
-                type="number"
-                step="1"
-                value={baselineData.gpm || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, gpm: e.target.value })}
-                placeholder="e.g., 500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-head">Head (Feet)</Label>
-              <Input
-                id="baseline-head"
-                type="number"
-                step="0.1"
-                value={baselineData.head || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, head: e.target.value })}
-                placeholder="e.g., 100"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-motor-hp">Motor HP</Label>
-              <Input
-                id="baseline-motor-hp"
-                type="number"
-                step="0.1"
-                value={baselineData.motorHp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, motorHp: e.target.value })}
-                placeholder="e.g., 15"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-operating-pressure">Operating Pressure (PSI)</Label>
-              <Input
-                id="baseline-operating-pressure"
-                type="number"
-                step="0.1"
-                value={baselineData.operatingPressure || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, operatingPressure: e.target.value })}
-                placeholder="e.g., 50"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AHU/RTU BASELINE */}
-      {(selectedEquipment?.equipmentType === 'ahu' || selectedEquipment?.equipmentType === 'air_handler') && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-cfm">Airflow (CFM) *</Label>
-              <Input
-                id="baseline-cfm"
-                type="number"
-                step="1"
-                value={baselineData.cfm || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, cfm: e.target.value })}
-                placeholder="e.g., 10000"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-static">Static Pressure (in. w.c.)</Label>
-              <Input
-                id="baseline-static"
-                type="number"
-                step="0.01"
-                value={baselineData.staticPressure || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, staticPressure: e.target.value })}
-                placeholder="e.g., 1.5"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-supply-temp">Supply Air Temp (°F)</Label>
-              <Input
-                id="baseline-supply-temp"
-                type="number"
-                step="0.1"
-                value={baselineData.supplyTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, supplyTemp: e.target.value })}
-                placeholder="e.g., 55"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-return-temp">Return Air Temp (°F)</Label>
-              <Input
-                id="baseline-return-temp"
-                type="number"
-                step="0.1"
-                value={baselineData.returnTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, returnTemp: e.target.value })}
-                placeholder="e.g., 72"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* COOLING TOWER BASELINE */}
-      {selectedEquipment?.equipmentType === 'cooling_tower' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-tower-gpm">Flow Rate (GPM) *</Label>
-              <Input
-                id="baseline-tower-gpm"
-                type="number"
-                step="1"
-                value={baselineData.gpm || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, gpm: e.target.value })}
-                placeholder="e.g., 1200"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-fan-hp">Fan HP</Label>
-              <Input
-                id="baseline-fan-hp"
-                type="number"
-                step="0.1"
-                value={baselineData.fanHp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, fanHp: e.target.value })}
-                placeholder="e.g., 25"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseline-approach">Approach Temp (°F)</Label>
-              <Input
-                id="baseline-approach"
-                type="number"
-                step="0.1"
-                value={baselineData.approachTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, approachTemp: e.target.value })}
-                placeholder="e.g., 7"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="baseline-range">Range Temp (°F)</Label>
-              <Input
-                id="baseline-range"
-                type="number"
-                step="0.1"
-                value={baselineData.rangeTemp || ''}
-                onChange={(e) => setBaselineData({ ...baselineData, rangeTemp: e.target.value })}
-                placeholder="e.g., 10"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NOTES (ALL EQUIPMENT TYPES) */}
-      <div className="space-y-2">
-        <Label htmlFor="baseline-notes">Notes</Label>
-        <Textarea
-          id="baseline-notes"
-          value={baselineData.notes || ''}
-          onChange={(e) => setBaselineData({ ...baselineData, notes: e.target.value })}
-          placeholder="Add any relevant notes about baseline conditions, source documents (Certificate of Inspection), or operational context..."
-          rows={3}
-        />
-      </div>
-
-      <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
-        <strong>Note:</strong> Baseline values should come from:
-        <ul className="list-disc list-inside mt-1 space-y-1">
-          <li>Certificate of Inspection (nameplate MAWP, capacity, etc.)</li>
-          <li>Manufacturer specifications</li>
-          <li>Verified operational readings under normal conditions</li>
-        </ul>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setBaselineDialogOpen(false);
-            setSelectedEquipment(null);
-            resetBaselineForm();
-          }}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button onClick={handleSaveBaseline} disabled={submitting}>
-          {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Save Baseline
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
