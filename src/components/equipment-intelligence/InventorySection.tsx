@@ -26,7 +26,6 @@ import {
   Plus,
   Search,
   AlertTriangle,
-  Edit2,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -60,6 +59,8 @@ const CATEGORIES = [
   { value: 'OTHER', label: 'Other', icon: '📦' },
 ];
 
+const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+
 export default function InventorySection() {
   const [activeCategory, setActiveCategory] = useState('BOLTS');
   const [inventory, setInventory] = useState<InventoryPart[]>([]);
@@ -84,75 +85,21 @@ export default function InventorySection() {
   }, [inventory, activeCategory, searchTerm]);
 
   const fetchInventory = async () => {
+    setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`${API_BASE_URL}/inventory`);
-      // const data = await response.json();
-      // setInventory(data.parts || []);
+      const token = localStorage.getItem('nexum_access_token');
+      const response = await fetch(`${API_BASE_URL}/inventory`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      // Mock data for demonstration
-      setTimeout(() => {
-        const mockData: InventoryPart[] = [
-          {
-            partId: 'bolt-001',
-            category: 'BOLTS',
-            name: '1/2" Hex Bolt Grade 8',
-            partNumber: 'HB-12-100',
-            quantity: 150,
-            minQuantity: 25,
-            location: 'Warehouse B, Shelf 3',
-            supplier: 'Acme Hardware',
-            unitCost: 0.75,
-            compatibleEquipment: ['B-01', 'B-02', 'P-05'],
-            lastRestocked: '2026-01-15',
-            notes: 'Grade 8 steel, corrosion resistant'
-          },
-          {
-            partId: 'bolt-002',
-            category: 'BOLTS',
-            name: '3/8" Carriage Bolt',
-            partNumber: 'CB-38-75',
-            quantity: 8,
-            minQuantity: 50,
-            location: 'Warehouse B, Shelf 3',
-            supplier: 'Acme Hardware',
-            unitCost: 0.45,
-            compatibleEquipment: ['AHU-01', 'AHU-02'],
-            lastRestocked: '2025-12-20',
-          },
-          {
-            partId: 'filter-001',
-            category: 'FILTERS',
-            name: 'HVAC Filter 20x25x4 MERV 13',
-            partNumber: 'FLT-20254-M13',
-            quantity: 24,
-            minQuantity: 12,
-            location: 'Warehouse A, Section 2',
-            supplier: 'FilterPro Inc',
-            unitCost: 18.50,
-            compatibleEquipment: ['AHU-01', 'AHU-03', 'AHU-05'],
-            lastRestocked: '2026-01-10',
-            notes: 'Replace quarterly'
-          },
-          {
-            partId: 'gasket-001',
-            category: 'GASKETS',
-            name: 'Flange Gasket 6" 150#',
-            partNumber: 'GK-6-150',
-            quantity: 45,
-            minQuantity: 15,
-            location: 'Warehouse B, Shelf 5',
-            supplier: 'Industrial Seals LLC',
-            unitCost: 8.75,
-            compatibleEquipment: ['B-01', 'B-02', 'CH-01'],
-            lastRestocked: '2026-01-20',
-            notes: 'High-temperature rated'
-          },
-        ];
-        setInventory(mockData);
-        setIsLoading(false);
-      }, 500);
+      if (!response.ok) throw new Error('Failed to fetch inventory');
 
+      const data = await response.json();
+      console.log('📦 Inventory loaded:', data);
+      
+      setInventory(data.parts || []);
     } catch (error) {
       console.error('Error fetching inventory:', error);
       toast({
@@ -160,6 +107,7 @@ export default function InventorySection() {
         description: 'Failed to load inventory',
         variant: 'destructive'
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -181,32 +129,44 @@ export default function InventorySection() {
     if (!newPart.name || !newPart.partNumber) {
       toast({
         title: 'Error',
-        description: 'Please fill in all required fields',
+        description: 'Please fill in name and part number',
         variant: 'destructive'
       });
       return;
     }
 
     try {
-      // TODO: POST /inventory
-      // const response = await fetch(`${API_BASE_URL}/inventory`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(newPart)
-      // });
+      const token = localStorage.getItem('nexum_access_token');
+      
+      console.log('📤 Adding part:', newPart);
+      
+      const response = await fetch(`${API_BASE_URL}/inventory`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newPart)
+      });
+
+      const result = await response.json();
+      console.log('📥 Add result:', result);
+
+      if (!response.ok) throw new Error(result.message || 'Failed to add part');
 
       toast({
-        title: 'Success',
+        title: '✅ Success',
         description: 'Part added to inventory'
       });
       
       setIsAddDialogOpen(false);
       setNewPart({ category: 'BOLTS', quantity: 0, minQuantity: 0, unitCost: 0 });
       fetchInventory();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Error adding part:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add part',
+        description: error.message || 'Failed to add part',
         variant: 'destructive'
       });
     }
@@ -219,13 +179,27 @@ export default function InventorySection() {
     const newQuantity = Math.max(0, part.quantity + change);
 
     try {
-      // TODO: PUT /inventory/{partId}
+      const token = localStorage.getItem('nexum_access_token');
+      
+      const response = await fetch(`${API_BASE_URL}/inventory/${partId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ quantity: newQuantity })
+      });
+
+      if (!response.ok) throw new Error('Failed to update quantity');
+
       toast({
-        title: 'Success',
+        title: '✅ Success',
         description: `Quantity updated to ${newQuantity}`
       });
+      
       fetchInventory();
     } catch (error) {
+      console.error('Error updating quantity:', error);
       toast({
         title: 'Error',
         description: 'Failed to update quantity',
@@ -238,13 +212,25 @@ export default function InventorySection() {
     if (!confirm('Remove this part from inventory?')) return;
 
     try {
-      // TODO: DELETE /inventory/{partId}
+      const token = localStorage.getItem('nexum_access_token');
+      
+      const response = await fetch(`${API_BASE_URL}/inventory/${partId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete part');
+
       toast({
-        title: 'Success',
+        title: '✅ Success',
         description: 'Part removed from inventory'
       });
+      
       fetchInventory();
     } catch (error) {
+      console.error('Error deleting part:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete part',
@@ -423,6 +409,18 @@ export default function InventorySection() {
                   <p className="text-muted-foreground">
                     {searchTerm ? 'No matching parts found' : `No ${cat.label.toLowerCase()} in inventory`}
                   </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-4"
+                    onClick={() => {
+                      setNewPart({ ...newPart, category: cat.value });
+                      setIsAddDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add First {cat.label}
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
