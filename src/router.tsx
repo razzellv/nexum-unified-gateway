@@ -18,7 +18,7 @@ import Dashboard from "./pages/dashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import EnergyDashboard from "./pages/EnergyDashboard";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
-import EmployeeDashboard from "./pages/EmployeeDashboard";
+import OperationCenter from "./pages/OperationCenter";
 import EmployeeDashboards from "./pages/EmployeeDashboards";
 import TechDashboard from "./pages/TechDashboard";
 import OperatorDashboard from "./pages/OperatorDashboard";
@@ -109,8 +109,8 @@ export const router = createBrowserRouter([
             element: <SupervisorDashboard />,
           },
           {
-            path: "dashboard/employees",
-            element: <EmployeeDashboards />,
+            path: "operation-center",
+            element: <OperationCenter />,
           },
           {
             path: "dashboard/employee",
