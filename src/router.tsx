@@ -109,7 +109,7 @@ export const router = createBrowserRouter([
             element: <SupervisorDashboard />,
           },
           {
-            path: "operation-center",
+            path: "employee-dashboard",
             element: <OperationCenter />,
           },
           {
