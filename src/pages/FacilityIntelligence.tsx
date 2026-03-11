@@ -140,7 +140,7 @@ export default function FacilityIntelligence() {
             <ModuleCard
               title="Employee Dashboard"
               description="Personal performance, compliance tracking, and assigned tasks"
-              route="/dashboard/employee"
+              route="/dashboard/employees"
               icon={<User className="w-5 h-5" />}
               status="active"
             />
