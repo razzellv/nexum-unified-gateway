@@ -29,7 +29,7 @@ import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
 import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
 
-// 🔥 NEW: Command Hub Imports
+// 🔥 Command Hub Imports
 import WorkOrders from "./pages/command-hub/WorkOrders";
 import Violations from "./pages/command-hub/Violations";
 import CommandDashboard from "./pages/command-hub/CommandDashboard";
@@ -86,9 +86,11 @@ export const router = createBrowserRouter([
             path: "equipment-library",
             element: <EquipmentLibrary />,
           },
-          { path: "inventory-library", 
-           element: <InventoryLibrary /> 
-          },          {
+          {
+            path: "inventory-library",
+            element: <InventoryLibrary />,
+          },
+          {
             path: "equipment-systems",
             element: <EquipmentSystems />,
           },
@@ -108,13 +110,15 @@ export const router = createBrowserRouter([
             path: "dashboard/supervisor",
             element: <SupervisorDashboard />,
           },
+          // Operation Center — replaces old employee dashboard
           {
             path: "employee-dashboard",
             element: <OperationCenter />,
           },
+          // Role-specific dashboards (all routed through EmployeeDashboards)
           {
             path: "dashboard/employee",
-            element: <EmployeeDashboard />,
+            element: <EmployeeDashboards />,
           },
           {
             path: "dashboard/tech",
@@ -152,7 +156,7 @@ export const router = createBrowserRouter([
             path: "compliance-logger",
             element: <ComplianceLogger />,
           },
-          // 🔥 NEW: Command Hub Routes
+          // Command Hub Routes
           {
             path: "command-hub",
             element: <CommandDashboard />,
@@ -197,10 +201,9 @@ export const router = createBrowserRouter([
             path: "workload",
             element: <Workload />,
           },
-          // 🔥 UPDATED: Replace placeholder with Violations page
           {
             path: "compliance-analyzer",
-            element: <ComplianceAnalyzer />
+            element: <ComplianceAnalyzer />,
           },
           {
             path: "command-center",
