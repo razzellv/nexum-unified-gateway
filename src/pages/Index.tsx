@@ -467,6 +467,15 @@ const Index = () => {
               colorTheme="secondary"
             />
             <ModuleCard
+  title="Operation Center"
+  subtitle="Facility-Wide Live View"
+  description="Real-time facility operations — logs, work orders, equipment status, compliance, and staff activity"
+  route="/employee-dashboard"
+  icon={<Radio className="w-5 h-5" />}
+  status="active"
+  colorTheme="primary"
+/>
+            <ModuleCard
               title="Equipment Intelligence"
               description="AI-powered nameplate analysis and equipment specs extraction"
               route="/equipment-intelligence"
