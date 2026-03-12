@@ -101,8 +101,17 @@ export async function getMasterWorkOrders() {
   return await apiRequest<any>('/work-orders');
 }
 
-export async function getManagerDashboard() {
-  return await apiRequest<ExecutiveData>('/dashboard/manager');
+export async function getManagerDashboard(filters?: {
+  facilityId?: string;
+  buildingId?: string;
+  systemType?: string;
+}) {
+  const params = new URLSearchParams();
+  if (filters?.facilityId) params.append('facilityId', filters.facilityId);
+  if (filters?.buildingId) params.append('buildingId', filters.buildingId);
+  if (filters?.systemType) params.append('systemType', filters.systemType);
+  const query = params.toString();
+  return await apiRequest<ExecutiveData>(query ? `/dashboard/manager?${query}` : '/dashboard/manager');
 }
 
 export async function getWorkOrders() {
@@ -110,7 +119,8 @@ export async function getWorkOrders() {
 }
 
 export async function getSupervisorDashboard(facilityId?: string) {
-  return await apiRequest<any>('/dashboard/supervisor');
+  const query = facilityId ? `?facilityId=${facilityId}` : '';
+  return await apiRequest<any>(`/dashboard/supervisor${query}`);
 }
 
 export async function getExecutiveDashboard() {
@@ -122,12 +132,11 @@ export async function getEnergyDashboard() {
 }
 
 export async function getEmployeeDashboard(employeeId?: string) {
-  const endpoint = employeeId 
+  const endpoint = employeeId
     ? `/dashboard/employee/${employeeId}`
     : '/dashboard/employee';
   return await apiRequest<EmployeePortalData>(endpoint);
 }
-
 // ============================================================================
 // FACILITY LOGS API
 // ============================================================================
