@@ -14,49 +14,45 @@ import { getManagerDashboard } from '@/lib/nexum-api';
 import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
 import ConfidenceMetrics from "@/components/manager/ConfidenceMetrics";
 import { getManagerConfidenceMetrics } from "@/lib/nexum-api";
-import { 
-  Activity, 
-  Shield, 
-  Wrench, 
-  Clock, 
-  Zap, 
+import {
+  Activity,
+  Shield,
+  Wrench,
+  Clock,
+  Zap,
   AlertTriangle,
   CheckCircle2,
   TrendingUp,
   TrendingDown,
   BarChart3,
-  Calendar,
   Users,
-  Gauge,
-  DollarSign
+  DollarSign,
+  Droplets,
+  Flame,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, Cell, LabelList
+} from 'recharts';
 
-// Custom hook for animated count-up effect
-const useCountUp = (target: number, duration: number = 1500) => {
+// ── Animated count-up ────────────────────────────────────────────────────────
+const useCountUp = (target: number, duration = 1500) => {
   const [count, setCount] = useState(0);
-  
   useEffect(() => {
     let startTime: number;
-    const startValue = 0;
-    
     const animate = (currentTime: number) => {
       if (!startTime) startTime = currentTime;
       const progress = Math.min((currentTime - startTime) / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(startValue + (target - startValue) * easeOut));
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
+      setCount(Math.floor(target * easeOut));
+      if (progress < 1) requestAnimationFrame(animate);
     };
-    
     requestAnimationFrame(animate);
   }, [target, duration]);
-  
   return count;
 };
 
+// ── KPI Card ─────────────────────────────────────────────────────────────────
 interface KPICardProps {
   title: string;
   value: number;
@@ -69,7 +65,6 @@ interface KPICardProps {
 
 const KPICard = ({ title, value, unit = '', icon: Icon, trend, trendValue, color = 'neon-cyan' }: KPICardProps) => {
   const animatedValue = useCountUp(value);
-  
   return (
     <Card className="bg-card/80 border-border hover:border-neon-cyan/50 transition-all">
       <CardContent className="p-4">
@@ -80,17 +75,14 @@ const KPICard = ({ title, value, unit = '', icon: Icon, trend, trendValue, color
             </div>
             <div>
               <p className="text-xs text-muted-foreground">{title}</p>
-              <p className="text-2xl font-bold">
-                {animatedValue}{unit}
-              </p>
+              <p className="text-2xl font-bold">{animatedValue}{unit}</p>
             </div>
           </div>
           {trend && (
             <div className={`flex items-center gap-1 text-xs ${
               trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'
             }`}>
-              {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : 
-               trend === 'down' ? <TrendingDown className="w-3 h-3" /> : null}
+              {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : trend === 'down' ? <TrendingDown className="w-3 h-3" /> : null}
               {trendValue}
             </div>
           )}
@@ -100,20 +92,15 @@ const KPICard = ({ title, value, unit = '', icon: Icon, trend, trendValue, color
   );
 };
 
-interface SystemHealthCardProps {
-  system: string;
-  score: number;
-  status: 'healthy' | 'warning' | 'critical';
-  lastUpdated: string;
-}
-
-const SystemHealthCard = ({ system, score, status, lastUpdated }: SystemHealthCardProps) => {
+// ── System Health Card ────────────────────────────────────────────────────────
+const SystemHealthCard = ({ system, score, status, lastUpdated }: {
+  system: string; score: number; status: 'healthy' | 'warning' | 'critical'; lastUpdated: string;
+}) => {
   const statusColors = {
     healthy: 'text-green-400 bg-green-400/20',
     warning: 'text-yellow-400 bg-yellow-400/20',
-    critical: 'text-red-400 bg-red-400/20'
+    critical: 'text-red-400 bg-red-400/20',
   };
-
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/50">
       <div className="flex-1">
@@ -123,102 +110,135 @@ const SystemHealthCard = ({ system, score, status, lastUpdated }: SystemHealthCa
       <div className="flex items-center gap-3">
         <div className="text-right">
           <p className="text-lg font-bold">{score}</p>
-          <Badge variant="outline" className={statusColors[status]}>
-            {status}
-          </Badge>
+          <Badge variant="outline" className={statusColors[status]}>{status}</Badge>
         </div>
       </div>
     </div>
   );
 };
 
+// ── Safe age calculation ──────────────────────────────────────────────────────
+function getWOAge(wo: any): number | null {
+  const dateStr = wo.created_at || wo.createdAt;
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+// ── Token helper ─────────────────────────────────────────────────────────────
+function getToken() {
+  return localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ManagerDashboard() {
-  const { role } = useRole();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { currentRole } = useRole();
+
+  // Filter state — wired into API calls
+  const [selectedFacility, setSelectedFacility] = useState('all');
+  const [selectedBuilding, setSelectedBuilding] = useState('all');
+  const [selectedSystem, setSelectedSystem]     = useState('all');
+
+  const [data, setData]               = useState<any>(null);
+  const [loading, setLoading]         = useState(true);
+  const [refreshKey, setRefreshKey]   = useState(0);
   const [energyTrend, setEnergyTrend] = useState<any[]>([]);
-  const [budgetData, setBudgetData] = useState<any>(null);
+  const [budgetData, setBudgetData]   = useState<any>(null);
   const [confidenceData, setConfidenceData] = useState<any>(null);
 
-useEffect(() => {
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const result = await getManagerDashboard();
-      console.log('📊 Manager Dashboard Data:', result);
-      setData(result);
-      
-      // Fetch confidence metrics
-      try {
-        const confidence = await getManagerConfidenceMetrics();
-        console.log('📊 Confidence Metrics:', confidence);
-        setConfidenceData(confidence);
-      } catch (confidenceError) {
-        console.error('Failed to load confidence metrics:', confidenceError);
-      }
-      
-      // Fetch budget data
-      const token = localStorage.getItem('nexum_id_token');
-      if (token) {
-        try {
-          const budgetResponse = await fetch(
-            'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
-            { headers: { 'Authorization': `Bearer ${token}` } }
-          );
-          if (budgetResponse.ok) {
-            const budget = await budgetResponse.json();
-            console.log('💰 Budget Data:', budget);
-            setBudgetData(budget);
-          }
-        } catch (budgetError) {
-          console.error('Failed to load budget data:', budgetError);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load manager data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  loadData();
-  
-  const interval = setInterval(() => {
-    setRefreshKey(prev => prev + 1);
-  }, 60000);
-  
-  return () => clearInterval(interval);
-}, [refreshKey]);
-
+  // ── Main data load ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchEnergyLogs = async () => {
-      const token = localStorage.getItem('nexum_id_token');
-      if (!token) return;
-      
+    const loadData = async () => {
+      setLoading(true);
       try {
-        const response = await fetch(
-          'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/equipment/readings?equipmentId=energy-log&limit=7',
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        const result = await response.json();
-        
-        if (result.readings) {
-          const chartData = result.readings.reverse().map((r: any) => ({
-            day: new Date(r.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            primary: parseFloat(r.data?.primaryGasUsage || r.primaryGasUsage || 0),
-            secondary: parseFloat(r.data?.secondaryGasUsage || r.secondaryGasUsage || 0)
-          }));
-          setEnergyTrend(chartData);
+        // Build query params from active filters
+        const params: Record<string, string> = {};
+        if (selectedFacility !== 'all') params.facilityId  = selectedFacility;
+        if (selectedBuilding !== 'all') params.buildingId  = selectedBuilding;
+        if (selectedSystem   !== 'all') params.systemType  = selectedSystem;
+
+        const result = await getManagerDashboard(Object.keys(params).length ? params : undefined);
+        console.log('📊 Manager Dashboard Data:', result);
+        setData(result);
+
+        // Confidence metrics
+        try {
+          const confidence = await getManagerConfidenceMetrics();
+          setConfidenceData(confidence);
+        } catch (e) {
+          console.error('Confidence metrics failed:', e);
         }
-      } catch (error) {
-        console.error('Failed to fetch energy logs:', error);
+
+        // Budget summary
+        const token = getToken();
+        if (token) {
+          try {
+            const budgetRes = await fetch(
+              'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (budgetRes.ok) setBudgetData(await budgetRes.json());
+          } catch (e) {
+            console.error('Budget fetch failed:', e);
+          }
+        }
+      } catch (err) {
+        console.error('Manager dashboard load failed:', err);
+      } finally {
+        setLoading(false);
       }
     };
-    
-    fetchEnergyLogs();
+
+    loadData();
+    const interval = setInterval(() => setRefreshKey(k => k + 1), 60000);
+    return () => clearInterval(interval);
+  }, [refreshKey, selectedFacility, selectedBuilding, selectedSystem]);
+
+  // ── Energy / utility trend ──────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchEnergy = async () => {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const res = await fetch(
+          'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/equipment/readings?equipmentId=energy-log&limit=14',
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const result = await res.json();
+        if (result.readings?.length) {
+          // Group by date and pick latest reading per day
+          const byDay: Record<string, any> = {};
+          result.readings.forEach((r: any) => {
+            const day = new Date(r.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            if (!byDay[day]) {
+              byDay[day] = {
+                day,
+                electric: 0,
+                gas: 0,
+                water: 0,
+                timestamp: r.timestamp,
+              };
+            }
+            byDay[day].electric += parseFloat(r.data?.electricMeterReading || 0);
+            byDay[day].gas      += parseFloat(r.data?.primaryGasUsage || 0);
+            byDay[day].water    += parseFloat(r.data?.waterMeterReading || 0);
+          });
+
+          const chartData = Object.values(byDay)
+            .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .slice(-7);
+
+          setEnergyTrend(chartData);
+        }
+      } catch (err) {
+        console.error('Energy fetch failed:', err);
+      }
+    };
+    fetchEnergy();
   }, [refreshKey]);
 
+  // ── Loading state ───────────────────────────────────────────────────────────
   if (loading) {
     return (
       <MainLayout>
@@ -227,207 +247,148 @@ useEffect(() => {
     );
   }
 
-  const totalEquipment = data?.summary?.total_equipment || 0;
-  const activeEquipment = data?.summary?.active_equipment || 0;
-  const recentLogsCount = data?.summary?.recent_logs_count || 0;
-  const openWorkOrders = data?.work_orders?.open || 0;
-  const totalWorkOrders = data?.work_orders?.total || 0;
-  const activeViolations = data?.violations?.active || 0;
-  
+  // ── Derived values ──────────────────────────────────────────────────────────
+  const totalEquipment    = data?.summary?.total_equipment        || 0;
+  const activeEquipment   = data?.summary?.active_equipment       || 0;
+  const recentLogsCount   = data?.summary?.recent_logs_count      || 0;
+  const openWorkOrders    = data?.work_orders?.open               || 0;
+  const totalWorkOrders   = data?.work_orders?.total              || 0;
+  const activeViolations  = data?.violations?.active              || 0;
+  const avgWorkOrderAge   = data?.summary?.avg_work_order_age_days || 0;
   const equipmentWithData = data?.performance?.equipment_with_recent_data || 0;
-  const overallAssetHealth = totalEquipment > 0 
-    ? Math.min(100, Math.round((equipmentWithData / totalEquipment) * 100)) 
+
+  const overallAssetHealth = totalEquipment > 0
+    ? Math.min(100, Math.round((equipmentWithData / totalEquipment) * 100))
     : 0;
 
-  const complianceRisk30Day = totalEquipment > 0
-    ? Math.round((activeViolations / totalEquipment) * 100)
-    : 0;
+  // ✅ Compliance risk: -15 to 100 scale
+  // Starts at 0, increases with violations, decreases with resolved items
+  const resolvedViolations = (data?.violations?.total || 0) - activeViolations;
+  const rawRisk = activeViolations > 0
+    ? Math.round(((activeViolations - resolvedViolations * 0.5) / Math.max(totalEquipment, 1)) * 100)
+    : -15;
+  const complianceRisk30Day = Math.min(100, Math.max(-15, rawRisk));
 
-  const closedWO = data?.work_orders?.by_status?.Completed || 0;
-  const pmCompletionRate = totalWorkOrders > 0
-    ? Math.round((closedWO / totalWorkOrders) * 100)
-    : 0;
+  const closedWO = data?.work_orders?.by_status?.Completed || data?.work_orders?.by_status?.completed || 0;
+  const pmCompletionRate = totalWorkOrders > 0 ? Math.round((closedWO / totalWorkOrders) * 100) : 0;
+
+  const loggingConsistency   = data?.performance?.logs_last_7_days || 0;
+  const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / 7) * 100));
 
   const workOrders = data?.work_orders?.recent || [];
-  const avgWorkOrderAge = data?.summary?.avg_work_order_age_days || 0;
 
+  // ✅ WO aging — safe date handling (created_at AND createdAt)
   const workOrderAging = [
-    { 
-      range: '0-3 days', 
-      count: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age <= 3;
-      }).length,
-      color: '#00f2ea',
-      workOrders: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age <= 3;
-      })
-    },
-    { 
-      range: '4-7 days', 
-      count: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 3 && age <= 7;
-      }).length,
-      color: '#22c55e',
-      workOrders: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 3 && age <= 7;
-      })
-    },
-    { 
-      range: '8-14 days', 
-      count: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 7 && age <= 14;
-      }).length,
-      color: '#eab308',
-      workOrders: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 7 && age <= 14;
-      })
-    },
-    { 
-      range: '15+ days', 
-      count: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 14;
-      }).length,
-      color: '#ef4444',
-      workOrders: workOrders.filter((wo: any) => {
-        if (!wo.created_at) return false;
-        const age = (Date.now() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24);
-        return age > 14;
-      })
-    },
-  ];
-  
-  const loggingConsistency = data?.performance?.logs_last_7_days || 0;
-  const expectedLogs = 7;
-  const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / expectedLogs) * 100));
-
-  const downtimeFrequency = 0;
+    { range: '0-3 days',   min: 0,  max: 3,   color: '#00f2ea' },
+    { range: '4-7 days',   min: 3,  max: 7,   color: '#22c55e' },
+    { range: '8-14 days',  min: 7,  max: 14,  color: '#eab308' },
+    { range: '15+ days',   min: 14, max: Infinity, color: '#ef4444' },
+  ].map(bucket => {
+    const matching = workOrders.filter((wo: any) => {
+      const age = getWOAge(wo);
+      if (age === null) return false;
+      return age > bucket.min && age <= bucket.max;
+    });
+    return {
+      ...bucket,
+      count: matching.length,
+      workOrders: matching,
+    };
+  });
 
   const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
-  const recentLogs = data?.summary?.recent_logs_count || 0;
-  
   const assetHealthBySystem = Object.entries(equipmentHealthByType).map(([type, stats]: [string, any]) => {
-    const logsCount = stats.log_count || 0;
-    const expectedLogsPerWeek = 7;
-    const healthScore = Math.min(100, Math.round((logsCount / expectedLogsPerWeek) * 100));
-    
-    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
-    if (healthScore < 60) status = 'critical';
-    else if (healthScore < 80) status = 'warning';
-    
-    const lastLogDate = stats.last_log ? new Date(stats.last_log) : null;
-    const minutesAgo = lastLogDate ? Math.round((Date.now() - lastLogDate.getTime()) / 60000) : null;
-    const lastUpdated = minutesAgo !== null 
-      ? (minutesAgo < 60 ? `${minutesAgo} min ago` : `${Math.round(minutesAgo / 60)} hr ago`)
-      : 'No recent data';
-    
+    const healthScore = Math.min(100, Math.round(((stats.log_count || 0) / 7) * 100));
+    const status: 'healthy' | 'warning' | 'critical' =
+      healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'warning' : 'critical';
+    const lastLog   = stats.last_log ? new Date(stats.last_log) : null;
+    const minsAgo   = lastLog ? Math.round((Date.now() - lastLog.getTime()) / 60000) : null;
+    const lastUpdated = minsAgo !== null
+      ? minsAgo < 60 ? `${minsAgo} min ago` : `${Math.round(minsAgo / 60)} hr ago`
+      : 'No data';
     return {
       system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
       score: healthScore,
       status,
-      lastUpdated
+      lastUpdated,
     };
   });
 
-  const CustomWorkOrderTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const wos = data.workOrders || [];
-      
-      return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold text-sm mb-2">{data.range}</p>
-          <p className="text-xs text-muted-foreground mb-2">{data.count} work orders</p>
-          {wos.length > 0 && (
-            <div className="space-y-1 mt-2 max-h-40 overflow-y-auto">
-              {wos.slice(0, 5).map((wo: any, idx: number) => (
-                <div key={idx} className="text-xs border-t border-border pt-1">
-                  <p className="font-medium">{wo.title}</p>
-                  <p className="text-muted-foreground">
-                    Created: {new Date(wo.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-              {wos.length > 5 && (
-                <p className="text-xs text-muted-foreground italic">+{wos.length - 5} more...</p>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-    return null;
+  // ── Utility cost summary (latest day) ──────────────────────────────────────
+  const latestEnergy = energyTrend[energyTrend.length - 1];
+  const ELECTRIC_RATE = 0.18;   // $/kWh NJ avg
+  const GAS_RATE      = 1.52;   // $/therm NJ avg
+  const WATER_RATE    = 0.004;  // $/gallon NJ avg
+  const totalUtilityCost = latestEnergy
+    ? latestEnergy.electric * ELECTRIC_RATE + latestEnergy.gas * GAS_RATE + latestEnergy.water * WATER_RATE
+    : 0;
+
+  // ── Custom tooltips ─────────────────────────────────────────────────────────
+  const CustomWOTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d   = payload[0].payload;
+    const wos = d.workOrders || [];
+    return (
+      <div className="bg-card border border-border rounded-lg p-3 shadow-lg min-w-[180px]">
+        <p className="font-semibold text-sm mb-1">{d.range}</p>
+        <p className="text-xs text-muted-foreground mb-2">{d.count} work orders</p>
+        {wos.slice(0, 4).map((wo: any, i: number) => (
+          <div key={i} className="text-xs border-t border-border pt-1 mt-1">
+            <p className="font-medium truncate">{wo.title || wo.id}</p>
+            <p className="text-muted-foreground">
+              {wo.priority && <span className="capitalize">{wo.priority} • </span>}
+              {wo.status}
+            </p>
+          </div>
+        ))}
+        {wos.length > 4 && <p className="text-xs text-muted-foreground mt-1">+{wos.length - 4} more</p>}
+      </div>
+    );
   };
 
   const CustomEnergyTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const primaryGas = data.primary || 0;
-      const secondaryGas = data.secondary || 0;
-      
-      const THERM_COST = 1.52;
-      const primaryCost = primaryGas * THERM_COST;
-      const secondaryCost = secondaryGas * THERM_COST;
-      const totalCost = primaryCost + secondaryCost;
-      
-      return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg min-w-[200px]">
-          <p className="font-semibold text-sm mb-2">{data.day}</p>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Primary Gas:</span>
-              <span className="font-medium">{primaryGas.toLocaleString()} therms</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Est. Cost:</span>
-              <span className="font-medium text-green-400">${primaryCost.toFixed(2)}</span>
-            </div>
-            
-            <div className="h-px bg-border my-2"></div>
-            
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Secondary Gas:</span>
-              <span className="font-medium">{secondaryGas.toLocaleString()} SCFH</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Est. Cost:</span>
-              <span className="font-medium text-green-400">${secondaryCost.toFixed(2)}</span>
-            </div>
-            
-            <div className="h-px bg-border my-2"></div>
-            
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground font-semibold">Total Est. Cost:</span>
-              <span className="font-bold text-neon-cyan">${totalCost.toFixed(2)}</span>
-            </div>
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    const electricCost = (d.electric || 0) * ELECTRIC_RATE;
+    const gasCost      = (d.gas     || 0) * GAS_RATE;
+    const waterCost    = (d.water   || 0) * WATER_RATE;
+    const total        = electricCost + gasCost + waterCost;
+    return (
+      <div className="bg-card border border-border rounded-lg p-3 shadow-lg min-w-[220px]">
+        <p className="font-semibold text-sm mb-2">{d.day}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Electric:</span>
+            <span>{(d.electric || 0).toLocaleString()} kWh — <span className="text-yellow-400">${electricCost.toFixed(2)}</span></span>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2 italic">
-            Rate: $1.52/therm (NJ avg)
-          </p>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Gas:</span>
+            <span>{(d.gas || 0).toLocaleString()} therms — <span className="text-orange-400">${gasCost.toFixed(2)}</span></span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Water:</span>
+            <span>{(d.water || 0).toLocaleString()} gal — <span className="text-blue-400">${waterCost.toFixed(2)}</span></span>
+          </div>
+          <div className="h-px bg-border my-1" />
+          <div className="flex justify-between gap-4 font-semibold">
+            <span>Total Est. Cost:</span>
+            <span className="text-neon-cyan">${total.toFixed(2)}</span>
+          </div>
         </div>
-      );
-    }
-    return null;
+        <p className="text-[10px] text-muted-foreground mt-2 italic">
+          Rates: $0.18/kWh · $1.52/therm · $0.004/gal (NJ avg)
+        </p>
+      </div>
+    );
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <MainLayout>
       <ParticleBackground />
-      
+
       <div className="relative z-10 max-w-[1800px] mx-auto p-6 space-y-6 animate-fade-in">
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -438,81 +399,50 @@ useEffect(() => {
             <p className="text-muted-foreground mt-1">Operations overview and facility management</p>
           </div>
           <div className="flex gap-3 items-center">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => window.location.href = '/staff-performance'}
               className="border-primary/30 hover:border-primary"
             >
               <Users className="w-4 h-4 mr-2" />
               Staff Performance
             </Button>
-            <ExportButtons 
-              data={data} 
-              filename="manager-dashboard" 
-              title="Manager Dashboard Report"
-            />
+            <ExportButtons data={data} filename="manager-dashboard" title="Manager Dashboard Report" />
             <NexumBranding />
           </div>
         </div>
 
-        {/* Scope Filters */}
-        <ScopeFilters />
+        {/* ✅ Scope Filters — now wired with state */}
+        <ScopeFilters
+          selectedFacility={selectedFacility}
+          selectedBuilding={selectedBuilding}
+          selectedSystem={selectedSystem}
+          onFacilityChange={(v) => { setSelectedFacility(v); setSelectedBuilding('all'); }}
+          onBuildingChange={setSelectedBuilding}
+          onSystemChange={setSelectedSystem}
+        />
 
         {/* Primary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <KPICard
-            title="Asset Health"
-            value={overallAssetHealth}
-            unit="%"
-            icon={Activity}
-            trend={overallAssetHealth >= 80 ? "up" : "down"}
-            trendValue={overallAssetHealth >= 80 ? "Good" : "Needs Attention"}
-          />
+          <KPICard title="Asset Health"        value={overallAssetHealth}      unit="%" icon={Activity}     trend={overallAssetHealth >= 80 ? 'up' : 'down'}    trendValue={overallAssetHealth >= 80 ? 'Good' : 'Needs Attention'} />
           <KPICard
             title="Compliance Risk (30d)"
-            value={complianceRisk30Day}
+            value={Math.max(0, complianceRisk30Day)}
             unit="%"
             icon={Shield}
-            trend={complianceRisk30Day > 15 ? 'down' : 'up'}
-            trendValue={complianceRisk30Day > 15 ? 'High' : 'Low'}
+            trend={complianceRisk30Day > 15 ? 'down' : complianceRisk30Day < 0 ? 'up' : 'neutral'}
+            trendValue={complianceRisk30Day < 0 ? 'Excellent' : complianceRisk30Day > 15 ? 'High Risk' : 'Low Risk'}
             color={complianceRisk30Day > 15 ? 'yellow-400' : 'neon-cyan'}
           />
-          <KPICard
-            title="PM Completion"
-            value={pmCompletionRate}
-            unit="%"
-            icon={CheckCircle2}
-            trend={pmCompletionRate >= 85 ? "up" : "down"}
-            trendValue={pmCompletionRate >= 85 ? "On Track" : "Behind"}
-          />
-          <KPICard
-            title="Avg WO Age"
-            value={Math.round(avgWorkOrderAge)}
-            unit=" days"
-            icon={Clock}
-            trend={avgWorkOrderAge > 5 ? 'down' : 'up'}
-            trendValue={avgWorkOrderAge > 5 ? 'Aging' : 'On Track'}
-          />
-          <KPICard
-            title="Downtime Events"
-            value={downtimeFrequency}
-            unit="/mo"
-            icon={AlertTriangle}
-            trend="neutral"
-            trendValue="Stable"
-          />
-          <KPICard
-            title="Log Consistency"
-            value={logConsistencyPercent}
-            unit="%"
-            icon={Users}
-            trend={logConsistencyPercent >= 90 ? "up" : "down"}
-            trendValue={`${loggingConsistency} logs/7d`}
-          />
+          <KPICard title="PM Completion"       value={pmCompletionRate}         unit="%" icon={CheckCircle2} trend={pmCompletionRate >= 85 ? 'up' : 'down'}       trendValue={pmCompletionRate >= 85 ? 'On Track' : 'Behind'} />
+          <KPICard title="Avg WO Age"           value={Math.round(avgWorkOrderAge)} unit=" days" icon={Clock} trend={avgWorkOrderAge > 5 ? 'down' : 'up'}        trendValue={avgWorkOrderAge > 5 ? 'Aging' : 'On Track'} />
+          <KPICard title="Downtime Events"      value={0}                        unit="/mo" icon={AlertTriangle} trend="neutral" trendValue="Stable" />
+          <KPICard title="Log Consistency"      value={logConsistencyPercent}    unit="%" icon={Users}      trend={logConsistencyPercent >= 90 ? 'up' : 'down'}  trendValue={`${loggingConsistency} logs/7d`} />
         </div>
 
         {/* Main Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
+
           {/* Asset Health by System */}
           <Card className="lg:col-span-1 bg-card/80 border-border">
             <CardHeader className="pb-2">
@@ -523,13 +453,9 @@ useEffect(() => {
             </CardHeader>
             <CardContent className="space-y-2">
               {assetHealthBySystem.length > 0 ? (
-                assetHealthBySystem.map((system, idx) => (
-                  <SystemHealthCard key={idx} {...system} />
-                ))
+                assetHealthBySystem.map((s, i) => <SystemHealthCard key={i} {...s} />)
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No equipment data available
-                </p>
+                <p className="text-sm text-muted-foreground text-center py-4">No equipment data available</p>
               )}
             </CardContent>
           </Card>
@@ -549,10 +475,10 @@ useEffect(() => {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                     <YAxis type="category" dataKey="range" stroke="hsl(var(--muted-foreground))" fontSize={11} width={80} />
-                    <Tooltip content={<CustomWorkOrderTooltip />} />
+                    <Tooltip content={<CustomWOTooltip />} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {workOrderAging.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {workOrderAging.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
                       ))}
                       <LabelList dataKey="count" position="inside" fill="#ffffff" fontSize={11} />
                     </Bar>
@@ -562,7 +488,7 @@ useEffect(() => {
             </CardContent>
           </Card>
 
-          {/* Compliance Risk Comparison */}
+          {/* Compliance Risk */}
           <Card className="bg-card/80 border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -572,16 +498,31 @@ useEffect(() => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4 pt-2">
+                {/* Risk score gauge */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Risk Score</span>
+                    <span className={
+                      complianceRisk30Day < 0 ? 'text-green-400' :
+                      complianceRisk30Day < 15 ? 'text-neon-cyan' :
+                      complianceRisk30Day < 40 ? 'text-yellow-400' : 'text-red-400'
+                    }>
+                      {complianceRisk30Day < 0 ? complianceRisk30Day : complianceRisk30Day}%
+                      {' '}({complianceRisk30Day < 0 ? 'Excellent' : complianceRisk30Day < 15 ? 'Low' : complianceRisk30Day < 40 ? 'Medium' : 'High'})
+                    </span>
+                  </div>
+                  <Progress value={Math.max(0, complianceRisk30Day)} className="h-2" />
+                  <p className="text-xs text-muted-foreground">Scale: -15 (excellent) to 100 (critical)</p>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Active Violations</span>
-                    <span className={activeViolations > 0 ? 'text-yellow-400' : 'text-green-400'}>
-                      {activeViolations}
-                    </span>
+                    <span className={activeViolations > 0 ? 'text-yellow-400' : 'text-green-400'}>{activeViolations}</span>
                   </div>
-                  <Progress value={complianceRisk30Day} className="h-2" />
+                  <Progress value={(activeViolations / Math.max(activeViolations + 10, 1)) * 100} className="h-2" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Open Work Orders</span>
@@ -591,71 +532,73 @@ useEffect(() => {
                 </div>
 
                 <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                  <p>Risk Score: {complianceRisk30Day < 10 ? 'Low' : complianceRisk30Day < 20 ? 'Medium' : 'High'}</p>
-                  <p className="mt-1">Total Equipment: {totalEquipment}</p>
+                  <p>Total Equipment: {totalEquipment} · Resolved: {resolvedViolations}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Energy Trend */}
+        {/* ✅ Utility Trend — Electric + Gas + Water + Total Cost */}
         <Card className="bg-card/80 border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Zap className="w-4 h-4 text-neon-cyan" />
-              Utility Trend
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-neon-cyan" />
+                Utility Trend — Last 7 Days
+              </CardTitle>
+              {latestEnergy && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-semibold text-green-400">
+                    Est. Daily Cost: ${totalUtilityCost.toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[240px]">
+            <div className="h-[260px]">
               {energyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={energyTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="day" 
-                      stroke="hsl(var(--muted-foreground))" 
-                      fontSize={11} 
-                    />
-                    <YAxis 
-                      stroke="hsl(var(--muted-foreground))" 
-                      fontSize={11}
-                    />
+                    <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
                     <Tooltip content={<CustomEnergyTooltip />} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="primary" 
-                      stroke="#00f2ea" 
-                      strokeWidth={2}
-                      name="Primary Gas (therms)"
-                      dot={{ fill: '#00f2ea', r: 3 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="secondary" 
-                      stroke="#22c55e" 
-                      strokeWidth={2}
-                      name="Secondary Gas (SCFH)"
-                      dot={{ fill: '#22c55e', r: 3 }}
-                    />
+                    <Line type="monotone" dataKey="electric" stroke="#facc15" strokeWidth={2} name="Electric (kWh)"   dot={{ fill: '#facc15', r: 3 }} />
+                    <Line type="monotone" dataKey="gas"      stroke="#f97316" strokeWidth={2} name="Gas (therms)"    dot={{ fill: '#f97316', r: 3 }} />
+                    <Line type="monotone" dataKey="water"    stroke="#38bdf8" strokeWidth={2} name="Water (gallons)" dot={{ fill: '#38bdf8', r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  No energy logs available - Submit energy logs via Facility Data Source
+                  No energy logs yet — submit readings via Facility Data Source
                 </div>
               )}
             </div>
             {energyTrend.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#00f2ea]"></div>
-                  <span className="text-muted-foreground">Primary Gas (Main Burner - therms)</span>
+              <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-yellow-400/10 border border-yellow-400/20">
+                  <Zap className="w-3 h-3 text-yellow-400" />
+                  <div>
+                    <p className="text-muted-foreground">Electric</p>
+                    <p className="font-medium text-yellow-400">{(latestEnergy?.electric || 0).toLocaleString()} kWh</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#22c55e]"></div>
-                  <span className="text-muted-foreground">Secondary Gas (Pilot - SCFH)</span>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-400/10 border border-orange-400/20">
+                  <Flame className="w-3 h-3 text-orange-400" />
+                  <div>
+                    <p className="text-muted-foreground">Gas</p>
+                    <p className="font-medium text-orange-400">{(latestEnergy?.gas || 0).toLocaleString()} therms</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-400/10 border border-blue-400/20">
+                  <Droplets className="w-3 h-3 text-blue-400" />
+                  <div>
+                    <p className="text-muted-foreground">Water</p>
+                    <p className="font-medium text-blue-400">{(latestEnergy?.water || 0).toLocaleString()} gal</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -665,7 +608,7 @@ useEffect(() => {
         {/* Budget vs Cost */}
         <BudgetVsCost budgetData={budgetData} isLoading={loading} />
 
-        {/* System Confidence Metrics */}
+        {/* Confidence Metrics */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Weekly System Confidence Levels</h2>
@@ -676,9 +619,7 @@ useEffect(() => {
           </div>
           {loading ? (
             <Card className="neon-border">
-              <CardContent className="p-12">
-                <NexumLoader message="Loading confidence metrics..." />
-              </CardContent>
+              <CardContent className="p-12"><NexumLoader message="Loading confidence metrics..." /></CardContent>
             </Card>
           ) : confidenceData ? (
             <ConfidenceMetrics data={confidenceData} />
