@@ -243,7 +243,7 @@ export default function OperationCenter() {
     setIsLoading(true);
     try {
       // Same route as the old employee dashboard — Lambda is replaced in-place
-      const result = await apiRequest('/employee-dashboard');
+const result = await apiRequest('/dashboard/employee');
       setData(result);
     } catch (err: any) {
       console.error('❌ Operation Center fetch failed:', err);
