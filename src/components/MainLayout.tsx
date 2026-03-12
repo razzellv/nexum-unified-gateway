@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Flame, Wrench, Shield, Users, LayoutDashboard, ClipboardList, UserCog, Zap, BarChart3, History } from 'lucide-react';
-import { useAuth } from '@/auth/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/contexts/RoleContext';
 import { Badge } from '@/components/ui/badge';
 import { NotificationBell } from '@/components/global/NotificationBell';
@@ -11,14 +11,14 @@ import { PageWrapper } from '@/components/PageWrapper';
 
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const { currentRole, canAccessApp, roleScope } = useRole();
 
   // Role-based navigation based on view role
   const getNavigation = () => {
     const roleDef = ROLE_DEFINITIONS[currentRole];
     
-    if (!roleDef.canAccessApp) return [];
+    if (!roleDef?.canAccessApp) return [];
 
     const baseNav = [
       { 
@@ -57,6 +57,23 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
       item.roles.includes('all') || item.roles.includes(currentRole)
     );
   };
+
+  // ✅ Wait for auth to resolve before enforcing any access checks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Don't block render while auth is still resolving on navigation
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const navigation = getNavigation();
 
@@ -105,7 +122,7 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
             <div className="flex items-center gap-4">
               <Badge variant="outline" className="hidden sm:flex border-neon-cyan/30">
-                {roleScope.assignedFacilities[0] || 'All Facilities'}
+                {roleScope?.assignedFacilities?.[0] || 'Main Campus'}
               </Badge>
               <RoleSelector />
               <NotificationBell />
