@@ -117,7 +117,7 @@ export const router = createBrowserRouter([
           },
           // Role-specific dashboards (all routed through EmployeeDashboards)
           {
-            path: "dashboard/employee",
+            path: "dashboard/employees",
             element: <EmployeeDashboards />,
           },
           {
