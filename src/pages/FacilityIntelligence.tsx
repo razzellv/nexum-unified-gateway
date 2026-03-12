@@ -136,14 +136,14 @@ export default function FacilityIntelligence() {
               />
             )}
 
-            {/* Employee Dashboard */}
-            <ModuleCard
-              title="Employee Dashboard"
-              description="Personal performance, compliance tracking, and assigned tasks"
-              route="/dashboard/employees"
-              icon={<User className="w-5 h-5" />}
-              status="active"
-            />
+{/* Operation Center */}
+<ModuleCard
+  title="Operation Center"
+  description="Facility-wide live view — logs, work orders, equipment status, compliance, and staff activity"
+  route="/employee-dashboard"
+  icon={<User className="w-5 h-5" />}
+  status="active"
+/>
 
             {/* Energy Dashboard */}
             <ModuleCard
