@@ -1,16 +1,17 @@
-import { Phone, Mail, Star, FileText, AlertCircle } from 'lucide-react';
+import { Phone, Mail, Star, FileText, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Vendor } from '@/types/facility';
+import { Vendor } from '@/pages/command-hub/Vendors';
 
 interface VendorCardProps {
   vendor: Vendor;
   onAssignProject?: () => void;
   onViewContracts?: () => void;
+  onDelete?: () => void;
 }
 
-export function VendorCard({ vendor, onAssignProject, onViewContracts }: VendorCardProps) {
-  const insuranceExpiring = vendor.insuranceExpiry && 
+export function VendorCard({ vendor, onAssignProject, onViewContracts, onDelete }: VendorCardProps) {
+  const insuranceExpiring = vendor.insuranceExpiry &&
     new Date(vendor.insuranceExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   return (
@@ -38,12 +39,12 @@ export function VendorCard({ vendor, onAssignProject, onViewContracts }: VendorC
 
       {/* Specialties */}
       <div className="flex flex-wrap gap-1 mb-4">
-        {vendor.specialty.slice(0, 3).map((spec) => (
+        {vendor.specialty?.slice(0, 3).map((spec) => (
           <Badge key={spec} variant="outline" className="capitalize text-xs">
             {spec}
           </Badge>
         ))}
-        {vendor.specialty.length > 3 && (
+        {vendor.specialty?.length > 3 && (
           <Badge variant="outline" className="text-xs">+{vendor.specialty.length - 3}</Badge>
         )}
       </div>
@@ -53,36 +54,44 @@ export function VendorCard({ vendor, onAssignProject, onViewContracts }: VendorC
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 text-warning mb-1">
             <Star className="w-3 md:w-4 h-3 md:h-4 fill-warning" />
-            <span className="font-semibold text-sm md:text-base">{vendor.responseTimeRating}</span>
+            <span className="font-semibold text-sm md:text-base">
+              {vendor.responseTimeRating?.toFixed(1) || '—'}
+            </span>
           </div>
           <p className="text-xs text-muted-foreground">Rating</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-foreground text-sm md:text-base">{vendor.activeContracts}</p>
+          <p className="font-semibold text-foreground text-sm md:text-base">{vendor.activeContracts ?? 0}</p>
           <p className="text-xs text-muted-foreground">Contracts</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-foreground text-sm md:text-base">${(vendor.totalSpend / 1000).toFixed(0)}K</p>
+          <p className="font-semibold text-foreground text-sm md:text-base">
+            ${((vendor.totalSpend || 0) / 1000).toFixed(0)}K
+          </p>
           <p className="text-xs text-muted-foreground">Spend</p>
         </div>
       </div>
 
       {/* Contact */}
       <div className="space-y-2 mb-4">
-        <a 
-          href={`mailto:${vendor.email}`}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors truncate"
-        >
-          <Mail className="w-4 h-4 shrink-0" />
-          <span className="truncate">{vendor.email}</span>
-        </a>
-        <a 
-          href={`tel:${vendor.phone}`}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Phone className="w-4 h-4 shrink-0" />
-          {vendor.phone}
-        </a>
+        {vendor.email && (
+          <a
+            href={`mailto:${vendor.email}`}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors truncate"
+          >
+            <Mail className="w-4 h-4 shrink-0" />
+            <span className="truncate">{vendor.email}</span>
+          </a>
+        )}
+        {vendor.phone && (
+          <a
+            href={`tel:${vendor.phone}`}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Phone className="w-4 h-4 shrink-0" />
+            {vendor.phone}
+          </a>
+        )}
       </div>
 
       {/* Actions */}
@@ -95,6 +104,16 @@ export function VendorCard({ vendor, onAssignProject, onViewContracts }: VendorC
           <span className="hidden sm:inline">Assign Project</span>
           <span className="sm:hidden">Assign</span>
         </Button>
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
