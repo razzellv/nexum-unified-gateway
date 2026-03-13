@@ -480,36 +480,36 @@ function AuditReportsTab() {
 
           {/* Filters */}
           <div className="flex gap-3 flex-wrap">
-            <Select value={filterAgency} onValueChange={setFilterAgency}>
+            <Select value={filterAgency || "all"} onValueChange={(v) => setFilterAgency(v === "all" ? "" : v)}>
               <SelectTrigger className="w-48 h-9">
                 <SelectValue placeholder="All Agencies" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Agencies</SelectItem>
+                <SelectItem value="all">All Agencies</SelectItem>
                 {AGENCIES.map(({ value, label }) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={filterResult} onValueChange={setFilterResult}>
+            <Select value={filterResult || "all"} onValueChange={(v) => setFilterResult(v === "all" ? "" : v)}>
               <SelectTrigger className="w-40 h-9">
                 <SelectValue placeholder="All Results" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Results</SelectItem>
+                <SelectItem value="all">All Results</SelectItem>
                 <SelectItem value="pass">Pass</SelectItem>
                 <SelectItem value="fail">Fail</SelectItem>
                 <SelectItem value="conditional">Conditional</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select value={filterYear} onValueChange={setFilterYear}>
+            <Select value={filterYear || "all"} onValueChange={(v) => setFilterYear(v === "all" ? "" : v)}>
               <SelectTrigger className="w-32 h-9">
                 <SelectValue placeholder="All Years" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Years</SelectItem>
+                <SelectItem value="all">All Years</SelectItem>
                 {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
