@@ -12,8 +12,8 @@ import { toast } from '@/hooks/use-toast';
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
 
 const getToken = () =>
-  localStorage.getItem("nexum_access_token") ||
   localStorage.getItem("nexum_id_token") ||
+  localStorage.getItem("nexum_access_token") ||
   localStorage.getItem("accessToken") || "";
 
 export interface Vendor {
