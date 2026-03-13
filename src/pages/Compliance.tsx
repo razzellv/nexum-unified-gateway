@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -11,9 +11,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { AlertTriangle, ClipboardCheck, Eye, FileText, Building2, Cpu, User, AlertCircle, Scale, Calendar, Zap, ShieldAlert, RotateCcw, Award } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertTriangle, ClipboardCheck, Eye, FileText, Building2, Cpu, User,
+  Scale, ShieldAlert, Award, Upload, BookOpen, CheckCircle2, XCircle,
+  AlertCircle, Download, RefreshCw, Calendar, ExternalLink, Filter,
+  TrendingUp, TrendingDown, Minus
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { logComplianceEvent } from '@/lib/nexum-api';
+
+const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
+
+const getToken = () =>
+  localStorage.getItem("nexum_access_token") ||
+  localStorage.getItem("nexum_id_token") ||
+  localStorage.getItem("accessToken") || "";
 
 const FACILITIES = ['Facility Alpha', 'Facility Beta', 'Facility Gamma', 'Facility Delta'];
 const BUILDINGS = ['Building A', 'Building B', 'Building C', 'Warehouse 1', 'Warehouse 2'];
@@ -29,36 +42,27 @@ const SYSTEM_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-// ✅ FIXED: Match Lambda's VIOLATION_TYPES exactly
 const VIOLATION_TYPES = [
-  // Equipment violations
   { value: 'MISSING_LOG', label: 'Missing Equipment Log', severity: 25 },
   { value: 'LATE_LOG', label: 'Late Log Entry', severity: 15 },
   { value: 'INCOMPLETE_DATA', label: 'Incomplete Data Entry', severity: 35 },
   { value: 'OUT_OF_RANGE', label: 'Out of Range Reading', severity: 50 },
   { value: 'CRITICAL_FAILURE', label: 'Critical Equipment Failure', severity: 100 },
   { value: 'UNSAFE_OPERATION', label: 'Unsafe Operation', severity: 90 },
-  
-  // Compliance violations
   { value: 'MISSED_ROUND', label: 'Missed Equipment Round', severity: 40 },
   { value: 'DOCUMENTATION_ERROR', label: 'Documentation Error', severity: 30 },
   { value: 'UNAUTHORIZED_CHANGE', label: 'Unauthorized System Change', severity: 75 },
   { value: 'SAFETY_VIOLATION', label: 'Safety Protocol Violation', severity: 95 },
   { value: 'TRAINING_LAPSE', label: 'Training/Certification Lapse', severity: 35 },
-  
-  // Operational violations
   { value: 'PROCEDURE_DEVIATION', label: 'Procedure Deviation', severity: 45 },
   { value: 'POOR_COMMUNICATION', label: 'Poor Communication', severity: 25 },
   { value: 'QUALITY_ISSUE', label: 'Quality Issue', severity: 40 },
   { value: 'RESPONSE_DELAY', label: 'Delayed Response to Issue', severity: 55 },
-  
-  // Unethical behavior
   { value: 'UNETHICAL_CONDUCT', label: 'Unethical Conduct', severity: 85 },
   { value: 'DISHONESTY', label: 'Dishonesty/Falsification', severity: 95 },
   { value: 'POLICY_VIOLATION', label: 'Company Policy Violation', severity: 65 },
 ];
 
-// Positive behaviors
 const POSITIVE_BEHAVIORS = [
   { value: 'EXEMPLARY_SAFETY', label: 'Exemplary Safety Practice', severity: -20 },
   { value: 'PROACTIVE_REPORTING', label: 'Proactive Issue Reporting', severity: -15 },
@@ -91,6 +95,38 @@ const HAZARD_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+const AGENCIES = [
+  { value: 'OSHA', label: 'OSHA' },
+  { value: 'DOH', label: 'DOH - Department of Health' },
+  { value: 'NJ_BPU', label: 'NJ Board of Public Utilities' },
+  { value: 'FIRE_MARSHAL', label: 'Fire Marshal' },
+  { value: 'EPA', label: 'EPA' },
+  { value: 'LOCAL_BOILER', label: 'Local Boiler Inspection' },
+  { value: 'ASME', label: 'ASME' },
+  { value: 'INSURANCE', label: 'Insurance Inspection' },
+  { value: 'INTERNAL', label: 'Internal Audit' },
+  { value: 'OTHER', label: 'Other Agency' },
+];
+
+const AUDIT_TYPES = [
+  { value: 'annual', label: 'Annual' },
+  { value: 'semi_annual', label: 'Semi-Annual' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'special', label: 'Special / Unscheduled' },
+  { value: 'follow_up', label: 'Follow-Up' },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const resultConfig = {
+  pass: { label: 'Pass', color: 'text-green-500', bg: 'bg-green-500/10 border-green-500/30', icon: CheckCircle2 },
+  fail: { label: 'Fail', color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/30', icon: XCircle },
+  conditional: { label: 'Conditional', color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/30', icon: AlertCircle },
+};
+
+// ─── GlobalFields ─────────────────────────────────────────────────────────────
+
 interface GlobalFieldsProps {
   register: any;
   watch: any;
@@ -99,11 +135,8 @@ interface GlobalFieldsProps {
 }
 
 function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) {
-  const severityLevel = watch('severityLevel') || 3;
-
   return (
     <div className="space-y-6">
-      {/* Location Section */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="w-5 h-5 text-primary" />
@@ -113,33 +146,24 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
           <div className="space-y-2">
             <Label>Facility</Label>
             <Select onValueChange={(v) => setValue('facility', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select facility" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select facility" /></SelectTrigger>
               <SelectContent>
-                {FACILITIES.map((f) => (
-                  <SelectItem key={f} value={f}>{f}</SelectItem>
-                ))}
+                {FACILITIES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Building</Label>
             <Select onValueChange={(v) => setValue('building', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select building" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select building" /></SelectTrigger>
               <SelectContent>
-                {BUILDINGS.map((b) => (
-                  <SelectItem key={b} value={b}>{b}</SelectItem>
-                ))}
+                {BUILDINGS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </div>
       </div>
 
-      {/* System Section */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <Cpu className="w-5 h-5 text-primary" />
@@ -149,28 +173,19 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
           <div className="space-y-2">
             <Label>System Type</Label>
             <Select onValueChange={(v) => setValue('equipmentType', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select system type" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select system type" /></SelectTrigger>
               <SelectContent>
-                {SYSTEM_TYPES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
+                {SYSTEM_TYPES.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Equipment ID</Label>
-            <Input
-              {...register('equipmentId')}
-              placeholder="e.g., HVAC-001, B-01"
-              className="font-mono"
-            />
+            <Input {...register('equipmentId')} placeholder="e.g., HVAC-001, B-01" className="font-mono" />
           </div>
         </div>
       </div>
 
-      {/* ✅ FIXED: Employee ID field */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <User className="w-5 h-5 text-primary" />
@@ -189,15 +204,11 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
           </div>
           <div className="space-y-2">
             <Label>Employee Name</Label>
-            <Input
-              {...register('operator')}
-              placeholder="Full name (optional)"
-            />
+            <Input {...register('operator')} placeholder="Full name (optional)" />
           </div>
         </div>
       </div>
 
-      {/* Details Section */}
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
@@ -214,23 +225,13 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
             />
             {errors.description && <p className="text-xs text-destructive">Required (min 10 characters)</p>}
           </div>
-
           <div className="space-y-2">
             <Label>Notes / Evidence</Label>
-            <Textarea
-              {...register('notes')}
-              placeholder="Additional notes, evidence, or context..."
-              rows={2}
-            />
+            <Textarea {...register('notes')} placeholder="Additional notes, evidence, or context..." rows={2} />
           </div>
-
           <div className="space-y-2">
             <Label>Corrective Action Taken</Label>
-            <Textarea
-              {...register('correctiveAction')}
-              placeholder="What action was taken or is planned..."
-              rows={2}
-            />
+            <Textarea {...register('correctiveAction')} placeholder="What action was taken or is planned..." rows={2} />
           </div>
         </div>
       </div>
@@ -238,38 +239,544 @@ function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) 
   );
 }
 
+// ─── AuditReportsTab ──────────────────────────────────────────────────────────
+
+function AuditReportsTab() {
+  const [view, setView] = useState<'library' | 'upload'>('library');
+  const [reports, setReports] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [agencyBreakdown, setAgencyBreakdown] = useState<any>({});
+  const [repeatPatterns, setRepeatPatterns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [filterAgency, setFilterAgency] = useState('');
+  const [filterResult, setFilterResult] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [form, setForm] = useState({
+    agency: '',
+    auditType: 'annual',
+    auditDate: '',
+    result: '',
+    inspector: '',
+    inspectorLicense: '',
+    nextInspectionDate: '',
+    findings: '',
+    correctiveActions: '',
+    systemTypes: [] as string[],
+    notes: '',
+  });
+
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterAgency) params.append('agency', filterAgency);
+      if (filterResult) params.append('result', filterResult);
+      if (filterYear) params.append('year', filterYear);
+
+      const res = await fetch(`${API_BASE}/audit-reports?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setReports(data.reports || []);
+      setSummary(data.summary || null);
+      setAgencyBreakdown(data.agencyBreakdown || {});
+      setRepeatPatterns(data.repeatPatterns || []);
+    } catch (err) {
+      console.error('Failed to load audit reports:', err);
+      toast({ title: 'Error loading reports', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchReports(); }, [filterAgency, filterResult, filterYear]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+  };
+
+  const handleUpload = async () => {
+    if (!form.agency || !form.auditDate || !form.result || !selectedFile) {
+      toast({ title: 'Agency, date, result and file are required', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const payload = {
+        ...form,
+        findings: form.findings ? form.findings.split('\n').filter(Boolean) : [],
+        correctiveActions: form.correctiveActions ? form.correctiveActions.split('\n').filter(Boolean) : [],
+        auditYear: new Date(form.auditDate).getFullYear(),
+        fileBase64: base64,
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+      };
+
+      const res = await fetch(`${API_BASE}/audit-reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      toast({ title: '✅ Audit report uploaded', description: `Report ID: ${data.reportId}` });
+      setView('library');
+      setSelectedFile(null);
+      setForm({
+        agency: '', auditType: 'annual', auditDate: '', result: '',
+        inspector: '', inspectorLicense: '', nextInspectionDate: '',
+        findings: '', correctiveActions: '', systemTypes: [], notes: '',
+      });
+      fetchReports();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const exportCSV = () => {
+    const headers = ['Agency', 'Type', 'Date', 'Year', 'Result', 'Inspector', 'Next Inspection', 'Findings', 'File'];
+    const rows = reports.map(r => [
+      r.agency, r.auditType, r.auditDate, r.auditYear, r.result,
+      r.inspector, r.nextInspectionDate,
+      (r.findings || []).join('; '), r.fileName,
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-reports-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  const years = Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - i));
+
+  return (
+    <div className="space-y-6">
+      {/* Sub-nav */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            variant={view === 'library' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('library')}
+          >
+            <BookOpen className="w-4 h-4 mr-1" /> Library
+          </Button>
+          <Button
+            variant={view === 'upload' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('upload')}
+          >
+            <Upload className="w-4 h-4 mr-1" /> Upload Report
+          </Button>
+        </div>
+        {view === 'library' && (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={fetchReports}>
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Download className="w-4 h-4 mr-1" /> Export CSV
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Library View */}
+      {view === 'library' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          {summary && (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
+                <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-1" />
+                <p className="text-2xl font-bold text-green-500">{summary.passed}</p>
+                <p className="text-xs text-muted-foreground">Passed</p>
+              </div>
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-center">
+                <XCircle className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                <p className="text-2xl font-bold text-red-500">{summary.failed}</p>
+                <p className="text-xs text-muted-foreground">Failed</p>
+              </div>
+              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-center">
+                <AlertCircle className="w-6 h-6 text-yellow-500 mx-auto mb-1" />
+                <p className="text-2xl font-bold text-yellow-500">{summary.conditional}</p>
+                <p className="text-xs text-muted-foreground">Conditional</p>
+              </div>
+            </div>
+          )}
+
+          {/* Agency Breakdown */}
+          {Object.keys(agencyBreakdown).length > 0 && (
+            <div className="p-4 rounded-lg border border-border bg-card/50">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" /> Agency Breakdown
+              </h3>
+              <div className="space-y-2">
+                {Object.entries(agencyBreakdown).map(([agency, stats]: [string, any]) => (
+                  <div key={agency} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{agency}</span>
+                    <div className="flex gap-2">
+                      <Badge className="bg-green-500/10 text-green-500 border-green-500/30 text-xs">
+                        {stats.pass || 0} pass
+                      </Badge>
+                      {stats.fail > 0 && (
+                        <Badge className="bg-red-500/10 text-red-500 border-red-500/30 text-xs">
+                          {stats.fail} fail
+                        </Badge>
+                      )}
+                      {stats.conditional > 0 && (
+                        <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30 text-xs">
+                          {stats.conditional} conditional
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Repeat Failure Patterns */}
+          {repeatPatterns.length > 0 && (
+            <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-red-500">
+                <AlertTriangle className="w-4 h-4" /> Repeat Failure Patterns
+              </h3>
+              <div className="space-y-1">
+                {repeatPatterns.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{p.finding}</span>
+                    <Badge variant="outline" className="text-red-500 border-red-500/40 text-xs">
+                      {p.occurrences}x
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="flex gap-3 flex-wrap">
+            <Select value={filterAgency} onValueChange={setFilterAgency}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue placeholder="All Agencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Agencies</SelectItem>
+                {AGENCIES.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterResult} onValueChange={setFilterResult}>
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue placeholder="All Results" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Results</SelectItem>
+                <SelectItem value="pass">Pass</SelectItem>
+                <SelectItem value="fail">Fail</SelectItem>
+                <SelectItem value="conditional">Conditional</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterYear} onValueChange={setFilterYear}>
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue placeholder="All Years" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Years</SelectItem>
+                {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {(filterAgency || filterResult || filterYear) && (
+              <Button variant="ghost" size="sm" onClick={() => {
+                setFilterAgency(''); setFilterResult(''); setFilterYear('');
+              }}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+
+          {/* Reports List */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No audit reports found</p>
+              <p className="text-sm mt-1">Upload your first report to start building your compliance library</p>
+              <Button className="mt-4" size="sm" onClick={() => setView('upload')}>
+                <Upload className="w-4 h-4 mr-1" /> Upload Report
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reports.map((r) => {
+                const cfg = resultConfig[r.result as keyof typeof resultConfig] || resultConfig.conditional;
+                const Icon = cfg.icon;
+                return (
+                  <div key={r.reportId} className={`p-4 rounded-lg border ${cfg.bg} flex items-start justify-between gap-4`}>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${cfg.color}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{r.agency}</span>
+                          <Badge variant="outline" className="text-xs">{r.auditType}</Badge>
+                          <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {r.auditDate} • {r.inspector && `Inspector: ${r.inspector}`}
+                        </p>
+                        {r.findings?.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            Findings: {r.findings.join(', ')}
+                          </p>
+                        )}
+                        {r.nextInspectionDate && (
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" /> Next: {r.nextInspectionDate}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-muted-foreground">{r.auditYear}</span>
+                      {r.downloadUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => window.open(r.downloadUrl, '_blank')}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload View */}
+      {view === 'upload' && (
+        <div className="space-y-6">
+          {/* File Drop */}
+          <div
+            className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
+            {selectedFile ? (
+              <div>
+                <p className="font-semibold text-primary">{selectedFile.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="font-medium">Click to select audit report</p>
+                <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG supported</p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Agency *</Label>
+              <Select onValueChange={(v) => setForm(f => ({ ...f, agency: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select agency" /></SelectTrigger>
+                <SelectContent>
+                  {AGENCIES.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Audit Type</Label>
+              <Select defaultValue="annual" onValueChange={(v) => setForm(f => ({ ...f, auditType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {AUDIT_TYPES.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Audit Date *</Label>
+              <Input
+                type="date"
+                onChange={(e) => setForm(f => ({ ...f, auditDate: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Result *</Label>
+              <Select onValueChange={(v) => setForm(f => ({ ...f, result: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select result" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pass">✅ Pass</SelectItem>
+                  <SelectItem value="conditional">⚠️ Conditional Pass</SelectItem>
+                  <SelectItem value="fail">❌ Fail</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Inspector Name</Label>
+              <Input
+                placeholder="e.g., James Moore"
+                onChange={(e) => setForm(f => ({ ...f, inspector: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Inspector License #</Label>
+              <Input
+                placeholder="e.g., NJ-BL-004421"
+                className="font-mono"
+                onChange={(e) => setForm(f => ({ ...f, inspectorLicense: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Next Inspection Date</Label>
+              <Input
+                type="date"
+                onChange={(e) => setForm(f => ({ ...f, nextInspectionDate: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Systems Covered</Label>
+              <Select onValueChange={(v) => setForm(f => ({ ...f, systemTypes: [...f.systemTypes, v] }))}>
+                <SelectTrigger><SelectValue placeholder="Add system type" /></SelectTrigger>
+                <SelectContent>
+                  {SYSTEM_TYPES.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {form.systemTypes.length > 0 && (
+                <div className="flex gap-1 flex-wrap mt-1">
+                  {form.systemTypes.map((s, i) => (
+                    <Badge key={i} variant="outline" className="text-xs cursor-pointer"
+                      onClick={() => setForm(f => ({ ...f, systemTypes: f.systemTypes.filter((_, j) => j !== i) }))}>
+                      {s} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Findings / Deficiencies</Label>
+            <Textarea
+              placeholder="One finding per line e.g.&#10;Pressure relief valve past test date&#10;No blowdown log for Q3"
+              rows={4}
+              onChange={(e) => setForm(f => ({ ...f, findings: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">One finding per line — used for repeat pattern detection</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Required Corrective Actions</Label>
+            <Textarea
+              placeholder="One action per line"
+              rows={3}
+              onChange={(e) => setForm(f => ({ ...f, correctiveActions: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea
+              placeholder="Additional context, special conditions, etc."
+              rows={2}
+              onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setView('library')}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-primary hover:bg-primary/90"
+              onClick={handleUpload}
+              disabled={uploading}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {uploading ? 'Uploading...' : 'Upload Audit Report'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Compliance ──────────────────────────────────────────────────────────
+
 export default function Compliance() {
   const [activeTab, setActiveTab] = useState('violation');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastVirtuousScore, setLastVirtuousScore] = useState<number | null>(null);
 
-  const violationForm = useForm({
-    defaultValues: {
-      operatorId: '',
-    }
-  });
-
-  const pmForm = useForm({
-    defaultValues: {
-      operatorId: '',
-    }
-  });
-
-  const safetyForm = useForm({
-    defaultValues: {
-      operatorId: '',
-    }
-  });
+  const violationForm = useForm({ defaultValues: { operatorId: '' } });
+  const pmForm = useForm({ defaultValues: { operatorId: '' } });
+  const safetyForm = useForm({ defaultValues: { operatorId: '' } });
 
   const handleViolationSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      console.log('Submitting violation:', data);
-      
-      // ✅ FIXED: Send payload matching Lambda's expected format
       const payload = {
-        type: data.violationType, // e.g., "SAFETY_VIOLATION"
-        operatorId: data.operatorId, // Required!
+        type: data.violationType,
+        operatorId: data.operatorId,
         operator: data.operator || data.operatorId,
         description: data.description,
         equipmentId: data.equipmentId,
@@ -277,32 +784,16 @@ export default function Compliance() {
         notes: data.notes,
         correctiveAction: data.correctiveAction,
       };
-
-      console.log('Payload:', payload);
-
       const response = await logComplianceEvent(payload);
-      console.log('Response:', response);
-      
       const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
-      if (virtuousScore !== undefined) {
-        setLastVirtuousScore(virtuousScore);
-      }
-
+      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
       toast({
         title: '✅ Violation Logged Successfully',
-        description: virtuousScore !== undefined
-          ? `Employee Virtuous Score: ${virtuousScore}%`
-          : 'The violation has been recorded.',
+        description: virtuousScore !== undefined ? `Employee Virtuous Score: ${virtuousScore}%` : 'The violation has been recorded.',
       });
-
       violationForm.reset({ operatorId: '' });
     } catch (error: any) {
-      console.error('Compliance logging error:', error);
-      toast({
-        title: 'Error Logging Violation',
-        description: error.message || 'Failed to log violation. Check console for details.',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error Logging Violation', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -312,7 +803,7 @@ export default function Compliance() {
     setIsSubmitting(true);
     try {
       const payload = {
-        type: 'MISSED_ROUND', // Or appropriate type
+        type: 'MISSED_ROUND',
         operatorId: data.operatorId,
         operator: data.operator || data.operatorId,
         description: `PM Check: ${data.pmTask}`,
@@ -320,29 +811,13 @@ export default function Compliance() {
         equipmentType: data.equipmentType,
         notes: `Scheduled: ${data.scheduledDate}. ${!data.completedOnTime ? 'LATE: ' + data.missedReason : 'On time'}`,
       };
-
       const response = await logComplianceEvent(payload);
-      
       const virtuousScore = response?.employeeScores?.virtuousScore;
-      if (virtuousScore !== undefined) {
-        setLastVirtuousScore(virtuousScore);
-      }
-
-      toast({
-        title: '✅ PM Check Logged',
-        description: virtuousScore !== undefined
-          ? `Virtuous Score: ${virtuousScore}%`
-          : 'PM check recorded.',
-      });
-
+      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
+      toast({ title: '✅ PM Check Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'PM check recorded.' });
       pmForm.reset({ operatorId: '' });
     } catch (error: any) {
-      console.error('PM logging error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to log PM check.',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -361,29 +836,13 @@ export default function Compliance() {
         notes: `Hazard: ${data.hazardType}. Action: ${data.actionTaken}`,
         correctiveAction: data.actionTaken,
       };
-
       const response = await logComplianceEvent(payload);
-      
       const virtuousScore = response?.employeeScores?.virtuousScore;
-      if (virtuousScore !== undefined) {
-        setLastVirtuousScore(virtuousScore);
-      }
-
-      toast({
-        title: '✅ Safety Observation Logged',
-        description: virtuousScore !== undefined
-          ? `Virtuous Score: ${virtuousScore}%`
-          : 'Safety observation recorded.',
-      });
-
+      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
+      toast({ title: '✅ Safety Observation Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'Safety observation recorded.' });
       safetyForm.reset({ operatorId: '' });
     } catch (error: any) {
-      console.error('Safety logging error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to log safety observation.',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -392,7 +851,7 @@ export default function Compliance() {
   return (
     <MainLayout>
       <ParticleBackground />
-      
+
       <div className="relative z-10 max-w-[1400px] mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -417,11 +876,11 @@ export default function Compliance() {
           </div>
         </div>
 
-        {/* Main Form Area */}
+        {/* Main Tabs */}
         <Card className="bg-card/80 border-border">
           <CardContent className="p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid grid-cols-3 w-full max-w-[600px] h-auto p-1">
+              <TabsList className="grid grid-cols-4 w-full max-w-[750px] h-auto p-1">
                 <TabsTrigger value="violation" className="flex items-center gap-2 py-3">
                   <AlertTriangle className="w-4 h-4" />
                   <span className="hidden sm:inline">Violation</span>
@@ -434,19 +893,21 @@ export default function Compliance() {
                   <Eye className="w-4 h-4" />
                   <span className="hidden sm:inline">Safety</span>
                 </TabsTrigger>
+                <TabsTrigger value="audit_reports" className="flex items-center gap-2 py-3">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Audit Reports</span>
+                </TabsTrigger>
               </TabsList>
 
-              {/* Violation Form */}
+              {/* Violation Tab */}
               <TabsContent value="violation">
                 <form onSubmit={violationForm.handleSubmit(handleViolationSubmit)} className="space-y-6">
-                  <GlobalFields 
+                  <GlobalFields
                     register={violationForm.register}
                     watch={violationForm.watch}
                     errors={violationForm.formState.errors}
                     setValue={violationForm.setValue}
                   />
-
-                  {/* Violation-Specific Fields */}
                   <div className="space-y-4 p-6 rounded-lg border border-warning/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <AlertTriangle className="w-5 h-5 text-warning" />
@@ -456,7 +917,7 @@ export default function Compliance() {
                       <div className="space-y-2">
                         <Label>Violation Type *</Label>
                         <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
-                          <SelectTrigger className={violationForm.formState.errors.violationType ? 'border-destructive' : ''}>
+                          <SelectTrigger>
                             <SelectValue placeholder="Select violation type" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[400px]">
@@ -482,11 +943,7 @@ export default function Compliance() {
                             ))}
                           </SelectContent>
                         </Select>
-                        {violationForm.formState.errors.violationType && (
-                          <p className="text-xs text-destructive">Required</p>
-                        )}
                       </div>
-                      
                       <div className="space-y-2">
                         <Label>Policy / Code Reference</Label>
                         <Select onValueChange={(v) => violationForm.setValue('policyReference', v)}>
@@ -495,16 +952,13 @@ export default function Compliance() {
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
                             {POLICY_REFERENCES.map(({ value, label }) => (
-                              <SelectItem key={value} value={value} className="font-mono text-sm">
-                                {label}
-                              </SelectItem>
+                              <SelectItem key={value} value={value} className="font-mono text-sm">{label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                   </div>
-
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-destructive hover:bg-destructive/90">
                     <Scale className="w-4 h-4 mr-2" />
                     {isSubmitting ? 'Logging Violation...' : 'Log Violation Entry'}
@@ -512,16 +966,15 @@ export default function Compliance() {
                 </form>
               </TabsContent>
 
-              {/* PM Check Form */}
+              {/* PM Check Tab */}
               <TabsContent value="pm_check">
                 <form onSubmit={pmForm.handleSubmit(handlePMSubmit)} className="space-y-6">
-                  <GlobalFields 
+                  <GlobalFields
                     register={pmForm.register}
                     watch={pmForm.watch}
                     errors={pmForm.formState.errors}
                     setValue={pmForm.setValue}
                   />
-
                   <div className="space-y-4 p-6 rounded-lg border border-green-500/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <ClipboardCheck className="w-5 h-5 text-green-500" />
@@ -530,20 +983,13 @@ export default function Compliance() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>PM Task *</Label>
-                        <Input
-                          {...pmForm.register('pmTask', { required: true })}
-                          placeholder="e.g., Quarterly Filter Replacement"
-                        />
+                        <Input {...pmForm.register('pmTask', { required: true })} placeholder="e.g., Quarterly Filter Replacement" />
                       </div>
                       <div className="space-y-2">
                         <Label>Scheduled Date *</Label>
-                        <Input
-                          type="date"
-                          {...pmForm.register('scheduledDate', { required: true })}
-                        />
+                        <Input type="date" {...pmForm.register('scheduledDate', { required: true })} />
                       </div>
                     </div>
-
                     <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
                       <Label>Completed On Time</Label>
                       <Switch
@@ -551,16 +997,10 @@ export default function Compliance() {
                         onCheckedChange={(checked) => pmForm.setValue('completedOnTime', checked)}
                       />
                     </div>
-
                     {!pmForm.watch('completedOnTime') && (
-                      <Textarea
-                        {...pmForm.register('missedReason')}
-                        placeholder="Reason for delay..."
-                        rows={2}
-                      />
+                      <Textarea {...pmForm.register('missedReason')} placeholder="Reason for delay..." rows={2} />
                     )}
                   </div>
-
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-green-600 hover:bg-green-700">
                     <ClipboardCheck className="w-4 h-4 mr-2" />
                     {isSubmitting ? 'Logging PM Check...' : 'Log PM Check'}
@@ -568,16 +1008,15 @@ export default function Compliance() {
                 </form>
               </TabsContent>
 
-              {/* Safety Observation Form */}
+              {/* Safety Tab */}
               <TabsContent value="safety">
                 <form onSubmit={safetyForm.handleSubmit(handleSafetySubmit)} className="space-y-6">
-                  <GlobalFields 
+                  <GlobalFields
                     register={safetyForm.register}
                     watch={safetyForm.watch}
                     errors={safetyForm.formState.errors}
                     setValue={safetyForm.setValue}
                   />
-
                   <div className="space-y-4 p-6 rounded-lg border border-primary/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <Eye className="w-5 h-5 text-primary" />
@@ -587,9 +1026,7 @@ export default function Compliance() {
                       <div className="space-y-2">
                         <Label>Hazard Type *</Label>
                         <Select onValueChange={(v) => safetyForm.setValue('hazardType', v)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select hazard type" />
-                          </SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Select hazard type" /></SelectTrigger>
                           <SelectContent>
                             {HAZARD_TYPES.map(({ value, label }) => (
                               <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -605,23 +1042,23 @@ export default function Compliance() {
                         />
                       </div>
                     </div>
-
                     <div className="space-y-2">
                       <Label>Action Taken *</Label>
-                      <Textarea
-                        {...safetyForm.register('actionTaken', { required: true })}
-                        placeholder="Corrective/preventive action..."
-                        rows={3}
-                      />
+                      <Textarea {...safetyForm.register('actionTaken', { required: true })} placeholder="Corrective/preventive action..." rows={3} />
                     </div>
                   </div>
-
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-primary hover:bg-primary/90">
                     <ShieldAlert className="w-4 h-4 mr-2" />
                     {isSubmitting ? 'Logging Safety Observation...' : 'Log Safety Observation'}
                   </Button>
                 </form>
               </TabsContent>
+
+              {/* Audit Reports Tab */}
+              <TabsContent value="audit_reports">
+                <AuditReportsTab />
+              </TabsContent>
+
             </Tabs>
           </CardContent>
         </Card>
