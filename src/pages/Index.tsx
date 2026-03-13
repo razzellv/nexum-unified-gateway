@@ -37,6 +37,7 @@ import {
   CheckCircle2,
   XCircle,
   MapPin,
+  LogOut,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ interface EquipmentNode {
   status: "operational" | "warning" | "critical";
 }
 
-// ─── ModuleCard (unchanged) ───────────────────────────────────────────────────
+// ─── ModuleCard ───────────────────────────────────────────────────────────────
 
 const ModuleCard = ({
   title,
@@ -239,7 +240,6 @@ const FacilityTopology = () => {
   const fetchTopology = useCallback(async () => {
     const token = getToken();
     try {
-      // Fetch equipment and violations in parallel
       const [eqRes, vRes] = await Promise.all([
         fetch(`${API_BASE}/equipment?facilityId=facility-001`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -255,12 +255,10 @@ const FacilityTopology = () => {
       const equipment: any[] = eqData.equipment || eqData.items || eqData || [];
       const violations: any[] = vData.violations || vData.items || vData || [];
 
-      // Only open/active violations count toward status
       const activeViolations = violations.filter(
         (v) => !v.resolvedAt && v.status !== "resolved"
       );
 
-      // Map violations by equipmentId
       const violationMap: Record<string, { count: number; maxSeverity: number; name: string }> = {};
       for (const v of activeViolations) {
         const eid = v.equipmentId || v.equipment_id || "";
@@ -293,7 +291,6 @@ const FacilityTopology = () => {
       setNodes(mapped);
       setLastUpdated(new Date());
 
-      // Build worst alert summary
       const critical = mapped.filter((n) => n.status === "critical");
       const warning = mapped.filter((n) => n.status === "warning");
       if (critical.length > 0) {
@@ -322,7 +319,6 @@ const FacilityTopology = () => {
 
   return (
     <section className="rounded-xl border border-primary/20 bg-card/30 backdrop-blur-xl p-6">
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <div className="h-px w-8 bg-gradient-to-r from-primary/50 to-transparent" />
@@ -338,12 +334,7 @@ const FacilityTopology = () => {
               Updated {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={fetchTopology}
-          >
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={fetchTopology}>
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
           <Badge variant="outline" className="text-xs">
@@ -364,7 +355,6 @@ const FacilityTopology = () => {
         </div>
       ) : (
         <>
-          {/* Summary bar */}
           <div className="flex items-center gap-4 mb-5 p-3 rounded-lg bg-muted/20 border border-border/30">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -391,7 +381,6 @@ const FacilityTopology = () => {
             )}
           </div>
 
-          {/* Equipment grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {nodes.map((node) => {
               const Icon = getEquipmentIcon(node.type);
@@ -406,26 +395,19 @@ const FacilityTopology = () => {
                     statusBg(node.status)
                   )}
                 >
-                  {/* Status dot */}
                   <div
                     className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full animate-pulse"
                     style={{ background: statusColor(node.status) }}
                   />
-
-                  {/* Icon */}
                   <div className={cn("mb-3", colorClass)}>
                     <Icon className="w-6 h-6" />
                   </div>
-
-                  {/* Name */}
                   <p className="text-sm font-semibold leading-tight truncate mb-0.5">
                     {node.name}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
                     {typeLabel(node.type)}
                   </p>
-
-                  {/* Status badge */}
                   <div className="flex items-center justify-between">
                     <span
                       className="text-xs font-medium"
@@ -447,7 +429,6 @@ const FacilityTopology = () => {
             })}
           </div>
 
-          {/* Footer link */}
           <div className="mt-4 text-right">
             <button
               onClick={() => navigate("/equipment-library")}
@@ -465,7 +446,7 @@ const FacilityTopology = () => {
 // ─── Main Index ───────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const { userRole } = useAuth();
+  const { userRole, logout } = useAuth();
   const navigate = useNavigate();
 
   const [equipmentCount, setEquipmentCount] = useState(0);
@@ -530,27 +511,38 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Admin Role Toggle */}
+      {/* Admin Role Toggle + Sign Out */}
       {userRole === "admin" && (
         <div className="border-b border-border/50 bg-card/20 backdrop-blur-xl">
           <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Shield className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">View as:</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/employee")}>
-                  <User className="w-3 h-3 mr-1" /> Employee
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/supervisor")}>
-                  <Users className="w-3 h-3 mr-1" /> Supervisor
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/manager")}>
-                  <Briefcase className="w-3 h-3 mr-1" /> Manager
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/executive")}>
-                  <TrendingUp className="w-3 h-3 mr-1" /> Executive
-                </Button>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <Shield className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">View as:</span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/employee")}>
+                    <User className="w-3 h-3 mr-1" /> Employee
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/supervisor")}>
+                    <Users className="w-3 h-3 mr-1" /> Supervisor
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/manager")}>
+                    <Briefcase className="w-3 h-3 mr-1" /> Manager
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/executive")}>
+                    <TrendingUp className="w-3 h-3 mr-1" /> Executive
+                  </Button>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={logout}
+              >
+                <LogOut className="w-3 h-3 mr-1" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -743,7 +735,7 @@ const Index = () => {
           </div>
         </section>
 
-        {/* ✅ Facility Topology — replaces fake LiveTelemetry */}
+        {/* Facility Topology */}
         <FacilityTopology />
 
         {/* System Feed */}
