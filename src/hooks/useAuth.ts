@@ -34,7 +34,6 @@ export const useAuth = () => {
 
   useEffect(() => {
     const initAuth = async () => {
-      // Check for OAuth callback code in URL
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
 
@@ -44,18 +43,13 @@ export const useAuth = () => {
         if (success) {
           addAuthEvent("login", "Successfully authenticated via OAuth");
           const tokens = getStoredTokens();
-          setAuthState({
-            isAuthenticated: true,
-            isLoading: false,
-            tokens,
-          });
+          setAuthState({ isAuthenticated: true, isLoading: false, tokens });
           return;
         } else {
           addAuthEvent("auth_failed", "OAuth callback failed");
         }
       }
 
-      // Bridge: migrate legacy tokens from AuthCallback into session storage
       const legacyAccess = localStorage.getItem('nexum_access_token');
       const legacyRefresh = localStorage.getItem('nexum_refresh_token') || '';
       if (legacyAccess && !getStoredTokens()) {
@@ -67,30 +61,17 @@ export const useAuth = () => {
         addAuthEvent("session_renewed", "Legacy tokens migrated to session storage");
       }
 
-      // Check for existing tokens
       const tokens = getStoredTokens();
 
       if (tokens && !isTokenExpired(tokens)) {
         addAuthEvent("session_renewed", "Session restored from storage");
-        setAuthState({
-          isAuthenticated: true,
-          isLoading: false,
-          tokens,
-        });
+        setAuthState({ isAuthenticated: true, isLoading: false, tokens });
       } else if (tokens) {
         addAuthEvent("info", "Token expired, will refresh on next request");
-        setAuthState({
-          isAuthenticated: true,
-          isLoading: false,
-          tokens,
-        });
+        setAuthState({ isAuthenticated: true, isLoading: false, tokens });
       } else {
         addAuthEvent("info", "No active session found");
-        setAuthState({
-          isAuthenticated: false,
-          isLoading: false,
-          tokens: null,
-        });
+        setAuthState({ isAuthenticated: false, isLoading: false, tokens: null });
       }
     };
 
@@ -109,19 +90,14 @@ export const useAuth = () => {
     return unsubscribe;
   }, [addAuthEvent]);
 
-  const login = useCallback(() => {
-    redirectToLogin();
-  }, []);
+  const login = useCallback(() => { redirectToLogin(); }, []);
+  const logout = useCallback(() => { authLogout(); }, []);
 
-  const logout = useCallback(() => {
-    authLogout();
-  }, []);
-
-  // Expose user info from stored tokens
   const user = authState.tokens ? (() => {
     try {
-      const token = authState.tokens.access_token;
-      const parts = token.split(".");
+      const idToken = localStorage.getItem('nexum_id_token');
+      const tokenToDecode = idToken || authState.tokens.access_token;
+      const parts = tokenToDecode.split(".");
       if (parts.length !== 3) return null;
       const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
       return {
