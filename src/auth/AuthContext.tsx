@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-// Decode JWT to get role
+
 function decodeJWT(token: string): any {
   try {
     const base64Url = token.split(".")[1];
@@ -17,7 +17,7 @@ function decodeJWT(token: string): any {
   }
 }
 
-import { getAccessToken, isTokenValid, clearTokens } from './token';
+import { getAccessToken, isTokenValid, clearTokens, setTokens } from './token';
 
 interface AuthEvent {
   type: string;
@@ -29,7 +29,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   userRole: string | null;
-  user: { sub: string; email?: string; role?: string; facilityId?: string; orgId?: string; [key: string]: any } | null;
+  user: { sub: string; email?: string; role?: string; facilityId?: string; orgId?: string; name?: string; [key: string]: any } | null;
   login: () => void;
   logout: () => void;
   authEvents: AuthEvent[];
@@ -63,18 +63,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     console.log("🟢 AuthProvider: Checking auth status");
     addAuthEvent("init", "Checking authentication status");
-    
+
+    // Handle implicit flow redirect — tokens arrive in URL hash
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      const params = new URLSearchParams(hash.replace('#', ''));
+      const accessToken = params.get('access_token');
+      const idToken = params.get('id_token');
+      if (accessToken && idToken) {
+        setTokens(accessToken, idToken);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        console.log("🟢 Tokens extracted from URL hash");
+      }
+    }
+
     const token = getAccessToken();
     console.log("🟢 Access token exists:", !!token);
-    
+
     if (token) {
       const valid = isTokenValid(token);
       console.log("🟢 Token is valid:", valid);
-      
+
       if (valid) {
         setIsAuthenticated(true);
-        
-        // Decode JWT to get role and facilityId
         const decoded = decodeJWT(token);
         console.log("🔍 Decoded JWT:", decoded);
 
@@ -82,7 +93,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const facilityId = decoded?.["custom:facilityId"] || "facility-001";
         const orgId = decoded?.["custom:orgId"] || "org-001";
 
-        // Create user object with custom attributes
         const userData = {
           sub: decoded?.sub,
           email: decoded?.email,
@@ -114,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       addAuthEvent("info", "No token found");
       console.log("❌ No token found");
     }
-    
+
     setLoading(false);
     console.log("🟢 Auth check complete");
   }, []);
@@ -122,7 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = () => {
     console.log("🟡 Login clicked");
     addAuthEvent("login", "Redirecting to login");
-    
+
     const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
     const redirectUri = import.meta.env.VITE_REDIRECT_URI;
@@ -131,21 +141,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log("🟡 Client ID:", clientId);
     console.log("🟡 Redirect URI:", redirectUri);
 
-  const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=token&scope=email+openid&redirect_uri=${redirectUri}`;
-    
+    const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=token&scope=email+openid&redirect_uri=${redirectUri}`;
+
     console.log("🟡 Redirecting to:", loginUrl);
     window.location.href = loginUrl;
   };
 
-const logout = () => {
-  console.log("🔴 Logout called");
-  addAuthEvent("logout", "User logged out");
-  clearTokens();
-  setIsAuthenticated(false);
-  setUser(null);
-  setUserRole(null);
-  window.location.href = "/";
-};
+  const logout = () => {
+    console.log("🔴 Logout called");
+    addAuthEvent("logout", "User logged out");
+    clearTokens();
+    setIsAuthenticated(false);
+    setUser(null);
+    setUserRole(null);
+    window.location.href = "/";
+  };
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, loading, userRole, user, login, logout, authEvents }}>
@@ -154,7 +164,6 @@ const logout = () => {
   );
 }
 
-// Hook to use auth context
 export function useAuth() {
   const context = React.useContext(AuthContext);
   if (!context) {
