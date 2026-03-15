@@ -14,6 +14,8 @@ import FacilityDataSource from "./pages/FacilityDataSource";
 import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
 import ComplianceLogger from "./pages/Compliance";
 import FacilityInstructor from "./pages/FacilityInstructor";
+import Pricing from "./pages/Pricing";
+import Welcome from "./pages/Welcome";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
