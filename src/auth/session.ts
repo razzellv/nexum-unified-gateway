@@ -1,5 +1,4 @@
 // Cognito OAuth2 Session Management
-// Environment variables expected: COGNITO_DOMAIN, CLIENT_ID, API_BASE_URL
 
 export interface AuthTokens {
   access_token: string;
@@ -15,14 +14,13 @@ export interface AuthState {
 
 const TOKEN_STORAGE_KEY = "nexum_auth_tokens";
 
-// Get Cognito configuration from environment
 const getCognitoConfig = () => ({
   domain: import.meta.env.VITE_COGNITO_DOMAIN || "",
-  clientId: import.meta.env.VITE_CLIENT_ID || "",
+  clientId: import.meta.env.VITE_CLIENT_ID || import.meta.env.VITE_COGNITO_CLIENT_ID || "",
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "",
+  redirectUri: `${window.location.origin}/auth/callback`,
 });
 
-// Store tokens securely in localStorage
 export const storeTokens = (tokens: AuthTokens): void => {
   try {
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
@@ -31,7 +29,6 @@ export const storeTokens = (tokens: AuthTokens): void => {
   }
 };
 
-// Retrieve stored tokens
 export const getStoredTokens = (): AuthTokens | null => {
   try {
     const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -43,23 +40,24 @@ export const getStoredTokens = (): AuthTokens | null => {
   }
 };
 
-// Clear stored tokens
 export const clearTokens = (): void => {
   try {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    // Also clear legacy token keys used by Lovable auth
+    localStorage.removeItem("nexum_access_token");
+    localStorage.removeItem("nexum_id_token");
+    localStorage.removeItem("nexum_refresh_token");
   } catch (error) {
     console.error("[Auth] Failed to clear tokens:", error);
   }
 };
 
-// Check if access token is expired (with 30-second buffer)
 export const isTokenExpired = (tokens: AuthTokens | null): boolean => {
   if (!tokens) return true;
-  const bufferMs = 30 * 1000; // 30 seconds before actual expiry
+  const bufferMs = 30 * 1000;
   return Date.now() >= tokens.expires_at - bufferMs;
 };
 
-// Auth event listeners for logging
 type AuthEventType = "token_refreshed" | "session_renewed" | "auth_failed" | "logout" | "login";
 type AuthEventListener = (event: AuthEventType, message: string) => void;
 const authEventListeners: AuthEventListener[] = [];
@@ -76,7 +74,6 @@ const emitAuthEvent = (event: AuthEventType, message: string): void => {
   authEventListeners.forEach(listener => listener(event, message));
 };
 
-// Refresh the access token using the refresh token
 export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
   const tokens = getStoredTokens();
   if (!tokens?.refresh_token) {
@@ -94,9 +91,7 @@ export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
   try {
     const response = await fetch(`${config.domain}/oauth2/token`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "refresh_token",
         client_id: config.clientId,
@@ -112,16 +107,18 @@ export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
     }
 
     const data = await response.json();
-    
     const newTokens: AuthTokens = {
       access_token: data.access_token,
-      refresh_token: data.refresh_token || tokens.refresh_token, // Cognito may not return a new refresh token
+      refresh_token: data.refresh_token || tokens.refresh_token,
       expires_at: Date.now() + (data.expires_in * 1000),
     };
 
     storeTokens(newTokens);
+    // Also store in legacy keys for API compatibility
+    localStorage.setItem("nexum_access_token", data.access_token);
+    if (data.id_token) localStorage.setItem("nexum_id_token", data.id_token);
+
     emitAuthEvent("token_refreshed", "Access token refreshed successfully");
-    
     return newTokens;
   } catch (error) {
     console.error("[Auth] Token refresh error:", error);
@@ -130,26 +127,17 @@ export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
   }
 };
 
-// Get a valid access token (refreshing if needed)
 export const getValidAccessToken = async (): Promise<string | null> => {
   let tokens = getStoredTokens();
-
-  if (!tokens) {
-    return null;
-  }
-
+  if (!tokens) return null;
   if (isTokenExpired(tokens)) {
     tokens = await refreshAccessToken();
-    if (!tokens) {
-      return null;
-    }
+    if (!tokens) return null;
     emitAuthEvent("session_renewed", "Session renewed with new token");
   }
-
   return tokens.access_token;
 };
 
-// Redirect to Cognito login
 export const redirectToLogin = (): void => {
   const config = getCognitoConfig();
   if (!config.domain || !config.clientId) {
@@ -157,15 +145,14 @@ export const redirectToLogin = (): void => {
     return;
   }
 
-  const redirectUri = window.location.origin;
-  const loginUrl = `${config.domain}/login?client_id=${config.clientId}&response_type=code&scope=openid+email+profile&redirect_uri=${encodeURIComponent(redirectUri)}`;
-  
+  const loginUrl = `${config.domain}/login?client_id=${config.clientId}&response_type=code&scope=openid+email+profile&redirect_uri=${encodeURIComponent(config.redirectUri)}`;
+
+  console.log("[Auth] Redirecting to login:", loginUrl);
   emitAuthEvent("logout", "Redirecting to login");
   clearTokens();
   window.location.href = loginUrl;
 };
 
-// Handle OAuth callback (exchange code for tokens)
 export const handleAuthCallback = async (code: string): Promise<boolean> => {
   const config = getCognitoConfig();
   if (!config.domain || !config.clientId) {
@@ -176,24 +163,22 @@ export const handleAuthCallback = async (code: string): Promise<boolean> => {
   try {
     const response = await fetch(`${config.domain}/oauth2/token`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "authorization_code",
         client_id: config.clientId,
         code,
-        redirect_uri: window.location.origin,
+        redirect_uri: config.redirectUri,
       }),
     });
 
     if (!response.ok) {
-      console.error("[Auth] Code exchange failed");
+      const errorText = await response.text();
+      console.error("[Auth] Code exchange failed:", errorText);
       return false;
     }
 
     const data = await response.json();
-    
     const tokens: AuthTokens = {
       access_token: data.access_token,
       refresh_token: data.refresh_token,
@@ -201,11 +186,12 @@ export const handleAuthCallback = async (code: string): Promise<boolean> => {
     };
 
     storeTokens(tokens);
+    // Also store in legacy keys so existing API calls work
+    localStorage.setItem("nexum_access_token", data.access_token);
+    if (data.id_token) localStorage.setItem("nexum_id_token", data.id_token);
+
     emitAuthEvent("login", "Successfully authenticated");
-    
-    // Clean up URL
     window.history.replaceState({}, document.title, window.location.pathname);
-    
     return true;
   } catch (error) {
     console.error("[Auth] Auth callback error:", error);
@@ -213,14 +199,8 @@ export const handleAuthCallback = async (code: string): Promise<boolean> => {
   }
 };
 
-// Logout
 export const logout = (): void => {
-  const config = getCognitoConfig();
   clearTokens();
   emitAuthEvent("logout", "User logged out");
-  
-  if (config.domain && config.clientId) {
-    const logoutUrl = `${config.domain}/logout?client_id=${config.clientId}&logout_uri=${encodeURIComponent(window.location.origin)}`;
-    window.location.href = logoutUrl;
-  }
+  window.location.href = "/";
 };
