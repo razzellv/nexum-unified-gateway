@@ -13,6 +13,7 @@ import EquipmentSystems from "./pages/EquipmentSystems";
 import FacilityDataSource from "./pages/FacilityDataSource";
 import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
 import ComplianceLogger from "./pages/Compliance";
+import FacilityInstructor from "./pages/FacilityInstructor";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
@@ -217,7 +218,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "instructor",
-            element: <ComingSoon title="Facility Instructor" />,
+            element: <FacilityInstructor />,
           },
           {
             path: "optimize-learn",
