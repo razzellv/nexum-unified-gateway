@@ -21,7 +21,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Simple bar chart
+const getGreeting = (user: any) => {
+  const name = user?.name || user?.email?.split('@')[0] || 'there';
+  const parts = name.split(' ');
+  const first = parts[0];
+  const lastInitial = parts[1]?.[0] ? `${parts[1][0]}.` : '';
+  const empId = `EMP-${(user?.sub || '').slice(-6).toUpperCase()}`;
+  return { displayName: `${first} ${lastInitial}`.trim(), empId };
+};
+
 const SimpleBarChart = ({ data }: { data: Array<{ date: string; count: number }> }) => {
   if (!data || data.length === 0) {
     return (
@@ -30,32 +38,20 @@ const SimpleBarChart = ({ data }: { data: Array<{ date: string; count: number }>
       </div>
     );
   }
-
   const maxCount = Math.max(...data.map(d => d.count), 1);
-  
   return (
     <div className="flex items-end justify-between gap-2 h-32">
       {data.map((item, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-2">
           <div className="flex-1 w-full flex items-end">
             <div 
-              className={cn(
-                "w-full rounded-t transition-all duration-300",
-                item.count > 0 
-                  ? "bg-gradient-to-t from-blue-500 to-blue-500/50" 
-                  : "bg-muted/20"
-              )}
-              style={{ 
-                height: `${item.count > 0 ? (item.count / maxCount) * 100 : 10}%`,
-                minHeight: '4px'
-              }}
+              className={cn("w-full rounded-t transition-all duration-300", item.count > 0 ? "bg-gradient-to-t from-blue-500 to-blue-500/50" : "bg-muted/20")}
+              style={{ height: `${item.count > 0 ? (item.count / maxCount) * 100 : 10}%`, minHeight: '4px' }}
             />
           </div>
           <div className="text-center">
             <p className="text-xs font-semibold text-blue-500">{item.count}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}
-            </p>
+            <p className="text-[10px] text-muted-foreground">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</p>
           </div>
         </div>
       ))}
@@ -67,6 +63,7 @@ export default function TechDashboard() {
   const { user } = useAuth();
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { displayName, empId } = getGreeting(user);
 
   useEffect(() => {
     fetchData();
@@ -78,7 +75,6 @@ export default function TechDashboard() {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/work-orders`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (response.ok) {
         const data = await response.json();
         const myOrders = (data.workOrders || []).filter((wo: any) => 
@@ -93,13 +89,11 @@ export default function TechDashboard() {
     }
   };
 
-  // Calculate metrics
   const completedOrders = workOrders.filter(wo => wo.status === 'completed');
   const openOrders = workOrders.filter(wo => wo.status === 'open');
   const inProgressOrders = workOrders.filter(wo => wo.status === 'in_progress');
   const completionRate = workOrders.length > 0 ? Math.round((completedOrders.length / workOrders.length) * 100) : 0;
 
-  // Mock activity data (last 7 days)
   const activityData = Array.from({ length: 7 }, (_, i) => ({
     date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
     count: Math.floor(Math.random() * 5) + 1
@@ -115,9 +109,10 @@ export default function TechDashboard() {
               <Wrench className="h-8 w-8 text-blue-500" />
             </div>
             <div>
+              <p className="text-sm text-muted-foreground">Hello, {displayName}</p>
               <h1 className="text-3xl font-bold">Technician Portal</h1>
               <div className="flex gap-2 mt-1">
-                <Badge variant="outline">{user?.name || 'Technician'}</Badge>
+                <Badge variant="outline" className="font-mono text-xs">{empId}</Badge>
                 <Badge variant="outline">Maintenance Department</Badge>
               </div>
             </div>
@@ -168,7 +163,6 @@ export default function TechDashboard() {
           </Card>
         </div>
 
-        {/* Performance Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
@@ -176,16 +170,13 @@ export default function TechDashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">Tasks This Week</p>
                   <p className="text-2xl font-bold text-blue-500">
-                    {workOrders.filter(wo => 
-                      new Date(wo.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                    ).length}
+                    {workOrders.filter(wo => new Date(wo.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
                   </p>
                 </div>
                 <ClipboardList className="w-8 h-8 text-blue-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-
           <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -197,7 +188,6 @@ export default function TechDashboard() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -209,7 +199,6 @@ export default function TechDashboard() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -223,7 +212,6 @@ export default function TechDashboard() {
           </Card>
         </div>
 
-        {/* Activity Timeline */}
         <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -236,7 +224,6 @@ export default function TechDashboard() {
           </CardContent>
         </Card>
 
-        {/* My Work Orders */}
         <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader>
             <CardTitle>My Assigned Work Orders</CardTitle>
@@ -252,22 +239,15 @@ export default function TechDashboard() {
             ) : (
               <div className="space-y-3">
                 {workOrders.map((wo: any) => (
-                  <div
-                    key={wo.workOrderId}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                  >
+                  <div key={wo.workOrderId} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium">{wo.title || 'Work Order'}</h3>
-                        <Badge variant={wo.status === 'open' ? 'default' : wo.status === 'completed' ? 'outline' : 'secondary'}>
-                          {wo.status}
-                        </Badge>
+                        <Badge variant={wo.status === 'open' ? 'default' : wo.status === 'completed' ? 'outline' : 'secondary'}>{wo.status}</Badge>
                         <Badge variant="outline">{wo.priority}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">{wo.description || wo.reason}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Created: {new Date(wo.createdAt).toLocaleString()}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Created: {new Date(wo.createdAt).toLocaleString()}</p>
                     </div>
                     <Button variant="outline" size="sm">View Details</Button>
                   </div>
@@ -277,22 +257,14 @@ export default function TechDashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            <Button onClick={() => window.location.href = '/facility-data-source'}>
-              <Activity className="w-4 h-4 mr-2" />
-              Log Equipment Data
+            <Button onClick={() => window.location.href = '/data-source'}>
+              <Activity className="w-4 h-4 mr-2" />Log Equipment Data
             </Button>
-            <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}>
-              Compliance Logger
-            </Button>
-            <Button variant="outline" onClick={() => window.location.href = '/messages'}>
-              My Messages
-            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}>Compliance Logger</Button>
+            <Button variant="outline" onClick={() => window.location.href = '/messages'}>My Messages</Button>
           </CardContent>
         </Card>
       </div>
