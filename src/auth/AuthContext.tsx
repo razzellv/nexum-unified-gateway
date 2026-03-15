@@ -86,7 +86,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (valid) {
         setIsAuthenticated(true);
-        const decoded = decodeJWT(token);
+
+        // Use ID token for decoding user attributes (has custom:role, name, email)
+        // Fall back to access token if ID token not available
+        const idToken = localStorage.getItem('nexum_id_token');
+        const tokenToDecode = idToken || token;
+        const decoded = decodeJWT(tokenToDecode);
         console.log("🔍 Decoded JWT:", decoded);
 
         const role = decoded?.["custom:role"] || decoded?.role || "employee";
@@ -135,14 +140,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-    const redirectUri = import.meta.env.VITE_REDIRECT_URI;
+    const redirectUri = `${window.location.origin}/auth/callback`;
 
     console.log("🟡 Cognito Domain:", cognitoDomain);
     console.log("🟡 Client ID:", clientId);
     console.log("🟡 Redirect URI:", redirectUri);
 
-  const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=email+openid&redirect_uri=${redirectUri}`;
-    
+    const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=${redirectUri}`;
+
     console.log("🟡 Redirecting to:", loginUrl);
     window.location.href = loginUrl;
   };
