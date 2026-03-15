@@ -427,7 +427,6 @@ export default function Onboarding() {
                         </div>
                       ))}
                     </div>
-                  </Card>
                   </CardContent></Card>
                 ))}
               </div>
