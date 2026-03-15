@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TierGate } from '@/components/TierGate';
 import {
   MessageSquare, Camera, Shield, Send, Loader2,
-  Bot, User, Upload, Image as ImageIcon, AlertTriangle,
+  Bot, User, Upload, AlertTriangle,
   Phone, CheckCircle, Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -60,7 +61,6 @@ const TextInstructor = () => {
     setMessages(prev => [...prev, userMsg]);
     setQuestion('');
     setLoading(true);
-
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const data = await callVVFI('text-instructor', { question: userMsg.content, conversationHistory: history }, token);
@@ -255,7 +255,6 @@ const EthicsAdvisor = () => {
     setMessages(prev => [...prev, userMsg]);
     setQuestion('');
     setLoading(true);
-
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const data = await callVVFI('ethics-advisor', { question: userMsg.content, conversationHistory: history }, token);
@@ -368,38 +367,46 @@ const EthicsAdvisor = () => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FacilityInstructorPage() {
+  const { user } = useAuth();
+
   return (
-    <MainLayout>
-      <div className="space-y-6 p-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-primary/10 border border-primary/30">
-            <Sparkles className="h-8 w-8 text-primary" />
+    <TierGate
+      featureName="VVFI Facility Instructor"
+      requiredTier="PREMIUM"
+      description="AI-powered technical mentoring, photo analysis, and ethics guidance is available on the Premium plan."
+    >
+      <MainLayout>
+        <div className="space-y-6 p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/30">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Facility Instructor</h1>
+              <p className="text-muted-foreground mt-1">Virtual Virtuous Facility Instructor — AI-powered technical mentor for facility professionals</p>
+            </div>
+            <Badge className="ml-auto bg-primary/20 text-primary border-primary/30">VVFI</Badge>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold">Facility Instructor</h1>
-            <p className="text-muted-foreground mt-1">Virtual Virtuous Facility Instructor — AI-powered technical mentor for facility professionals</p>
-          </div>
-          <Badge className="ml-auto bg-primary/20 text-primary border-primary/30">VVFI</Badge>
+
+          <Tabs defaultValue="instructor" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="instructor" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />Text Instructor
+              </TabsTrigger>
+              <TabsTrigger value="analyzer" className="flex items-center gap-2">
+                <Camera className="w-4 h-4" />Photo Analyzer
+              </TabsTrigger>
+              <TabsTrigger value="ethics" className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />Ethics Advisor
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="instructor"><TextInstructor /></TabsContent>
+            <TabsContent value="analyzer"><PhotoAnalyzer /></TabsContent>
+            <TabsContent value="ethics"><EthicsAdvisor /></TabsContent>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="instructor" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="instructor" className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />Text Instructor
-            </TabsTrigger>
-            <TabsTrigger value="analyzer" className="flex items-center gap-2">
-              <Camera className="w-4 h-4" />Photo Analyzer
-            </TabsTrigger>
-            <TabsTrigger value="ethics" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" />Ethics Advisor
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="instructor"><TextInstructor /></TabsContent>
-          <TabsContent value="analyzer"><PhotoAnalyzer /></TabsContent>
-          <TabsContent value="ethics"><EthicsAdvisor /></TabsContent>
-        </Tabs>
-      </div>
-    </MainLayout>
+      </MainLayout>
+    </TierGate>
   );
 }
