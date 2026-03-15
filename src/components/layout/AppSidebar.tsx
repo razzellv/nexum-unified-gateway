@@ -8,7 +8,6 @@ import {
   Camera,
   Upload,
   Activity,
-  Database,
   Home,
   MessageSquare,
   Columns3,
@@ -30,21 +29,11 @@ import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 
-// Role definitions
-// admin — full access (Nexum Suum internal)
-// executive — leadership dashboards + full ops
-// manager — leadership dashboards + full ops
-// supervisor — leadership dashboards + full ops
-// engineer/operator/technician/custodian — staff only (limited nav)
-
 const STAFF_ROLES = ['engineer', 'operator', 'technician', 'custodian', 'employee'];
 const LEADERSHIP_ROLES = ['admin', 'executive', 'manager', 'supervisor'];
 
 const allNavItems = [
-  // ── Main ──────────────────────────────────────────────
   { name: 'Main Hub', href: '/', icon: Home, access: 'all' },
-
-  // ── Command Hub (leadership + admin only) ─────────────
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
   { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership' },
@@ -57,8 +46,6 @@ const allNavItems = [
   { name: 'Workflows', href: '/workflows', icon: Workflow, access: 'leadership' },
   { name: 'Workload', href: '/workload', icon: Users, access: 'leadership' },
   { name: 'Settings', href: '/settings', icon: Settings, access: 'leadership' },
-
-  // ── Operations (all roles) ────────────────────────────
   { type: 'separator', name: 'Operations', access: 'all' },
   { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera, access: 'all' },
   { name: 'Facility Data Source', href: '/data-source', icon: Upload, access: 'all' },
@@ -67,8 +54,6 @@ const allNavItems = [
   { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all' },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all' },
-
-  // ── Dashboards ────────────────────────────────────────
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all' },
@@ -82,7 +67,6 @@ export function AppSidebar() {
   const { collapsed } = useSidebar();
   const { userRole, logout } = useAuth();
 
-  const isStaff = STAFF_ROLES.includes(userRole || '');
   const isLeadership = LEADERSHIP_ROLES.includes(userRole || '');
 
   const visibleItems = allNavItems.filter(item => {
@@ -96,7 +80,6 @@ export function AppSidebar() {
       "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
       collapsed ? "w-0 md:w-16 overflow-hidden" : "w-64"
     )}>
-      {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
@@ -111,7 +94,6 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         <div className="space-y-1">
           {visibleItems.map((item) => {
@@ -138,7 +120,6 @@ export function AppSidebar() {
         </div>
       </nav>
 
-      {/* Logout */}
       <div className="p-2 border-t border-sidebar-border">
         <button
           onClick={logout}
