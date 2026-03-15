@@ -1,5 +1,4 @@
 // Token storage and management
-
 const ACCESS_TOKEN_KEY = 'nexum_access_token';
 const REFRESH_TOKEN_KEY = 'nexum_refresh_token';
 const ID_TOKEN_KEY = 'nexum_id_token';
@@ -39,21 +38,14 @@ export function clearTokens(): void {
 
 export function isTokenValid(token: string): boolean {
   if (!token) return false;
-  
   try {
-    // JWT tokens have 3 parts separated by dots
     const parts = token.split('.');
     if (parts.length !== 3) return false;
-    
-    // Decode the payload (middle part)
     const payload = JSON.parse(atob(parts[1]));
-    
-    // Check expiration
     if (payload.exp) {
       const now = Math.floor(Date.now() / 1000);
       return payload.exp > now;
     }
-    
     return true;
   } catch (error) {
     return false;
