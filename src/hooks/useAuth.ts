@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getStoredTokens,
+  storeTokens,
   isTokenExpired,
   handleAuthCallback,
   redirectToLogin,
@@ -40,7 +41,6 @@ export const useAuth = () => {
       if (code) {
         addAuthEvent("info", "Processing OAuth callback...");
         const success = await handleAuthCallback(code);
-
         if (success) {
           addAuthEvent("login", "Successfully authenticated via OAuth");
           const tokens = getStoredTokens();
@@ -53,6 +53,18 @@ export const useAuth = () => {
         } else {
           addAuthEvent("auth_failed", "OAuth callback failed");
         }
+      }
+
+      // Bridge: migrate legacy tokens from AuthCallback into session storage
+      const legacyAccess = localStorage.getItem('nexum_access_token');
+      const legacyRefresh = localStorage.getItem('nexum_refresh_token') || '';
+      if (legacyAccess && !getStoredTokens()) {
+        storeTokens({
+          access_token: legacyAccess,
+          refresh_token: legacyRefresh,
+          expires_at: Date.now() + (3600 * 1000),
+        });
+        addAuthEvent("session_renewed", "Legacy tokens migrated to session storage");
       }
 
       // Check for existing tokens
@@ -86,7 +98,6 @@ export const useAuth = () => {
 
     const unsubscribe = addAuthEventListener((event, message) => {
       addAuthEvent(event, message);
-
       if (event === "token_refreshed" || event === "session_renewed") {
         const tokens = getStoredTokens();
         setAuthState(prev => ({ ...prev, tokens, isAuthenticated: true }));
