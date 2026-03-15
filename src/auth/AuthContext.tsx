@@ -141,7 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log("🟡 Client ID:", clientId);
     console.log("🟡 Redirect URI:", redirectUri);
 
-    const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=token&scope=email+openid&redirect_uri=${redirectUri}`;
+    const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=email+openid&redirect_uri=${redirectUri}`;
 
     console.log("🟡 Redirecting to:", loginUrl);
     window.location.href = loginUrl;
