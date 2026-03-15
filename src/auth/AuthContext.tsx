@@ -1,178 +1,132 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, useCallback } from "react";
+import {
+  getStoredTokens,
+  storeTokens,
+  isTokenExpired,
+  handleAuthCallback,
+  redirectToLogin,
+  logout as authLogout,
+  addAuthEventListener,
+  type AuthState,
+} from "@/auth";
 
-function decodeJWT(token: string): any {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error("Error decoding JWT:", error);
-    return null;
-  }
-}
-
-import { getAccessToken, isTokenValid, clearTokens, setTokens } from './token';
-
-interface AuthEvent {
+export interface AuthEvent {
   type: string;
   message: string;
   timestamp: Date;
 }
 
-export interface AuthContextType {
-  isAuthenticated: boolean;
-  loading: boolean;
-  userRole: string | null;
-  user: { sub: string; email?: string; role?: string; facilityId?: string; orgId?: string; name?: string; [key: string]: any } | null;
-  login: () => void;
-  logout: () => void;
-  authEvents: AuthEvent[];
-}
+export const useAuth = () => {
+  const [authState, setAuthState] = useState<AuthState>({
+    isAuthenticated: false,
+    isLoading: true,
+    tokens: null,
+  });
 
-export const AuthContext = createContext<AuthContextType>({
-  userRole: null,
-  user: null,
-  isAuthenticated: false,
-  loading: true,
-  login: () => {},
-  logout: () => {},
-  authEvents: [],
-});
-
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
 
-  const addAuthEvent = (type: string, message: string) => {
-    setAuthEvents(prev => [{ type, message, timestamp: new Date() }, ...prev.slice(0, 49)]);
-  };
-
-  useEffect(() => {
-    console.log("🟢 AuthProvider: Checking auth status");
-    addAuthEvent("init", "Checking authentication status");
-
-    // Handle implicit flow redirect — tokens arrive in URL hash
-    const hash = window.location.hash;
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.replace('#', ''));
-      const accessToken = params.get('access_token');
-      const idToken = params.get('id_token');
-      if (accessToken && idToken) {
-        setTokens(accessToken, idToken);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        console.log("🟢 Tokens extracted from URL hash");
-      }
-    }
-
-    const token = getAccessToken();
-    console.log("🟢 Access token exists:", !!token);
-
-    if (token) {
-      const valid = isTokenValid(token);
-      console.log("🟢 Token is valid:", valid);
-
-      if (valid) {
-        setIsAuthenticated(true);
-
-        // Use ID token for decoding user attributes (has custom:role, name, email)
-        // Fall back to access token if ID token not available
-        const idToken = localStorage.getItem('nexum_id_token');
-        const tokenToDecode = idToken || token;
-        const decoded = decodeJWT(tokenToDecode);
-        console.log("🔍 Decoded JWT:", decoded);
-
-        const role = decoded?.["custom:role"] || decoded?.role || "employee";
-        const facilityId = decoded?.["custom:facilityId"] || "facility-001";
-        const orgId = decoded?.["custom:orgId"] || "org-001";
-
-        const userData = {
-          sub: decoded?.sub,
-          email: decoded?.email,
-          name: decoded?.name || decoded?.email,
-          role: role,
-          ...decoded,
-          facilityId: facilityId,
-          orgId: orgId,
-        };
-
-        setUserRole(role);
-        setUser(userData);
-
-        console.log("✅ User data:", userData);
-        addAuthEvent("role_detected", `User role: ${role}`);
-        addAuthEvent("facility_detected", `Facility: ${facilityId}`);
-        addAuthEvent("success", "User authenticated");
-        console.log("✅ User is authenticated");
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        clearTokens();
-        addAuthEvent("expired", "Token invalid, cleared");
-        console.log("❌ Token invalid, cleared");
-      }
-    } else {
-      setIsAuthenticated(false);
-      setUser(null);
-      addAuthEvent("info", "No token found");
-      console.log("❌ No token found");
-    }
-
-    setLoading(false);
-    console.log("🟢 Auth check complete");
+  const addAuthEvent = useCallback((type: string, message: string) => {
+    setAuthEvents(prev => [
+      { type, message, timestamp: new Date() },
+      ...prev.slice(0, 49),
+    ]);
   }, []);
 
-  const login = () => {
-    console.log("🟡 Login clicked");
-    addAuthEvent("login", "Redirecting to login");
+  useEffect(() => {
+    const initAuth = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
 
-    const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
-    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/auth/callback`;
+      if (code) {
+        addAuthEvent("info", "Processing OAuth callback...");
+        const success = await handleAuthCallback(code);
+        if (success) {
+          addAuthEvent("login", "Successfully authenticated via OAuth");
+          const tokens = getStoredTokens();
+          setAuthState({ isAuthenticated: true, isLoading: false, tokens });
+          return;
+        } else {
+          addAuthEvent("auth_failed", "OAuth callback failed");
+        }
+      }
 
-    console.log("🟡 Cognito Domain:", cognitoDomain);
-    console.log("🟡 Client ID:", clientId);
-    console.log("🟡 Redirect URI:", redirectUri);
+      // Bridge: migrate legacy tokens from AuthCallback into session storage
+      const legacyAccess = localStorage.getItem('nexum_access_token');
+      const legacyRefresh = localStorage.getItem('nexum_refresh_token') || '';
+      if (legacyAccess && !getStoredTokens()) {
+        storeTokens({
+          access_token: legacyAccess,
+          refresh_token: legacyRefresh,
+          expires_at: Date.now() + (3600 * 1000),
+        });
+        addAuthEvent("session_renewed", "Legacy tokens migrated to session storage");
+      }
 
-    const loginUrl = `${cognitoDomain}/login?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=${redirectUri}`;
+      const tokens = getStoredTokens();
 
-    console.log("🟡 Redirecting to:", loginUrl);
-    window.location.href = loginUrl;
+      if (tokens && !isTokenExpired(tokens)) {
+        addAuthEvent("session_renewed", "Session restored from storage");
+        setAuthState({ isAuthenticated: true, isLoading: false, tokens });
+      } else if (tokens) {
+        addAuthEvent("info", "Token expired, will refresh on next request");
+        setAuthState({ isAuthenticated: true, isLoading: false, tokens });
+      } else {
+        addAuthEvent("info", "No active session found");
+        setAuthState({ isAuthenticated: false, isLoading: false, tokens: null });
+      }
+    };
+
+    initAuth();
+
+    const unsubscribe = addAuthEventListener((event, message) => {
+      addAuthEvent(event, message);
+      if (event === "token_refreshed" || event === "session_renewed") {
+        const tokens = getStoredTokens();
+        setAuthState(prev => ({ ...prev, tokens, isAuthenticated: true }));
+      } else if (event === "auth_failed" || event === "logout") {
+        setAuthState(prev => ({ ...prev, isAuthenticated: false, tokens: null }));
+      }
+    });
+
+    return unsubscribe;
+  }, [addAuthEvent]);
+
+  const login = useCallback(() => { redirectToLogin(); }, []);
+  const logout = useCallback(() => { authLogout(); }, []);
+
+  // Decode user from ID token first, fall back to access token
+  const user = authState.tokens ? (() => {
+    try {
+      // Always prefer ID token — it has custom:role, name, email
+      const idToken = localStorage.getItem('nexum_id_token');
+      const tokenToDecode = idToken || authState.tokens.access_token;
+      const parts = tokenToDecode.split(".");
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return {
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name || payload.email,
+        role: payload["custom:role"] || payload.role || "employee",
+        facilityId: payload["custom:facilityId"] || "facility-001",
+        orgId: payload["custom:orgId"] || "org-001",
+        ...payload,
+      };
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const userRole = user?.role || null;
+
+  return {
+    ...authState,
+    isAuthenticated: authState.isAuthenticated,
+    loading: authState.isLoading,
+    authEvents,
+    login,
+    logout,
+    user,
+    userRole,
   };
-
-  const logout = () => {
-    console.log("🔴 Logout called");
-    addAuthEvent("logout", "User logged out");
-    clearTokens();
-    setIsAuthenticated(false);
-    setUser(null);
-    setUserRole(null);
-    window.location.href = "/";
-  };
-
-  return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, userRole, user, login, logout, authEvents }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+};
