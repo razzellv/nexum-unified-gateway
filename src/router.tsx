@@ -5,6 +5,8 @@ import Login from "./pages/login";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Onboarding from "./pages/Onboarding";
+import Pricing from "./pages/Pricing";
+import Welcome from "./pages/Welcome";
 import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
@@ -14,8 +16,6 @@ import FacilityDataSource from "./pages/FacilityDataSource";
 import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
 import ComplianceLogger from "./pages/Compliance";
 import FacilityInstructor from "./pages/FacilityInstructor";
-import Pricing from "./pages/Pricing";
-import Welcome from "./pages/Welcome";
 
 import EquipmentIntelligence from "./pages/EquipmentIntelligence";
 import Dashboard from "./pages/dashboard";
@@ -71,7 +71,17 @@ export const router = createBrowserRouter([
         element: <AuthCallback />,
       },
       {
-        // Onboarding is outside ProtectedRoute — accessible right after payment
+        // Public — no auth required
+        path: "/pricing",
+        element: <Pricing />,
+      },
+      {
+        // Public — post-payment landing
+        path: "/welcome",
+        element: <Welcome />,
+      },
+      {
+        // Onboarding outside ProtectedRoute — accessible right after payment
         path: "/onboarding",
         element: <Onboarding />,
       },
