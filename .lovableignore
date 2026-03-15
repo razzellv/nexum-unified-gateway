@@ -1,2 +1,3 @@
 src/components/layout/AppSidebar.tsx
 src/auth/AuthContext.tsx
+src/hooks/useAuth.ts
