@@ -8,7 +8,8 @@ import { Check, Flame, Zap, Building2, Crown, ArrowRight, X } from 'lucide-react
 const PLANS = [
   {
     name: 'BASIC',
-    price: 899,
+    annualPrice: 10788,
+    monthlyEquiv: 899,
     priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
     icon: Zap,
     color: 'text-blue-400',
@@ -29,7 +30,8 @@ const PLANS = [
   },
   {
     name: 'STANDARD',
-    price: 1999,
+    annualPrice: 23988,
+    monthlyEquiv: 1999,
     priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
     icon: Building2,
     color: 'text-cyan-400',
@@ -51,7 +53,8 @@ const PLANS = [
   },
   {
     name: 'BUSINESS',
-    price: 3999,
+    annualPrice: 47988,
+    monthlyEquiv: 3999,
     priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
     icon: Flame,
     color: 'text-orange-400',
@@ -73,7 +76,8 @@ const PLANS = [
   },
   {
     name: 'PREMIUM',
-    price: 6999,
+    annualPrice: 83988,
+    monthlyEquiv: 6999,
     priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
     icon: Crown,
     color: 'text-purple-400',
@@ -96,15 +100,13 @@ const PLANS = [
 ];
 
 const ADDONS = [
-  { name: 'FI Platform Implementation', price: 4999, priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup' },
-  { name: 'Enterprise Support', price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: '$10,000/yr dedicated support SLA', yearly: true },
-  { name: 'Priority Support', price: 3000, priceId: 'price_1TAbhqDfw4bOR2dfM0FNrTlF', desc: '$3,000/yr priority response', yearly: true },
-  { name: 'Training — Small Team (1-10)', price: 1500, priceId: 'price_1TAbVLDfw4bOR2dfHMCBek1G', desc: 'Team training package' },
-  { name: 'Training — Department (11-25)', price: 3500, priceId: 'price_1TAbWXDfw4bOR2dfeb5UqZHy', desc: 'Department training package' },
-  { name: 'Training — Operations (26-50)', price: 6500, priceId: 'price_1TAbXhDfw4bOR2dfXVyOvlJe', desc: 'Operations training package' },
+  { name: 'FI Platform Implementation', price: 4999, priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup', billing: 'one-time' },
+  { name: 'FI Enterprise Support', price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: 'Dedicated support SLA', billing: '/yr' },
+  { name: 'FI Priority Support', price: 3000, priceId: 'price_1TAbhqDfw4bOR2dfM0FNrTlF', desc: 'Priority response guarantee', billing: '/yr' },
+  { name: 'Training — Small Team (1–10)', price: 1500, priceId: 'price_1TAbVLDfw4bOR2dfHMCBek1G', desc: 'Team training package', billing: 'one-time' },
+  { name: 'Training — Department (11–25)', price: 3500, priceId: 'price_1TAbWXDfw4bOR2dfeb5UqZHy', desc: 'Department training package', billing: 'one-time' },
+  { name: 'Training — Operations (26–50)', price: 6500, priceId: 'price_1TAbXhDfw4bOR2dfXVyOvlJe', desc: 'Operations training package', billing: 'one-time' },
 ];
-
-const STRIPE_PUBLISHABLE_KEY = 'pk_live_51SSR6lDfw4bOR2df5ApX52Fh13A1SyWwg7e1Ai0x8a4LDB7oeICZWB22NWk6ieI4uK2cKg53ZfQFK2FPvXRH0FAO008Fq6SXK5';
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -120,13 +122,10 @@ export default function Pricing() {
   const handleCheckout = async (plan: typeof PLANS[0]) => {
     setLoadingPlan(plan.name);
     try {
-      // Build line items
       const lineItems = [
         { price: plan.priceId, quantity: 1 },
         ...selectedAddons.map(id => ({ price: id, quantity: 1 })),
       ];
-
-      // Call your backend to create a Stripe Checkout session
       const token = localStorage.getItem('nexum_access_token');
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
         method: 'POST',
@@ -141,17 +140,14 @@ export default function Pricing() {
           cancelUrl: `${window.location.origin}/pricing`,
         }),
       });
-
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        throw new Error('No checkout URL returned');
+        throw new Error(data.error || 'No checkout URL returned');
       }
     } catch (err) {
       console.error('Checkout error:', err);
-      // Fallback: redirect to Stripe payment link if backend not ready
-      alert('Redirecting to checkout...');
     } finally {
       setLoadingPlan(null);
     }
@@ -168,7 +164,7 @@ export default function Pricing() {
         </div>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign In</Button>
-          <Button size="sm" onClick={() => window.open('https://nexumsuum.com', '_blank')}>Learn More</Button>
+          <Button size="sm" onClick={() => window.open('https://www.nexumsuum.com/facility-intelligence', '_blank')}>Learn More</Button>
         </div>
       </div>
 
@@ -204,11 +200,19 @@ export default function Pricing() {
                     <Icon className={`w-5 h-5 ${plan.color}`} />
                   </div>
                   <h3 className="text-xl font-bold">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">${plan.price.toLocaleString()}</span>
-                    <span className="text-muted-foreground text-sm">/yr</span>
+
+                  {/* Annual price — prominent */}
+                  <div className="mt-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold">${plan.annualPrice.toLocaleString()}</span>
+                      <span className="text-muted-foreground text-sm">/yr</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ${plan.monthlyEquiv.toLocaleString()}/mo billed annually
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{plan.description}</p>
+
+                  <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-4">
                   <div className="space-y-2">
@@ -261,6 +265,7 @@ export default function Pricing() {
                     </div>
                     <div className="text-right shrink-0 ml-3">
                       <p className="font-bold">${addon.price.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{addon.billing}</p>
                       {selected && <Badge className="text-xs bg-primary/20 text-primary mt-1">Added</Badge>}
                     </div>
                   </CardContent>
@@ -269,11 +274,9 @@ export default function Pricing() {
             })}
           </div>
           {selectedAddons.length > 0 && (
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                {selectedAddons.length} add-on{selectedAddons.length > 1 ? 's' : ''} selected — will be added to your checkout
-              </p>
-            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              {selectedAddons.length} add-on{selectedAddons.length > 1 ? 's' : ''} selected — will be included in checkout
+            </p>
           )}
         </div>
 
