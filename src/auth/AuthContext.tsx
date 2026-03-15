@@ -137,21 +137,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     window.location.href = loginUrl;
   };
 
-  const logout = () => {
-    console.log("🔴 Logout called");
-    addAuthEvent("logout", "User logged out");
-    clearTokens();
-    setIsAuthenticated(false);
-    setUser(null);
-    
-    const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
-    const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-    const redirectUri = import.meta.env.VITE_REDIRECT_URI;
-
-const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=https://nexum-facility-intelligence.netlify.app`;
-    
-    window.location.href = logoutUrl;
-  };
+const logout = () => {
+  console.log("🔴 Logout called");
+  addAuthEvent("logout", "User logged out");
+  clearTokens();
+  setIsAuthenticated(false);
+  setUser(null);
+  setUserRole(null);
+  window.location.href = "/";
+};
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, loading, userRole, user, login, logout, authEvents }}>
