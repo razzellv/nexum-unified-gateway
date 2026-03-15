@@ -82,11 +82,11 @@ export default function EquipmentSystems() {
     connectedEquipment: [] as Array<{ equipmentId: string; role: string }>,
   });
 
-  useEffect(() => {
-    loadSystems();
-    loadEquipment();
-  }, [user]);
-
+useEffect(() => {
+  loadSystems();
+  loadEquipment();
+}, [user?.facilityId]);
+  
   const loadSystems = async () => {
     if (!user?.facilityId) return;
 
