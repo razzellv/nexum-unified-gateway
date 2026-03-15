@@ -10,6 +10,7 @@ import { NexumError } from '@/components/global/NexumError';
 import { FacilityGauge } from '@/components/global/FacilityGauge';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
+import { TierGate } from '@/components/TierGate';
 import { getExecutiveDashboard } from '@/lib/nexum-api';
 import { getAvailableFacilities } from '@/lib/role-filters';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +19,7 @@ import {
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import {
-  Flame, Snowflake, DollarSign, AlertTriangle, Clock,
+  Flame, DollarSign, AlertTriangle, Clock,
   TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,6 @@ function useCountUp(end: number, duration = 1500) {
   return count;
 }
 
-// ── Helper: extract operator name from object or string ───────────────────────
 function operatorName(op: any): string {
   if (!op) return 'Unknown';
   if (typeof op === 'string') {
@@ -53,7 +53,6 @@ function operatorName(op: any): string {
   return String(op);
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
 function KPICard({ title, value, unit, icon: Icon, trend, delay }: {
   title: string; value: number; unit?: string;
   icon: React.ElementType; trend?: 'up' | 'down'; delay: number;
@@ -81,7 +80,6 @@ function KPICard({ title, value, unit, icon: Icon, trend, delay }: {
   );
 }
 
-// ── Site Card ─────────────────────────────────────────────────────────────────
 function SiteCard({ site, index }: { site: any; index: number }) {
   return (
     <Card className="executive-card neon-border p-4" style={{ animationDelay: `${600 + index * 100}ms` }}>
@@ -90,32 +88,20 @@ function SiteCard({ site, index }: { site: any; index: number }) {
         <span className="font-semibold">{site.name || 'Unknown Site'}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-muted-foreground">Boiler Eff.</p>
-          <p className="font-medium text-primary">{site.boilerEfficiency || 0}%</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Chiller COP</p>
-          <p className="font-medium text-secondary">{site.cop || 0}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Daily Cost</p>
-          <p className="font-medium">${(site.dailyCost || 0).toLocaleString()}</p>
-        </div>
+        <div><p className="text-muted-foreground">Boiler Eff.</p><p className="font-medium text-primary">{site.boilerEfficiency || 0}%</p></div>
+        <div><p className="text-muted-foreground">Chiller COP</p><p className="font-medium text-secondary">{site.cop || 0}</p></div>
+        <div><p className="text-muted-foreground">Daily Cost</p><p className="font-medium">${(site.dailyCost || 0).toLocaleString()}</p></div>
         <div>
           <p className="text-muted-foreground">Integrity</p>
-          <p className={cn(
-            'font-medium',
-            (site.facilityIntegrity || 0) >= 80 ? 'text-green-400' :
-            (site.facilityIntegrity || 0) >= 60 ? 'text-yellow-400' : 'text-destructive'
-          )}>{site.facilityIntegrity || 0}%</p>
+          <p className={cn('font-medium', (site.facilityIntegrity || 0) >= 80 ? 'text-green-400' : (site.facilityIntegrity || 0) >= 60 ? 'text-yellow-400' : 'text-destructive')}>
+            {site.facilityIntegrity || 0}%
+          </p>
         </div>
       </div>
     </Card>
   );
 }
 
-// ── Employee Risk Card ────────────────────────────────────────────────────────
 function EmployeeRiskCard({ employee, index }: { employee: any; index: number }) {
   const riskColors = {
     Low:      'bg-green-500/20 text-green-400 border-green-500/30',
@@ -124,10 +110,7 @@ function EmployeeRiskCard({ employee, index }: { employee: any; index: number })
   };
   const level = employee.riskLevel as keyof typeof riskColors;
   return (
-    <div
-      className={cn('p-4 rounded-lg border', riskColors[level])}
-      style={{ animationDelay: `${800 + index * 100}ms` }}
-    >
+    <div className={cn('p-4 rounded-lg border', riskColors[level])} style={{ animationDelay: `${800 + index * 100}ms` }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Users className="h-4 w-4" />
@@ -144,10 +127,7 @@ function EmployeeRiskCard({ employee, index }: { employee: any; index: number })
   );
 }
 
-// ── Compliance breakdown bar ──────────────────────────────────────────────────
-function ComplianceBar({ label, count, total, color }: {
-  label: string; count: number; total: number; color: string;
-}) {
+function ComplianceBar({ label, count, total, color }: { label: string; count: number; total: number; color: string; }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div className="space-y-1">
@@ -167,46 +147,38 @@ function OVPITab() {
   const [loading, setLoading] = useState(false);
   const [scores, setScores] = useState<any>(null);
 
-  useEffect(() => {
-    fetchOVPI();
-  }, []);
+  useEffect(() => { fetchOVPI(); }, []);
 
   const fetchOVPI = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
-
       const [woRes, vioRes] = await Promise.all([
         fetch(`${baseUrl}/work-orders`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${baseUrl}/violations`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-
       const woData = woRes.ok ? await woRes.json() : { workOrders: [] };
       const vioData = vioRes.ok ? await vioRes.json() : { violations: [] };
-
       const wos = woData.workOrders || [];
       const violations = vioData.violations || [];
-
       const completed = wos.filter((w: any) => w.status === 'completed').length;
       const total = wos.length || 1;
       const onTime = wos.filter((w: any) => w.status === 'completed' && w.priority !== 'critical').length;
       const openVio = violations.filter((v: any) => v.status === 'open').length;
       const highVio = violations.filter((v: any) => v.severity === 'high').length;
-
-      const repairScore = Math.min(100, Math.round((completed / total) * 100));
-      const woScore     = Math.min(100, Math.round((onTime / (completed || 1)) * 100));
+      const repairScore  = Math.min(100, Math.round((completed / total) * 100));
+      const woScore      = Math.min(100, Math.round((onTime / (completed || 1)) * 100));
       const stewardScore = Math.max(0, 100 - (openVio * 5) - (highVio * 10));
-      const orgScore    = Math.max(0, 100 - (violations.length * 2));
-      const overall     = Math.round((repairScore + woScore + stewardScore + orgScore) / 4);
-
+      const orgScore     = Math.max(0, 100 - (violations.length * 2));
+      const overall      = Math.round((repairScore + woScore + stewardScore + orgScore) / 4);
       setScores({
         overall,
         domains: [
-          { name: 'Repair & Maintenance', score: repairScore, detail: `${completed}/${total} WOs completed`, trend: repairScore >= 80 ? 'up' : 'down' },
-          { name: 'Work Order Discipline', score: woScore, detail: `${onTime} on-time completions`, trend: woScore >= 80 ? 'up' : 'down' },
-          { name: 'System Stewardship', score: stewardScore, detail: `${openVio} open violations`, trend: openVio === 0 ? 'up' : 'down' },
-          { name: 'Organizational Virtue', score: orgScore, detail: `${violations.length} total violations`, trend: violations.length < 5 ? 'up' : 'down' },
+          { name: 'Repair & Maintenance',  score: repairScore,   detail: `${completed}/${total} WOs completed`,   trend: repairScore >= 80 ? 'up' : 'down' },
+          { name: 'Work Order Discipline', score: woScore,       detail: `${onTime} on-time completions`,         trend: woScore >= 80 ? 'up' : 'down' },
+          { name: 'System Stewardship',    score: stewardScore,  detail: `${openVio} open violations`,            trend: openVio === 0 ? 'up' : 'down' },
+          { name: 'Organizational Virtue', score: orgScore,      detail: `${violations.length} total violations`, trend: violations.length < 5 ? 'up' : 'down' },
         ],
       });
     } catch (err) {
@@ -238,7 +210,6 @@ function OVPITab() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Operational Virtue & Performance Intelligence</h2>
@@ -254,20 +225,14 @@ function OVPITab() {
 
       {scores && (
         <>
-          {/* Overall Score + Domains */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Circular score */}
             <Card className="executive-card neon-border p-6 text-center">
               <div className="relative inline-flex items-center justify-center mb-4">
                 <svg className="w-40 h-40 -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
-                  <circle
-                    cx="60" cy="60" r="54" fill="none"
-                    stroke="hsl(var(--primary))" strokeWidth="8"
+                  <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
                     strokeDasharray={`${(scores.overall / 100) * 339} 339`}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000"
-                  />
+                    strokeLinecap="round" className="transition-all duration-1000" />
                 </svg>
                 <div className="absolute text-center">
                   <p className={`text-4xl font-bold ${getScoreColor(scores.overall)}`}>{scores.overall}</p>
@@ -280,7 +245,6 @@ function OVPITab() {
               </Badge>
             </Card>
 
-            {/* 4 domain cards */}
             <div className="md:col-span-2 grid grid-cols-2 gap-4">
               {scores.domains.map((domain: any, i: number) => (
                 <Card key={i} className="executive-card neon-border p-4">
@@ -295,21 +259,16 @@ function OVPITab() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">{domain.detail}</p>
                   <div className="mt-2 h-1.5 bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-700"
-                      style={{ width: `${domain.score}%` }}
-                    />
+                    <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${domain.score}%` }} />
                   </div>
                 </Card>
               ))}
             </div>
           </div>
 
-          {/* Interpretation */}
           <Card className="executive-card neon-border p-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Performance Interpretation
+              <Shield className="w-4 h-4 text-primary" />Performance Interpretation
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
               {scores.domains.map((domain: any, i: number) => (
@@ -322,18 +281,16 @@ function OVPITab() {
             </div>
           </Card>
 
-          {/* Score guide */}
           <Card className="executive-card neon-border p-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-primary" />
-              Scoring Guide
+              <Activity className="w-4 h-4 text-primary" />Scoring Guide
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               {[
-                { range: '90–100', label: 'Excellent', color: 'text-green-400', desc: 'Exceptional facility performance' },
-                { range: '75–89', label: 'Good Standing', color: 'text-primary', desc: 'Above average with minor gaps' },
-                { range: '60–74', label: 'Needs Attention', color: 'text-yellow-400', desc: 'Improvement required' },
-                { range: '0–59', label: 'At Risk', color: 'text-red-400', desc: 'Immediate action needed' },
+                { range: '90–100', label: 'Excellent',        color: 'text-green-400',  desc: 'Exceptional facility performance' },
+                { range: '75–89',  label: 'Good Standing',    color: 'text-primary',    desc: 'Above average with minor gaps' },
+                { range: '60–74',  label: 'Needs Attention',  color: 'text-yellow-400', desc: 'Improvement required' },
+                { range: '0–59',   label: 'At Risk',          color: 'text-red-400',    desc: 'Immediate action needed' },
               ].map((g, i) => (
                 <div key={i} className="p-3 rounded-lg bg-background/50 border border-border space-y-1">
                   <p className={`text-lg font-bold ${g.color}`}>{g.range}</p>
@@ -351,16 +308,14 @@ function OVPITab() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ExecutiveDashboard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const currentRole = 'executive';
   const roleScope = { facilityScope: 'multi' };
 
   const [data, setData]               = useState<any>(null);
-  const [rawApi, setRawApi]           = useState<any>(null);
   const [isLoading, setIsLoading]     = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
   const [selectedFacility, setSelectedFacility] = useState('all');
   const [selectedBuilding, setSelectedBuilding]  = useState('all');
   const [selectedSystem,   setSelectedSystem]    = useState('all');
@@ -370,14 +325,10 @@ export default function ExecutiveDashboard() {
     setError(null);
     try {
       const api = await getExecutiveDashboard();
-      console.log('✅ Executive API:', api);
-      setRawApi(api);
-
       const complianceScore   = api.compliance?.score               ?? api.kpis?.compliance_score ?? 0;
       const totalViolations   = api.compliance?.total_violations     ?? 0;
       const openViolations    = api.compliance?.open_violations      ?? 0;
       const highSeverity      = api.compliance?.high_severity_violations ?? 0;
-      const equipmentCount    = api.kpis?.equipment_count            ?? 0;
       const uptime            = api.kpis?.uptime_percentage          ?? 95.5;
       const openWorkOrders    = api.operations?.work_orders_open     ?? 0;
       const completedWOs      = api.operations?.work_orders_completed ?? 0;
@@ -386,8 +337,7 @@ export default function ExecutiveDashboard() {
       const dailyCost         = Math.round(monthlyCost / 30);
       const roi               = api.financial?.roi_percentage        ?? 15.2;
       const avgEfficiency     = api.kpis?.overall_efficiency;
-
-      const riskIndex = Math.min(100, Math.round(openViolations * 2 + highSeverity * 5));
+      const riskIndex         = Math.min(100, Math.round(openViolations * 2 + highSeverity * 5));
 
       const byOperator: Record<string, { name: string; violations: number; totalSeverity: number; categories: Set<string> }> = {};
       (api.compliance?.recent_violations || []).forEach((v: any) => {
@@ -404,11 +354,10 @@ export default function ExecutiveDashboard() {
         .map(e => {
           const avgSev = e.totalSeverity / e.violations;
           return {
-            name:            e.name,
-            violations:      e.violations,
+            name: e.name, violations: e.violations,
             complianceScore: Math.max(0, 100 - Math.round(avgSev)),
-            riskLevel:       avgSev >= 70 ? 'High' : avgSev >= 40 ? 'Moderate' : 'Low',
-            category:        [...e.categories].join(', '),
+            riskLevel: avgSev >= 70 ? 'High' : avgSev >= 40 ? 'Moderate' : 'Low',
+            category: [...e.categories].join(', '),
           };
         });
 
@@ -416,20 +365,13 @@ export default function ExecutiveDashboard() {
         topEmployees.push({ name: 'No violations recorded', violations: 0, complianceScore: 100, riskLevel: 'Low', category: '' });
       }
 
-      const trendBase = Array.from({ length: 30 }, (_, i) => ({
-        date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
-      }));
-
+      const trendBase    = Array.from({ length: 30 }, (_, i) => ({ date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0] }));
       const boilerTrend  = trendBase.map(d => ({ ...d, value: avgEfficiency ?? 85 }));
       const savingsTrend = trendBase.map(d => ({ ...d, value: Math.round(monthlyCost / 30 * 0.05) }));
 
-      const violationsByType     = api.compliance?.violations_by_type     || {};
-      const violationsByCategory = api.compliance?.violations_by_category || {};
-
       setData({
         metrics: {
-          complianceScore, equipmentCount,
-          uptime:        Math.round(uptime),
+          complianceScore, uptime: Math.round(uptime),
           openWorkOrders, completedWOs, totalReadings,
           dailyCost, riskIndex, roi,
           avgEfficiency: avgEfficiency ?? 85,
@@ -437,20 +379,12 @@ export default function ExecutiveDashboard() {
         },
         trends: { boiler: boilerTrend, savings: savingsTrend },
         topEmployees,
-        violationsByType,
-        violationsByCategory,
-        topSites: [{
-          name:              'Main Campus',
-          boilerEfficiency:  Math.round(avgEfficiency ?? 85),
-          cop:               4.2,
-          dailyCost,
-          facilityIntegrity: Math.round(uptime),
-        }],
+        violationsByType:     api.compliance?.violations_by_type     || {},
+        violationsByCategory: api.compliance?.violations_by_category || {},
+        topSites: [{ name: 'Main Campus', boilerEfficiency: Math.round(avgEfficiency ?? 85), cop: 4.2, dailyCost, facilityIntegrity: Math.round(uptime) }],
       });
-
       setLastUpdated(new Date());
     } catch (err: any) {
-      console.error('Executive Dashboard Error:', err);
       setError(err.message || 'Failed to load executive dashboard');
     } finally {
       setIsLoading(false);
@@ -467,16 +401,10 @@ export default function ExecutiveDashboard() {
 
   if (loading) return <NexumPageLoader message="Loading..." />;
 
-  const filteredSites = data?.topSites?.filter((s: any) =>
-    selectedFacility === 'all' || s.name === selectedFacility
-  ) || [];
-
-  const overallScore = data?.metrics
-    ? Math.round((data.metrics.avgEfficiency + data.metrics.uptime + data.metrics.complianceScore) / 3)
-    : 0;
-
+  const filteredSites  = data?.topSites?.filter((s: any) => selectedFacility === 'all' || s.name === selectedFacility) || [];
+  const overallScore   = data?.metrics ? Math.round((data.metrics.avgEfficiency + data.metrics.uptime + data.metrics.complianceScore) / 3) : 0;
   const availableFacilities = getAvailableFacilities(currentRole);
-  const showMultiFacility = roleScope.facilityScope === 'multi';
+  const showMultiFacility   = roleScope.facilityScope === 'multi';
   const typeColors = ['#00f2ea', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
 
   return (
@@ -485,12 +413,10 @@ export default function ExecutiveDashboard() {
       <NexumBranding />
       <div className="space-y-8">
 
-        {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <BarChart3 className="w-8 h-8 text-primary" />
-              Executive Dashboard
+              <BarChart3 className="w-8 h-8 text-primary" />Executive Dashboard
             </h1>
             <p className="text-muted-foreground mt-1">
               30-day facility intelligence overview
@@ -498,41 +424,31 @@ export default function ExecutiveDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}
-              className="border-primary/30 hover:border-primary">
-              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-              Refresh
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading} className="border-primary/30 hover:border-primary">
+              <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />Refresh
             </Button>
             {data && (
-              <ExportButtons
-                title="Executive Report"
-                metrics={[
-                  { label: 'Compliance Score', value: `${data.metrics.complianceScore}%` },
-                  { label: 'Daily Cost',        value: `$${data.metrics.dailyCost.toLocaleString()}` },
-                  { label: 'Uptime',            value: `${data.metrics.uptime}%` },
-                  { label: 'Open WOs',          value: String(data.metrics.openWorkOrders) },
-                ]}
-              />
+              <ExportButtons title="Executive Report" metrics={[
+                { label: 'Compliance Score', value: `${data.metrics.complianceScore}%` },
+                { label: 'Daily Cost',       value: `$${data.metrics.dailyCost.toLocaleString()}` },
+                { label: 'Uptime',           value: `${data.metrics.uptime}%` },
+                { label: 'Open WOs',         value: String(data.metrics.openWorkOrders) },
+              ]} />
             )}
           </div>
         </div>
 
-        {/* Scope Filters */}
         <Card className="p-4 border-border/50">
           <ScopeFilters
-            selectedFacility={selectedFacility}
-            selectedBuilding={selectedBuilding}
-            selectedSystem={selectedSystem}
+            selectedFacility={selectedFacility} selectedBuilding={selectedBuilding} selectedSystem={selectedSystem}
             onFacilityChange={(v) => { setSelectedFacility(v); setSelectedBuilding('all'); }}
-            onBuildingChange={setSelectedBuilding}
-            onSystemChange={setSelectedSystem}
+            onBuildingChange={setSelectedBuilding} onSystemChange={setSelectedSystem}
             showFacility={availableFacilities.length > 0}
           />
         </Card>
 
         {error && <NexumError message={error} onRetry={fetchData} />}
 
-        {/* Tabs */}
         <Tabs defaultValue="operations" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-sm">
             <TabsTrigger value="operations" className="flex items-center gap-2">
@@ -546,12 +462,9 @@ export default function ExecutiveDashboard() {
           {/* ── Operations Tab ── */}
           <TabsContent value="operations">
             {isLoading ? (
-              <div className="flex justify-center py-20">
-                <NexumLoader message="Loading executive metrics..." />
-              </div>
+              <div className="flex justify-center py-20"><NexumLoader message="Loading executive metrics..." /></div>
             ) : data?.metrics && (
               <div className="space-y-8">
-                {/* KPI Row */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                   <KPICard title="Compliance Score"  value={data.metrics.complianceScore}  unit="%"  icon={Shield}        delay={0}   trend="up" />
                   <KPICard title="Avg Efficiency"    value={data.metrics.avgEfficiency}    unit="%"  icon={Flame}         delay={50}  trend="up" />
@@ -563,26 +476,23 @@ export default function ExecutiveDashboard() {
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
                 </div>
 
-                {/* Facility Gauge */}
                 <div className="flex justify-center">
                   <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>
                     <FacilityGauge value={overallScore} label="Overall Facility Intelligence Score" size="lg" />
                   </Card>
                 </div>
 
-                {/* Compliance Overview + Violation Breakdown */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Card className="executive-card neon-border p-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-primary" />
-                      Compliance Overview — Last 30 Days
+                      <Shield className="h-5 w-5 text-primary" />Compliance Overview — Last 30 Days
                     </h3>
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       {[
-                        { label: 'Compliance Score',  value: `${data.metrics.complianceScore}%`, color: data.metrics.complianceScore >= 70 ? 'text-green-400' : 'text-red-400' },
-                        { label: 'Total Violations',  value: data.metrics.totalViolations,        color: 'text-foreground' },
-                        { label: 'Open Violations',   value: data.metrics.openViolations,         color: data.metrics.openViolations > 0 ? 'text-yellow-400' : 'text-green-400' },
-                        { label: 'High Severity',     value: data.metrics.highSeverity,           color: data.metrics.highSeverity > 0 ? 'text-red-400' : 'text-green-400' },
+                        { label: 'Compliance Score', value: `${data.metrics.complianceScore}%`, color: data.metrics.complianceScore >= 70 ? 'text-green-400' : 'text-red-400' },
+                        { label: 'Total Violations', value: data.metrics.totalViolations,        color: 'text-foreground' },
+                        { label: 'Open Violations',  value: data.metrics.openViolations,         color: data.metrics.openViolations > 0 ? 'text-yellow-400' : 'text-green-400' },
+                        { label: 'High Severity',    value: data.metrics.highSeverity,           color: data.metrics.highSeverity > 0 ? 'text-red-400' : 'text-green-400' },
                       ].map((item, i) => (
                         <div key={i} className="p-3 rounded-lg bg-background/50 border border-border">
                           <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -599,8 +509,7 @@ export default function ExecutiveDashboard() {
 
                   <Card className="executive-card neon-border p-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                      Violations by Type
+                      <AlertTriangle className="h-5 w-5 text-yellow-400" />Violations by Type
                     </h3>
                     <div className="space-y-2">
                       {Object.entries(data.violationsByType)
@@ -612,12 +521,10 @@ export default function ExecutiveDashboard() {
                   </Card>
                 </div>
 
-                {/* Trends */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Card className="executive-card neon-border p-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Flame className="h-5 w-5 text-primary" />
-                      Efficiency Trend (30d)
+                      <Flame className="h-5 w-5 text-primary" />Efficiency Trend (30d)
                     </h3>
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={data.trends.boiler}>
@@ -632,8 +539,7 @@ export default function ExecutiveDashboard() {
 
                   <Card className="executive-card neon-border p-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <DollarSign className="h-5 w-5 text-green-400" />
-                      Est. Daily Savings Opportunity
+                      <DollarSign className="h-5 w-5 text-green-400" />Est. Daily Savings Opportunity
                     </h3>
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={data.trends.savings}>
@@ -647,7 +553,6 @@ export default function ExecutiveDashboard() {
                   </Card>
                 </div>
 
-                {/* Top Sites */}
                 {showMultiFacility && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -660,11 +565,9 @@ export default function ExecutiveDashboard() {
                   </div>
                 )}
 
-                {/* Employee Compliance Risk */}
                 <div>
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    Employee Compliance Risk
+                    <Users className="h-5 w-5 text-primary" />Employee Compliance Risk
                   </h2>
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {data.topEmployees.map((e: any, i: number) => <EmployeeRiskCard key={i} employee={e} index={i} />)}
@@ -674,9 +577,15 @@ export default function ExecutiveDashboard() {
             )}
           </TabsContent>
 
-          {/* ── OVPI Tab ── */}
+          {/* ── OVPI Tab — Premium gated ── */}
           <TabsContent value="ovpi">
-            <OVPITab />
+            <TierGate
+              featureName="OVPI Performance Intelligence"
+              requiredTier="PREMIUM"
+              description="Operational Virtue & Performance Intelligence scoring is available on the Premium plan."
+            >
+              <OVPITab />
+            </TierGate>
           </TabsContent>
         </Tabs>
 
