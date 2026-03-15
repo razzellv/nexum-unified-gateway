@@ -625,6 +625,14 @@ const Index = () => {
               status="active"
               colorTheme="primary"
             />
+            <ModuleCard
+              title="Facility Instructor"
+              description="AI chat assistant for technical, safety, and HR questions"
+              route="/instructor"
+              icon={<MessageSquare className="w-5 h-5" />}
+              status="in-progress"
+              colorTheme="accent"
+            />          
           </div>
         </section>
 
@@ -639,14 +647,7 @@ const Index = () => {
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <ModuleCard
-              title="Facility Instructor"
-              description="AI chat assistant for technical, safety, and HR questions"
-              route="/instructor"
-              icon={<MessageSquare className="w-5 h-5" />}
-              status="in-progress"
-              colorTheme="accent"
-            />
+
             <ModuleCard
               title="Optimize & Learn"
               description="Training modules and continuous improvement programs"
