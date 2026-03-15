@@ -27,7 +27,7 @@ export default function AuthCallback() {
         setStatus("Exchanging authorization code...");
         const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
         const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
-        const redirectUri = import.meta.env.VITE_REDIRECT_URI;
+        const redirectUri = `${window.location.origin}/auth/callback`;
 
         console.log("🔵 Exchanging code for tokens...");
         console.log("🔵 Cognito Domain:", cognitoDomain);
