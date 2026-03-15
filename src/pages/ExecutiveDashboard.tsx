@@ -12,13 +12,14 @@ import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { getExecutiveDashboard } from '@/lib/nexum-api';
 import { getAvailableFacilities } from '@/lib/role-filters';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import {
   Flame, Snowflake, DollarSign, AlertTriangle, Clock,
-  TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield
+  TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -161,16 +162,203 @@ function ComplianceBar({ label, count, total, color }: {
   );
 }
 
+// ── OVPI Tab ──────────────────────────────────────────────────────────────────
+function OVPITab() {
+  const [loading, setLoading] = useState(false);
+  const [scores, setScores] = useState<any>(null);
+
+  useEffect(() => {
+    fetchOVPI();
+  }, []);
+
+  const fetchOVPI = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
+      const [woRes, vioRes] = await Promise.all([
+        fetch(`${baseUrl}/work-orders`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${baseUrl}/violations`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const woData = woRes.ok ? await woRes.json() : { workOrders: [] };
+      const vioData = vioRes.ok ? await vioRes.json() : { violations: [] };
+
+      const wos = woData.workOrders || [];
+      const violations = vioData.violations || [];
+
+      const completed = wos.filter((w: any) => w.status === 'completed').length;
+      const total = wos.length || 1;
+      const onTime = wos.filter((w: any) => w.status === 'completed' && w.priority !== 'critical').length;
+      const openVio = violations.filter((v: any) => v.status === 'open').length;
+      const highVio = violations.filter((v: any) => v.severity === 'high').length;
+
+      const repairScore = Math.min(100, Math.round((completed / total) * 100));
+      const woScore     = Math.min(100, Math.round((onTime / (completed || 1)) * 100));
+      const stewardScore = Math.max(0, 100 - (openVio * 5) - (highVio * 10));
+      const orgScore    = Math.max(0, 100 - (violations.length * 2));
+      const overall     = Math.round((repairScore + woScore + stewardScore + orgScore) / 4);
+
+      setScores({
+        overall,
+        domains: [
+          { name: 'Repair & Maintenance', score: repairScore, detail: `${completed}/${total} WOs completed`, trend: repairScore >= 80 ? 'up' : 'down' },
+          { name: 'Work Order Discipline', score: woScore, detail: `${onTime} on-time completions`, trend: woScore >= 80 ? 'up' : 'down' },
+          { name: 'System Stewardship', score: stewardScore, detail: `${openVio} open violations`, trend: openVio === 0 ? 'up' : 'down' },
+          { name: 'Organizational Virtue', score: orgScore, detail: `${violations.length} total violations`, trend: violations.length < 5 ? 'up' : 'down' },
+        ],
+      });
+    } catch (err) {
+      console.error('OVPI error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-400';
+    if (score >= 75) return 'text-primary';
+    if (score >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 90) return 'Excellent';
+    if (score >= 75) return 'Good Standing';
+    if (score >= 60) return 'Needs Attention';
+    return 'At Risk';
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Operational Virtue & Performance Intelligence</h2>
+          <p className="text-muted-foreground mt-1">Executive-level facility performance scoring across 4 operational domains</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-primary/20 text-primary border-primary/30">Executive Only</Badge>
+          <Button variant="outline" size="sm" onClick={fetchOVPI} className="border-primary/30 hover:border-primary">
+            <RefreshCw className="w-4 h-4 mr-2" />Refresh
+          </Button>
+        </div>
+      </div>
+
+      {scores && (
+        <>
+          {/* Overall Score + Domains */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Circular score */}
+            <Card className="executive-card neon-border p-6 text-center">
+              <div className="relative inline-flex items-center justify-center mb-4">
+                <svg className="w-40 h-40 -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="54" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+                  <circle
+                    cx="60" cy="60" r="54" fill="none"
+                    stroke="hsl(var(--primary))" strokeWidth="8"
+                    strokeDasharray={`${(scores.overall / 100) * 339} 339`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute text-center">
+                  <p className={`text-4xl font-bold ${getScoreColor(scores.overall)}`}>{scores.overall}</p>
+                  <p className="text-xs text-muted-foreground">SCORE</p>
+                </div>
+              </div>
+              <h3 className="text-lg font-bold">Operational Virtue Score</h3>
+              <Badge className={`mt-2 ${scores.overall >= 75 ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                {getScoreLabel(scores.overall)}
+              </Badge>
+            </Card>
+
+            {/* 4 domain cards */}
+            <div className="md:col-span-2 grid grid-cols-2 gap-4">
+              {scores.domains.map((domain: any, i: number) => (
+                <Card key={i} className="executive-card neon-border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-muted-foreground">{domain.name}</p>
+                    <Badge variant="outline" className={`text-xs ${domain.trend === 'up' ? 'text-green-400 border-green-400/30' : 'text-red-400 border-red-400/30'}`}>
+                      {domain.trend === 'up' ? '↑' : '↓'}
+                    </Badge>
+                  </div>
+                  <p className={`text-3xl font-bold ${getScoreColor(domain.score)}`}>
+                    {domain.score}<span className="text-sm text-muted-foreground">/100</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{domain.detail}</p>
+                  <div className="mt-2 h-1.5 bg-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-700"
+                      style={{ width: `${domain.score}%` }}
+                    />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Interpretation */}
+          <Card className="executive-card neon-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              Performance Interpretation
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+              {scores.domains.map((domain: any, i: number) => (
+                <div key={i} className="space-y-1">
+                  <p className="font-medium text-muted-foreground">{domain.name}</p>
+                  <p className={`text-xl font-bold ${getScoreColor(domain.score)}`}>{getScoreLabel(domain.score)}</p>
+                  <p className="text-xs text-muted-foreground">{domain.detail}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Score guide */}
+          <Card className="executive-card neon-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-primary" />
+              Scoring Guide
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              {[
+                { range: '90–100', label: 'Excellent', color: 'text-green-400', desc: 'Exceptional facility performance' },
+                { range: '75–89', label: 'Good Standing', color: 'text-primary', desc: 'Above average with minor gaps' },
+                { range: '60–74', label: 'Needs Attention', color: 'text-yellow-400', desc: 'Improvement required' },
+                { range: '0–59', label: 'At Risk', color: 'text-red-400', desc: 'Immediate action needed' },
+              ].map((g, i) => (
+                <div key={i} className="p-3 rounded-lg bg-background/50 border border-border space-y-1">
+                  <p className={`text-lg font-bold ${g.color}`}>{g.range}</p>
+                  <p className="font-medium">{g.label}</p>
+                  <p className="text-xs text-muted-foreground">{g.desc}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ExecutiveDashboard() {
   const { isAuthenticated, loading } = useAuth();
   const currentRole = 'executive';
   const roleScope = { facilityScope: 'multi' };
 
-  const [data, setData]             = useState<any>(null);
-  const [rawApi, setRawApi]         = useState<any>(null);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [error, setError]           = useState<string | null>(null);
+  const [data, setData]               = useState<any>(null);
+  const [rawApi, setRawApi]           = useState<any>(null);
+  const [isLoading, setIsLoading]     = useState(true);
+  const [error, setError]             = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const [selectedFacility, setSelectedFacility] = useState('all');
@@ -181,31 +369,26 @@ export default function ExecutiveDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      // ✅ Calls /dashboard/executive — returns compliance, kpis, operations, financial
       const api = await getExecutiveDashboard();
       console.log('✅ Executive API:', api);
       setRawApi(api);
 
-      // ── Derive metrics from correct field paths ──────────────────────────
-      const complianceScore   = api.compliance?.score        ?? api.kpis?.compliance_score ?? 0;
-      const totalViolations   = api.compliance?.total_violations ?? 0;
-      const openViolations    = api.compliance?.open_violations  ?? 0;
+      const complianceScore   = api.compliance?.score               ?? api.kpis?.compliance_score ?? 0;
+      const totalViolations   = api.compliance?.total_violations     ?? 0;
+      const openViolations    = api.compliance?.open_violations      ?? 0;
       const highSeverity      = api.compliance?.high_severity_violations ?? 0;
-      const equipmentCount    = api.kpis?.equipment_count     ?? 0;
-      const uptime            = api.kpis?.uptime_percentage   ?? 95.5;
-      const openWorkOrders    = api.operations?.work_orders_open ?? 0;
+      const equipmentCount    = api.kpis?.equipment_count            ?? 0;
+      const uptime            = api.kpis?.uptime_percentage          ?? 95.5;
+      const openWorkOrders    = api.operations?.work_orders_open     ?? 0;
       const completedWOs      = api.operations?.work_orders_completed ?? 0;
-      const totalReadings     = api.operations?.total_readings ?? 0;
+      const totalReadings     = api.operations?.total_readings        ?? 0;
       const monthlyCost       = api.financial?.estimated_monthly_energy_cost ?? 35000;
       const dailyCost         = Math.round(monthlyCost / 30);
-      const roi               = api.financial?.roi_percentage ?? 15.2;
+      const roi               = api.financial?.roi_percentage        ?? 15.2;
       const avgEfficiency     = api.kpis?.overall_efficiency;
 
-      // ── Risk index: 0-100 based on open violations + high severity ───────
       const riskIndex = Math.min(100, Math.round(openViolations * 2 + highSeverity * 5));
 
-      // ── Build employee risk list from recent_violations ───────────────────
-      // Group by operator, aggregate violations per person
       const byOperator: Record<string, { name: string; violations: number; totalSeverity: number; categories: Set<string> }> = {};
       (api.compliance?.recent_violations || []).forEach((v: any) => {
         const name = operatorName(v.operator || v.operatorId);
@@ -233,8 +416,6 @@ export default function ExecutiveDashboard() {
         topEmployees.push({ name: 'No violations recorded', violations: 0, complianceScore: 100, riskLevel: 'Low', category: '' });
       }
 
-      // ── Build trend data from real readings count (flat line = stable) ────
-      // We don't have per-day breakdown from this endpoint, so show compliance score trend
       const trendBase = Array.from({ length: 30 }, (_, i) => ({
         date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
       }));
@@ -242,25 +423,17 @@ export default function ExecutiveDashboard() {
       const boilerTrend  = trendBase.map(d => ({ ...d, value: avgEfficiency ?? 85 }));
       const savingsTrend = trendBase.map(d => ({ ...d, value: Math.round(monthlyCost / 30 * 0.05) }));
 
-      // ── Violations by type for breakdown chart ────────────────────────────
       const violationsByType     = api.compliance?.violations_by_type     || {};
       const violationsByCategory = api.compliance?.violations_by_category || {};
 
       setData({
         metrics: {
-          complianceScore,
-          equipmentCount,
-          uptime:          Math.round(uptime),
-          openWorkOrders,
-          completedWOs,
-          totalReadings,
-          dailyCost,
-          riskIndex,
-          roi,
-          avgEfficiency:   avgEfficiency ?? 85,
-          openViolations,
-          totalViolations,
-          highSeverity,
+          complianceScore, equipmentCount,
+          uptime:        Math.round(uptime),
+          openWorkOrders, completedWOs, totalReadings,
+          dailyCost, riskIndex, roi,
+          avgEfficiency: avgEfficiency ?? 85,
+          openViolations, totalViolations, highSeverity,
         },
         trends: { boiler: boilerTrend, savings: savingsTrend },
         topEmployees,
@@ -304,8 +477,6 @@ export default function ExecutiveDashboard() {
 
   const availableFacilities = getAvailableFacilities(currentRole);
   const showMultiFacility = roleScope.facilityScope === 'multi';
-
-  // Violation type colors
   const typeColors = ['#00f2ea', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
 
   return (
@@ -361,135 +532,154 @@ export default function ExecutiveDashboard() {
 
         {error && <NexumError message={error} onRetry={fetchData} />}
 
-        {isLoading ? (
-          <div className="flex justify-center py-20">
-            <NexumLoader message="Loading executive metrics..." />
-          </div>
-        ) : data?.metrics && (
-          <>
-            {/* KPI Row */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              <KPICard title="Compliance Score"  value={data.metrics.complianceScore}  unit="%"  icon={Shield}       delay={0}   trend="up" />
-              <KPICard title="Avg Efficiency"    value={data.metrics.avgEfficiency}    unit="%"  icon={Flame}        delay={50}  trend="up" />
-              <KPICard title="Daily Cost"        value={data.metrics.dailyCost}        unit="$"  icon={DollarSign}   delay={100} />
-              <KPICard title="Risk Index"        value={data.metrics.riskIndex}               icon={AlertTriangle} delay={150} trend="down" />
-              <KPICard title="Uptime %"          value={data.metrics.uptime}           unit="%"  icon={TrendingUp}   delay={200} trend="up" />
-              <KPICard title="ROI %"             value={data.metrics.roi}              unit="%"  icon={BarChart3}    delay={250} />
-              <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}           icon={ClipboardList} delay={300} />
-              <KPICard title="Total Readings"    value={data.metrics.totalReadings}            icon={Clock}        delay={350} />
-            </div>
+        {/* Tabs */}
+        <Tabs defaultValue="operations" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-sm">
+            <TabsTrigger value="operations" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />Operations
+            </TabsTrigger>
+            <TabsTrigger value="ovpi" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />OVPI
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Facility Gauge */}
-            <div className="flex justify-center">
-              <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>
-                <FacilityGauge value={overallScore} label="Overall Facility Intelligence Score" size="lg" />
-              </Card>
-            </div>
+          {/* ── Operations Tab ── */}
+          <TabsContent value="operations">
+            {isLoading ? (
+              <div className="flex justify-center py-20">
+                <NexumLoader message="Loading executive metrics..." />
+              </div>
+            ) : data?.metrics && (
+              <div className="space-y-8">
+                {/* KPI Row */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+                  <KPICard title="Compliance Score"  value={data.metrics.complianceScore}  unit="%"  icon={Shield}        delay={0}   trend="up" />
+                  <KPICard title="Avg Efficiency"    value={data.metrics.avgEfficiency}    unit="%"  icon={Flame}         delay={50}  trend="up" />
+                  <KPICard title="Daily Cost"        value={data.metrics.dailyCost}        unit="$"  icon={DollarSign}    delay={100} />
+                  <KPICard title="Risk Index"        value={data.metrics.riskIndex}               icon={AlertTriangle}  delay={150} trend="down" />
+                  <KPICard title="Uptime %"          value={data.metrics.uptime}           unit="%"  icon={TrendingUp}    delay={200} trend="up" />
+                  <KPICard title="ROI %"             value={data.metrics.roi}              unit="%"  icon={BarChart3}     delay={250} />
+                  <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
+                  <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
+                </div>
 
-            {/* Compliance Overview + Violation Breakdown */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Compliance summary */}
-              <Card className="executive-card neon-border p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  Compliance Overview — Last 30 Days
-                </h3>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  {[
-                    { label: 'Compliance Score',    value: `${data.metrics.complianceScore}%`,  color: data.metrics.complianceScore >= 70 ? 'text-green-400' : 'text-red-400' },
-                    { label: 'Total Violations',    value: data.metrics.totalViolations,         color: 'text-foreground' },
-                    { label: 'Open Violations',     value: data.metrics.openViolations,          color: data.metrics.openViolations > 0 ? 'text-yellow-400' : 'text-green-400' },
-                    { label: 'High Severity',       value: data.metrics.highSeverity,            color: data.metrics.highSeverity > 0 ? 'text-red-400' : 'text-green-400' },
-                  ].map((item, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-background/50 border border-border">
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                      <p className={cn('text-xl font-bold', item.color)}>{item.value}</p>
+                {/* Facility Gauge */}
+                <div className="flex justify-center">
+                  <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>
+                    <FacilityGauge value={overallScore} label="Overall Facility Intelligence Score" size="lg" />
+                  </Card>
+                </div>
+
+                {/* Compliance Overview + Violation Breakdown */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card className="executive-card neon-border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-primary" />
+                      Compliance Overview — Last 30 Days
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      {[
+                        { label: 'Compliance Score',  value: `${data.metrics.complianceScore}%`, color: data.metrics.complianceScore >= 70 ? 'text-green-400' : 'text-red-400' },
+                        { label: 'Total Violations',  value: data.metrics.totalViolations,        color: 'text-foreground' },
+                        { label: 'Open Violations',   value: data.metrics.openViolations,         color: data.metrics.openViolations > 0 ? 'text-yellow-400' : 'text-green-400' },
+                        { label: 'High Severity',     value: data.metrics.highSeverity,           color: data.metrics.highSeverity > 0 ? 'text-red-400' : 'text-green-400' },
+                      ].map((item, i) => (
+                        <div key={i} className="p-3 rounded-lg bg-background/50 border border-border">
+                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                          <p className={cn('text-xl font-bold', item.color)}>{item.value}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                    <div className="space-y-2">
+                      {Object.entries(data.violationsByCategory).map(([cat, count]: [string, any], i) => (
+                        <ComplianceBar key={cat} label={cat} count={count} total={data.metrics.totalViolations} color={typeColors[i % typeColors.length]} />
+                      ))}
+                    </div>
+                  </Card>
+
+                  <Card className="executive-card neon-border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                      Violations by Type
+                    </h3>
+                    <div className="space-y-2">
+                      {Object.entries(data.violationsByType)
+                        .sort(([, a]: any, [, b]: any) => b - a)
+                        .map(([type, count]: [string, any], i) => (
+                          <ComplianceBar key={type} label={type} count={count} total={data.metrics.totalViolations} color={typeColors[i % typeColors.length]} />
+                        ))}
+                    </div>
+                  </Card>
                 </div>
-                <div className="space-y-2">
-                  {Object.entries(data.violationsByCategory).map(([cat, count]: [string, any], i) => (
-                    <ComplianceBar key={cat} label={cat} count={count} total={data.metrics.totalViolations} color={typeColors[i % typeColors.length]} />
-                  ))}
+
+                {/* Trends */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card className="executive-card neon-border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Flame className="h-5 w-5 text-primary" />
+                      Efficiency Trend (30d)
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data.trends.boiler}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={v => v.slice(5)} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} domain={[70, 100]} />
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                        <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Card>
+
+                  <Card className="executive-card neon-border p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <DollarSign className="h-5 w-5 text-green-400" />
+                      Est. Daily Savings Opportunity
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={data.trends.savings}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={v => v.slice(5)} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [`$${v}`, 'Est. Savings']} />
+                        <Area type="monotone" dataKey="value" stroke="hsl(142, 76%, 36%)" fill="hsl(142, 76%, 36%, 0.3)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </Card>
                 </div>
-              </Card>
 
-              {/* Violation type breakdown */}
-              <Card className="executive-card neon-border p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                  Violations by Type
-                </h3>
-                <div className="space-y-2">
-                  {Object.entries(data.violationsByType)
-                    .sort(([, a]: any, [, b]: any) => b - a)
-                    .map(([type, count]: [string, any], i) => (
-                      <ComplianceBar key={type} label={type} count={count} total={data.metrics.totalViolations} color={typeColors[i % typeColors.length]} />
-                    ))}
-                </div>
-              </Card>
-            </div>
+                {/* Top Sites */}
+                {showMultiFacility && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      {selectedFacility === 'all' ? 'All Facilities' : selectedFacility}
+                    </h2>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredSites.map((site: any, i: number) => <SiteCard key={i} site={site} index={i} />)}
+                    </div>
+                  </div>
+                )}
 
-            {/* Trends */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="executive-card neon-border p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-primary" />
-                  Efficiency Trend (30d)
-                </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={data.trends.boiler}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={v => v.slice(5)} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} domain={[70, 100]} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Card>
-
-              <Card className="executive-card neon-border p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-green-400" />
-                  Est. Daily Savings Opportunity
-                </h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={data.trends.savings}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickFormatter={v => v.slice(5)} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [`$${v}`, 'Est. Savings']} />
-                    <Area type="monotone" dataKey="value" stroke="hsl(142, 76%, 36%)" fill="hsl(142, 76%, 36%, 0.3)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Card>
-            </div>
-
-            {/* Top Sites */}
-            {showMultiFacility && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  {selectedFacility === 'all' ? 'All Facilities' : selectedFacility}
-                </h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredSites.map((site: any, i: number) => <SiteCard key={i} site={site} index={i} />)}
+                {/* Employee Compliance Risk */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Employee Compliance Risk
+                  </h2>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {data.topEmployees.map((e: any, i: number) => <EmployeeRiskCard key={i} employee={e} index={i} />)}
+                  </div>
                 </div>
               </div>
             )}
+          </TabsContent>
 
-            {/* ✅ Employee Compliance Risk — real operator names, aggregated by person */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Employee Compliance Risk
-              </h2>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {data.topEmployees.map((e: any, i: number) => <EmployeeRiskCard key={i} employee={e} index={i} />)}
-              </div>
-            </div>
-          </>
-        )}
+          {/* ── OVPI Tab ── */}
+          <TabsContent value="ovpi">
+            <OVPITab />
+          </TabsContent>
+        </Tabs>
+
       </div>
     </MainLayout>
   );
