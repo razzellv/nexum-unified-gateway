@@ -117,9 +117,9 @@ const [formData, setFormData] = useState({
     notes: '',
   });
 
-  useEffect(() => {
-    loadEquipment();
-  }, [user]);
+useEffect(() => {
+  loadEquipment();
+}, [user?.facilityId]);
 
   const loadEquipment = async () => {
     if (!user?.facilityId) return;
