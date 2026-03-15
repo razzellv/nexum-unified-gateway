@@ -4,6 +4,7 @@ import App from "./App";
 import Login from "./pages/login";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
+import Onboarding from "./pages/Onboarding";
 import Equipment from "./pages/Equipment";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
@@ -67,6 +68,11 @@ export const router = createBrowserRouter([
         element: <AuthCallback />,
       },
       {
+        // Onboarding is outside ProtectedRoute — accessible right after payment
+        path: "/onboarding",
+        element: <Onboarding />,
+      },
+      {
         path: "/",
         element: <ProtectedRoute />,
         children: [
@@ -110,12 +116,12 @@ export const router = createBrowserRouter([
             path: "dashboard/supervisor",
             element: <SupervisorDashboard />,
           },
-          // Operation Center — replaces old employee dashboard
+          // Operation Center — facility-wide live view
           {
             path: "employee-dashboard",
             element: <OperationCenter />,
           },
-          // Role-specific dashboards (all routed through EmployeeDashboards)
+          // Role-specific dashboards
           {
             path: "dashboard/employees",
             element: <EmployeeDashboards />,
