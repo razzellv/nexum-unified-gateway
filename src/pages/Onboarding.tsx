@@ -41,6 +41,19 @@ const STEPS = [
 export default function Onboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // ── Payment gate ──────────────────────────────────────────────────────────
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isVerified = sessionStorage.getItem('nexum_onboarding_verified') === 'true';
+
+  useEffect(() => {
+    if (!isAdmin && !isVerified) {
+      navigate('/pricing');
+    }
+  }, [isAdmin, isVerified, navigate]);
+
+  if (!isAdmin && !isVerified) return null;
+  // ── End gate ──────────────────────────────────────────────────────────────
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
