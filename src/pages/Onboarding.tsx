@@ -595,7 +595,7 @@ export default function Onboarding() {
                   />
                 </div>
               </div>
-            </Card>
+            </CardContent></Card>
 
             {/* Department budgets */}
             <Card><CardContent className="p-6 space-y-4">
