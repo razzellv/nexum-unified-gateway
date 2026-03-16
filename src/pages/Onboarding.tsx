@@ -12,32 +12,35 @@ import { Progress } from '@/components/ui/progress';
 import {
   Building2, Users, Wrench, Package, Zap, FileCheck,
   ChevronRight, ChevronLeft, CheckCircle, Plus, Trash2,
-  Upload, Flame, Loader2, X, Shield
+  Upload, Flame, Loader2, X, Shield, DollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 interface StaffMember { name: string; role: string; email: string; }
 interface EquipmentItem { equipmentType: string; manufacturer: string; model: string; location: string; serialNumber: string; }
 interface InventoryItem { itemName: string; partNumber: string; quantity: string; unit: string; location: string; }
 interface BaselineData { [equipmentType: string]: { [field: string]: string } }
+interface DepartmentBudget { department: string; annualBudget: string; monthlyBudget: string; }
 
 const ROLES = ['operator', 'technician', 'engineer', 'custodian', 'supervisor', 'manager', 'executive'];
 const EQUIPMENT_TYPES = ['boiler', 'chiller', 'pump', 'ahu', 'cooling_tower', 'fan', 'compressor', 'vav', 'heat_exchanger'];
 const FACILITY_TYPES = ['commercial_office', 'healthcare', 'education', 'industrial', 'residential', 'retail', 'hospitality', 'government'];
+const DEFAULT_DEPARTMENTS = ['Maintenance', 'Energy', 'Procurement', 'Operations', 'Safety & Compliance'];
+const FISCAL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 const STEPS = [
   { id: 1, label: 'Organization', icon: Building2 },
   { id: 2, label: 'Staff', icon: Users },
   { id: 3, label: 'Equipment', icon: Wrench },
   { id: 4, label: 'Baselines', icon: Shield },
   { id: 5, label: 'Inventory', icon: Package },
-  { id: 6, label: 'Utilities', icon: Zap },
-  { id: 7, label: 'Audit Report', icon: FileCheck },
+  { id: 6, label: 'Budget', icon: DollarSign },
+  { id: 7, label: 'Utilities', icon: Zap },
+  { id: 8, label: 'Audit Report', icon: FileCheck },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function Onboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -54,6 +57,7 @@ export default function Onboarding() {
 
   if (!isAdmin && !isVerified) return null;
   // ── End gate ──────────────────────────────────────────────────────────────
+
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,30 +79,39 @@ export default function Onboarding() {
   // Step 5 — Inventory
   const [inventory, setInventory] = useState<InventoryItem[]>([{ itemName: '', partNumber: '', quantity: '', unit: 'each', location: '' }]);
 
-  // Step 6 — Utility Rates
+  // Step 6 — Budget
+  const [budget, setBudget] = useState({
+    annualTotal: '',
+    fiscalYearStart: 'January',
+    trackActuals: 'yes',
+    notes: '',
+  });
+  const [deptBudgets, setDeptBudgets] = useState<DepartmentBudget[]>(
+    DEFAULT_DEPARTMENTS.map(d => ({ department: d, annualBudget: '', monthlyBudget: '' }))
+  );
+
+  // Step 7 — Utility Rates
   const [utilities, setUtilities] = useState({ electricRate: '0.18', gasRate: '1.52', waterRate: '15.07' });
 
-  // Step 7 — Audit Report
+  // Step 8 — Audit Report
   const [auditFile, setAuditFile] = useState<File | null>(null);
   const [auditMeta, setAuditMeta] = useState({ agency: '', inspectionDate: '', result: 'pass' });
 
   const progress = ((step - 1) / (STEPS.length - 1)) * 100;
 
-  // ─── Staff helpers ──────────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
   const addStaff = () => setStaff([...staff, { name: '', role: '', email: '' }]);
   const removeStaff = (i: number) => setStaff(staff.filter((_, idx) => idx !== i));
   const updateStaff = (i: number, field: keyof StaffMember, value: string) => {
     const updated = [...staff]; updated[i][field] = value; setStaff(updated);
   };
 
-  // ─── Equipment helpers ──────────────────────────────────────────────────────
   const addEquipment = () => setEquipment([...equipment, { equipmentType: '', manufacturer: '', model: '', location: '', serialNumber: '' }]);
   const removeEquipment = (i: number) => setEquipment(equipment.filter((_, idx) => idx !== i));
   const updateEquipment = (i: number, field: keyof EquipmentItem, value: string) => {
     const updated = [...equipment]; updated[i][field] = value; setEquipment(updated);
   };
 
-  // ─── Baseline helpers ───────────────────────────────────────────────────────
   const updateBaseline = (eqType: string, field: string, value: string) => {
     setBaselines(prev => ({ ...prev, [eqType]: { ...(prev[eqType] || {}), [field]: value } }));
   };
@@ -133,32 +146,43 @@ export default function Onboarding() {
     }
   };
 
-  // ─── Inventory helpers ──────────────────────────────────────────────────────
   const addInventory = () => setInventory([...inventory, { itemName: '', partNumber: '', quantity: '', unit: 'each', location: '' }]);
   const removeInventory = (i: number) => setInventory(inventory.filter((_, idx) => idx !== i));
   const updateInventory = (i: number, field: keyof InventoryItem, value: string) => {
     const updated = [...inventory]; updated[i][field] = value; setInventory(updated);
   };
 
-  // ─── Navigation ─────────────────────────────────────────────────────────────
+  const updateDeptBudget = (i: number, field: keyof DepartmentBudget, value: string) => {
+    const updated = [...deptBudgets];
+    updated[i][field] = value;
+    // Auto-calculate monthly from annual
+    if (field === 'annualBudget' && value) {
+      updated[i].monthlyBudget = (parseFloat(value) / 12).toFixed(2);
+    }
+    setDeptBudgets(updated);
+  };
+
+  const addDeptBudget = () => setDeptBudgets([...deptBudgets, { department: '', annualBudget: '', monthlyBudget: '' }]);
+  const removeDeptBudget = (i: number) => setDeptBudgets(deptBudgets.filter((_, idx) => idx !== i));
+
+  const totalDeptBudget = deptBudgets.reduce((sum, d) => sum + (parseFloat(d.annualBudget) || 0), 0);
+
   const next = () => { if (step < STEPS.length) setStep(step + 1); };
   const back = () => { if (step > 1) setStep(step - 1); };
 
-  // ─── Submit ─────────────────────────────────────────────────────────────────
+  // ─── Submit ───────────────────────────────────────────────────────────────────
   const handleFinish = async () => {
     try {
       setSubmitting(true);
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
-      // 1. Save org setup
       await fetch(`${baseUrl}/onboarding/org`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...org, facilityId: user?.facilityId, orgId: user?.orgId }),
       });
 
-      // 2. Send staff invites
       for (const member of staff.filter(s => s.name && s.email)) {
         await fetch(`${baseUrl}/onboarding/invite`, {
           method: 'POST',
@@ -167,7 +191,6 @@ export default function Onboarding() {
         });
       }
 
-      // 3. Add equipment
       for (const eq of equipment.filter(e => e.equipmentType && e.manufacturer)) {
         const baseline = baselines[eq.equipmentType] || {};
         await fetch(`${baseUrl}/equipment`, {
@@ -177,7 +200,6 @@ export default function Onboarding() {
         });
       }
 
-      // 4. Add inventory
       for (const item of inventory.filter(i => i.itemName && i.quantity)) {
         await fetch(`${baseUrl}/inventory`, {
           method: 'POST',
@@ -186,14 +208,23 @@ export default function Onboarding() {
         });
       }
 
-      // 5. Save utility rates
+      // Save budget
       await fetch(`${baseUrl}/onboarding/utilities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...utilities, facilityId: user?.facilityId }),
+        body: JSON.stringify({
+          ...utilities,
+          facilityId: user?.facilityId,
+          budget: {
+            annualTotal: parseFloat(budget.annualTotal) || 0,
+            fiscalYearStart: budget.fiscalYearStart,
+            trackActuals: budget.trackActuals === 'yes',
+            notes: budget.notes,
+            departments: deptBudgets.filter(d => d.department && d.annualBudget),
+          },
+        }),
       });
 
-      // 6. Upload audit report if provided
       if (auditFile) {
         const formData = new FormData();
         formData.append('file', auditFile);
@@ -208,6 +239,10 @@ export default function Onboarding() {
         });
       }
 
+      // Clear onboarding session flag after successful completion
+      sessionStorage.removeItem('nexum_onboarding_verified');
+      sessionStorage.removeItem('nexum_onboarding_session');
+
       toast({ title: 'Setup complete!', description: 'Your facility is ready. Welcome to Nexum Suum.' });
       navigate('/');
     } catch (error) {
@@ -219,7 +254,7 @@ export default function Onboarding() {
     }
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
@@ -452,7 +487,7 @@ export default function Onboarding() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Current inventory</h2>
-              <p className="text-muted-foreground mt-1">Log parts and supplies currently on hand. You can update quantities anytime from Inventory Library.</p>
+              <p className="text-muted-foreground mt-1">Log parts and supplies currently on hand.</p>
             </div>
             <div className="space-y-3">
               {inventory.map((item, i) => (
@@ -500,8 +535,135 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 6: Utility Rates ── */}
+        {/* ── Step 6: Budget ── */}
         {step === 6 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Budget configuration</h2>
+              <p className="text-muted-foreground mt-1">Set your facility budget baselines. Used for budget vs actual tracking across dashboards.</p>
+            </div>
+
+            {/* Overall budget */}
+            <Card><CardContent className="p-6 space-y-4">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-primary" />
+                Annual Facility Budget
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label>Total Annual Budget ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={budget.annualTotal}
+                    onChange={e => setBudget({ ...budget, annualTotal: e.target.value })}
+                    placeholder="e.g., 500000"
+                  />
+                  {budget.annualTotal && (
+                    <p className="text-xs text-muted-foreground">
+                      Monthly equivalent: ${(parseFloat(budget.annualTotal) / 12).toLocaleString('en-US', { maximumFractionDigits: 2 })} / mo
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Fiscal Year Start</Label>
+                  <Select value={budget.fiscalYearStart} onValueChange={v => setBudget({ ...budget, fiscalYearStart: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {FISCAL_MONTHS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Track Budget vs Actuals</Label>
+                  <Select value={budget.trackActuals} onValueChange={v => setBudget({ ...budget, trackActuals: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">Yes — enable tracking</SelectItem>
+                      <SelectItem value="no">No — skip for now</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Budget Notes (optional)</Label>
+                  <Textarea
+                    value={budget.notes}
+                    onChange={e => setBudget({ ...budget, notes: e.target.value })}
+                    placeholder="e.g., Includes capital reserve for chiller replacement in Q3"
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Department budgets */}
+            <Card><CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Department Budgets</h3>
+                {totalDeptBudget > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Total allocated: ${totalDeptBudget.toLocaleString()}
+                    {budget.annualTotal && parseFloat(budget.annualTotal) > 0 && (
+                      <span className={`ml-1 ${totalDeptBudget > parseFloat(budget.annualTotal) ? 'text-destructive' : 'text-green-500'}`}>
+                        ({Math.round((totalDeptBudget / parseFloat(budget.annualTotal)) * 100)}% of total)
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-3">
+                {deptBudgets.map((dept, i) => (
+                  <div key={i} className="grid grid-cols-5 gap-2 items-end">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Department</Label>
+                      <Input
+                        value={dept.department}
+                        onChange={e => updateDeptBudget(i, 'department', e.target.value)}
+                        placeholder="e.g., Maintenance"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Annual ($)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={dept.annualBudget}
+                        onChange={e => updateDeptBudget(i, 'annualBudget', e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Monthly ($)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={dept.monthlyBudget}
+                        onChange={e => updateDeptBudget(i, 'monthlyBudget', e.target.value)}
+                        placeholder="Auto"
+                      />
+                    </div>
+                    <div className="flex items-end pb-0.5">
+                      {deptBudgets.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => removeDeptBudget(i)} className="text-destructive hover:text-destructive w-full">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="outline" onClick={addDeptBudget} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Department
+              </Button>
+            </CardContent></Card>
+
+            <p className="text-xs text-muted-foreground">Budget data feeds into the Executive and Manager dashboards for real-time budget vs actual comparisons.</p>
+          </div>
+        )}
+
+        {/* ── Step 7: Utility Rates ── */}
+        {step === 7 && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Utility rates</h2>
@@ -528,8 +690,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 7: Audit Report ── */}
-        {step === 7 && (
+        {/* ── Step 8: Audit Report ── */}
+        {step === 8 && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Upload audit report <span className="text-muted-foreground text-lg font-normal">(optional)</span></h2>
@@ -557,7 +719,6 @@ export default function Onboarding() {
                   </Select>
                 </div>
               </div>
-
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${auditFile ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/30'}`}
@@ -582,10 +743,9 @@ export default function Onboarding() {
                   </div>
                 )}
               </div>
-
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-primary">AI Compliance Intelligence</span> — Claude will analyze your inspection report and generate a 3-paragraph compliance narrative covering agency findings, corrective actions, and facility readiness. This will appear in your Compliance Logger under Audit Reports.
+                  <span className="font-semibold text-primary">AI Compliance Intelligence</span> — Claude will analyze your inspection report and generate a 3-paragraph compliance narrative seeded into your Compliance Logger.
                 </p>
               </div>
             </CardContent></Card>
@@ -598,6 +758,9 @@ export default function Onboarding() {
                 <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{staff.filter(s => s.email).length} staff member(s) to invite</li>
                 <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{equipment.filter(e => e.equipmentType).length} equipment item(s)</li>
                 <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{inventory.filter(i => i.itemName).length} inventory item(s)</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                  Budget: {budget.annualTotal ? `$${parseFloat(budget.annualTotal).toLocaleString()}/yr` : 'Not set'}
+                </li>
                 <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Utility rates configured</li>
                 {auditFile && <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Audit report: {auditFile.name}</li>}
               </ul>
@@ -605,7 +768,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Navigation buttons ── */}
+        {/* ── Navigation ── */}
         <div className="flex justify-between mt-8">
           <Button variant="outline" onClick={back} disabled={step === 1}>
             <ChevronLeft className="w-4 h-4 mr-2" />Back
