@@ -1,102 +1,201 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Send, Paperclip, Image, Users, Hash, Menu } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
+import { Send, RefreshCw, Hash, AlertTriangle, Wrench, Users, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
+const CHANNELS = [
+  { id: 'all',        name: 'All Activity',      icon: Hash,         filter: null },
+  { id: 'emergency',  name: 'Emergency Response', icon: AlertTriangle, filter: 'emergency' },
+  { id: 'maintenance',name: 'Maintenance Team',   icon: Wrench,       filter: 'maintenance' },
+  { id: 'leadership', name: 'Leadership Feed',    icon: Users,        filter: 'leadership' },
+  { id: 'energy',     name: 'Energy & Utilities', icon: Zap,          filter: 'energy' },
+];
+
+function timeAgo(dateStr: string) {
+  const d = new Date(dateStr);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return d.toLocaleDateString();
+}
+
+function initials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function logToMessage(log: any) {
+  return {
+    id: log.logId || log.id,
+    author: log.operatorId || log.submittedBy || 'System',
+    content: log.notes || log.description || log.action || 'Facility log entry',
+    time: log.timestamp || log.createdAt || new Date().toISOString(),
+    channel: log.logType || log.category || 'maintenance',
+    location: log.location || log.facilityId || '',
+    system: log.systemType || log.equipmentType || '',
+  };
+}
 
 const Messages = () => {
-  const [showChannels, setShowChannels] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [activeChannel, setActiveChannel] = useState('all');
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const channels = [
-    { id: '1', name: 'leadership-feed', type: 'channel', unread: 3 },
-    { id: '2', name: 'emergency-response', type: 'channel', unread: 0 },
-    { id: '3', name: 'maintenance-team', type: 'channel', unread: 5 },
-    { id: '4', name: 'vendor-comms', type: 'channel', unread: 1 }
-  ];
+  useEffect(() => {
+    fetchMessages();
+    // Poll every 30s
+    const interval = setInterval(fetchMessages, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const messages = [
-    { id: '1', author: 'Razzell Taylor1', content: 'Boiler #3 inspection complete. Burner adjustment scheduled for tomorrow.', time: '10:30 AM', avatar: 'M' },
-    { id: '2', author: 'Razzell Taylor2', content: 'Vendor confirmed for electrical thermal scan on Thursday.', time: '10:15 AM', avatar: 'S' },
-    { id: '3', author: 'Razzell Taylor3', content: 'Chiller backup is running smoothly. Main unit repair in progress.', time: '9:45 AM', avatar: 'D' },
-    { id: '4', author: 'System', content: 'New signal received: Pump #2 vibration alert acknowledged.', time: '9:30 AM', avatar: '⚡' }
-  ];
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const handleSend = () => {
-    if (messageInput.trim()) {
-      toast({ title: 'Message Sent', description: 'Your message has been sent.' });
-      setMessageInput('');
+  const fetchMessages = async () => {
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const res = await fetch(`${baseUrl}/facility-logs?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const logs = data.logs || data.items || [];
+        setMessages(logs.map(logToMessage).reverse());
+      }
+    } catch (err) {
+      console.error('Messages fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddChannel = () => toast({ title: 'Add Channel', description: 'Feature connected to backend' });
+  const handleSend = async () => {
+    if (!messageInput.trim()) return;
+    setSending(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      await fetch(`${baseUrl}/facility-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          notes: messageInput,
+          logType: activeChannel === 'all' ? 'general' : activeChannel,
+          facilityId: user?.facilityId,
+          submittedBy: user?.name || user?.email,
+          action: messageInput,
+        }),
+      });
+      setMessageInput('');
+      await fetchMessages();
+    } catch (err) {
+      toast({ title: 'Send failed', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const filteredMessages = activeChannel === 'all'
+    ? messages
+    : messages.filter(m => m.channel?.toLowerCase().includes(activeChannel) || m.system?.toLowerCase().includes(activeChannel));
+
+  const channel = CHANNELS.find(c => c.id === activeChannel);
 
   return (
     <MainLayout>
-      <div className="flex h-[calc(100vh-8rem)] gap-4 md:gap-6">
-        {/* Sidebar - Hidden on mobile by default */}
-        <div className={cn("w-64 shrink-0 glass-panel p-4 absolute md:relative inset-y-0 left-0 z-20 md:z-auto transition-transform md:translate-x-0", showChannels ? "translate-x-0" : "-translate-x-full md:translate-x-0")}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Channels</h3>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAddChannel}><Plus className="w-4 h-4" /></Button>
-          </div>
-          <div className="space-y-1">
-            {channels.map((channel, i) => (
-              <button key={i} className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left" onClick={() => setShowChannels(false)}>
-                <div className="flex items-center gap-2"><Hash className="w-4 h-4 text-muted-foreground" /><span className="text-sm">{typeof channel.name === "string" ? channel.name : channel.name?.S || "Channel"}</span></div>
-                {channel.unread > 0 && <Badge className="bg-primary text-primary-foreground text-xs">{channel.unread}</Badge>}
+      <div className="flex h-[calc(100vh-8rem)] gap-4">
+        {/* Sidebar */}
+        <div className="w-52 shrink-0 flex flex-col gap-1">
+          <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Channels</p>
+          {CHANNELS.map(ch => {
+            const Icon = ch.icon;
+            const unread = ch.id !== 'all'
+              ? messages.filter(m => m.channel?.toLowerCase().includes(ch.id) && !m.read).length
+              : 0;
+            return (
+              <button
+                key={ch.id}
+                onClick={() => setActiveChannel(ch.id)}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left',
+                  activeChannel === ch.id ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="flex-1 truncate">{ch.name}</span>
+                {unread > 0 && <Badge className="text-xs bg-primary/20 text-primary h-5 w-5 p-0 flex items-center justify-center">{unread}</Badge>}
               </button>
-            ))}
-          </div>
-          <div className="mt-6">
-            <h3 className="font-semibold mb-3">Direct Messages</h3>
-            <div className="space-y-1">
-              {['Razzell Taylor1', 'Razzell Taylor2', 'Razzell Taylor3'].map((name) => (
-                <button key={name} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left" onClick={() => setShowChannels(false)}>
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">{name.charAt(0)}</div>
-                  <span className="text-sm">{name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Overlay for mobile */}
-        {showChannels && <div className="fixed inset-0 bg-black/50 z-10 md:hidden" onClick={() => setShowChannels(false)} />}
-
-        {/* Main Chat Area */}
-        <div className="flex-1 glass-panel flex flex-col min-w-0">
-          <div className="p-3 md:p-4 border-b border-border/50 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 md:gap-3 min-w-0">
-              <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setShowChannels(true)}><Menu className="w-5 h-5" /></Button>
-              <Hash className="w-5 h-5 text-muted-foreground shrink-0" />
-              <div className="min-w-0"><h2 className="font-semibold truncate">leadership-feed</h2><p className="text-xs text-muted-foreground hidden sm:block">Global message feed for leadership</p></div>
-            </div>
-            <div className="flex items-center gap-1"><Button variant="ghost" size="icon"><Users className="w-5 h-5" /></Button><Button variant="ghost" size="icon"><Search className="w-5 h-5" /></Button></div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center text-xs md:text-sm font-medium text-primary shrink-0">{typeof msg.avatar === "string" ? msg.avatar : msg.avatar?.S || "?"}</div>
-                <div className="min-w-0">
-                  <div className="flex items-baseline gap-2"><span className="font-medium text-sm">{msg.author}</span><span className="text-xs text-muted-foreground">{msg.time}</span></div>
-                  <p className="text-sm text-muted-foreground mt-1">{msg.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="p-3 md:p-4 border-t border-border/50">
+        {/* Main chat area */}
+        <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="hidden sm:flex"><Paperclip className="w-5 h-5" /></Button>
-              <Button variant="ghost" size="icon" className="hidden sm:flex"><Image className="w-5 h-5" /></Button>
-              <Input placeholder="Type a message..." className="flex-1 bg-muted/50" value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} />
-              <Button size="icon" onClick={handleSend}><Send className="w-5 h-5" /></Button>
+              {channel && <channel.icon className="w-4 h-4 text-primary" />}
+              <span className="font-medium text-sm">#{channel?.name}</span>
+              <Badge variant="outline" className="text-xs">{filteredMessages.length} messages</Badge>
             </div>
+            <Button variant="ghost" size="sm" onClick={fetchMessages} disabled={loading}>
+              <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            </Button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : filteredMessages.length === 0 ? (
+              <div className="text-center text-muted-foreground text-sm py-8">No messages in this channel</div>
+            ) : (
+              filteredMessages.map((msg, i) => (
+                <div key={msg.id || i} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary shrink-0">
+                    {msg.author === 'System' ? '⚡' : initials(msg.author)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium">{msg.author}</span>
+                      <span className="text-xs text-muted-foreground">{timeAgo(msg.time)}</span>
+                      {msg.location && <span className="text-xs text-muted-foreground">· {msg.location}</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5">{msg.content}</p>
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="p-3 border-t border-border flex gap-2">
+            <Input
+              value={messageInput}
+              onChange={e => setMessageInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              placeholder={`Message #${channel?.name}...`}
+              className="flex-1"
+            />
+            <Button size="sm" onClick={handleSend} disabled={sending || !messageInput.trim()}>
+              <Send className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
