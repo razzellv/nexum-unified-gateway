@@ -33,6 +33,19 @@ function buildSystemName(item: any): string {
   return parts.join(' ');
 }
 
+// ── Resolve the correct facilityId ───────────────────────────────────────────
+// Cognito stores custom:facilityId = "facility-001"
+// The JWT decoded user object may have it under different keys
+// This function checks all possible locations
+function resolveFacilityId(user: any): string {
+  return (
+    user?.['custom:facilityId'] ||
+    user?.facilityId ||
+    user?.facility_id ||
+    'facility-001'  // safe fallback
+  );
+}
+
 export function useFacilityEquipment() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,9 +53,9 @@ export function useFacilityEquipment() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user?.facilityId) return;
+    if (!user) return;
     fetchData();
-  }, [user?.facilityId]);
+  }, [user?.sub]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,7 +65,10 @@ export function useFacilityEquipment() {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
       const headers = { Authorization: `Bearer ${token}` };
-      const facilityId = user!.facilityId;
+
+      // ✅ Use resolved facilityId — always "facility-001" not "7"
+      const facilityId = resolveFacilityId(user);
+      console.log('useFacilityEquipment: using facilityId =', facilityId);
 
       // Load buildings (with graceful fallback)
       let buildingsList: any[] = [];
@@ -64,7 +80,7 @@ export function useFacilityEquipment() {
         }
       } catch (_) {}
 
-      // Load equipment
+      // Load equipment — use correct facilityId
       let equipmentList: any[] = [];
       try {
         const eRes = await fetch(`${baseUrl}/equipment?facilityId=${facilityId}&days=365`, { headers });
@@ -74,7 +90,7 @@ export function useFacilityEquipment() {
         }
       } catch (_) {}
 
-      console.log(`Buildings: ${buildingsList.length}, Equipment: ${equipmentList.length}`);
+      console.log(`Buildings: ${buildingsList.length}, Equipment: ${equipmentList.length}, facilityId: ${facilityId}`);
 
       // If no buildings — group all equipment under one default building
       if (buildingsList.length === 0) {
@@ -92,7 +108,6 @@ export function useFacilityEquipment() {
           })
           .filter(Boolean) as SystemInfo[];
 
-        // Always include energy
         systems.push({
           id: 'default-energy',
           assetTag: 'ENERGY',
@@ -101,31 +116,32 @@ export function useFacilityEquipment() {
           location: 'Building Level',
         });
 
-        const facility: Facility = {
+        setFacilities([{
           id: facilityId,
-          name: user!.facilityName || 'Main Facility',
-          buildings: [{
-            id: 'main-building',
-            name: 'Main Building',
-            systems,
-          }],
-        };
-        setFacilities([facility]);
+          name: user?.facilityName || 'Main Facility',
+          buildings: [{ id: 'main-building', name: 'Main Building', systems }],
+        }]);
         return;
       }
 
-      // Buildings exist — map equipment to buildings
+      // Buildings exist — map equipment to buildings by buildingId OR location match
       const facility: Facility = {
         id: facilityId,
-        name: user!.facilityName || 'Main Facility',
+        name: user?.facilityName || 'Main Facility',
         buildings: buildingsList.map((bld: any) => {
           const bldEquipment = equipmentList.filter((e: any) =>
             e.buildingId === bld.buildingId ||
-            e.location?.toLowerCase().includes(bld.name?.toLowerCase()) ||
-            (!e.buildingId)
+            e.location?.toLowerCase().includes(bld.name?.toLowerCase())
           );
 
-          const systems: SystemInfo[] = bldEquipment
+          // If equipment has no buildingId, assign to first building
+          const unassigned = buildingsList.indexOf(bld) === 0
+            ? equipmentList.filter((e: any) => !e.buildingId)
+            : [];
+
+          const allEquip = [...bldEquipment, ...unassigned];
+
+          const systems: SystemInfo[] = allEquip
             .map((item: any) => {
               const sysType = mapEquipmentType(item.equipmentType || item.type);
               if (!sysType) return null;
@@ -139,7 +155,6 @@ export function useFacilityEquipment() {
             })
             .filter(Boolean) as SystemInfo[];
 
-          // Always include energy per building
           systems.push({
             id: `${bld.buildingId}-energy`,
             assetTag: 'ENERGY',
@@ -156,9 +171,8 @@ export function useFacilityEquipment() {
     } catch (err) {
       console.error('Error fetching facility data:', err);
       setError('Failed to load facility data');
-      // Provide minimal fallback so UI doesn't break
       setFacilities([{
-        id: user!.facilityId,
+        id: 'facility-001',
         name: 'Main Facility',
         buildings: [{
           id: 'fallback',
