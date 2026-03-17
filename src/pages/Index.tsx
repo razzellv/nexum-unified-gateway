@@ -456,7 +456,7 @@ const Index = () => {
   const fetchEquipment = async () => {
     setIsLoadingEquipment(true);
     try {
-      const data = await getRecentEquipment(7);
+      const data = await getRecentEquipment('facility-001');
       const equipment = data.equipment || data.items || data || [];
       setEquipmentCount(equipment.length);
       const recent = equipment.slice(0, 3).map((item: any) => ({
