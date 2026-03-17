@@ -240,7 +240,7 @@ const Workflows = () => {
         )}
       </div>
 
-      {showCreateWorkflow && <CreateWorkflowDialog open={showCreateWorkflow} onClose={() => setShowCreateWorkflow(false)} />}
+      {showCreateWorkflow && <CreateWorkflowDialog open={showCreateWorkflow} onOpenChange={(o) => setShowCreateWorkflow(o)} />}
     </MainLayout>
   );
 };
