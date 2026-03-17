@@ -65,7 +65,7 @@ export function ApprovalsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const token = localStorage.getItem('nexum_access_token');
+  const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
