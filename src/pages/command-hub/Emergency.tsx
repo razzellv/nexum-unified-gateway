@@ -204,7 +204,7 @@ const Emergency = () => {
         <DeclareEmergencyDialog
           open={showDeclareEmergency}
           preselectedType={preselectedType}
-          onClose={() => { setShowDeclareEmergency(false); setPreselectedType(undefined); fetchData(); }}
+          onOpenChange={(o) => { if (!o) { setShowDeclareEmergency(false); setPreselectedType(undefined); fetchData(); } }}
         />
       )}
     </MainLayout>
