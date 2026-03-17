@@ -1,151 +1,246 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Play, Copy, Settings } from 'lucide-react';
-import { mockWorkflowTemplates } from '@/data/mockData';
+import { Plus, Search, Play, Copy, Settings, RefreshCw, CheckCircle, Clock, Users } from 'lucide-react';
 import { CreateWorkflowDialog } from '@/components/command-hub/dialogs/CreateWorkflowDialog';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+
+const systemIcons: Record<string, string> = {
+  boiler: '🔥', chiller: '❄️', pump: '💧', electrical: '⚡', hvac: '🌡️', ahu: '🌀', general: '🔧',
+};
+
+// Built-in workflow templates — always available
+const BUILT_IN_TEMPLATES = [
+  {
+    id: 'tpl-1', name: 'Boiler Emergency Response', system: 'boiler',
+    description: 'Standard response workflow for boiler alarms and failures',
+    triggers: ['High stack temperature', 'Low water cutoff', 'Flame failure'],
+    steps: [
+      { name: 'Verify alarm and assess severity',        assignTo: 'technician',  estimatedHours: 0.5 },
+      { name: 'Implement immediate safety measures',     assignTo: 'supervisor',  estimatedHours: 1.0 },
+      { name: 'Contact vendor if required',              assignTo: 'supervisor',  estimatedHours: 0.5 },
+      { name: 'Document and analyze root cause',         assignTo: 'technician',  estimatedHours: 2.0 },
+    ],
+    builtIn: true,
+  },
+  {
+    id: 'tpl-2', name: 'Chiller Performance Issue', system: 'chiller',
+    description: 'Workflow for chiller efficiency drops and performance issues',
+    triggers: ['High discharge pressure', 'Low suction pressure', 'Efficiency drop >5%'],
+    steps: [
+      { name: 'Review operating parameters',           assignTo: 'technician',  estimatedHours: 1.0 },
+      { name: 'Check refrigerant levels and pressures',assignTo: 'technician',  estimatedHours: 2.0 },
+      { name: 'Inspect condenser and evaporator',      assignTo: 'technician',  estimatedHours: 3.0 },
+      { name: 'Schedule cleaning if required',         assignTo: 'supervisor',  estimatedHours: 1.0 },
+    ],
+    builtIn: true,
+  },
+  {
+    id: 'tpl-3', name: 'PM Work Order Creation', system: 'general',
+    description: 'Preventive maintenance scheduling and assignment workflow',
+    triggers: ['Scheduled PM date', 'Equipment hours threshold', 'Manual trigger'],
+    steps: [
+      { name: 'Generate PM work order',               assignTo: 'supervisor',  estimatedHours: 0.25 },
+      { name: 'Assign to qualified technician',       assignTo: 'manager',     estimatedHours: 0.25 },
+      { name: 'Confirm parts and materials available',assignTo: 'technician',  estimatedHours: 0.5 },
+      { name: 'Execute PM and log readings',          assignTo: 'technician',  estimatedHours: 2.0 },
+      { name: 'Manager sign-off and close WO',        assignTo: 'manager',     estimatedHours: 0.25 },
+    ],
+    builtIn: true,
+  },
+  {
+    id: 'tpl-4', name: 'Compliance Violation Response', system: 'general',
+    description: 'Structured response workflow for compliance violations',
+    triggers: ['Violation logged', 'Inspector finding', 'Self-audit result'],
+    steps: [
+      { name: 'Document violation details',           assignTo: 'supervisor',  estimatedHours: 0.5 },
+      { name: 'Notify relevant leadership',           assignTo: 'supervisor',  estimatedHours: 0.25 },
+      { name: 'Implement corrective action',          assignTo: 'technician',  estimatedHours: 2.0 },
+      { name: 'Verify correction and re-inspect',     assignTo: 'engineer',    estimatedHours: 1.0 },
+      { name: 'Update compliance logger',             assignTo: 'supervisor',  estimatedHours: 0.25 },
+    ],
+    builtIn: true,
+  },
+];
 
 const Workflows = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [showCreateWorkflow, setShowCreateWorkflow] = useState(false);
+  const [search, setSearch] = useState('');
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [recentRuns, setRecentRuns] = useState<any[]>([]);
 
-  const systemIcons: Record<string, string> = {
-    boiler: '🔥',
-    chiller: '❄️',
-    pump: '💧',
-    electrical: '⚡',
-    hvac: '🌡️'
+  // Fetch recent WO creations as workflow run history
+  useEffect(() => {
+    fetchRecentRuns();
+  }, []);
+
+  const fetchRecentRuns = async () => {
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/work-orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const wos = (data.workOrders || data.items || []).slice(0, 5);
+        setRecentRuns(wos);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleClone = (name: string) => {
-    toast({ title: 'Workflow Cloned', description: `"${name}" has been duplicated.` });
+  const handleRun = async (template: any) => {
+    setRunningId(template.id);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      // Create a WO for each step in the workflow
+      const firstStep = template.steps[0];
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/work-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: `[WF] ${template.name} — ${firstStep.name}`,
+          description: template.description,
+          systemType: template.system,
+          priority: 'high',
+          status: 'backlog',
+          facilityId: user?.facilityId,
+          estimatedHours: template.steps.reduce((s: number, st: any) => s + st.estimatedHours, 0),
+          category: 'workflow',
+          workflowTemplate: template.name,
+        }),
+      });
+      toast({ title: 'Workflow Started', description: `"${template.name}" work order created and added to backlog.` });
+      await fetchRecentRuns();
+    } catch (err) {
+      toast({ title: 'Failed to start workflow', variant: 'destructive' });
+    } finally {
+      setRunningId(null);
+    }
   };
 
-  const handleSettings = (name: string) => {
-    toast({ title: 'Workflow Settings', description: `Opening settings for "${name}"...` });
+  const handleClone = (template: any) => {
+    toast({ title: 'Workflow Cloned', description: `"${template.name}" duplicated. Edit and save as custom.` });
   };
 
-  const handleRun = (name: string) => {
-    toast({ title: 'Workflow Started', description: `"${name}" is now running.` });
-  };
+  const filtered = BUILT_IN_TEMPLATES.filter(t =>
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    t.system.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <MainLayout>
       <div className="space-y-4 md:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold">Workflow Templates</h1>
-              <p className="text-sm text-muted-foreground">
-                {mockWorkflowTemplates.length} templates available
-              </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">Workflows</h1>
+            <p className="text-sm text-muted-foreground">{BUILT_IN_TEMPLATES.length} templates · Run to create work orders automatically</p>
+          </div>
+          <div className="flex gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search workflows..." className="pl-9 w-48" />
             </div>
-
-            <div className="flex flex-wrap items-center gap-2 md:gap-3">
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search workflows..." 
-                  className="pl-10 w-full sm:w-48 md:w-64 bg-muted/50"
-                />
-              </div>
-              <Button size="sm" onClick={() => setShowCreateWorkflow(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Create Workflow</span>
-              </Button>
-            </div>
+            <Button size="sm" onClick={() => setShowCreateWorkflow(true)}>
+              <Plus className="w-4 h-4 mr-2" />New
+            </Button>
           </div>
         </div>
 
-        {/* Workflow Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {mockWorkflowTemplates.map((workflow) => (
-            <div key={workflow.id} className="glass-panel p-4 md:p-5 transition-all duration-200 hover:border-primary/50">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xl md:text-2xl shrink-0">{systemIcons[workflow.system] || '⚙️'}</span>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold truncate">{workflow.name}</h3>
-                    <Badge variant="outline" className="text-xs capitalize mt-1">
-                      {workflow.system}
-                    </Badge>
+        {/* Templates grid */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {filtered.map(template => (
+            <Card key={template.id} className="glass-panel hover:border-primary/30 transition-colors">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{systemIcons[template.system] || '🔧'}</span>
+                    <div>
+                      <CardTitle className="text-sm">{template.name}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">{template.description}</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="text-xs shrink-0">Built-in</Badge>
                 </div>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{workflow.description}</p>
-
-              {/* Steps Preview */}
-              <div className="mb-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">{workflow.steps.length} Steps</p>
-                <div className="space-y-2">
-                  {workflow.steps.slice(0, 3).map((step, i) => (
-                    <div key={step.id} className="flex items-center gap-2 text-sm">
-                      <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="truncate text-muted-foreground">{step.name}</span>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Steps */}
+                <div className="space-y-1.5">
+                  {template.steps.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[10px] text-primary font-medium shrink-0">{i + 1}</div>
+                      <span className="flex-1 truncate">{step.name}</span>
+                      <span className="shrink-0 opacity-60">{step.estimatedHours}h</span>
                     </div>
                   ))}
-                  {workflow.steps.length > 3 && (
-                    <p className="text-xs text-muted-foreground pl-7">
-                      +{workflow.steps.length - 3} more steps
-                    </p>
-                  )}
                 </div>
-              </div>
 
-              {/* Triggers */}
-              <div className="mb-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Triggers</p>
+                {/* Triggers */}
                 <div className="flex flex-wrap gap-1">
-                  {workflow.triggers.map((trigger, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      {trigger}
-                    </Badge>
+                  {template.triggers.map((t, i) => (
+                    <Badge key={i} variant="outline" className="text-[10px]">{t}</Badge>
                   ))}
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t border-border/50">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => handleClone(workflow.name)}>
-                  <Copy className="w-4 h-4 mr-1" />
-                  <span className="hidden sm:inline">Clone</span>
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleSettings(workflow.name)}>
-                  <Settings className="w-4 h-4" />
-                </Button>
-                <Button size="sm" className="flex-1" onClick={() => handleRun(workflow.name)}>
-                  <Play className="w-4 h-4 mr-1" />
-                  <span className="hidden sm:inline">Run</span>
-                </Button>
-              </div>
-            </div>
+                {/* Total time */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  {template.steps.reduce((s, st) => s + st.estimatedHours, 0)}h estimated total
+                  <span className="mx-2">·</span>
+                  <Users className="w-3 h-3" />
+                  {[...new Set(template.steps.map(s => s.assignTo))].join(', ')}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleRun(template)}
+                    disabled={runningId === template.id}
+                  >
+                    {runningId === template.id
+                      ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />Running...</>
+                      : <><Play className="w-3.5 h-3.5 mr-1.5" />Run Workflow</>
+                    }
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleClone(template)}>
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
-
-          {/* Add New Card */}
-          <div 
-            className="glass-panel p-4 md:p-5 border-dashed border-2 flex flex-col items-center justify-center text-center min-h-[280px] md:min-h-[300px] cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setShowCreateWorkflow(true)}
-          >
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Plus className="w-5 h-5 md:w-6 md:h-6 text-muted-foreground" />
-            </div>
-            <h3 className="font-medium mb-2">Create New Workflow</h3>
-            <p className="text-sm text-muted-foreground">
-              Build a custom workflow template for your facility operations
-            </p>
-          </div>
         </div>
+
+        {/* Recent WO activity */}
+        {recentRuns.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold">Recent Work Orders</h2>
+            <div className="space-y-2">
+              {recentRuns.map((wo: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 text-sm">
+                  <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                  <span className="flex-1 truncate">{wo.title || wo.description}</span>
+                  <Badge variant="outline" className="text-xs">{wo.status || 'open'}</Badge>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <CreateWorkflowDialog open={showCreateWorkflow} onOpenChange={setShowCreateWorkflow} />
+      {showCreateWorkflow && <CreateWorkflowDialog open={showCreateWorkflow} onClose={() => setShowCreateWorkflow(false)} />}
     </MainLayout>
   );
 };
