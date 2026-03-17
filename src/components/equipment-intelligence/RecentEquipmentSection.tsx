@@ -63,7 +63,7 @@ export default function RecentEquipment() {
   const fetchRecentEquipment = async () => {
     setIsLoading(true);
     try {
-      const data = await getRecentEquipment(7);
+      const data = await getRecentEquipment('facility-001');
       const equipment = data.equipment || data.items || data || [];
       setRecentEquipment(equipment);
     } catch (error) {
