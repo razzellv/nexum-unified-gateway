@@ -67,7 +67,7 @@ const Messages = () => {
     try {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const res = await fetch(`${baseUrl}/facility-logs?limit=50`, {
+      const res = await fetch(`${baseUrl}/logs/latest?facilityId=facility-001&limit=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -88,7 +88,7 @@ const Messages = () => {
     try {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      await fetch(`${baseUrl}/facility-logs`, {
+      await fetch(`${baseUrl}/facility-log-ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
