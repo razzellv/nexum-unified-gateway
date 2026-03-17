@@ -49,7 +49,11 @@ export function useFacilityEquipment() {
     setError(null);
 
     try {
-      const token = localStorage.getItem('nexum_access_token');
+      // ✅ Use ID token — carries custom:facilityId, custom:role, name
+      // Access token does NOT include custom attributes by Cognito design
+      const idToken = localStorage.getItem('nexum_id_token');
+      const accessToken = localStorage.getItem('nexum_access_token');
+      const token = idToken || accessToken;
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
       const headers = { Authorization: `Bearer ${token}` };
       // ✅ Use facility-001 directly — JWT claim is the source of truth
