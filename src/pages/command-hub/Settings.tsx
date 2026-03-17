@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ApprovalsTab } from '@/components/settings/ApprovalsTab';
 
 // ── Role access definitions ───────────────────────────────────────────────────
 const ADMIN_ROLES = ['admin'];
@@ -32,6 +33,7 @@ const ALL_TABS = [
   { id: 'team',          label: 'Team & Roles',     icon: Users,      access: LEADERSHIP_ROLES },
   { id: 'budget',        label: 'Budget',           icon: DollarSign, access: EXECUTIVE_ROLES },
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
+  { id: 'approvals', label: 'Approvals', icon: Shield, access: EXECUTIVE_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];
