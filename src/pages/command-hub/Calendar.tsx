@@ -207,7 +207,7 @@ const Calendar = () => {
           </div>
         </div>
       </div>
-      {showAddEvent && <AddEventDialog open={showAddEvent} onClose={() => { setShowAddEvent(false); fetchEvents(); }} />}
+      {showAddEvent && <AddEventDialog open={showAddEvent} onOpenChange={(o) => { if (!o) { setShowAddEvent(false); fetchEvents(); } }} />}
     </MainLayout>
   );
 };
