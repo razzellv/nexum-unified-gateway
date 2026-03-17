@@ -1,32 +1,97 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Download, Filter } from 'lucide-react';
-import { workloadData } from '@/data/mockData';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar, Download, Filter, RefreshCw, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 const Workload = () => {
-  const totalTasks = workloadData.reduce((sum, p) => sum + p.tasks, 0);
-  const totalHours = workloadData.reduce((sum, p) => sum + p.hours, 0);
-  const averageCapacity = Math.round(workloadData.reduce((sum, p) => sum + p.capacity, 0) / workloadData.length);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [workloadData, setWorkloadData] = useState<any[]>([]);
+  const [priorityData, setPriorityData] = useState<any[]>([]);
+  const [systemData, setSystemData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const priorityData = [
-    { name: 'Critical', value: 2, color: 'hsl(0, 72%, 51%)' },
-    { name: 'High', value: 8, color: 'hsl(38, 92%, 50%)' },
-    { name: 'Medium', value: 10, color: 'hsl(199, 89%, 48%)' },
-    { name: 'Low', value: 4, color: 'hsl(215, 20%, 55%)' }
-  ];
+  useEffect(() => {
+    fetchWorkload();
+  }, []);
 
-  const systemData = [
-    { name: 'Boiler', tasks: 5 }, { name: 'Chiller', tasks: 4 }, { name: 'HVAC', tasks: 6 },
-    { name: 'Electrical', tasks: 3 }, { name: 'Production', tasks: 4 }, { name: 'Other', tasks: 2 }
-  ];
+  const fetchWorkload = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
-  const handleFilter = () => toast({ title: 'Filter', description: 'Opening workload filters...' });
-  const handleExport = () => toast({ title: 'Export', description: 'Exporting workload report...' });
-  const handleWeek = () => toast({ title: 'Date Range', description: 'Showing this week\'s data' });
+      const res = await fetch(`${baseUrl}/work-orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch work orders');
+      const data = await res.json();
+      const wos = data.workOrders || data.items || [];
+
+      // Aggregate by assignee
+      const byPerson: Record<string, { tasks: number; hours: number }> = {};
+      wos.filter((wo: any) => wo.status !== 'completed').forEach((wo: any) => {
+        const name = wo.assignedTo || wo.operatorId || 'Unassigned';
+        if (!byPerson[name]) byPerson[name] = { tasks: 0, hours: 0 };
+        byPerson[name].tasks += 1;
+        byPerson[name].hours += parseFloat(wo.estimatedHours || 4);
+      });
+
+      const workload = Object.entries(byPerson).map(([name, d]) => ({
+        name: name.length > 20 ? name.slice(0, 20) + '...' : name,
+        tasks: d.tasks,
+        hours: Math.round(d.hours),
+        capacity: Math.min(100, Math.round((d.hours / 40) * 100)),
+      }));
+
+      // Priority breakdown
+      const priorities = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+      wos.forEach((wo: any) => {
+        const p = wo.priority?.toLowerCase();
+        if (p === 'critical') priorities.Critical++;
+        else if (p === 'high') priorities.High++;
+        else if (p === 'low') priorities.Low++;
+        else priorities.Medium++;
+      });
+
+      // System breakdown
+      const systems: Record<string, number> = {};
+      wos.forEach((wo: any) => {
+        const s = wo.systemType || wo.equipmentType || 'Other';
+        const label = s.charAt(0).toUpperCase() + s.slice(1);
+        systems[label] = (systems[label] || 0) + 1;
+      });
+
+      setWorkloadData(workload.length > 0 ? workload : [{ name: 'No assignments', tasks: 0, hours: 0, capacity: 0 }]);
+      setPriorityData([
+        { name: 'Critical', value: priorities.Critical, color: 'hsl(0, 72%, 51%)' },
+        { name: 'High',     value: priorities.High,     color: 'hsl(38, 92%, 50%)' },
+        { name: 'Medium',   value: priorities.Medium,   color: 'hsl(199, 89%, 48%)' },
+        { name: 'Low',      value: priorities.Low,      color: 'hsl(215, 20%, 55%)' },
+      ]);
+      setSystemData(Object.entries(systems).map(([name, tasks]) => ({ name, tasks })));
+    } catch (err) {
+      console.error('Workload fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalTasks  = workloadData.reduce((sum, p) => sum + p.tasks, 0);
+  const totalHours  = workloadData.reduce((sum, p) => sum + p.hours, 0);
+  const avgCapacity = workloadData.length > 0
+    ? Math.round(workloadData.reduce((sum, p) => sum + p.capacity, 0) / workloadData.length)
+    : 0;
+
+  const getCapacityColor = (capacity: number) =>
+    capacity >= 90 ? 'text-red-400' : capacity >= 75 ? 'text-yellow-400' : 'text-green-400';
 
   return (
     <MainLayout>
@@ -34,62 +99,127 @@ const Workload = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl md:text-2xl font-bold">Staff Workload</h1>
-            <p className="text-sm text-muted-foreground">{workloadData.length} team members • {totalTasks} tasks • {totalHours} hours</p>
+            <p className="text-sm text-muted-foreground">
+              {workloadData.length} team members · {totalTasks} active tasks · {totalHours} estimated hours
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleWeek}><Calendar className="w-4 h-4 mr-2" /><span className="hidden sm:inline">This Week</span></Button>
-            <Button variant="outline" size="sm" onClick={handleFilter}><Filter className="w-4 h-4 mr-2" /><span className="hidden sm:inline">Filter</span></Button>
-            <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /><span className="hidden sm:inline">Export</span></Button>
+            <Button variant="outline" size="sm" onClick={fetchWorkload} disabled={loading}>
+              <RefreshCw className={cn('w-4 h-4 mr-2', loading && 'animate-spin')} />Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => toast({ title: 'Export', description: 'Exporting workload report...' })}>
+              <Download className="w-4 h-4 mr-2" />Export
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <div className="metric-card"><p className="text-xs md:text-sm text-muted-foreground">Total Tasks</p><p className="text-2xl md:text-3xl font-bold text-foreground mt-2">{totalTasks}</p></div>
-          <div className="metric-card"><p className="text-xs md:text-sm text-muted-foreground">Hours Allocated</p><p className="text-2xl md:text-3xl font-bold text-foreground mt-2">{totalHours}h</p></div>
-          <div className="metric-card"><p className="text-xs md:text-sm text-muted-foreground">Avg. Capacity</p><p className={cn("text-2xl md:text-3xl font-bold mt-2", averageCapacity >= 80 ? "text-critical" : averageCapacity >= 60 ? "text-warning" : "text-success")}>{averageCapacity}%</p></div>
-          <div className="metric-card"><p className="text-xs md:text-sm text-muted-foreground">Team Members</p><p className="text-2xl md:text-3xl font-bold text-foreground mt-2">{workloadData.length}</p></div>
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        ) : (
+          <>
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="glass-panel"><CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold">{totalTasks}</p>
+                <p className="text-xs text-muted-foreground">Active Tasks</p>
+              </CardContent></Card>
+              <Card className="glass-panel"><CardContent className="p-4 text-center">
+                <p className="text-2xl font-bold">{totalHours}h</p>
+                <p className="text-xs text-muted-foreground">Est. Hours</p>
+              </CardContent></Card>
+              <Card className="glass-panel"><CardContent className="p-4 text-center">
+                <p className={cn('text-2xl font-bold', getCapacityColor(avgCapacity))}>{avgCapacity}%</p>
+                <p className="text-xs text-muted-foreground">Avg Capacity</p>
+              </CardContent></Card>
+            </div>
 
-        <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
-          <div className="glass-panel p-4">
-            <h3 className="text-base md:text-lg font-semibold mb-4">Individual Workload</h3>
-            <div className="space-y-3 md:space-y-4">
-              {workloadData.map((person) => (
-                <div key={person.name} className="flex items-center gap-3 md:gap-4">
-                  <div className="w-24 md:w-32 shrink-0">
-                    <p className="text-xs md:text-sm font-medium truncate">{person.name}</p>
-                    <p className="text-xs text-muted-foreground">{person.tasks} tasks • {person.hours}h</p>
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-3 md:h-4 bg-muted/30 rounded-full overflow-hidden">
-                      <div className={cn("h-full rounded-full transition-all duration-500", person.capacity >= 80 ? "bg-critical" : person.capacity >= 60 ? "bg-warning" : "bg-success")} style={{ width: `${person.capacity}%` }} />
-                    </div>
-                  </div>
-                  <span className={cn("text-xs md:text-sm font-medium w-10 md:w-12 text-right shrink-0", person.capacity >= 80 ? "text-critical" : person.capacity >= 60 ? "text-warning" : "text-success")}>{person.capacity}%</span>
+            {/* Staff workload bar chart */}
+            <Card className="glass-panel">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  Workload by Staff Member
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={workloadData} layout="vertical">
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={100} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        formatter={(v: any, name: string) => [v, name === 'tasks' ? 'Tasks' : 'Hours']}
+                      />
+                      <Bar dataKey="tasks" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="tasks" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
-          </div>
+              </CardContent>
+            </Card>
 
-          <div className="glass-panel p-4">
-            <h3 className="text-base md:text-lg font-semibold mb-4">Priority Distribution</h3>
-            <div className="h-[200px] md:h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart><Pie data={priorityData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">{priorityData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip contentStyle={{ backgroundColor: 'hsl(222, 47%, 10%)', border: '1px solid hsl(222, 47%, 16%)', borderRadius: '8px', color: 'hsl(210, 40%, 96%)' }} /></PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-4">{priorityData.map((item) => <div key={item.name} className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} /><span className="text-xs text-muted-foreground">{item.name} ({item.value})</span></div>)}</div>
-          </div>
+            {/* Priority + System breakdown */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="glass-panel">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Priority Distribution</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}>
+                          {priorityData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <div className="glass-panel p-4 lg:col-span-2">
-            <h3 className="text-base md:text-lg font-semibold mb-4">Tasks by System</h3>
-            <div className="h-[180px] md:h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={systemData}><XAxis dataKey="name" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={{ stroke: 'hsl(222, 47%, 16%)' }} /><YAxis tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={{ stroke: 'hsl(222, 47%, 16%)' }} /><Tooltip contentStyle={{ backgroundColor: 'hsl(222, 47%, 10%)', border: '1px solid hsl(222, 47%, 16%)', borderRadius: '8px', color: 'hsl(210, 40%, 96%)' }} /><Bar dataKey="tasks" fill="hsl(199, 89%, 48%)" radius={[4, 4, 0, 0]} /></BarChart>
-              </ResponsiveContainer>
+              <Card className="glass-panel">
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Tasks by System</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={systemData}>
+                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                        <Bar dataKey="tasks" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </div>
+
+            {/* Staff capacity table */}
+            <Card className="glass-panel">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Staff Capacity Details</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {workloadData.map((person, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary shrink-0">
+                        {person.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{person.name}</p>
+                        <p className="text-xs text-muted-foreground">{person.tasks} tasks · {person.hours}h</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={cn('text-sm font-bold', getCapacityColor(person.capacity))}>{person.capacity}%</p>
+                        <p className="text-xs text-muted-foreground">capacity</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </MainLayout>
   );
