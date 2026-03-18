@@ -3,17 +3,29 @@ import { ArrowLeft, Send, Save, AlertCircle, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GlobalFields } from '@/components/forms/GlobalFields';
+
+// ── Existing forms ────────────────────────────────────────────────────────────
 import { BoilerForm, initialBoilerData, validateBoilerForm } from '@/components/forms/BoilerForm';
 import { ChillerForm, initialChillerData, validateChillerForm } from '@/components/forms/ChillerForm';
 import { PumpForm, initialPumpData, validatePumpForm } from '@/components/forms/PumpForm';
 import { AHUForm, initialAHUData, validateAHUForm } from '@/components/forms/AHUForm';
 import { TowerForm, initialTowerData, validateTowerForm } from '@/components/forms/TowerForm';
 import { EnergyForm, initialEnergyData, validateEnergyForm } from '@/components/forms/EnergyForm';
+
+// ── New forms ─────────────────────────────────────────────────────────────────
+import { HeatExchangerForm, initialHeatExchangerData, validateHeatExchangerForm } from '@/components/forms/HeatExchangerForm';
+import { TurbineForm, initialTurbineData, validateTurbineForm } from '@/components/forms/TurbineForm';
+import { HotWaterHeaterForm, initialHotWaterHeaterData, validateHotWaterHeaterForm } from '@/components/forms/HotWaterHeaterForm';
+import { CondensateSystemForm, initialCondensateSystemData, validateCondensateSystemForm } from '@/components/forms/CondensateSystemForm';
+import { GeneratorForm, initialGeneratorData, validateGeneratorForm } from '@/components/forms/GeneratorForm';
+import { ROSystemForm, initialROSystemData, validateROSystemForm } from '@/components/forms/ROSystemForm';
+import { WFISystemForm, initialWFISystemData, validateWFISystemForm } from '@/components/forms/WFISystemForm';
+
 import { Facility, Building, SystemInfo, Shift, MeasurementType } from '@/types/logging';
 import { getCurrentShift, mockUser } from '@/data/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { submitFacilityLog } from "@/lib/equipment-api";
+import { submitFacilityLog } from '@/lib/equipment-api';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +46,13 @@ interface LogEntryFormProps {
   onBack: () => void;
 }
 
-export function LogEntryForm({ facility, building, system, isEnergyLog = false, onBack }: LogEntryFormProps) {
+export function LogEntryForm({
+  facility,
+  building,
+  system,
+  isEnergyLog = false,
+  onBack,
+}: LogEntryFormProps) {
   const [shift, setShift] = useState<Shift>(getCurrentShift());
   const [notes, setNotes] = useState('');
   const [abnormalCondition, setAbnormalCondition] = useState(false);
@@ -44,17 +62,26 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Role-based access
   const { user: authUser } = useAuth();
   const permissions = useRoleAccess(authUser?.role || mockUser.role);
 
-  // Form data states
+  // ── Existing form state ───────────────────────────────────────────────────
   const [boilerData, setBoilerData] = useState(initialBoilerData);
   const [chillerData, setChillerData] = useState(initialChillerData);
   const [pumpData, setPumpData] = useState(initialPumpData);
   const [ahuData, setAHUData] = useState(initialAHUData);
   const [towerData, setTowerData] = useState(initialTowerData);
   const [energyData, setEnergyData] = useState(initialEnergyData);
+
+  // ── New form state ────────────────────────────────────────────────────────
+  const [heatExchangerData, setHeatExchangerData] = useState(initialHeatExchangerData);
+  const [turbineData, setTurbineData] = useState(initialTurbineData);
+  const [hotWaterHeaterData, setHotWaterHeaterData] = useState(initialHotWaterHeaterData);
+  const [condensateSystemData, setCondensateSystemData] = useState(initialCondensateSystemData);
+  const [generatorData, setGeneratorData] = useState(initialGeneratorData);
+  const [roSystemData, setROSystemData] = useState(initialROSystemData);
+  const [wfiSystemData, setWFISystemData] = useState(initialWFISystemData);
+
   // Block executives from accessing
   if (!permissions.hasAccess) {
     return (
@@ -73,28 +100,26 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
 
   const systemType = isEnergyLog ? 'energy' : system?.type;
 
+  // ── Validation ────────────────────────────────────────────────────────────
   const validateForm = () => {
     let formErrors: Record<string, string> = {};
 
     switch (systemType) {
-      case 'boiler':
-        formErrors = validateBoilerForm(boilerData);
-        break;
-      case 'chiller':
-        formErrors = validateChillerForm(chillerData);
-        break;
-      case 'pump':
-        formErrors = validatePumpForm(pumpData);
-        break;
-      case 'ahu':
-        formErrors = validateAHUForm(ahuData);
-        break;
-      case 'tower':
-        formErrors = validateTowerForm(towerData);
-        break;
-      case 'energy':
-        formErrors = validateEnergyForm(energyData);
-        break;
+      // Existing
+      case 'boiler':       formErrors = validateBoilerForm(boilerData); break;
+      case 'chiller':      formErrors = validateChillerForm(chillerData); break;
+      case 'pump':         formErrors = validatePumpForm(pumpData); break;
+      case 'ahu':          formErrors = validateAHUForm(ahuData); break;
+      case 'tower':        formErrors = validateTowerForm(towerData); break;
+      case 'energy':       formErrors = validateEnergyForm(energyData); break;
+      // New
+      case 'heat_exchanger':    formErrors = validateHeatExchangerForm(heatExchangerData); break;
+      case 'turbine':           formErrors = validateTurbineForm(turbineData); break;
+      case 'hot_water_heater':  formErrors = validateHotWaterHeaterForm(hotWaterHeaterData); break;
+      case 'condensate_system': formErrors = validateCondensateSystemForm(condensateSystemData); break;
+      case 'generator':         formErrors = validateGeneratorForm(generatorData); break;
+      case 'ro_system':         formErrors = validateROSystemForm(roSystemData); break;
+      case 'wfi_system':        formErrors = validateWFISystemForm(wfiSystemData); break;
     }
 
     setErrors(formErrors);
@@ -118,7 +143,23 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
     setShowConfirmDialog(false);
 
     try {
-      // Construct the log data payload
+      // ── Metrics payload — pick the right data object ───────────────────
+      const metricsMap: Record<string, any> = {
+        boiler:            boilerData,
+        chiller:           chillerData,
+        pump:              pumpData,
+        ahu:               ahuData,
+        tower:             towerData,
+        energy:            energyData,
+        heat_exchanger:    heatExchangerData,
+        turbine:           turbineData,
+        hot_water_heater:  hotWaterHeaterData,
+        condensate_system: condensateSystemData,
+        generator:         generatorData,
+        ro_system:         roSystemData,
+        wfi_system:        wfiSystemData,
+      };
+
       const logData = {
         facilityId: facility.id,
         buildingId: building.id,
@@ -131,18 +172,11 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
         measurementType,
         abnormalCondition,
         operatorNotes: notes,
-        metrics: isEnergyLog ? energyData : 
-                 systemType === 'boiler' ? boilerData :
-                 systemType === 'chiller' ? chillerData :
-                 systemType === 'pump' ? pumpData :
-                 systemType === 'ahu' ? ahuData :
-                 systemType === 'tower' ? towerData : {},
+        metrics: metricsMap[systemType ?? 'energy'] ?? {},
       };
 
       console.log('📤 Submitting log data:', logData);
-      
       const result = await submitFacilityLog(logData);
-      
       console.log('✅ Log submitted successfully:', result);
 
       const logName = isEnergyLog ? 'Energy & Utilities' : system?.name;
@@ -157,7 +191,10 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
       console.error('❌ Error submitting log:', error);
       toast({
         title: 'Submission Failed',
-        description: error instanceof Error ? error.message : 'Failed to submit log entry. Please try again.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to submit log entry. Please try again.',
         variant: 'destructive',
       });
       setIsSubmitting(false);
@@ -171,8 +208,10 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
     });
   };
 
+  // ── Form renderer ─────────────────────────────────────────────────────────
   const renderSystemForm = () => {
     switch (systemType) {
+      // Existing
       case 'boiler':
         return <BoilerForm data={boilerData} onChange={setBoilerData} errors={errors} />;
       case 'chiller':
@@ -185,13 +224,26 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
         return <TowerForm data={towerData} onChange={setTowerData} errors={errors} />;
       case 'energy':
         return <EnergyForm data={energyData} onChange={setEnergyData} errors={errors} />;
+      // New
+      case 'heat_exchanger':
+        return <HeatExchangerForm data={heatExchangerData} onChange={setHeatExchangerData} errors={errors} />;
+      case 'turbine':
+        return <TurbineForm data={turbineData} onChange={setTurbineData} errors={errors} />;
+      case 'hot_water_heater':
+        return <HotWaterHeaterForm data={hotWaterHeaterData} onChange={setHotWaterHeaterData} errors={errors} />;
+      case 'condensate_system':
+        return <CondensateSystemForm data={condensateSystemData} onChange={setCondensateSystemData} errors={errors} />;
+      case 'generator':
+        return <GeneratorForm data={generatorData} onChange={setGeneratorData} errors={errors} />;
+      case 'ro_system':
+        return <ROSystemForm data={roSystemData} onChange={setROSystemData} errors={errors} />;
+      case 'wfi_system':
+        return <WFISystemForm data={wfiSystemData} onChange={setWFISystemData} errors={errors} />;
       default:
         return (
           <div className="form-section text-center py-12">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              Unknown system type: {systemType}
-            </p>
+            <p className="text-muted-foreground">Unknown system type: {systemType}</p>
           </div>
         );
     }
@@ -208,7 +260,9 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
               <span className="hidden sm:inline">Back to Systems</span>
             </Button>
             <div className="text-right">
-              <h2 className="font-semibold">{isEnergyLog ? 'Energy & Utilities' : system?.name}</h2>
+              <h2 className="font-semibold">
+                {isEnergyLog ? 'Energy & Utilities' : system?.name}
+              </h2>
               <p className="text-xs text-muted-foreground font-mono">
                 {isEnergyLog ? 'Building-level Log' : system?.assetTag}
               </p>
@@ -280,7 +334,8 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Submission</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to submit a log entry for <strong>{isEnergyLog ? 'Energy & Utilities' : system?.name}</strong>.
+              You are about to submit a log entry for{' '}
+              <strong>{isEnergyLog ? 'Energy & Utilities' : system?.name}</strong>.
               {measurementType === 'estimated' && (
                 <span className="block mt-2 text-warning font-medium">
                   ⚠️ This entry is tagged as ESTIMATED data.
@@ -291,9 +346,7 @@ export function LogEntryForm({ facility, building, system, isEnergyLog = false, 
                   ⚠️ This entry is flagged as having an abnormal condition.
                 </span>
               )}
-              <span className="block mt-2">
-                Once submitted, this entry cannot be edited.
-              </span>
+              <span className="block mt-2">Once submitted, this entry cannot be edited.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
