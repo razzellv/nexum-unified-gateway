@@ -1,10 +1,23 @@
 export type UserRole = 'operator' | 'supervisor' | 'manager' | 'executive' | 'admin';
-
 export type MeasurementType = 'measured' | 'estimated';
-
-export type SystemType = 'boiler' | 'chiller' | 'pump' | 'ahu' | 'tower' | 'energy';
-
 export type Shift = 'day' | 'evening' | 'night';
+
+// ── SystemType — add new types here ──────────────────────────────────────────
+export type SystemType =
+  | 'boiler'
+  | 'chiller'
+  | 'pump'
+  | 'ahu'
+  | 'tower'
+  | 'energy'
+  // NEW
+  | 'heat_exchanger'
+  | 'hot_water_heater'
+  | 'turbine'
+  | 'condensate_system'
+  | 'generator'
+  | 'ro_system'
+  | 'wfi_system';
 
 export interface BaseLogEntry {
   id?: string;
@@ -39,7 +52,6 @@ export interface BoilerLog extends BaseLogEntry {
   blowdownPerformed: boolean;
 }
 
-// ... rest of interfaces stay the same
 export interface ChillerLog extends BaseLogEntry {
   systemType: 'chiller';
   chillerType: 'centrifugal' | 'screw' | 'scroll' | 'reciprocating' | 'absorption' | 'air-cooled';
@@ -91,7 +103,128 @@ export interface EnergyLog extends BaseLogEntry {
   fuelOilUsage?: number;
 }
 
-export type LogEntry = BoilerLog | ChillerLog | PumpLog | AHULog | TowerLog | EnergyLog;
+// ── NEW LOG INTERFACES ────────────────────────────────────────────────────────
+
+export interface HeatExchangerLog extends BaseLogEntry {
+  systemType: 'heat_exchanger';
+  primaryTempIn: number;
+  primaryTempOut: number;
+  secondaryTempIn: number;
+  secondaryTempOut: number;
+  primaryFlow: number;
+  differentialPressure?: number;
+  operationalStatus: 'normal' | 'reduced' | 'fouling' | 'offline';
+  foulingNotes?: string;
+  runtimeHours: number;
+  primaryPumpKw?: number;
+}
+
+export interface HotWaterHeaterLog extends BaseLogEntry {
+  systemType: 'hot_water_heater';
+  supplyTemp: number;
+  returnTemp: number;
+  setpointTemp: number;
+  verifiedFlow: number; // measured GPM, not rated
+  currentLoad: number;
+  inletPressure?: number;
+  blowdownPerformed: boolean;
+  runStatus: 'firing' | 'low-fire' | 'standby' | 'offline';
+  safetyStatus: 'normal' | 'alarm' | 'lockout';
+  runtimeHours: number;
+  gasConsumptionCCF?: number;
+  kwDraw?: number;
+}
+
+export interface TurbineLog extends BaseLogEntry {
+  systemType: 'turbine';
+  rpmReading: number;
+  outputKw: number;
+  inletSteamPressure: number;
+  exhaustPressure: number;
+  inletSteamTemp: number;
+  vibrationLevel: 'normal' | 'elevated' | 'high';
+  oilPressure: number;
+  runStatus: 'running' | 'standby' | 'tripped' | 'offline';
+  alarmStatus: 'none' | 'watch' | 'alarm' | 'trip';
+  runtimeHours: number;
+  steamFlowLbs?: number;
+}
+
+export interface CondensateSystemLog extends BaseLogEntry {
+  systemType: 'condensate_system';
+  waterLevel: 'low' | 'normal' | 'high';
+  tankTemperature: number;
+  conductivity?: number;
+  returnFlowObservation: 'normal' | 'reduced' | 'none';
+  pumpStatus: 'active' | 'inactive' | 'standby' | 'fault';
+  alarmStatus: 'none' | 'warning' | 'alarm';
+  runtimeHours: number;
+  pumpKw?: number;
+}
+
+export interface GeneratorLog extends BaseLogEntry {
+  systemType: 'generator';
+  runStatus: 'standby-ready' | 'running-load' | 'running-test' | 'fault' | 'offline';
+  outputKw: number;
+  voltage: number;
+  frequency: number;
+  fuelLevel: number;
+  coolantTemp: number;
+  oilPressure: number;
+  transferSwitchStatus: 'normal' | 'generator' | 'test';
+  alarmStatus: 'none' | 'warning' | 'alarm';
+  runtimeHours: number;
+  fuelConsumed?: number;
+}
+
+export interface ROSystemLog extends BaseLogEntry {
+  systemType: 'ro_system';
+  feedPressure: number;
+  productPressure: number;
+  rejectPressure?: number;
+  feedFlow: number;
+  productFlow: number;
+  rejectFlow: number;
+  feedTDS: number;
+  productTDS: number;
+  recoveryRate?: number;
+  operationalStatus: 'normal' | 'low-recovery' | 'high-tds' | 'fouling' | 'offline';
+  alarmStatus: 'none' | 'warning' | 'alarm';
+  runtimeHours: number;
+  pumpKw?: number;
+}
+
+export interface WFISystemLog extends BaseLogEntry {
+  systemType: 'wfi_system';
+  distributionTemp: number;
+  storageTemp: number;
+  conductivity: number;
+  toc: number;
+  productionRate?: number;
+  storageLevel: number;
+  loopPressure: number;
+  operationalStatus: 'normal' | 'out-of-spec' | 'sanitizing' | 'offline';
+  sanitizationStatus: 'current' | 'due' | 'overdue' | 'in-progress';
+  alarmStatus: 'none' | 'warning' | 'alarm';
+  runtimeHours: number;
+  pumpKw?: number;
+  heaterKw?: number;
+}
+
+export type LogEntry =
+  | BoilerLog
+  | ChillerLog
+  | PumpLog
+  | AHULog
+  | TowerLog
+  | EnergyLog
+  | HeatExchangerLog
+  | HotWaterHeaterLog
+  | TurbineLog
+  | CondensateSystemLog
+  | GeneratorLog
+  | ROSystemLog
+  | WFISystemLog;
 
 export interface Facility {
   id: string;
