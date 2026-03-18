@@ -1,7 +1,7 @@
 import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeftRight, Timer, Zap } from 'lucide-react';
+import { ArrowLeftRight, Zap, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HeatExchangerFormData {
@@ -15,7 +15,6 @@ interface HeatExchangerFormData {
   foulingNotes: string;
   // Energy
   runtimeHours: string;
-  primaryPumpKw: string;
 }
 
 interface HeatExchangerFormProps {
@@ -49,20 +48,18 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
   return (
     <div className="form-section animate-fade-in">
       <h3 className="font-semibold text-foreground flex items-center gap-2">
-        <div className="p-1.5 rounded-md bg-primary/20">
-          <ArrowLeftRight className="h-4 w-4 text-primary" />
+        <div className="p-1.5 rounded-md bg-blue-500/20">
+          <ArrowLeftRight className="h-4 w-4 text-blue-400" />
         </div>
         Heat Exchanger Operating Data
       </h3>
 
       {/* Primary Side */}
-      <div className="mt-4 pt-4 border-t border-border/50">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-          Primary Side
-        </p>
+      <div className="mt-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Primary Side</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
-            label="Primary Inlet Temp"
+            label="Primary In"
             name="primaryTempIn"
             type="number"
             value={data.primaryTempIn}
@@ -73,10 +70,10 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
             min={0}
             max={500}
             step={0.1}
-            placeholder="180"
+            placeholder="160"
           />
           <FormField
-            label="Primary Outlet Temp"
+            label="Primary Out"
             name="primaryTempOut"
             type="number"
             value={data.primaryTempOut}
@@ -87,7 +84,7 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
             min={0}
             max={500}
             step={0.1}
-            placeholder="140"
+            placeholder="130"
           />
           {/* Auto ΔT */}
           <div className="input-group">
@@ -98,19 +95,16 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
               </span>
               <span className="ml-auto text-xs text-muted-foreground">Auto</span>
             </div>
-            <p className="text-xs text-muted-foreground">In − Out</p>
           </div>
         </div>
       </div>
 
       {/* Secondary Side */}
-      <div className="mt-4 pt-4 border-t border-border/50">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-          Secondary Side
-        </p>
+      <div className="mt-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Secondary Side</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
-            label="Secondary Inlet Temp"
+            label="Secondary In"
             name="secondaryTempIn"
             type="number"
             value={data.secondaryTempIn}
@@ -121,10 +115,10 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
             min={0}
             max={500}
             step={0.1}
-            placeholder="120"
+            placeholder="60"
           />
           <FormField
-            label="Secondary Outlet Temp"
+            label="Secondary Out"
             name="secondaryTempOut"
             type="number"
             value={data.secondaryTempOut}
@@ -135,7 +129,7 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
             min={0}
             max={500}
             step={0.1}
-            placeholder="155"
+            placeholder="80"
           />
           <div className="input-group">
             <Label className="text-sm font-medium text-muted-foreground">Secondary ΔT</Label>
@@ -145,12 +139,10 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
               </span>
               <span className="ml-auto text-xs text-muted-foreground">Auto</span>
             </div>
-            <p className="text-xs text-muted-foreground">Out − In</p>
           </div>
         </div>
       </div>
 
-      {/* Flow & Pressure */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <FormField
           label="Primary Flow"
@@ -158,12 +150,10 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
           type="number"
           value={data.primaryFlow}
           onChange={(v) => updateField('primaryFlow', v)}
-          required
-          error={errors.primaryFlow}
           unit="GPM"
           min={0}
-          max={10000}
-          placeholder="350"
+          step={1}
+          placeholder="250"
         />
         <FormField
           label="Differential Pressure"
@@ -173,9 +163,8 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
           onChange={(v) => updateField('differentialPressure', v)}
           unit="PSI"
           min={0}
-          max={200}
           step={0.1}
-          placeholder="12.5"
+          placeholder="5.0"
         />
       </div>
 
@@ -187,36 +176,22 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
           </div>
           Energy & Runtime Data
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField
-            label="Runtime Hours"
-            name="runtimeHours"
-            type="number"
-            value={data.runtimeHours}
-            onChange={(v) => updateField('runtimeHours', v)}
-            required
-            error={errors.runtimeHours}
-            unit="hrs"
-            min={0}
-            max={24}
-            step={0.1}
-            placeholder="18.0"
-            icon={Timer}
-          />
-          <FormField
-            label="Primary Pump Power"
-            name="primaryPumpKw"
-            type="number"
-            value={data.primaryPumpKw}
-            onChange={(v) => updateField('primaryPumpKw', v)}
-            unit="kW"
-            min={0}
-            max={500}
-            step={0.1}
-            placeholder="12.5"
-            helperText="Associated pump motor kW"
-          />
-        </div>
+        <FormField
+          label="Runtime Hours"
+          name="runtimeHours"
+          type="number"
+          value={data.runtimeHours}
+          onChange={(v) => updateField('runtimeHours', v)}
+          required
+          error={errors.runtimeHours}
+          unit="hrs"
+          min={0}
+          max={24}
+          step={0.1}
+          placeholder="16.0"
+          icon={Timer}
+          helperText="Hours of operation this shift"
+        />
       </div>
 
       {/* Operational Status */}
@@ -225,42 +200,33 @@ export function HeatExchangerForm({ data, onChange, errors }: HeatExchangerFormP
           Operational Status <span className="text-destructive">*</span>
         </Label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {([
-            { value: 'normal', label: 'Normal' },
-            { value: 'reduced', label: 'Reduced Cap.' },
-            { value: 'fouling', label: 'High Fouling' },
-            { value: 'offline', label: 'Offline' },
-          ] as const).map((s) => (
+          {(['normal', 'reduced', 'fouling', 'offline'] as const).map((s) => (
             <button
-              key={s.value}
+              key={s}
               type="button"
-              onClick={() => updateField('operationalStatus', s.value)}
+              onClick={() => updateField('operationalStatus', s)}
               className={cn(
-                'p-3 rounded-lg border-2 font-medium text-sm transition-all',
-                data.operationalStatus === s.value
-                  ? statusColors[s.value]
+                'p-3 rounded-lg border-2 font-medium text-sm capitalize transition-all',
+                data.operationalStatus === s
+                  ? statusColors[s]
                   : 'bg-background/50 border-border/50 text-muted-foreground hover:border-border'
               )}
             >
-              {s.label}
+              {s === 'reduced' ? 'Reduced Cap.' : s === 'fouling' ? 'Fouling' : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
         </div>
-        {errors.operationalStatus && (
-          <p className="text-xs text-destructive">{errors.operationalStatus}</p>
-        )}
+        {errors.operationalStatus && <p className="text-xs text-destructive">{errors.operationalStatus}</p>}
       </div>
 
       {/* Fouling Notes */}
       <div className="input-group">
         <Label className="text-sm font-medium">Fouling / Condition Notes</Label>
-        <FormField
-          label=""
-          name="foulingNotes"
-          type="text"
+        <input
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
           value={data.foulingNotes}
-          onChange={(v) => updateField('foulingNotes', v)}
-          placeholder="Any deposits, blockage, abnormal readings..."
+          onChange={(e) => updateField('foulingNotes', e.target.value)}
+          placeholder="Any deposits, blockage, scale buildup observed..."
         />
       </div>
     </div>
@@ -277,29 +243,18 @@ export const initialHeatExchangerData: HeatExchangerFormData = {
   operationalStatus: '',
   foulingNotes: '',
   runtimeHours: '',
-  primaryPumpKw: '',
 };
 
 export function validateHeatExchangerForm(data: HeatExchangerFormData): Record<string, string> {
   const errors: Record<string, string> = {};
-
   if (!data.primaryTempIn) errors.primaryTempIn = 'Required';
   if (!data.primaryTempOut) errors.primaryTempOut = 'Required';
   if (!data.secondaryTempIn) errors.secondaryTempIn = 'Required';
   if (!data.secondaryTempOut) errors.secondaryTempOut = 'Required';
-  if (!data.primaryFlow) errors.primaryFlow = 'Required';
   if (!data.operationalStatus) errors.operationalStatus = 'Required';
   if (!data.runtimeHours) errors.runtimeHours = 'Required for energy tracking';
-
   if (data.runtimeHours && (Number(data.runtimeHours) < 0 || Number(data.runtimeHours) > 24)) {
     errors.runtimeHours = 'Must be 0-24 hours';
   }
-  if (data.primaryTempIn && (Number(data.primaryTempIn) < 0 || Number(data.primaryTempIn) > 500)) {
-    errors.primaryTempIn = 'Must be 0-500°F';
-  }
-  if (data.primaryTempOut && (Number(data.primaryTempOut) < 0 || Number(data.primaryTempOut) > 500)) {
-    errors.primaryTempOut = 'Must be 0-500°F';
-  }
-
   return errors;
 }
