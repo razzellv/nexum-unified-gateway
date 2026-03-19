@@ -16,7 +16,7 @@ import {
   Activity, AlertTriangle, CheckCircle, RefreshCw, Calendar,
   Wrench, Shield, Users, Gauge, Flame, Snowflake, Wind,
   Droplets, Waves, ClipboardList, TrendingUp, Clock, BarChart3,
-  Building2, Radio, Zap, HardHat, UserCog, Play, GitBranch,
+  Building2, Radio, Zap, HardHat, UserCog, GitBranch, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -127,7 +127,6 @@ export default function OperationCenter() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'workorders' | 'compliance' | 'personnel' | 'workflows'>('overview');
   const [recentWOs, setRecentWOs] = useState<any[]>([]);
-  const [runningId, setRunningId] = useState<string | null>(null);
   const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
@@ -165,32 +164,7 @@ export default function OperationCenter() {
     }
   }, [isAuthenticated, fetchData, fetchRecentWOs]);
 
-  const handleRunWorkflow = async (template: typeof WORKFLOW_TEMPLATES[0]) => {
-    setRunningId(template.id);
-    try {
-      const token = localStorage.getItem('nexum_access_token');
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/work-orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          title: `[WF] ${template.name}`,
-          systemType: template.system,
-          priority: 'high',
-          status: 'backlog',
-          facilityId: user?.facilityId,
-          estimatedHours: template.estimatedHours,
-          category: 'workflow',
-          workflowTemplate: template.name,
-        }),
-      });
-      toast({ title: 'Workflow Started', description: `"${template.name}" added to backlog` });
-      fetchRecentWOs();
-    } catch (err) {
-      toast({ title: 'Failed to start workflow', variant: 'destructive' });
-    } finally {
-      setRunningId(null);
-    }
-  };
+
 
   if (loading)            return <NexumPageLoader message="Authenticating..." />;
   if (error && !data)     return <NexumError message={error} onRetry={fetchData} />;
@@ -547,35 +521,32 @@ export default function OperationCenter() {
                   </Button>
                 </div>
 
-                {/* Templates */}
+                {/* Templates — read-only awareness */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {WORKFLOW_TEMPLATES.map(template => (
-                    <Card key={template.id} className="neon-border hover:border-primary/30 transition-colors">
+                    <Card key={template.id} className="neon-border">
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{template.icon}</span>
-                            <div>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl mt-0.5">{template.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
                               <p className="font-semibold text-sm">{template.name}</p>
-                              <p className="text-xs text-muted-foreground capitalize">{template.system} • {template.steps} steps • {template.estimatedHours}h est.</p>
+                              <Badge variant="outline" className="text-[10px] shrink-0">Built-in</Badge>
                             </div>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {template.system} system · {template.steps} steps · {template.estimatedHours}h estimated
+                            </p>
                           </div>
-                          <Badge variant="outline" className="text-xs shrink-0">Built-in</Badge>
+                          <Eye className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                         </div>
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleRunWorkflow(template)}
-                          disabled={runningId === template.id}
-                        >
-                          {runningId === template.id
-                            ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />Starting...</>
-                            : <><Play className="w-3.5 h-3.5 mr-1.5" />Run Workflow</>
-                          }
-                        </Button>
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/40 text-sm text-muted-foreground flex items-center gap-2">
+                  <Shield className="w-4 h-4 shrink-0" />
+                  Workflows are managed by supervisors and managers. Contact your supervisor to initiate a workflow.
                 </div>
 
                 {/* Recent WO activity from workflows */}
