@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Cpu, TrendingUp, CheckCircle, Clock, BarChart3, Trophy, Target, RefreshCw, Lightbulb, FileText, Activity, Zap } from 'lucide-react';
+import { NexumLoader } from '@/components/global/NexumLoader';
+import { apiRequest } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Cpu, TrendingUp, CheckCircle, Clock, BarChart3,
+  Trophy, Target, RefreshCw, Lightbulb, FileText,
+  Activity, Zap, AlertTriangle, Wrench,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const getGreeting = (user: any) => {
@@ -18,44 +25,35 @@ const getGreeting = (user: any) => {
 };
 
 const SimpleBarChart = ({ data }: { data: Array<{ date: string; count: number }> }) => {
-  if (!data || data.length === 0) return <div className="flex items-center justify-center h-32 text-muted-foreground"><p className="text-sm">No project activity for the last 7 days</p></div>;
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-muted-foreground">
+        <p className="text-sm">No activity in the last 7 days</p>
+      </div>
+    );
+  }
   const maxCount = Math.max(...data.map(d => d.count), 1);
   return (
     <div className="flex items-end justify-between gap-2 h-32">
       {data.map((item, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-2">
           <div className="flex-1 w-full flex items-end">
-            <div className={cn("w-full rounded-t transition-all duration-300", item.count > 0 ? "bg-gradient-to-t from-purple-500 to-purple-500/50" : "bg-muted/20")}
-              style={{ height: `${item.count > 0 ? (item.count / maxCount) * 100 : 10}%`, minHeight: '4px' }} />
+            <div
+              className={cn(
+                'w-full rounded-t transition-all duration-300',
+                item.count > 0 ? 'bg-gradient-to-t from-purple-500 to-purple-500/50' : 'bg-muted/20'
+              )}
+              style={{
+                height: `${item.count > 0 ? (item.count / maxCount) * 100 : 10}%`,
+                minHeight: '4px',
+              }}
+            />
           </div>
           <div className="text-center">
             <p className="text-xs font-semibold text-purple-500">{item.count}</p>
-            <p className="text-[10px] text-muted-foreground">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const ProjectProgress = () => {
-  const projects = [
-    { name: 'Boiler Efficiency Analysis', progress: 85, status: 'In Progress' },
-    { name: 'Chiller Optimization', progress: 60, status: 'In Progress' },
-    { name: 'Energy Audit Report', progress: 100, status: 'Completed' },
-    { name: 'HVAC System Upgrade', progress: 30, status: 'Planning' },
-  ];
-  return (
-    <div className="space-y-4">
-      {projects.map((project, i) => (
-        <div key={i} className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{project.name}</span>
-            <Badge variant={project.status === 'Completed' ? 'outline' : 'default'}>{project.status}</Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Progress value={project.progress} className="flex-1" />
-            <span className="text-sm font-semibold text-muted-foreground">{project.progress}%</span>
+            <p className="text-[10px] text-muted-foreground">
+              {new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}
+            </p>
           </div>
         </div>
       ))}
@@ -65,19 +63,92 @@ const ProjectProgress = () => {
 
 export default function EngineerDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { displayName, empId } = getGreeting(user);
-  const activeProjects = 3;
-  const completedProjects = 12;
-  const recommendations = 8;
-  const efficiencyGain = 14.5;
-  const activityData = Array.from({ length: 7 }, (_, i) => ({
-    date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
-    count: Math.floor(Math.random() * 4) + 1
-  }));
+
+  const [loading, setLoading] = useState(true);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [activityData, setActivityData] = useState<Array<{ date: string; count: number }>>([]);
+  const [violations, setViolations] = useState<any[]>([]);
+  const [equipmentCount, setEquipmentCount] = useState(0);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Work orders
+      const token = localStorage.getItem('nexum_access_token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
+      const [woRes, logsRes, violationsRes, eqRes] = await Promise.allSettled([
+        fetch(`${baseUrl}/work-orders`, { headers }),
+        fetch(`${baseUrl}/facility-logs?facilityId=${user?.facilityId}&limit=50`, { headers }),
+        fetch(`${baseUrl}/violations?facilityId=${user?.facilityId}`, { headers }),
+        fetch(`${baseUrl}/equipment?facility_id=${user?.facilityId}`, { headers }),
+      ]);
+
+      // Work orders
+      if (woRes.status === 'fulfilled' && woRes.value.ok) {
+        const d = await woRes.value.json();
+        setWorkOrders(d.workOrders || d.items || []);
+      }
+
+      // Activity — build 7-day chart from logs
+      if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
+        const d = await logsRes.value.json();
+        const logs: any[] = d.logs || d.items || [];
+        const last7 = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(Date.now() - (6 - i) * 86400000);
+          const dateStr = date.toISOString().split('T')[0];
+          const count = logs.filter(l => (l.timestamp || l.createdAt || '').startsWith(dateStr)).length;
+          return { date: dateStr, count };
+        });
+        setActivityData(last7);
+      } else {
+        // Fallback: empty chart (no random data)
+        setActivityData(
+          Array.from({ length: 7 }, (_, i) => ({
+            date: new Date(Date.now() - (6 - i) * 86400000).toISOString().split('T')[0],
+            count: 0,
+          }))
+        );
+      }
+
+      // Violations
+      if (violationsRes.status === 'fulfilled' && violationsRes.value.ok) {
+        const d = await violationsRes.value.json();
+        setViolations(d.violations || d.items || []);
+      }
+
+      // Equipment count
+      if (eqRes.status === 'fulfilled' && eqRes.value.ok) {
+        const d = await eqRes.value.json();
+        setEquipmentCount((d.equipment || d.items || []).length);
+      }
+    } catch (err) {
+      console.error('EngineerDashboard fetch error:', err);
+      toast({ title: 'Error', description: 'Failed to load some dashboard data', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.facilityId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Derived metrics
+  const activeWOs = workOrders.filter(wo => !['completed', 'closed', 'done'].includes(wo.status?.toLowerCase()));
+  const completedWOs = workOrders.filter(wo => ['completed', 'closed', 'done'].includes(wo.status?.toLowerCase()));
+  const overdueWOs = workOrders.filter(wo => wo.dueDate && new Date(wo.dueDate) < new Date() && !['completed', 'closed', 'done'].includes(wo.status?.toLowerCase()));
+  const openViolations = violations.filter(v => v.status?.toLowerCase() === 'open' || !v.status);
+  const recentWOs = [...workOrders].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 4);
 
   return (
     <MainLayout>
       <div className="space-y-6 p-6">
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
@@ -93,74 +164,215 @@ export default function EngineerDashboard() {
               </div>
             </div>
           </div>
-          <Button variant="outline" size="sm"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+            Refresh
+          </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-            <CardContent className="p-6 text-center">
-              <div className="mb-4"><div className="inline-flex p-4 rounded-full bg-purple-500/20 mb-4"><Trophy className="w-12 h-12 text-purple-500" /></div></div>
-              <h3 className="text-2xl font-bold mb-2">System Efficiency Impact</h3>
-              <p className="text-5xl font-bold text-purple-500">+{efficiencyGain}%</p>
-              <p className="text-muted-foreground mt-2">Facility-wide improvement</p>
-            </CardContent>
-          </Card>
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-            <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">Project Summary</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Active Projects</span><span className="text-2xl font-bold">{activeProjects}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Completed</span><span className="text-2xl font-bold text-green-500">{completedProjects}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Recommendations</span><span className="text-2xl font-bold text-yellow-500">{recommendations}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Technical Reviews</span><span className="text-2xl font-bold text-blue-500">5</span></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <NexumLoader message="Loading engineer data..." />
+          </div>
+        ) : (
+          <>
+            {/* Top 2 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-6 text-center">
+                  <div className="mb-4">
+                    <div className="inline-flex p-4 rounded-full bg-purple-500/20 mb-4">
+                      <Trophy className="w-12 h-12 text-purple-500" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Work Order Summary</h3>
+                  <p className="text-5xl font-bold text-purple-500">{completedWOs.length}</p>
+                  <p className="text-muted-foreground mt-2">Work orders completed</p>
+                </CardContent>
+              </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20"><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Projects This Month</p><p className="text-2xl font-bold text-purple-500">{activeProjects}</p></div><FileText className="w-8 h-8 text-purple-500 opacity-50" /></div></CardContent></Card>
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20"><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Avg Project Time</p><p className="text-2xl font-bold text-blue-500">12d</p></div><Clock className="w-8 h-8 text-blue-500 opacity-50" /></div></CardContent></Card>
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20"><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Systems Analyzed</p><p className="text-2xl font-bold text-orange-500">23</p></div><Target className="w-8 h-8 text-orange-500 opacity-50" /></div></CardContent></Card>
-          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20"><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Implementation Rate</p><p className="text-2xl font-bold text-green-500">87%</p></div><CheckCircle className="w-8 h-8 text-green-500 opacity-50" /></div></CardContent></Card>
-        </div>
-
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-          <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5 text-purple-500" />Project Activity (Last 7 Days)</CardTitle></CardHeader>
-          <CardContent><SimpleBarChart data={activityData} /></CardContent>
-        </Card>
-
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-5 h-5 text-purple-500" />Active Engineering Projects</CardTitle></CardHeader>
-          <CardContent><ProjectProgress /></CardContent>
-        </Card>
-
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Lightbulb className="w-5 h-5 text-yellow-500" />Recent Recommendations</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                <div className="flex items-center justify-between mb-2"><h3 className="font-medium">Optimize Boiler #3 Combustion</h3><Badge className="bg-yellow-500/20 text-yellow-500">Pending</Badge></div>
-                <p className="text-sm text-muted-foreground">Analysis shows 8% efficiency gain possible with air-fuel ratio adjustment</p>
-                <p className="text-xs text-muted-foreground mt-2">Submitted 2 days ago</p>
-              </div>
-              <div className="p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                <div className="flex items-center justify-between mb-2"><h3 className="font-medium">Chiller Condenser Cleaning Schedule</h3><Badge className="bg-green-500/20 text-green-500">Approved</Badge></div>
-                <p className="text-sm text-muted-foreground">Quarterly cleaning regimen will improve heat transfer by 12%</p>
-                <p className="text-xs text-muted-foreground mt-2">Approved 1 week ago</p>
-              </div>
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-6">
+                  <h3 className="font-semibold mb-4">Operations Summary</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Active Work Orders</span>
+                      <span className="text-2xl font-bold">{activeWOs.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Completed</span>
+                      <span className="text-2xl font-bold text-green-500">{completedWOs.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Open Violations</span>
+                      <span className={cn('text-2xl font-bold', openViolations.length > 0 ? 'text-orange-400' : 'text-green-500')}>
+                        {openViolations.length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Equipment Registered</span>
+                      <span className="text-2xl font-bold text-blue-500">{equipmentCount}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
-          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
-          <CardContent className="flex gap-2 flex-wrap">
-            <Button onClick={() => window.location.href = '/data-source'}><Activity className="w-4 h-4 mr-2" />View System Data</Button>
-            <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}>Technical Compliance</Button>
-            <Button variant="outline" onClick={() => window.location.href = '/messages'}>My Messages</Button>
-          </CardContent>
-        </Card>
+            {/* KPI Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Work Orders</p>
+                      <p className="text-2xl font-bold text-purple-500">{activeWOs.length}</p>
+                    </div>
+                    <FileText className="w-8 h-8 text-purple-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Overdue WOs</p>
+                      <p className={cn('text-2xl font-bold', overdueWOs.length > 0 ? 'text-destructive' : 'text-green-500')}>
+                        {overdueWOs.length}
+                      </p>
+                    </div>
+                    <Clock className="w-8 h-8 text-blue-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Equipment Registered</p>
+                      <p className="text-2xl font-bold text-orange-500">{equipmentCount}</p>
+                    </div>
+                    <Target className="w-8 h-8 text-orange-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Completed WOs</p>
+                      <p className="text-2xl font-bold text-green-500">{completedWOs.length}</p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-green-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Activity Chart */}
+            <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-purple-500" />
+                  Log Activity (Last 7 Days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SimpleBarChart data={activityData} />
+              </CardContent>
+            </Card>
+
+            {/* Recent Work Orders */}
+            <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-purple-500" />
+                  Recent Work Orders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recentWOs.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-sm py-6">No work orders found</p>
+                ) : (
+                  <div className="space-y-3">
+                    {recentWOs.map((wo, i) => {
+                      const isOverdue = wo.dueDate && new Date(wo.dueDate) < new Date() && !['completed', 'closed'].includes(wo.status?.toLowerCase());
+                      return (
+                        <div key={wo.workOrderId || wo.id || i} className="p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-medium text-sm">{wo.title || wo.description || 'Work Order'}</h3>
+                            <div className="flex gap-2">
+                              {isOverdue && (
+                                <Badge className="bg-destructive/20 text-destructive text-xs">Overdue</Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs capitalize">{wo.status || 'open'}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            {wo.priority && <span>Priority: <span className="capitalize">{wo.priority}</span></span>}
+                            {wo.assignedTo && <span>Assigned: {wo.assignedTo}</span>}
+                            {wo.dueDate && <span>Due: {new Date(wo.dueDate).toLocaleDateString()}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Open Violations */}
+            {openViolations.length > 0 && (
+              <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-orange-500/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-400" />
+                    Open Violations
+                    <Badge className="ml-auto bg-orange-500/20 text-orange-400 border-orange-500/30">
+                      {openViolations.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {openViolations.slice(0, 3).map((v, i) => (
+                      <div key={v.violationId || i} className="p-3 border border-orange-500/20 rounded-lg bg-orange-500/5">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-medium text-sm">{v.violationType || v.type || 'Violation'}</h3>
+                          <Badge className="bg-orange-500/20 text-orange-400 text-xs">Open</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{v.description || v.notes || ''}</p>
+                        {v.timestamp && (
+                          <p className="text-xs text-muted-foreground/60 mt-1">
+                            {new Date(v.timestamp).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+              <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+              <CardContent className="flex gap-2 flex-wrap">
+                <Button onClick={() => window.location.href = '/data-source'}>
+                  <Activity className="w-4 h-4 mr-2" />View System Data
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}>
+                  Technical Compliance
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/equipment-library'}>
+                  Equipment Library
+                </Button>
+                <Button variant="outline" onClick={() => window.location.href = '/messages'}>
+                  My Messages
+                </Button>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </MainLayout>
   );
