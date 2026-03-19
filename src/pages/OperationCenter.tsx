@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
 import { NexumError } from '@/components/global/NexumError';
 import { ExportButtons } from '@/components/global/ExportButtons';
@@ -41,10 +42,56 @@ interface OperationCenterData {
 // ─── Workflow templates (mirrors Workflows page) ───────────────────────────────
 
 const WORKFLOW_TEMPLATES = [
-  { id: 'tpl-1', name: 'Boiler Emergency Response', system: 'boiler', icon: '🔥', steps: 4, estimatedHours: 4.0 },
-  { id: 'tpl-2', name: 'Chiller Performance Issue', system: 'chiller', icon: '❄️', steps: 4, estimatedHours: 7.0 },
-  { id: 'tpl-3', name: 'PM Work Order Creation', system: 'general', icon: '🔧', steps: 5, estimatedHours: 3.25 },
-  { id: 'tpl-4', name: 'Compliance Violation Response', system: 'general', icon: '🛡️', steps: 5, estimatedHours: 4.0 },
+  {
+    id: 'tpl-1', name: 'Boiler Emergency Response', system: 'boiler', icon: '🔥',
+    estimatedHours: 4.0,
+    description: 'Standard response workflow for boiler alarms and failures.',
+    triggers: ['High stack temperature', 'Low water cutoff', 'Flame failure'],
+    steps: [
+      { name: 'Verify alarm and assess severity',     assignTo: 'Technician',  hours: 0.5 },
+      { name: 'Implement immediate safety measures',  assignTo: 'Supervisor',  hours: 1.0 },
+      { name: 'Contact vendor if required',           assignTo: 'Supervisor',  hours: 0.5 },
+      { name: 'Document and analyze root cause',      assignTo: 'Technician',  hours: 2.0 },
+    ],
+  },
+  {
+    id: 'tpl-2', name: 'Chiller Performance Issue', system: 'chiller', icon: '❄️',
+    estimatedHours: 7.0,
+    description: 'Workflow for chiller efficiency drops and performance issues.',
+    triggers: ['High discharge pressure', 'Low suction pressure', 'Efficiency drop >5%'],
+    steps: [
+      { name: 'Review operating parameters',            assignTo: 'Technician', hours: 1.0 },
+      { name: 'Check refrigerant levels and pressures', assignTo: 'Technician', hours: 2.0 },
+      { name: 'Inspect condenser and evaporator',       assignTo: 'Technician', hours: 3.0 },
+      { name: 'Schedule cleaning if required',          assignTo: 'Supervisor', hours: 1.0 },
+    ],
+  },
+  {
+    id: 'tpl-3', name: 'PM Work Order Creation', system: 'general', icon: '🔧',
+    estimatedHours: 3.25,
+    description: 'Preventive maintenance scheduling and assignment workflow.',
+    triggers: ['Scheduled PM date', 'Equipment hours threshold', 'Manual trigger'],
+    steps: [
+      { name: 'Generate PM work order',                assignTo: 'Supervisor',  hours: 0.25 },
+      { name: 'Assign to qualified technician',        assignTo: 'Manager',     hours: 0.25 },
+      { name: 'Confirm parts and materials available', assignTo: 'Technician',  hours: 0.5 },
+      { name: 'Execute PM and log readings',           assignTo: 'Technician',  hours: 2.0 },
+      { name: 'Manager sign-off and close WO',         assignTo: 'Manager',     hours: 0.25 },
+    ],
+  },
+  {
+    id: 'tpl-4', name: 'Compliance Violation Response', system: 'general', icon: '🛡️',
+    estimatedHours: 4.0,
+    description: 'Structured response workflow for compliance violations.',
+    triggers: ['Violation logged', 'Inspector finding', 'Self-audit result'],
+    steps: [
+      { name: 'Document violation details',        assignTo: 'Supervisor', hours: 0.5 },
+      { name: 'Notify relevant leadership',        assignTo: 'Supervisor', hours: 0.25 },
+      { name: 'Implement corrective action',       assignTo: 'Technician', hours: 2.0 },
+      { name: 'Verify correction and re-inspect',  assignTo: 'Engineer',   hours: 1.0 },
+      { name: 'Update compliance logger',          assignTo: 'Supervisor', hours: 0.25 },
+    ],
+  },
 ];
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -127,6 +174,7 @@ export default function OperationCenter() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'workorders' | 'compliance' | 'personnel' | 'workflows'>('overview');
   const [recentWOs, setRecentWOs] = useState<any[]>([]);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<typeof WORKFLOW_TEMPLATES[0] | null>(null);
   const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
@@ -521,10 +569,14 @@ export default function OperationCenter() {
                   </Button>
                 </div>
 
-                {/* Templates — read-only awareness */}
+                {/* Templates — click for detail */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {WORKFLOW_TEMPLATES.map(template => (
-                    <Card key={template.id} className="neon-border">
+                    <Card
+                      key={template.id}
+                      className="neon-border hover:border-primary/40 transition-colors cursor-pointer"
+                      onClick={() => setSelectedWorkflow(template)}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <span className="text-2xl mt-0.5">{template.icon}</span>
@@ -534,7 +586,10 @@ export default function OperationCenter() {
                               <Badge variant="outline" className="text-[10px] shrink-0">Built-in</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground capitalize">
-                              {template.system} system · {template.steps} steps · {template.estimatedHours}h estimated
+                              {template.system} · {template.steps.length} steps · {template.estimatedHours}h estimated
+                            </p>
+                            <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-1">
+                              {template.description}
                             </p>
                           </div>
                           <Eye className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -548,6 +603,69 @@ export default function OperationCenter() {
                   <Shield className="w-4 h-4 shrink-0" />
                   Workflows are managed by supervisors and managers. Contact your supervisor to initiate a workflow.
                 </div>
+
+                {/* Workflow Detail Dialog */}
+                <Dialog open={!!selectedWorkflow} onOpenChange={(o) => !o && setSelectedWorkflow(null)}>
+                  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                    {selectedWorkflow && (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <span className="text-xl">{selectedWorkflow.icon}</span>
+                            {selectedWorkflow.name}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                          {/* Description */}
+                          <p className="text-sm text-muted-foreground">{selectedWorkflow.description}</p>
+
+                          {/* Meta */}
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline" className="capitalize">{selectedWorkflow.system}</Badge>
+                            <Badge variant="outline">{selectedWorkflow.steps.length} steps</Badge>
+                            <Badge variant="outline">{selectedWorkflow.estimatedHours}h estimated</Badge>
+                          </div>
+
+                          {/* Triggers */}
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Triggers</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedWorkflow.triggers.map((t, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">{t}</Badge>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Steps */}
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Steps</p>
+                            <div className="space-y-2">
+                              {selectedWorkflow.steps.map((step, i) => (
+                                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0 mt-0.5">
+                                    {i + 1}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium">{step.name}</p>
+                                    <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground">
+                                      <span>Assigned to: {step.assignTo}</span>
+                                      <span>{step.hours}h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-muted/20 border border-border/40 text-xs text-muted-foreground flex items-center gap-2">
+                            <Shield className="w-3.5 h-3.5 shrink-0" />
+                            To initiate this workflow, contact your supervisor or manager.
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
 
                 {/* Recent WO activity from workflows */}
                 <Card className="neon-border">
