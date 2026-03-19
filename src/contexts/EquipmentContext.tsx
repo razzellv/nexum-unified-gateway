@@ -8,6 +8,8 @@ export interface ExtractedSpecs {
   Capacity?: string;
   Power?: string;
   Voltage?: string;
+  category?: string;   // Production, Operations, HVAC, etc.
+  assetRole?: string;  // active | supportive
   [key: string]: any;
 }
 
@@ -30,6 +32,8 @@ interface EquipmentItem {
   specs: ExtractedSpecs;
   confidence: number;
   documentType: string;
+  category: string;
+  assetRole: string;
   createdAt: string;
 }
 
