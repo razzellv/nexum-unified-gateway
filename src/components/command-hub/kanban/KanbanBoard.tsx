@@ -4,15 +4,14 @@ import { Task, TaskStatus } from '@/types/facility';
 import { useAuth } from '@/hooks/useAuth';
 
 const columns: { title: string; status: TaskStatus }[] = [
-  { title: 'Backlog',             status: 'backlog' },
-  { title: 'Ready',               status: 'ready' },
-  { title: 'In Progress',         status: 'in-progress' },
-  { title: 'Waiting for Vendor',  status: 'waiting-vendor' },
-  { title: 'QA/Verification',     status: 'qa' },
-  { title: 'Completed',           status: 'completed' },
+  { title: 'Backlog',            status: 'backlog' },
+  { title: 'Ready',              status: 'ready' },
+  { title: 'In Progress',        status: 'in-progress' },
+  { title: 'Waiting for Vendor', status: 'waiting-vendor' },
+  { title: 'QA/Verification',    status: 'qa' },
+  { title: 'Completed',          status: 'completed' },
 ];
 
-// Map WO status → Kanban status
 function mapStatus(woStatus: string): TaskStatus {
   const s = woStatus?.toLowerCase();
   if (s === 'completed' || s === 'done' || s === 'closed') return 'completed';
@@ -23,7 +22,6 @@ function mapStatus(woStatus: string): TaskStatus {
   return 'backlog';
 }
 
-// Map WO priority → Task priority
 function mapPriority(p: string): 'low' | 'medium' | 'high' | 'critical' {
   const v = p?.toLowerCase();
   if (v === 'critical' || v === 'emergency') return 'critical';
@@ -101,6 +99,7 @@ export function KanbanBoard() {
           title={column.title}
           status={column.status}
           tasks={getTasksByStatus(column.status)}
+          onTaskCreated={fetchTasks}
         />
       ))}
     </div>
