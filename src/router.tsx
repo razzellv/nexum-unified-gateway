@@ -47,6 +47,7 @@ import Settings from "./pages/command-hub/Settings";
 import Workload from "./pages/command-hub/Workload";
 
 import ProtectedRoute from "./auth/ProtectedRoute";
+import Courses from "./pages/Courses";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -234,7 +235,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "optimize-learn",
-            element: <ComingSoon title="Optimize & Learn" />,
+            element: <Courses />,
           },
         ],
       },

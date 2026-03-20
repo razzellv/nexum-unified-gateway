@@ -22,7 +22,8 @@ import {
   Network,
   Gauge,
   TrendingUp,
-  LogOut
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ const allNavItems = [
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all' },
+  { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership' },
   { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership' },
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership' },
