@@ -17,7 +17,8 @@ export type SystemType =
   | 'condensate_system'
   | 'generator'
   | 'ro_system'
-  | 'wfi_system';
+  | 'wfi_system'
+  | 'mpcc';
 
 export interface BaseLogEntry {
   id?: string;

@@ -85,6 +85,12 @@ const systemConfig: Record<SystemType, { icon: any; label: string; color: string
     color: 'text-tower',
     bgColor: 'bg-tower-muted border-tower/40',
   },
+  mpcc: {
+    icon: Zap,
+    label: 'MPCC (Main Power Control Centre)',
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-400/20 border-yellow-400/40',
+  },
   wfi_system: {
     icon: Beaker,
     label: 'WFI System',

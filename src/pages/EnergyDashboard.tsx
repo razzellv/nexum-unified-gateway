@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
 import { NexumError } from '@/components/global/NexumError';
 import { getEnergyDashboard } from "@/lib/nexum-api";
+import { MPCCPanel } from '@/components/energy/MPCCPanel';
 import { 
   Zap, 
   DollarSign, 
@@ -204,7 +205,7 @@ export default function EnergyDashboard() {
 
             {/* Utility Breakdown Tabs */}
             <Tabs defaultValue="electric" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="electric">
                   <Zap className="h-4 w-4 mr-2" />
                   Electric
@@ -217,6 +218,7 @@ export default function EnergyDashboard() {
                   <Droplets className="h-4 w-4 mr-2" />
                   Water
                 </TabsTrigger>
+                <TabsTrigger value="mpcc" className="flex items-center gap-2"><Zap className="w-4 h-4" /><span className="hidden md:inline">MPCC</span></TabsTrigger>
               </TabsList>
 
               {/* Electric Tab */}
@@ -418,6 +420,9 @@ export default function EnergyDashboard() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+              <TabsContent value="mpcc">
+                <MPCCPanel />
               </TabsContent>
             </Tabs>
 

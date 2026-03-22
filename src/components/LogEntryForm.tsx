@@ -20,6 +20,7 @@ import { CondensateSystemForm, initialCondensateSystemData, validateCondensateSy
 import { GeneratorForm, initialGeneratorData, validateGeneratorForm } from '@/components/forms/GeneratorForm';
 import { ROSystemForm, initialROSystemData, validateROSystemForm } from '@/components/forms/ROSystemForm';
 import { WFISystemForm, initialWFISystemData, validateWFISystemForm } from '@/components/forms/WFISystemForm';
+import { MPCCForm, initialMPCCData, validateMPCCForm } from '@/components/forms/MPCCForm';
 
 import { Facility, Building, SystemInfo, Shift, MeasurementType } from '@/types/logging';
 import { getCurrentShift, mockUser } from '@/data/mockData';
@@ -81,6 +82,7 @@ export function LogEntryForm({
   const [generatorData, setGeneratorData] = useState(initialGeneratorData);
   const [roSystemData, setROSystemData] = useState(initialROSystemData);
   const [wfiSystemData, setWFISystemData] = useState(initialWFISystemData);
+  const [mpccData, setMpccData] = useState(initialMPCCData);
 
   // Block executives from accessing
   if (!permissions.hasAccess) {
@@ -120,6 +122,7 @@ export function LogEntryForm({
       case 'generator':         formErrors = validateGeneratorForm(generatorData); break;
       case 'ro_system':         formErrors = validateROSystemForm(roSystemData); break;
       case 'wfi_system':        formErrors = validateWFISystemForm(wfiSystemData); break;
+      case 'mpcc':              formErrors = validateMPCCForm(mpccData); break;
     }
 
     setErrors(formErrors);
@@ -158,6 +161,7 @@ export function LogEntryForm({
         generator:         generatorData,
         ro_system:         roSystemData,
         wfi_system:        wfiSystemData,
+        mpcc:              mpccData,
       };
 
       const logData = {
@@ -238,7 +242,8 @@ export function LogEntryForm({
       case 'ro_system':
         return <ROSystemForm data={roSystemData} onChange={setROSystemData} errors={errors} />;
       case 'wfi_system':
-        return <WFISystemForm data={wfiSystemData} onChange={setWFISystemData} errors={errors} />;
+        return <WFISystemForm data={wfiSystemData} onChange={setWFISystemData} errors={errors} />;        
+      case 'mpcc':        return <MPCCForm data={mpccData} onChange={setMpccData} errors={errors} />;
       default:
         return (
           <div className="form-section text-center py-12">
