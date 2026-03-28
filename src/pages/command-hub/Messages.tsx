@@ -67,13 +67,23 @@ const Messages = () => {
     try {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const res = await fetch(`${baseUrl}/logs/latest?facilityId=facility-001&limit=50`, {
+      const facilityId = user?.facilityId || 'facility-001';
+      const res = await fetch(`${baseUrl}/messages?facilityId=${facilityId}&channel=${activeChannel === 'all' ? 'all' : activeChannel}&limit=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        const logs = data.logs || data.items || [];
-        setMessages(logs.map(logToMessage).reverse());
+        const msgs = data.messages || data.items || data.logs || [];
+        const normalized = msgs.map((m: any) => ({
+          id: m.messageId || m.logId || m.id,
+          author: m.senderName || m.operatorId || m.submittedBy || 'Unknown',
+          content: m.content || m.notes || m.description || m.action || '',
+          time: m.timestamp || m.createdAt || new Date().toISOString(),
+          channel: m.channel || m.logType || m.category || 'general',
+          location: m.location || m.facilityId || '',
+          role: m.role || '',
+        }));
+        setMessages(normalized.reverse());
       }
     } catch (err) {
       console.error('Messages fetch error:', err);
@@ -100,8 +110,10 @@ const Messages = () => {
           role: user?.role,
         }),
       });
+      const optimistic = { id: Date.now().toString(), author: user?.name || user?.email || 'You', content: messageInput, time: new Date().toISOString(), channel: activeChannel, location: '', role: user?.role || '' };
+      setMessages(prev => [...prev, optimistic]);
       setMessageInput('');
-      await fetchMessages();
+      setTimeout(() => fetchMessages(), 1000);
     } catch (err) {
       toast({ title: 'Send failed', variant: 'destructive' });
     } finally {
