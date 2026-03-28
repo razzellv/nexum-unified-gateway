@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle } from 'lucide-react';
+import { useEmergencyBroadcast } from '@/components/command-hub/emergency/EmergencyBroadcast';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
 interface DeclareEmergencyDialogProps {
@@ -23,16 +25,17 @@ const emergencyTypes = [
 ];
 
 export function DeclareEmergencyDialog({ open, onOpenChange, preselectedType }: DeclareEmergencyDialogProps) {
+  const { user } = useAuth();
+  const { declareEmergency } = useEmergencyBroadcast();
   const [type, setType] = useState(preselectedType || '');
   const [description, setDescription] = useState('');
 
   const handleSubmit = () => {
+    if (!type) { toast({ title: 'Select emergency type', variant: 'destructive' }); return; }
     const typeName = emergencyTypes.find(t => t.value === type)?.label || type;
-    toast({ 
-      title: 'Emergency Declared', 
-      description: `${typeName} emergency has been declared. Response team notified.`,
-      variant: 'destructive'
-    });
+    const facilityId = user?.facilityId || 'facility-001';
+    declareEmergency(type, typeName, description, user, facilityId);
+    toast({ title: 'Emergency Declared', description: `${typeName} has been broadcast to all staff.`, variant: 'destructive' });
     setType('');
     setDescription('');
     onOpenChange(false);

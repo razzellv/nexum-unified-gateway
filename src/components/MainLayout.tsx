@@ -8,6 +8,7 @@ import { RoleSelector } from '@/components/global/RoleSelector';
 import { NoAccessScreen } from '@/components/global/NoAccessScreen';
 import { ROLE_DEFINITIONS } from '@/lib/role-filters';
 import { PageWrapper } from '@/components/PageWrapper';
+import { EmergencyBroadcastPopup } from '@/components/command-hub/emergency/EmergencyBroadcast';
 
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();

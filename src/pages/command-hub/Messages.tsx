@@ -88,15 +88,16 @@ const Messages = () => {
     try {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      await fetch(`${baseUrl}/facility-log-ingest`, {
+      await fetch(`${baseUrl}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          notes: messageInput,
-          logType: activeChannel === 'all' ? 'general' : activeChannel,
+          content: messageInput,
+          channel: activeChannel === 'all' ? 'general' : activeChannel,
           facilityId: user?.facilityId,
-          submittedBy: user?.name || user?.email,
-          action: messageInput,
+          senderName: user?.name || user?.email,
+          senderId: user?.id || user?.sub,
+          role: user?.role,
         }),
       });
       setMessageInput('');

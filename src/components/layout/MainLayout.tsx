@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { AppSidebar } from './AppSidebar';
 import { Header } from './Header';
 import { SidebarProvider } from '@/contexts/SidebarContext';
+import { EmergencyBroadcastPopup } from '@/components/command-hub/emergency/EmergencyBroadcast';
 
 interface MainLayoutProps {
   children: ReactNode;
