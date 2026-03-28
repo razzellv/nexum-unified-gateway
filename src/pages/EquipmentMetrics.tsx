@@ -29,10 +29,14 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  Gauge
+  Gauge,
+  Brain,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { DecisionIntelligence } from '@/components/equipment/DecisionIntelligence';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const EQUIPMENT_TYPES = [
   { value: 'all', label: 'All Equipment', icon: Activity },
@@ -206,6 +210,13 @@ export default function EquipmentMetrics() {
       <ParticleBackground />
       
       <div className="relative z-10 space-y-6">
+        <Tabs defaultValue="logs" className="space-y-6">
+          <TabsList className="neon-border bg-card/50">
+            <TabsTrigger value="logs" className="flex items-center gap-2"><BarChart3 className="w-4 h-4" />Logs & Metrics</TabsTrigger>
+            <TabsTrigger value="intelligence" className="flex items-center gap-2"><Brain className="w-4 h-4" />Decision Intelligence</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="logs" className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -588,6 +599,19 @@ export default function EquipmentMetrics() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="intelligence" className="space-y-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Brain className="w-6 h-6 text-primary" />
+              <div>
+                <h2 className="text-xl font-bold">Decision Intelligence</h2>
+                <p className="text-sm text-muted-foreground">Pattern recognition across equipment logs — diagnosis, meaning, and defensible decisions</p>
+              </div>
+            </div>
+            <DecisionIntelligence logs={filteredLogs} />
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );
