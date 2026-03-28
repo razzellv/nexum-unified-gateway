@@ -181,7 +181,7 @@ export default function OperationCenter() {
     setError(null);
     setIsLoading(true);
     try {
-      const result = await apiRequest('/dashboard/employee');
+      const result = await apiRequest('/dashboard/manager');
       setData(result);
     } catch (err: any) {
       console.error('❌ Operation Center fetch failed:', err);
