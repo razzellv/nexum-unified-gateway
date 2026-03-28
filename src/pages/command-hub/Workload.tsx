@@ -27,29 +27,46 @@ const Workload = () => {
       const token = localStorage.getItem('nexum_access_token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
-      const res = await fetch(`${baseUrl}/work-orders`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [woRes, usersRes] = await Promise.all([
+        fetch(`${baseUrl}/work-orders`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${baseUrl}/users-list`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+      ]);
 
-      if (!res.ok) throw new Error('Failed to fetch work orders');
-      const data = await res.json();
+      if (!woRes.ok) throw new Error('Failed to fetch work orders');
+      const data = await woRes.json();
       const wos = data.workOrders || data.items || [];
 
+      // Build user ID -> name map from Cognito users
+      const usersData = usersRes?.ok ? await usersRes.json() : {};
+      const userMap: Record<string, string> = {};
+      (usersData.users || []).forEach((u: any) => {
+        const name = u.name || u.email || u.username || u.userId;
+        if (u.userId) userMap[u.userId] = name;
+        if (u.email) userMap[u.email] = name;
+        if (u.username) userMap[u.username] = name;
+      });
+
+      const resolveName = (assignedTo: string) => userMap[assignedTo] || assignedTo || 'Unassigned';
+
       // Aggregate by assignee
-      const byPerson: Record<string, { tasks: number; hours: number }> = {};
+      const byPerson: Record<string, { tasks: number; hours: number; wos: any[] }> = {};
       wos.filter((wo: any) => wo.status !== 'completed').forEach((wo: any) => {
-        const name = wo.assignedTo || wo.operatorId || 'Unassigned';
-        if (!byPerson[name]) byPerson[name] = { tasks: 0, hours: 0 };
+        const name = resolveName(wo.assignedTo || wo.operatorId || 'Unassigned');
+        if (!byPerson[name]) byPerson[name] = { tasks: 0, hours: 0, wos: [] };
         byPerson[name].tasks += 1;
         byPerson[name].hours += parseFloat(wo.estimatedHours || 4);
+        byPerson[name].wos.push(wo);
       });
 
       const workload = Object.entries(byPerson).map(([name, d]) => ({
-        name: name.length > 20 ? name.slice(0, 20) + '...' : name,
+        name: name.length > 22 ? name.slice(0, 22) + '...' : name,
         tasks: d.tasks,
         hours: Math.round(d.hours),
         capacity: Math.min(100, Math.round((d.hours / 40) * 100)),
-      }));
+        critical: d.wos.filter((w: any) => w.priority?.toLowerCase() === 'critical').length,
+        high: d.wos.filter((w: any) => w.priority?.toLowerCase() === 'high').length,
+        overdue: d.wos.filter((w: any) => w.dueDate && new Date(w.dueDate) < new Date()).length,
+      })).sort((a, b) => b.tasks - a.tasks);
 
       // Priority breakdown
       const priorities = { Critical: 0, High: 0, Medium: 0, Low: 0 };
@@ -207,7 +224,11 @@ const Workload = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{person.name}</p>
-                        <p className="text-xs text-muted-foreground">{person.tasks} tasks · {person.hours}h</p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground">{person.tasks} tasks · {person.hours}h</span>
+                          {person.critical > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{person.critical} critical</span>}
+                          {person.overdue > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-400/20 text-orange-400 border border-orange-400/30">{person.overdue} overdue</span>}
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
                         <p className={cn('text-sm font-bold', getCapacityColor(person.capacity))}>{person.capacity}%</p>
