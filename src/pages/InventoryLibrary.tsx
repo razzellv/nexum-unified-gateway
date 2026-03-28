@@ -16,7 +16,11 @@ import {
 import {
   Package, Search, AlertTriangle, TrendingUp, TrendingDown,
   Download, ArrowUpDown, Wrench, Zap, Wind, Hammer, Droplets, Cylinder, Box,
+  ClipboardList, CheckCircle, User, Clock, Plus, X, History,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -196,10 +200,38 @@ export default function InventoryLibrary() {
   const [sortField, setSortField] = useState<keyof InventoryPart>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [activeGroupFilter, setActiveGroupFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState('inventory');
+  const [checkoutLogs, setCheckoutLogs] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'); } catch { return []; }
+  });
+  const [checkoutForm, setCheckoutForm] = useState({ itemId: '', itemName: '', quantity: 1, checkedOutBy: '', job: '', notes: '', action: 'checkout' });
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => { fetchInventory(); }, []);
   useEffect(() => { filterAndSortInventory(); }, [inventory, searchTerm, categoryFilter, stockFilter, sortField, sortDirection, activeGroupFilter]);
+
+  const handleCheckout = (item: any, action: 'checkout' | 'checkin' | 'verify') => {
+    setSelectedItem(item);
+    setCheckoutForm({ itemId: item.partId || item.id, itemName: item.name, quantity: 1, checkedOutBy: '', job: '', notes: '', action });
+    setShowCheckoutModal(true);
+  };
+
+  const submitCheckout = () => {
+    if (!checkoutForm.checkedOutBy) { toast({ title: 'Name required', variant: 'destructive' }); return; }
+    const log = {
+      id: Date.now().toString(),
+      ...checkoutForm,
+      timestamp: new Date().toISOString(),
+      facilityId: localStorage.getItem('facilityId') || 'facility-001',
+    };
+    const updated = [log, ...checkoutLogs].slice(0, 500);
+    setCheckoutLogs(updated);
+    localStorage.setItem('inventory_checkout_logs', JSON.stringify(updated));
+    setShowCheckoutModal(false);
+    toast({ title: `Item ${checkoutForm.action === 'checkout' ? 'checked out' : checkoutForm.action === 'checkin' ? 'returned' : 'verified'}`, description: `${checkoutForm.itemName} — ${checkoutForm.checkedOutBy}` });
+  };
 
   const fetchInventory = async () => {
     setIsLoading(true);
@@ -456,6 +488,7 @@ export default function InventoryLibrary() {
                       </TableHead>
                     ))}
                     <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -487,6 +520,13 @@ export default function InventoryLibrary() {
                         <TableCell>
                           <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleCheckout(item, 'checkout')} className="px-2 py-1 text-[10px] rounded border border-orange-400/30 text-orange-400 hover:bg-orange-400/10 transition-colors">Out</button>
+                            <button onClick={() => handleCheckout(item, 'checkin')} className="px-2 py-1 text-[10px] rounded border border-green-400/30 text-green-400 hover:bg-green-400/10 transition-colors">Return</button>
+                            <button onClick={() => handleCheckout(item, 'verify')} className="px-2 py-1 text-[10px] rounded border border-blue-400/30 text-blue-400 hover:bg-blue-400/10 transition-colors">Verify</button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -496,6 +536,61 @@ export default function InventoryLibrary() {
           </CardContent>
         </Card>
       </div>
+    
+      {/* Inventory Logger Modal */}
+      {showCheckoutModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCheckoutModal(false)}>
+          <div className="glass-panel rounded-2xl border border-primary/30 p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg capitalize">{checkoutForm.action === 'checkin' ? 'Return Item' : checkoutForm.action === 'verify' ? 'Verify Item' : 'Check Out Item'}</h3>
+              <button onClick={() => setShowCheckoutModal(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-3">
+              {!selectedItem && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Item Name *</Label>
+                  <Input value={checkoutForm.itemName} onChange={e => setCheckoutForm(p => ({...p, itemName: e.target.value}))} placeholder="Part or item name" className="h-9 text-sm" />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Action</Label>
+                <div className="flex gap-2">
+                  {['checkout','checkin','verify'].map(a => (
+                    <button key={a} onClick={() => setCheckoutForm(p => ({...p, action: a}))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs border capitalize transition-all ${checkoutForm.action === a ? 'bg-primary/20 border-primary/50 text-primary' : 'border-border/30 text-muted-foreground'}`}>
+                      {a === 'checkin' ? 'Return' : a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Your Name *</Label>
+                  <Input value={checkoutForm.checkedOutBy} onChange={e => setCheckoutForm(p => ({...p, checkedOutBy: e.target.value}))} placeholder="Staff member name" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Quantity</Label>
+                  <Input type="number" min={1} value={checkoutForm.quantity} onChange={e => setCheckoutForm(p => ({...p, quantity: parseInt(e.target.value) || 1}))} className="h-9 text-sm" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Job / Work Order</Label>
+                <Input value={checkoutForm.job} onChange={e => setCheckoutForm(p => ({...p, job: e.target.value}))} placeholder="Job description or WO number" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Notes</Label>
+                <Textarea value={checkoutForm.notes} onChange={e => setCheckoutForm(p => ({...p, notes: e.target.value}))} placeholder="Condition, reason, additional details..." className="min-h-[60px] text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCheckoutModal(false)}>Cancel</Button>
+              <Button className="flex-1 bg-primary text-primary-foreground" onClick={submitCheckout}>
+                <CheckCircle className="w-4 h-4 mr-2" />Submit Log
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }

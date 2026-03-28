@@ -379,22 +379,52 @@ export default function SupervisorDashboard() {
                     workOrders.map((wo) => (
                       <div
                         key={wo.id}
-                        className="p-4 rounded-lg bg-muted/30 border border-border/50"
+                        className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-all"
                       >
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
                               <h4 className="font-medium">{wo.title}</h4>
                               <Badge variant={wo.priority === 'High' ? 'destructive' : wo.priority === 'Medium' ? 'default' : 'secondary'}>
                                 {wo.priority}
                               </Badge>
                               <Badge variant="outline">{wo.status}</Badge>
+                              {wo.category && <Badge variant="outline" className="text-xs border-primary/30 text-primary">{wo.category}</Badge>}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{wo.description}</p>
-                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                              <span>Equipment: {wo.equipment}</span>
-                              <span>Assigned: {wo.assignedTo || 'Unassigned'}</span>
-                              <span>Due: {wo.dueDate}</span>
+                            {wo.notes && (
+                              <div className="mt-2 p-2 rounded bg-yellow-400/5 border border-yellow-400/20">
+                                <p className="text-xs text-yellow-400 font-medium mb-0.5">Notes</p>
+                                <p className="text-xs text-muted-foreground">{wo.notes}</p>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                              <div className="p-2 rounded bg-muted/20 border border-border/20">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Equipment</p>
+                                <p className="text-xs font-medium mt-0.5 truncate">{wo.equipment || '—'}</p>
+                              </div>
+                              <div className="p-2 rounded bg-muted/20 border border-border/20">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Assigned To</p>
+                                <p className="text-xs font-medium mt-0.5 truncate">{wo.assignedTo || 'Unassigned'}</p>
+                              </div>
+                              <div className="p-2 rounded bg-muted/20 border border-border/20">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Due Date</p>
+                                <p className="text-xs font-medium mt-0.5">{wo.dueDate || '—'}</p>
+                              </div>
+                              <div className="p-2 rounded bg-muted/20 border border-border/20">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Hours</p>
+                                <p className="text-xs font-medium mt-0.5">{wo.estimatedHours ? `${wo.estimatedHours}h` : '—'}</p>
+                              </div>
+                            </div>
+                            {(wo.location || wo.building) && (
+                              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="text-primary">📍</span>
+                                <span>{[wo.building, wo.location].filter(Boolean).join(' — ')}</span>
+                              </div>
+                            )}
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-[10px] text-muted-foreground font-mono">#{wo.id?.slice(-8) || 'N/A'}</span>
+                              {wo.createdAt && <span className="text-[10px] text-muted-foreground">Created: {new Date(wo.createdAt).toLocaleDateString()}</span>}
                             </div>
                           </div>
                         </div>
