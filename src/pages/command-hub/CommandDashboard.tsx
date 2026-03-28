@@ -6,11 +6,13 @@ import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHeal
 import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
 import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 const CommandDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState([
     { label: 'Active Tasks', value: '--', change: 0, trend: 'stable', status: 'warning' },
     { label: 'Critical Issues', value: '--', change: 0, trend: 'stable', status: 'critical' },
@@ -148,6 +150,45 @@ const CommandDashboard = () => {
             <div className="grid md:grid-cols-2 gap-6">
               <SystemHealthChart />
               <WorkloadChart />
+            </div>
+          </div>
+        </div>
+
+        {/* Messages Quick Card */}
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <div className="md:col-span-2 border border-border/30 rounded-xl bg-card/50 p-4 space-y-3 cursor-pointer hover:border-primary/30 transition-all" onClick={() => navigate('/messages')}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <span className="font-semibold text-sm">Team Messages</span>
+              </div>
+              <span className="text-xs text-primary hover:underline">Open →</span>
+            </div>
+            <div className="space-y-1">
+              {[{ch: 'All Activity', msg: 'Click to view team messages and channels', time: 'now'}, {ch: 'Emergency Response', msg: 'Emergency channel — monitored 24/7', time: ''}, {ch: 'Maintenance Team', msg: 'Work orders and equipment coordination', time: ''}].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                  <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-medium text-muted-foreground">{item.ch}</span>
+                  <span className="text-xs text-muted-foreground/60 flex-1 truncate">— {item.msg}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/10 border border-border/20">
+              <Send className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Click to open full messaging hub...</span>
+            </div>
+          </div>
+          <div className="border border-border/30 rounded-xl bg-card/50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-primary" />
+              <span className="font-semibold text-sm">Quick Links</span>
+            </div>
+            <div className="space-y-2">
+              {[{label: 'Messages', path: '/messages', icon: MessageSquare}, {label: 'Work Orders', path: '/work-orders', icon: AlertTriangle}, {label: 'Emergency', path: '/emergency', icon: AlertTriangle}].map(({label, path, icon: Icon}) => (
+                <button key={path} onClick={() => navigate(path)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all text-left">
+                  <Icon className="w-4 h-4 shrink-0" />{label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
