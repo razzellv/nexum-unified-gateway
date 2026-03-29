@@ -12,7 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   Building2, Users, Wrench, Package, Zap, FileCheck,
   ChevronRight, ChevronLeft, CheckCircle, Plus, Trash2,
-  Upload, Flame, Loader2, X, Shield, DollarSign
+  Upload, Flame, Loader2, X, Shield, DollarSign, ShoppingCart, LayoutDashboard
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,6 +30,7 @@ const DEFAULT_DEPARTMENTS = ['Maintenance', 'Energy', 'Procurement', 'Operations
 const FISCAL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const STEPS = [
+  { id: 0, label: 'Org Type', icon: LayoutDashboard },
   { id: 1, label: 'Organization', icon: Building2 },
   { id: 2, label: 'Staff', icon: Users },
   { id: 3, label: 'Equipment', icon: Wrench },
@@ -39,6 +40,29 @@ const STEPS = [
   { id: 7, label: 'Utilities', icon: Zap },
   { id: 8, label: 'Audit Report', icon: FileCheck },
 ];
+
+const ORG_TYPES = [
+  {
+    value: 'facility',
+    label: 'Facility',
+    description: 'Commercial, industrial, healthcare, or institutional facilities with equipment, compliance, and energy management needs.',
+    icon: Building2,
+  },
+  {
+    value: 'retail',
+    label: 'Retail / Food Service',
+    description: 'Convenience stores, grocery, or food service operations requiring inventory, temperature logs, and health inspection tools.',
+    icon: ShoppingCart,
+  },
+  {
+    value: 'government',
+    label: 'Government / Public Safety',
+    description: 'Fire departments, police departments, EMS, and government agencies needing apparatus tracking, personnel certs, and response metrics.',
+    icon: Shield,
+  },
+] as const;
+
+type OrgTypeValue = 'facility' | 'retail' | 'government';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Onboarding() {
@@ -61,7 +85,8 @@ export default function Onboarding() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
+  const [orgType, setOrgType] = useState<OrgTypeValue | ''>('');
   const [submitting, setSubmitting] = useState(false);
 
   // Step 1 — Org
@@ -97,7 +122,7 @@ export default function Onboarding() {
   const [auditFile, setAuditFile] = useState<File | null>(null);
   const [auditMeta, setAuditMeta] = useState({ agency: '', inspectionDate: '', result: 'pass' });
 
-  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
+  const progress = (step / (STEPS.length - 1)) * 100;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   const addStaff = () => setStaff([...staff, { name: '', role: '', email: '' }]);
@@ -167,8 +192,8 @@ export default function Onboarding() {
 
   const totalDeptBudget = deptBudgets.reduce((sum, d) => sum + (parseFloat(d.annualBudget) || 0), 0);
 
-  const next = () => { if (step < STEPS.length) setStep(step + 1); };
-  const back = () => { if (step > 1) setStep(step - 1); };
+  const next = () => { if (step < STEPS.length - 1) setStep(step + 1); };
+  const back = () => { if (step > 0) setStep(step - 1); };
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
   const handleFinish = async () => {
@@ -239,16 +264,21 @@ export default function Onboarding() {
         });
       }
 
+      // Persist org type choice
+      if (orgType) localStorage.setItem('nexum_org_type', orgType);
+
       // Clear onboarding session flag after successful completion
       sessionStorage.removeItem('nexum_onboarding_verified');
       sessionStorage.removeItem('nexum_onboarding_session');
 
       toast({ title: 'Setup complete!', description: 'Your facility is ready. Welcome to Nexum Suum.' });
-      navigate('/');
+      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
+      navigate(destination);
     } catch (error) {
       console.error('Onboarding error:', error);
       toast({ title: 'Setup saved', description: 'Some steps may need completion. You can update settings anytime.', variant: 'destructive' });
-      navigate('/');
+      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
+      navigate(destination);
     } finally {
       setSubmitting(false);
     }
@@ -264,11 +294,11 @@ export default function Onboarding() {
           <span className="font-bold text-lg text-primary">Nexum Suum</span>
           <Badge variant="outline" className="text-xs">Facility Setup</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">Step {step} of {STEPS.length}</p>
+        {step > 0 && <p className="text-sm text-muted-foreground">Step {step} of {STEPS.length - 1}</p>}
       </div>
 
       {/* Progress */}
-      <div className="px-6 pt-4">
+      {step > 0 && <div className="px-6 pt-4">
         <Progress value={progress} className="h-1.5" />
         <div className="flex justify-between mt-3">
           {STEPS.map((s) => {
@@ -289,10 +319,51 @@ export default function Onboarding() {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* Content */}
       <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
+
+        {/* ── Step 0: Org Type ── */}
+        {step === 0 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">What type of organization are you?</h2>
+              <p className="text-muted-foreground mt-1">This helps us configure the right dashboard and tools for your team.</p>
+            </div>
+            <div className="grid gap-4">
+              {ORG_TYPES.map(opt => {
+                const Icon = opt.icon;
+                const selected = orgType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setOrgType(opt.value as OrgTypeValue)}
+                    className={`w-full text-left p-5 rounded-xl border-2 transition-all flex items-start gap-4 ${
+                      selected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border/40 bg-muted/10 hover:border-border hover:bg-muted/20'
+                    }`}
+                  >
+                    <div className={`p-2.5 rounded-lg shrink-0 ${selected ? 'bg-primary/20 text-primary' : 'bg-muted/30 text-muted-foreground'}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className={`font-semibold ${selected ? 'text-primary' : ''}`}>{opt.label}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{opt.description}</p>
+                    </div>
+                    {selected && <CheckCircle className="w-5 h-5 text-primary ml-auto shrink-0 mt-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end mt-4">
+              <Button onClick={next} disabled={!orgType}>
+                Continue <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── Step 1: Organization ── */}
         {step === 1 && (
@@ -769,20 +840,22 @@ export default function Onboarding() {
         )}
 
         {/* ── Navigation ── */}
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={back} disabled={step === 1}>
-            <ChevronLeft className="w-4 h-4 mr-2" />Back
-          </Button>
-          {step < STEPS.length ? (
-            <Button onClick={next}>
-              Next<ChevronRight className="w-4 h-4 ml-2" />
+        {step > 0 && (
+          <div className="flex justify-between mt-8">
+            <Button variant="outline" onClick={back} disabled={step === 0}>
+              <ChevronLeft className="w-4 h-4 mr-2" />Back
             </Button>
-          ) : (
-            <Button onClick={handleFinish} disabled={submitting} className="min-w-32">
-              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Setting up...</> : <>Launch Facility<ChevronRight className="w-4 h-4 ml-2" /></>}
-            </Button>
-          )}
-        </div>
+            {step < STEPS.length - 1 ? (
+              <Button onClick={next}>
+                Next<ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={handleFinish} disabled={submitting} className="min-w-32">
+                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Setting up...</> : <>Launch Facility<ChevronRight className="w-4 h-4 ml-2" /></>}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

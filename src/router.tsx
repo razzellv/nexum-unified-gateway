@@ -10,6 +10,7 @@ import Welcome from "./pages/Welcome";
 import Equipment from "./pages/Equipment";
 import ComplianceDocuments from "./pages/ComplianceDocuments";
 import RetailDashboard from "./pages/RetailDashboard";
+import GovernmentDashboard from "./pages/GovernmentDashboard";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import InventoryLibrary from "./pages/InventoryLibrary";
@@ -181,6 +182,10 @@ export const router = createBrowserRouter([
           {
             path: "retail-dashboard",
             element: <RetailDashboard />,
+          },
+          {
+            path: "government-dashboard",
+            element: <GovernmentDashboard />,
           },
           {
             path: "compliance-documents",

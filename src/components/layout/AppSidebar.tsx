@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -57,6 +57,7 @@ const allNavItems: { name?: string; href?: string; icon?: any; access: string; t
   { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
   { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
   { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory' },
+  { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory' },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
   { type: 'separator', name: 'Dashboards', access: 'all' },
