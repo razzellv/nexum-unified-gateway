@@ -23,8 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap
-} from 'lucide-react';
+  GraduationCap, ShoppingCart} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
