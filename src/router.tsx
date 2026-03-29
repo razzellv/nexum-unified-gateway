@@ -178,6 +178,14 @@ export const router = createBrowserRouter([
             path: "compliance-logger",
             element: <ComplianceLogger />,
           },
+          {
+            path: "retail-dashboard",
+            element: <RetailDashboard />,
+          },
+          {
+            path: "compliance-documents",
+            element: <ComplianceDocuments />,
+          },
           // Command Hub Routes
           {
             path: "command-hub",
