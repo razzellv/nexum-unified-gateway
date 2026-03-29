@@ -54,6 +54,7 @@ const HEALTH_CHECKS = [
 export default function RetailDashboard() {
   const { user } = useAuth();
   const { storeInfo } = useRetail();
+  const displayName = storeInfo.name || user?.facilityId ? 'My Store' : 'Retail Dashboard';
   const navigate = useNavigate();
 
   const [checklistType, setChecklistType] = useState<'open' | 'close'>('open');
@@ -66,7 +67,20 @@ export default function RetailDashboard() {
   });
 
   // Load real data from localStorage
-  const inventory = (() => { try { return JSON.parse(localStorage.getItem('nexum_inventory') || '[]'); } catch { return []; } })();
+  const inventory = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+      if (saved.length > 0) return saved;
+      // Mock data for demo/empty state
+      return [
+        { partId: 'r1', name: 'Whole Milk (1 Gallon)', category: 'dairy', itemType: 'food', quantity: 12, minQuantity: 6, reorderPoint: 6, location: 'Walk-in Cooler', expirationDate: new Date(Date.now() + 3*86400000).toISOString().split('T')[0], storageTemp: '35-38°F', fifoOrder: 1, unitCost: 3.99 },
+        { partId: 'r2', name: 'Orange Juice (64oz)', category: 'beverage', itemType: 'beverage', quantity: 8, minQuantity: 4, reorderPoint: 4, location: 'Cooler Section 2', expirationDate: new Date(Date.now() + 14*86400000).toISOString().split('T')[0], fifoOrder: 2, unitCost: 4.49 },
+        { partId: 'r3', name: 'Sliced Turkey (1lb)', category: 'deli', itemType: 'food', quantity: 3, minQuantity: 5, reorderPoint: 5, location: 'Deli Case', expirationDate: new Date(Date.now() + 1*86400000).toISOString().split('T')[0], storageTemp: '34-38°F', fifoOrder: 1, allergens: ['Gluten'], unitCost: 6.99 },
+        { partId: 'r4', name: 'Bread Loaf', category: 'bakery', itemType: 'food', quantity: 15, minQuantity: 8, location: 'Shelf B2', expirationDate: new Date(Date.now() + 5*86400000).toISOString().split('T')[0], fifoOrder: 1, unitCost: 2.99 },
+        { partId: 'r5', name: 'Paper Bags (500ct)', category: 'supply', itemType: 'supply', quantity: 2, minQuantity: 3, reorderPoint: 3, location: 'Storage Room', unitCost: 24.99 },
+      ];
+    } catch { return []; }
+  })();
   const tempLogs = (() => { try { return JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'); } catch { return []; } })();
   const checkoutLogs = (() => { try { return JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'); } catch { return []; } })();
 
@@ -123,7 +137,7 @@ export default function RetailDashboard() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShoppingCart className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold">{storeInfo.name || 'Retail Dashboard'}</h1>
+              <h1 className="text-2xl font-bold">{storeInfo.name || 'My Store'}</h1>
               <Badge variant="outline" className="border-primary/30 text-primary text-xs">Retail Mode</Badge>
             </div>
             <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
