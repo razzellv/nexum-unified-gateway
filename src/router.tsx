@@ -9,6 +9,7 @@ import Pricing from "./pages/Pricing";
 import Welcome from "./pages/Welcome";
 import Equipment from "./pages/Equipment";
 import ComplianceDocuments from "./pages/ComplianceDocuments";
+import RetailDashboard from "./pages/RetailDashboard";
 import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import InventoryLibrary from "./pages/InventoryLibrary";

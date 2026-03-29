@@ -17,6 +17,7 @@ import {
   Package, Search, AlertTriangle, TrendingUp, TrendingDown,
   Download, ArrowUpDown, Wrench, Zap, Wind, Hammer, Droplets, Cylinder, Box,
   ClipboardList, CheckCircle, User, Clock, Plus, X, History,
+  Thermometer, ShoppingCart, Calendar, AlertOctagon, RefreshCw,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -188,6 +189,19 @@ interface InventoryPart {
   compatibleEquipment?: string[];
   lastRestocked?: string;
   notes?: string;
+  // Retail/food fields
+  itemType?: 'part' | 'food' | 'beverage' | 'chemical' | 'supply' | 'retail';
+  expirationDate?: string;
+  shelfLifeDays?: number;
+  storageTemp?: string;
+  fifoOrder?: number;
+  batchNumber?: string;
+  reorderPoint?: number;
+  reorderQuantity?: number;
+  tempMin?: number;
+  tempMax?: number;
+  requiresRefrigeration?: boolean;
+  allergens?: string[];
 }
 
 export default function InventoryLibrary() {
@@ -206,6 +220,11 @@ export default function InventoryLibrary() {
   });
   const [checkoutForm, setCheckoutForm] = useState({ itemId: '', itemName: '', quantity: 1, checkedOutBy: '', job: '', notes: '', action: 'checkout' });
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [tempLogs, setTempLogs] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'); } catch { return []; }
+  });
+  const [showTempLog, setShowTempLog] = useState(false);
+  const [tempForm, setTempForm] = useState({ itemId: '', itemName: '', temp: '', unit: 'F', location: '', loggedBy: '', notes: '' });
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const { toast } = useToast();
 
@@ -231,6 +250,21 @@ export default function InventoryLibrary() {
     localStorage.setItem('inventory_checkout_logs', JSON.stringify(updated));
     setShowCheckoutModal(false);
     toast({ title: `Item ${checkoutForm.action === 'checkout' ? 'checked out' : checkoutForm.action === 'checkin' ? 'returned' : 'verified'}`, description: `${checkoutForm.itemName} — ${checkoutForm.checkedOutBy}` });
+  };
+
+  const submitTempLog = () => {
+    if (!tempForm.temp || !tempForm.loggedBy) return;
+    const log = { ...tempForm, id: Date.now().toString(), timestamp: new Date().toISOString() };
+    const updated = [log, ...tempLogs].slice(0, 200);
+    setTempLogs(updated);
+    localStorage.setItem('inventory_temp_logs', JSON.stringify(updated));
+    setShowTempLog(false);
+    setTempForm({ itemId: '', itemName: '', temp: '', unit: 'F', location: '', loggedBy: '', notes: '' });
+  };
+
+  const getDaysUntilExpiry = (expDate?: string) => {
+    if (!expDate) return null;
+    return Math.ceil((new Date(expDate).getTime() - Date.now()) / 86400000);
   };
 
   const fetchInventory = async () => {
@@ -586,6 +620,54 @@ export default function InventoryLibrary() {
               <Button variant="outline" className="flex-1" onClick={() => setShowCheckoutModal(false)}>Cancel</Button>
               <Button className="flex-1 bg-primary text-primary-foreground" onClick={submitCheckout}>
                 <CheckCircle className="w-4 h-4 mr-2" />Submit Log
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Temperature Log Modal */}
+      {showTempLog && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowTempLog(false)}>
+          <div className="bg-card border border-border/50 rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold flex items-center gap-2"><Thermometer className="w-5 h-5 text-blue-400" />Log Temperature</h3>
+              <button onClick={() => setShowTempLog(false)}><X className="w-5 h-5 text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Item / Location *</Label>
+                <Input value={tempForm.itemName} onChange={e => setTempForm(p => ({...p, itemName: e.target.value}))} placeholder="Walk-in cooler, storage room, product name..." className="h-9 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Temperature *</Label>
+                  <Input type="number" value={tempForm.temp} onChange={e => setTempForm(p => ({...p, temp: e.target.value}))} placeholder="38" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Unit</Label>
+                  <div className="flex gap-2">
+                    {['F','C'].map(u => (
+                      <button key={u} onClick={() => setTempForm(p => ({...p, unit: u}))}
+                        className={`flex-1 py-2 rounded-lg text-sm border transition-all ${tempForm.unit === u ? 'bg-primary/20 border-primary/50 text-primary' : 'border-border/30 text-muted-foreground'}`}>
+                        °{u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Logged By *</Label>
+                <Input value={tempForm.loggedBy} onChange={e => setTempForm(p => ({...p, loggedBy: e.target.value}))} placeholder="Staff member name" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Notes</Label>
+                <Input value={tempForm.notes} onChange={e => setTempForm(p => ({...p, notes: e.target.value}))} placeholder="Any observations..." className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowTempLog(false)}>Cancel</Button>
+              <Button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white" onClick={submitTempLog} disabled={!tempForm.temp || !tempForm.loggedBy}>
+                <Thermometer className="w-4 h-4 mr-2" />Log Temperature
               </Button>
             </div>
           </div>

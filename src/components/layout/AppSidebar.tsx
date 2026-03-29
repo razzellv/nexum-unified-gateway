@@ -29,45 +29,51 @@ import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
+import { TierBadge } from '@/components/global/TierGate';
+import { useTier } from '@/hooks/useTier';
+import type { TierFeature } from '@/config/tiers';
 
 const STAFF_ROLES = ['engineer', 'operator', 'technician', 'custodian', 'employee'];
 const LEADERSHIP_ROLES = ['admin', 'executive', 'manager', 'supervisor'];
 
-const allNavItems = [
+const allNavItems: { name?: string; href?: string; icon?: any; access: string; type?: string; tier?: TierFeature }[] = [
   { name: 'Main Hub', href: '/', icon: Home, access: 'all' },
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
-  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership' },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'leadership' },
-  { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'leadership' },
-  { name: 'Kanban', href: '/kanban', icon: Columns3, access: 'leadership' },
+  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
+  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
+  { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'leadership', tier: 'messages' },
+  { name: 'Kanban', href: '/kanban', icon: Columns3, access: 'leadership', tier: 'kanban' },
   { name: 'Emergency', href: '/emergency', icon: AlertOctagon, access: 'leadership' },
-  { name: 'Vendors', href: '/vendors', icon: Building2, access: 'leadership' },
-  { name: 'Calendar', href: '/calendar', icon: Calendar, access: 'leadership' },
-  { name: 'Workflows', href: '/workflows', icon: Workflow, access: 'leadership' },
-  { name: 'Workload', href: '/workload', icon: Users, access: 'leadership' },
+  { name: 'Vendors', href: '/vendors', icon: Building2, access: 'leadership', tier: 'vendors' },
+  { name: 'Calendar', href: '/calendar', icon: Calendar, access: 'leadership', tier: 'calendar' },
+  { name: 'Workflows', href: '/workflows', icon: Workflow, access: 'leadership', tier: 'operations_center' },
+  { name: 'Workload', href: '/workload', icon: Users, access: 'leadership', tier: 'workload' },
   { name: 'Settings', href: '/settings', icon: Settings, access: 'leadership' },
   { type: 'separator', name: 'Operations', access: 'all' },
   { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera, access: 'all' },
-  { name: 'Facility Data Source', href: '/data-source', icon: Upload, access: 'all' },
-  { name: 'Equipment Metrics', href: '/equipment', icon: Activity, access: 'all' },
-  { name: 'Equipment Library', href: '/equipment-library', icon: Package, access: 'all' },
-  { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all' },
+  { name: 'Facility Data Source', href: '/data-source', icon: Upload, access: 'all', tier: 'facility_data_source' },
+  { name: 'Equipment Metrics', href: '/equipment', icon: Activity, access: 'all', tier: 'equipment_metrics' },
+  { name: 'Equipment Library', href: '/equipment-library', icon: Package, access: 'all', tier: 'equipment_library' },
+  { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
+  { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
+  { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory' },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
-  { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all' },
+  { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
-  { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all' },
-  { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership' },
-  { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership' },
-  { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership' },
-  { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership' },
-  { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership' },
+  { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
+  { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
+  { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
+  { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
+  { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 ];
 
 export function AppSidebar() {
   const { collapsed } = useSidebar();
   const { userRole, logout } = useAuth();
+  const { can, isAdmin } = useTier();
 
   const isLeadership = LEADERSHIP_ROLES.includes(userRole || '');
 
@@ -116,6 +122,7 @@ export function AppSidebar() {
                 collapsed={collapsed}
               >
                 {item.name}
+                {!collapsed && item.tier && <TierBadge feature={item.tier} />}
               </NavLink>
             );
           })}
