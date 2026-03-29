@@ -420,155 +420,364 @@ export default function InventoryLibrary() {
           ))}
         </div>
 
-        {/* Category group tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {CATEGORY_GROUPS.map(group => {
-            const Icon = group.icon;
-            const isActive = activeGroupFilter === group.value;
-            return (
-              <button
-                key={group.value}
-                onClick={() => { setActiveGroupFilter(group.value); setCategoryFilter('all'); }}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all',
-                  isActive
-                    ? 'bg-primary/20 border-primary/50 text-primary'
-                    : 'bg-muted/30 border-border/40 text-muted-foreground hover:border-border'
-                )}
-              >
-                <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-primary' : group.color)} />
-                {group.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="bg-muted/30 border border-border/30">
+            <TabsTrigger value="inventory" className="flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5" />Inventory
+            </TabsTrigger>
+            <TabsTrigger value="logger" className="flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" />Inventory Logger
+            </TabsTrigger>
+            <TabsTrigger value="food-retail" className="flex items-center gap-1.5">
+              <ShoppingCart className="w-3.5 h-3.5" />Food &amp; Retail
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search parts, suppliers..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sub-category" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sub-Categories</SelectItem>
-              {subCategoryOptions.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={stockFilter} onValueChange={setStockFilter}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Stock level" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stock</SelectItem>
-              <SelectItem value="ok">In Stock</SelectItem>
-              <SelectItem value="low">Low Stock</SelectItem>
-              <SelectItem value="out">Out of Stock</SelectItem>
-            </SelectContent>
-          </Select>
-          <Badge variant="outline" className="flex items-center h-10 px-3">
-            {filteredInventory.length} item{filteredInventory.length !== 1 ? 's' : ''}
-          </Badge>
-        </div>
+          {/* ── Tab: Inventory ── */}
+          <TabsContent value="inventory" className="space-y-4 mt-0">
+            {/* Category group buttons */}
+            <div className="flex gap-2 flex-wrap">
+              {CATEGORY_GROUPS.map(group => {
+                const Icon = group.icon;
+                const isActive = activeGroupFilter === group.value;
+                return (
+                  <button
+                    key={group.value}
+                    onClick={() => { setActiveGroupFilter(group.value); setCategoryFilter('all'); }}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all',
+                      isActive
+                        ? 'bg-primary/20 border-primary/50 text-primary'
+                        : 'bg-muted/30 border-border/40 text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    <Icon className={cn('w-3.5 h-3.5', isActive ? 'text-primary' : group.color)} />
+                    {group.label}
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Table */}
-        <Card className="glass-panel">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Package className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                Loading inventory...
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search parts, suppliers..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            ) : filteredInventory.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No inventory items found</p>
-                <p className="text-sm mt-1">
-                  {searchTerm || categoryFilter !== 'all' || stockFilter !== 'all'
-                    ? 'Try adjusting your filters'
-                    : 'Add inventory items to get started'}
-                </p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {[
-                      { key: 'name', label: 'Name' },
-                      { key: 'category', label: 'Category' },
-                      { key: 'partNumber', label: 'Part #' },
-                      { key: 'quantity', label: 'Qty' },
-                      { key: 'location', label: 'Location' },
-                      { key: 'supplier', label: 'Supplier' },
-                      { key: 'unitCost', label: 'Unit Cost' },
-                    ].map(col => (
-                      <TableHead
-                        key={col.key}
-                        className="cursor-pointer hover:text-foreground transition-colors"
-                        onClick={() => handleSort(col.key as keyof InventoryPart)}
-                      >
-                        <div className="flex items-center gap-1">
-                          {col.label}
-                          {sortField === col.key && (
-                            <ArrowUpDown className="w-3 h-3" />
-                          )}
-                        </div>
-                      </TableHead>
-                    ))}
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInventory.map(item => {
-                    const stock = getStockStatus(item);
-                    const group = getCategoryGroup(item.category);
-                    const GroupIcon = group?.icon || Package;
-                    return (
-                      <TableRow key={item.partId} className="hover:bg-muted/20 transition-colors">
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <GroupIcon className={cn('w-3.5 h-3.5', group?.color || 'text-muted-foreground')} />
-                            <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{item.partNumber}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className={cn('font-bold', item.quantity === 0 ? 'text-destructive' : item.quantity <= item.minQuantity ? 'text-yellow-400' : 'text-foreground')}>
-                              {item.quantity}
-                            </span>
-                            <span className="text-xs text-muted-foreground">/ {item.minQuantity} min</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{item.location}</TableCell>
-                        <TableCell className="text-sm">{item.supplier}</TableCell>
-                        <TableCell className="text-sm">${item.unitCost?.toFixed(2) || '0.00'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleCheckout(item, 'checkout')} className="px-2 py-1 text-[10px] rounded border border-orange-400/30 text-orange-400 hover:bg-orange-400/10 transition-colors">Out</button>
-                            <button onClick={() => handleCheckout(item, 'checkin')} className="px-2 py-1 text-[10px] rounded border border-green-400/30 text-green-400 hover:bg-green-400/10 transition-colors">Return</button>
-                            <button onClick={() => handleCheckout(item, 'verify')} className="px-2 py-1 text-[10px] rounded border border-blue-400/30 text-blue-400 hover:bg-blue-400/10 transition-colors">Verify</button>
-                          </div>
-                        </TableCell>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Sub-category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sub-Categories</SelectItem>
+                  {subCategoryOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={stockFilter} onValueChange={setStockFilter}>
+                <SelectTrigger className="w-[150px]"><SelectValue placeholder="Stock level" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stock</SelectItem>
+                  <SelectItem value="ok">In Stock</SelectItem>
+                  <SelectItem value="low">Low Stock</SelectItem>
+                  <SelectItem value="out">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+              <Badge variant="outline" className="flex items-center h-10 px-3">
+                {filteredInventory.length} item{filteredInventory.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+
+            {/* Inventory Table */}
+            <Card className="glass-panel">
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <div className="p-12 text-center text-muted-foreground">
+                    <Package className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                    Loading inventory...
+                  </div>
+                ) : filteredInventory.length === 0 ? (
+                  <div className="p-12 text-center text-muted-foreground">
+                    <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No inventory items found</p>
+                    <p className="text-sm mt-1">
+                      {searchTerm || categoryFilter !== 'all' || stockFilter !== 'all'
+                        ? 'Try adjusting your filters'
+                        : 'Add inventory items to get started'}
+                    </p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {[
+                          { key: 'name', label: 'Name' },
+                          { key: 'category', label: 'Category' },
+                          { key: 'partNumber', label: 'Part #' },
+                          { key: 'quantity', label: 'Qty' },
+                          { key: 'location', label: 'Location' },
+                          { key: 'supplier', label: 'Supplier' },
+                          { key: 'unitCost', label: 'Unit Cost' },
+                        ].map(col => (
+                          <TableHead
+                            key={col.key}
+                            className="cursor-pointer hover:text-foreground transition-colors"
+                            onClick={() => handleSort(col.key as keyof InventoryPart)}
+                          >
+                            <div className="flex items-center gap-1">
+                              {col.label}
+                              {sortField === col.key && <ArrowUpDown className="w-3 h-3" />}
+                            </div>
+                          </TableHead>
+                        ))}
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInventory.map(item => {
+                        const stock = getStockStatus(item);
+                        const group = getCategoryGroup(item.category);
+                        const GroupIcon = group?.icon || Package;
+                        return (
+                          <TableRow key={item.partId} className="hover:bg-muted/20 transition-colors">
+                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <GroupIcon className={cn('w-3.5 h-3.5', group?.color || 'text-muted-foreground')} />
+                                <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">{item.partNumber}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span className={cn('font-bold', item.quantity === 0 ? 'text-destructive' : item.quantity <= item.minQuantity ? 'text-yellow-400' : 'text-foreground')}>
+                                  {item.quantity}
+                                </span>
+                                <span className="text-xs text-muted-foreground">/ {item.minQuantity} min</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{item.location}</TableCell>
+                            <TableCell className="text-sm">{item.supplier}</TableCell>
+                            <TableCell className="text-sm">${item.unitCost?.toFixed(2) || '0.00'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => handleCheckout(item, 'checkout')} className="px-2 py-1 text-[10px] rounded border border-orange-400/30 text-orange-400 hover:bg-orange-400/10 transition-colors">Out</button>
+                                <button onClick={() => handleCheckout(item, 'checkin')} className="px-2 py-1 text-[10px] rounded border border-green-400/30 text-green-400 hover:bg-green-400/10 transition-colors">Return</button>
+                                <button onClick={() => handleCheckout(item, 'verify')} className="px-2 py-1 text-[10px] rounded border border-blue-400/30 text-blue-400 hover:bg-blue-400/10 transition-colors">Verify</button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── Tab: Inventory Logger ── */}
+          <TabsContent value="logger" className="space-y-4 mt-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-primary" />Checkout / Return / Verify Log
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{checkoutLogs.length} entries stored locally</p>
+              </div>
+              <Button size="sm" variant="outline" className="border-border/50" onClick={() => { setSelectedItem(null); setCheckoutForm({ itemId: '', itemName: '', quantity: 1, checkedOutBy: '', job: '', notes: '', action: 'checkout' }); setShowCheckoutModal(true); }}>
+                <Plus className="w-4 h-4 mr-1.5" />Log Entry
+              </Button>
+            </div>
+
+            {checkoutLogs.length === 0 ? (
+              <Card className="glass-panel">
+                <CardContent className="p-12 text-center text-muted-foreground">
+                  <History className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No log entries yet</p>
+                  <p className="text-sm mt-1">Use the Check Out / Return / Verify buttons on inventory items to create log entries.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="glass-panel">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Staff Member</TableHead>
+                        <TableHead>Job / WO</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {checkoutLogs.map((log: any) => (
+                        <TableRow key={log.id} className="hover:bg-muted/20 text-sm">
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(log.timestamp).toLocaleString()}</div>
+                          </TableCell>
+                          <TableCell className="font-medium">{log.itemName}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={cn('text-[10px]',
+                              log.action === 'checkout' ? 'border-orange-400/30 text-orange-400' :
+                              log.action === 'checkin' ? 'border-green-400/30 text-green-400' :
+                              'border-blue-400/30 text-blue-400'
+                            )}>
+                              {log.action === 'checkin' ? 'Return' : log.action === 'verify' ? 'Verify' : 'Check Out'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{log.quantity}</TableCell>
+                          <TableCell className="flex items-center gap-1"><User className="w-3 h-3 text-muted-foreground" />{log.checkedOutBy}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{log.job || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{log.notes || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+          </TabsContent>
+
+          {/* ── Tab: Food & Retail ── */}
+          <TabsContent value="food-retail" className="space-y-4 mt-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-primary" />Food &amp; Retail Items
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Perishable items, FIFO tracking, and temperature logs</p>
+              </div>
+              <Button size="sm" variant="outline" className="border-border/50" onClick={() => setShowTempLog(true)}>
+                <Thermometer className="w-4 h-4 mr-1.5" />Log Temperature
+              </Button>
+            </div>
+
+            {/* Food inventory items */}
+            {(() => {
+              const foodItems = inventory.filter((i: InventoryPart) =>
+                i.itemType === 'food' || i.itemType === 'beverage' || i.itemType === 'retail' || i.itemType === 'supply' || i.expirationDate
+              );
+              return foodItems.length === 0 ? (
+                <Card className="glass-panel">
+                  <CardContent className="p-12 text-center text-muted-foreground">
+                    <ShoppingCart className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No food or retail items found</p>
+                    <p className="text-sm mt-1">Items with food, beverage, retail, or supply item types will appear here.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="glass-panel">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Expiry</TableHead>
+                          <TableHead>Storage Temp</TableHead>
+                          <TableHead>FIFO</TableHead>
+                          <TableHead>Allergens</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {foodItems.sort((a: InventoryPart, b: InventoryPart) => (a.fifoOrder || 99) - (b.fifoOrder || 99)).map((item: InventoryPart) => {
+                          const days = item.expirationDate
+                            ? Math.ceil((new Date(item.expirationDate).getTime() - Date.now()) / 86400000)
+                            : null;
+                          const expiryColor = days === null ? '' : days < 0 ? 'text-red-400' : days <= 3 ? 'text-orange-400' : days <= 7 ? 'text-yellow-400' : 'text-green-400';
+                          return (
+                            <TableRow key={item.partId} className={cn('hover:bg-muted/20 text-sm', days !== null && days <= 3 && 'bg-red-400/5')}>
+                              <TableCell className="font-medium">{item.name}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-[10px] capitalize">{item.itemType || 'item'}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <span className={cn('font-bold', item.quantity === 0 ? 'text-destructive' : item.quantity <= (item.minQuantity || 0) ? 'text-yellow-400' : '')}>
+                                  {item.quantity}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs">{item.location}</TableCell>
+                              <TableCell>
+                                {days !== null ? (
+                                  <span className={cn('text-xs font-medium', expiryColor)}>
+                                    {days < 0 ? 'EXPIRED' : days === 0 ? 'Today' : `${days}d`}
+                                    <span className="text-muted-foreground font-normal ml-1">({item.expirationDate})</span>
+                                  </span>
+                                ) : <span className="text-xs text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{item.storageTemp || '—'}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{item.fifoOrder ? `#${item.fifoOrder}` : '—'}</TableCell>
+                              <TableCell>
+                                {item.allergens?.length ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.allergens.map(a => <span key={a} className="text-[10px] px-1.5 py-0.5 rounded bg-orange-400/10 text-orange-400 border border-orange-400/20">{a}</span>)}
+                                  </div>
+                                ) : <span className="text-xs text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <button onClick={() => handleCheckout(item, 'checkout')} className="px-2 py-1 text-[10px] rounded border border-orange-400/30 text-orange-400 hover:bg-orange-400/10 transition-colors">Out</button>
+                                  <button onClick={() => { setTempForm(p => ({ ...p, itemId: item.partId, itemName: item.name })); setShowTempLog(true); }} className="px-2 py-1 text-[10px] rounded border border-blue-400/30 text-blue-400 hover:bg-blue-400/10 transition-colors">Temp</button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Temperature Logs */}
+            <Card className="glass-panel">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Thermometer className="w-4 h-4 text-blue-400" />Temperature Log History
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">{tempLogs.length} entries</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {tempLogs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No temperature logs yet. Use the &quot;Log Temperature&quot; button to record readings.</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {tempLogs.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 bg-muted/10 text-xs">
+                        <div>
+                          <p className="font-medium">{log.itemName}</p>
+                          <p className="text-muted-foreground">{log.loggedBy} · {log.location || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={cn('font-bold text-sm', parseFloat(log.temp) > 40 ? 'text-red-400' : parseFloat(log.temp) > 38 ? 'text-yellow-400' : 'text-green-400')}>
+                            {log.temp}°{log.unit}
+                          </p>
+                          <p className="text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     
       {/* Inventory Logger Modal */}
