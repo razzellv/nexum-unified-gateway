@@ -420,21 +420,31 @@ export default function InventoryLibrary() {
           ))}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-muted/30 border border-border/30">
-            <TabsTrigger value="inventory" className="flex items-center gap-1.5">
-              <Package className="w-3.5 h-3.5" />Inventory
-            </TabsTrigger>
-            <TabsTrigger value="logger" className="flex items-center gap-1.5">
-              <ClipboardList className="w-3.5 h-3.5" />Inventory Logger
-            </TabsTrigger>
-            <TabsTrigger value="food-retail" className="flex items-center gap-1.5">
-              <ShoppingCart className="w-3.5 h-3.5" />Food &amp; Retail
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          {/* Tab triggers */}
+          <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted/30 border border-border/30 p-1 gap-1">
+            {([
+              { value: 'inventory',   label: 'Inventory',         icon: Package },
+              { value: 'logger',      label: 'Inventory Logger',   icon: ClipboardList },
+              { value: 'food-retail', label: 'Food & Retail',      icon: ShoppingCart },
+            ] as const).map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setActiveTab(value)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
+                  activeTab === value
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />{label}
+              </button>
+            ))}
+          </div>
 
           {/* ── Tab: Inventory ── */}
-          <TabsContent value="inventory" className="space-y-4 mt-0">
+          {activeTab === 'inventory' && <div className="space-y-4">
             {/* Category group buttons */}
             <div className="flex gap-2 flex-wrap">
               {CATEGORY_GROUPS.map(group => {
@@ -582,10 +592,10 @@ export default function InventoryLibrary() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
           {/* ── Tab: Inventory Logger ── */}
-          <TabsContent value="logger" className="space-y-4 mt-0">
+          {activeTab === 'logger' && <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold flex items-center gap-2">
@@ -648,10 +658,10 @@ export default function InventoryLibrary() {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
+          </div>}
 
           {/* ── Tab: Food & Retail ── */}
-          <TabsContent value="food-retail" className="space-y-4 mt-0">
+          {activeTab === 'food-retail' && <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold flex items-center gap-2">
@@ -776,8 +786,8 @@ export default function InventoryLibrary() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>}
+        </div>
       </div>
     
       {/* Inventory Logger Modal */}
