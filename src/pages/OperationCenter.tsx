@@ -274,14 +274,14 @@ export default function OperationCenter() {
           <>
             {/* KPI Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              <KPICard label="Logs Today"    value={data.kpis.logsToday}        icon={Activity}      accent="text-neon-cyan" />
-              <KPICard label="Logs 7 Days"   value={data.kpis.logsLast7Days}    icon={TrendingUp}    accent="text-primary" />
-              <KPICard label="Open WOs"      value={data.kpis.openWorkOrders}   icon={ClipboardList} accent="text-yellow-400"
-                sub={data.kpis.overdueWorkOrders > 0 ? `${data.kpis.overdueWorkOrders} overdue` : undefined} />
-              <KPICard label="Overdue WOs"   value={data.kpis.overdueWorkOrders} icon={Clock}        accent={data.kpis.overdueWorkOrders > 0 ? 'text-destructive' : 'text-muted-foreground'} />
-              <KPICard label="Violations"    value={data.kpis.openViolations}   icon={AlertTriangle} accent={data.kpis.openViolations > 0 ? 'text-orange-400' : 'text-green-400'} />
-              <KPICard label="Equip. Online" value={`${data.kpis.equipmentOnline}/${data.kpis.equipmentTotal}`} icon={Gauge} accent="text-success" />
-              <KPICard label="Active Staff"  value={data.kpis.activeStaffToday} icon={Users}         accent="text-primary" sub="today" />
+              <KPICard label="Logs Today"    value={data.kpis?.logsToday ?? 0}         icon={Activity}      accent="text-neon-cyan" />
+              <KPICard label="Logs 7 Days"   value={data.kpis?.logsLast7Days ?? 0}    icon={TrendingUp}    accent="text-primary" />
+              <KPICard label="Open WOs"      value={data.kpis?.openWorkOrders ?? 0}   icon={ClipboardList} accent="text-yellow-400"
+                sub={(data.kpis?.overdueWorkOrders ?? 0) > 0 ? `${data.kpis?.overdueWorkOrders} overdue` : undefined} />
+              <KPICard label="Overdue WOs"   value={data.kpis?.overdueWorkOrders ?? 0} icon={Clock}        accent={(data.kpis?.overdueWorkOrders ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'} />
+              <KPICard label="Violations"    value={data.kpis?.openViolations ?? 0}   icon={AlertTriangle} accent={(data.kpis?.openViolations ?? 0) > 0 ? 'text-orange-400' : 'text-green-400'} />
+              <KPICard label="Equip. Online" value={`${data.kpis?.equipmentOnline ?? 0}/${data.kpis?.equipmentTotal ?? 0}`} icon={Gauge} accent="text-success" />
+              <KPICard label="Active Staff"  value={data.kpis?.activeStaffToday ?? 0} icon={Users}         accent="text-primary" sub="today" />
               <KPICard label="Total Staff"   value={data.personnelSummary?.totalFieldStaff || 0} icon={HardHat} />
             </div>
 
@@ -304,30 +304,30 @@ export default function OperationCenter() {
                     <CardTitle className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-primary" />
                       Today's Shift Summary
-                      <Badge variant="outline" className="ml-auto text-xs">{data.shiftSummary.date}</Badge>
+                      <Badge variant="outline" className="ml-auto text-xs">{data.shiftSummary?.date ?? '—'}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center p-4 rounded-lg bg-muted/30">
                         <Activity className="w-7 h-7 mx-auto mb-2 text-primary" />
-                        <p className="text-3xl font-bold">{data.shiftSummary.totalLogsToday}</p>
+                        <p className="text-3xl font-bold">{data.shiftSummary?.totalLogsToday ?? 0}</p>
                         <p className="text-xs text-muted-foreground mt-1">Logs Submitted</p>
                       </div>
                       <div className="text-center p-4 rounded-lg bg-muted/30">
                         <Gauge className="w-7 h-7 mx-auto mb-2 text-success" />
-                        <p className="text-3xl font-bold">{data.shiftSummary.equipmentChecked}</p>
+                        <p className="text-3xl font-bold">{data.shiftSummary?.equipmentChecked ?? 0}</p>
                         <p className="text-xs text-muted-foreground mt-1">Equipment Checked</p>
                       </div>
                       <div className="text-center p-4 rounded-lg bg-muted/30">
                         <Users className="w-7 h-7 mx-auto mb-2 text-neon-cyan" />
-                        <p className="text-3xl font-bold">{data.shiftSummary.activeOperators}</p>
+                        <p className="text-3xl font-bold">{data.shiftSummary?.activeOperators ?? 0}</p>
                         <p className="text-xs text-muted-foreground mt-1">Active Operators</p>
                       </div>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider">7-Day Activity</p>
-                      <ActivityBar data={data.shiftSummary.activityTimeline} />
+                      <ActivityBar data={data.shiftSummary?.activityTimeline || []} />
                     </div>
                   </CardContent>
                 </Card>
@@ -337,15 +337,15 @@ export default function OperationCenter() {
                     <CardTitle className="flex items-center gap-2">
                       <Activity className="w-5 h-5 text-primary" />
                       Recent Log Activity
-                      <Badge variant="outline" className="ml-auto">{data.recentLogsFeed.length} entries</Badge>
+                      <Badge variant="outline" className="ml-auto">{(data.recentLogsFeed || []).length} entries</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {data.recentLogsFeed.length === 0 ? (
+                    {(data.recentLogsFeed || []).length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No recent logs</p>
                     ) : (
                       <div className="space-y-2">
-                        {data.recentLogsFeed.map((log, i) => (
+                        {(data.recentLogsFeed || []).map((log, i) => (
                           <div key={log.logId || i} className={cn('flex items-start gap-3 p-3 rounded-lg border transition-all',
                             log.flagged ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/30 bg-muted/20 hover:border-primary/20')}>
                             <div className="mt-0.5"><EquipmentTypeIcon type={log.equipmentType} /></div>
@@ -372,10 +372,10 @@ export default function OperationCenter() {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { label: 'Active',         value: data.equipmentStatus.active,         color: 'text-green-400',        icon: CheckCircle },
-                    { label: 'Maintenance',    value: data.equipmentStatus.maintenance,    color: 'text-yellow-400',       icon: Wrench },
-                    { label: 'Decommissioned', value: data.equipmentStatus.decommissioned, color: 'text-muted-foreground', icon: AlertTriangle },
-                    { label: 'Baseline Set',   value: data.equipmentStatus.withBaseline,   color: 'text-primary',          icon: TrendingUp },
+                    { label: 'Active',         value: data.equipmentStatus?.active         ?? 0, color: 'text-green-400',        icon: CheckCircle },
+                    { label: 'Maintenance',    value: data.equipmentStatus?.maintenance    ?? 0, color: 'text-yellow-400',       icon: Wrench },
+                    { label: 'Decommissioned', value: data.equipmentStatus?.decommissioned ?? 0, color: 'text-muted-foreground', icon: AlertTriangle },
+                    { label: 'Baseline Set',   value: data.equipmentStatus?.withBaseline   ?? 0, color: 'text-primary',          icon: TrendingUp },
                   ].map(({ label, value, color, icon: Icon }) => (
                     <Card key={label} className="neon-border">
                       <CardContent className="p-4 flex items-center gap-3">
@@ -388,12 +388,12 @@ export default function OperationCenter() {
                 <Card className="neon-border">
                   <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5 text-primary" />Equipment by Type</CardTitle></CardHeader>
                   <CardContent>
-                    {data.equipmentStatus.byType.length === 0 ? (
+                    {(data.equipmentStatus?.byType || []).length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No equipment data</p>
                     ) : (
                       <div className="space-y-3">
-                        {data.equipmentStatus.byType.map((eq) => {
-                          const pct = data.equipmentStatus.total > 0 ? (eq.total / data.equipmentStatus.total) * 100 : 0;
+                        {(data.equipmentStatus?.byType || []).map((eq) => {
+                          const pct = (data.equipmentStatus?.total ?? 0) > 0 ? (eq.total / data.equipmentStatus!.total) * 100 : 0;
                           return (
                             <div key={eq.type} className="space-y-1.5">
                               <div className="flex items-center justify-between text-sm">
@@ -420,11 +420,11 @@ export default function OperationCenter() {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {[
-                    { label: 'Total',       value: data.workOrdersSummary.total,       color: 'text-foreground' },
-                    { label: 'Open',        value: data.workOrdersSummary.open,         color: 'text-blue-400' },
-                    { label: 'In Progress', value: data.workOrdersSummary.inProgress,   color: 'text-yellow-400' },
-                    { label: 'Completed',   value: data.workOrdersSummary.completed,    color: 'text-green-400' },
-                    { label: 'Overdue',     value: data.workOrdersSummary.overdue,      color: data.workOrdersSummary.overdue > 0 ? 'text-destructive' : 'text-muted-foreground' },
+                    { label: 'Total',       value: data.workOrdersSummary?.total      ?? 0, color: 'text-foreground' },
+                    { label: 'Open',        value: data.workOrdersSummary?.open       ?? 0, color: 'text-blue-400' },
+                    { label: 'In Progress', value: data.workOrdersSummary?.inProgress ?? 0, color: 'text-yellow-400' },
+                    { label: 'Completed',   value: data.workOrdersSummary?.completed  ?? 0, color: 'text-green-400' },
+                    { label: 'Overdue',     value: data.workOrdersSummary?.overdue    ?? 0, color: (data.workOrdersSummary?.overdue ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground' },
                   ].map(({ label, value, color }) => (
                     <Card key={label} className="neon-border"><CardContent className="p-4 text-center"><p className={cn('text-3xl font-bold', color)}>{value}</p><p className="text-xs text-muted-foreground mt-1">{label}</p></CardContent></Card>
                   ))}
@@ -432,11 +432,11 @@ export default function OperationCenter() {
                 <Card className="neon-border">
                   <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardList className="w-5 h-5 text-primary" />Recent Work Orders</CardTitle></CardHeader>
                   <CardContent>
-                    {data.workOrdersSummary.recent.length === 0 ? (
+                    {(data.workOrdersSummary?.recent || []).length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No work orders found</p>
                     ) : (
                       <div className="space-y-3">
-                        {data.workOrdersSummary.recent.map((wo) => (
+                        {(data.workOrdersSummary?.recent || []).map((wo) => (
                           <div key={wo.id} className="p-4 rounded-lg bg-muted/30 border border-border/40 hover:border-primary/30 transition-all">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
@@ -467,22 +467,22 @@ export default function OperationCenter() {
               <div className="space-y-6">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { label: 'Violations (30d)',  value: data.complianceSummary.totalViolations30d, color: 'text-foreground', icon: Shield },
-                    { label: 'Open Violations',   value: data.complianceSummary.openViolations,     color: data.complianceSummary.openViolations > 0 ? 'text-orange-400' : 'text-green-400', icon: AlertTriangle },
-                    { label: 'Critical',          value: data.complianceSummary.criticalViolations, color: data.complianceSummary.criticalViolations > 0 ? 'text-destructive' : 'text-green-400', icon: Zap },
-                    { label: 'Flagged Logs (7d)', value: data.complianceSummary.flaggedLogs7d,      color: 'text-yellow-400', icon: Activity },
+                    { label: 'Violations (30d)',  value: data.complianceSummary?.totalViolations30d ?? 0, color: 'text-foreground', icon: Shield },
+                    { label: 'Open Violations',   value: data.complianceSummary?.openViolations     ?? 0, color: (data.complianceSummary?.openViolations ?? 0) > 0 ? 'text-orange-400' : 'text-green-400', icon: AlertTriangle },
+                    { label: 'Critical',          value: data.complianceSummary?.criticalViolations ?? 0, color: (data.complianceSummary?.criticalViolations ?? 0) > 0 ? 'text-destructive' : 'text-green-400', icon: Zap },
+                    { label: 'Flagged Logs (7d)', value: data.complianceSummary?.flaggedLogs7d      ?? 0, color: 'text-yellow-400', icon: Activity },
                   ].map(({ label, value, color, icon: Icon }) => (
                     <Card key={label} className="neon-border"><CardContent className="p-4 flex items-center gap-3"><Icon className={cn('w-8 h-8 opacity-70', color)} /><div><p className={cn('text-2xl font-bold', color)}>{value}</p><p className="text-xs text-muted-foreground">{label}</p></div></CardContent></Card>
                   ))}
                 </div>
                 <Card className="neon-border">
-                  <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5 text-primary" />Compliance Events<Badge variant="outline" className="ml-auto">{data.complianceSummary.events.length}</Badge></CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5 text-primary" />Compliance Events<Badge variant="outline" className="ml-auto">{(data.complianceSummary?.events || []).length}</Badge></CardTitle></CardHeader>
                   <CardContent>
-                    {data.complianceSummary.events.length === 0 ? (
+                    {(data.complianceSummary?.events || []).length === 0 ? (
                       <div className="text-center py-8"><CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-2" /><p className="text-muted-foreground">No compliance issues — all clear</p></div>
                     ) : (
                       <div className="space-y-3">
-                        {data.complianceSummary.events.map((event, i) => (
+                        {(data.complianceSummary?.events || []).map((event, i) => (
                           <div key={event.id || i} className={cn('p-4 rounded-lg border transition-all',
                             event.severity >= 4 ? 'border-destructive/50 bg-destructive/5 animate-pulse' :
                             event.severity >= 3 ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/40 bg-muted/20')}>
@@ -513,22 +513,22 @@ export default function OperationCenter() {
             {activeTab === 'personnel' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  {Object.entries(data.personnelSummary.byRole).map(([role, count]) => {
+                  {Object.entries(data.personnelSummary?.byRole || {}).map(([role, count]) => {
                     const Icon = getRoleIcon(role);
                     return (
                       <Card key={role} className="neon-border"><CardContent className="p-4 flex items-center gap-3"><Icon className="w-8 h-8 text-primary opacity-70" /><div><p className="text-2xl font-bold text-primary">{count}</p><p className="text-xs text-muted-foreground capitalize">{role}s</p></div></CardContent></Card>
                     );
                   })}
-                  <Card className="neon-border"><CardContent className="p-4 flex items-center gap-3"><Radio className="w-8 h-8 text-neon-cyan opacity-70" /><div><p className="text-2xl font-bold text-neon-cyan">{data.personnelSummary.activeToday}</p><p className="text-xs text-muted-foreground">Active Today</p></div></CardContent></Card>
+                  <Card className="neon-border"><CardContent className="p-4 flex items-center gap-3"><Radio className="w-8 h-8 text-neon-cyan opacity-70" /><div><p className="text-2xl font-bold text-neon-cyan">{data.personnelSummary?.activeToday ?? 0}</p><p className="text-xs text-muted-foreground">Active Today</p></div></CardContent></Card>
                 </div>
                 <Card className="neon-border">
-                  <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" />Field Staff Activity<Badge variant="outline" className="ml-auto">{data.personnelSummary.totalFieldStaff} total</Badge></CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" />Field Staff Activity<Badge variant="outline" className="ml-auto">{data.personnelSummary?.totalFieldStaff ?? 0} total</Badge></CardTitle></CardHeader>
                   <CardContent>
-                    {data.personnelSummary.staff.length === 0 ? (
+                    {(data.personnelSummary?.staff || []).length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No field staff found</p>
                     ) : (
                       <div className="space-y-2">
-                        {data.personnelSummary.staff.map((person) => {
+                        {(data.personnelSummary?.staff || []).map((person) => {
                           const Icon = getRoleIcon(person.role);
                           const isActiveToday = person.lastActive && new Date(person.lastActive).toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
                           return (
