@@ -331,6 +331,7 @@ function OVPITab() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ExecutiveDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
+  const facilityId = user?.facilityId || user?.["custom:facilityId"] || "facility-001";
   const currentRole = 'executive';
   const roleScope = { facilityScope: 'multi' };
 
