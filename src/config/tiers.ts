@@ -1,7 +1,10 @@
 // ── NEXUM SUUM SUBSCRIPTION TIERS ────────────────────────────────────────────
 // Central source of truth for all tier-based feature gating
 
-export type SubscriptionTier = 'basic' | 'standard' | 'business' | 'premium' | 'enterprise' | 'admin';
+export type SubscriptionTier =
+  | 'basic' | 'standard' | 'business' | 'premium' | 'enterprise' | 'admin'
+  | 'retail_starter' | 'retail_pro'
+  | 'command_basic' | 'command_standard' | 'command_pro';
 
 export interface TierConfig {
   id: SubscriptionTier;
@@ -16,7 +19,7 @@ export interface TierConfig {
 }
 
 export type TierFeature =
-  // Core
+  // Core facility
   | 'facility_data_source'
   | 'equipment_library'
   | 'work_orders'
@@ -24,7 +27,7 @@ export type TierFeature =
   | 'basic_dashboards'
   | 'compliance_logging'
   | 'email_alerts'
-  // Standard
+  // Standard facility
   | 'inventory_library'
   | 'inventory_logger'
   | 'retail_inventory'
@@ -34,7 +37,7 @@ export type TierFeature =
   | 'energy_dashboard'
   | 'kanban'
   | 'compliance_documents'
-  // Business
+  // Business facility
   | 'operations_center'
   | 'decision_intelligence'
   | 'multi_facility'
@@ -44,7 +47,7 @@ export type TierFeature =
   | 'calendar'
   | 'advanced_compliance'
   | 'mpcc'
-  // Premium
+  // Premium facility
   | 'executive_dashboard'
   | 'vvfi'
   | 'ai_compliance'
@@ -55,9 +58,23 @@ export type TierFeature =
   | 'white_label'
   | 'custom_integrations'
   | 'dedicated_manager'
-  | 'custom_sla';
+  | 'custom_sla'
+  // Retail
+  | 'shelf_life_alerts'
+  | 'health_inspection_score'
+  | 'daily_checklists'
+  | 'waste_tracking'
+  | 'supplier_management'
+  // Government / Public Safety
+  | 'apparatus_tracking'
+  | 'personnel_certs'
+  | 'chain_of_custody'
+  | 'response_metrics'
+  | 'weapons_inventory'
+  | 'compliance_reporting';
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
+  // ── Facility tiers ──────────────────────────────────────────────────────────
   basic: {
     id: 'basic',
     name: 'Basic',
@@ -76,7 +93,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     id: 'standard',
     name: 'Standard',
     price: 1999,
-    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
+    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
     description: 'Operations + inventory management',
     maxFacilities: 5,
     maxUsers: 25,
@@ -93,7 +110,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     id: 'business',
     name: 'Business',
     price: 3999,
-    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
+    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
     description: 'Multi-facility + advanced intelligence',
     maxFacilities: 15,
     maxUsers: 50,
@@ -113,7 +130,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     id: 'premium',
     name: 'Premium',
     price: 6999,
-    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
+    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
     description: 'Full platform intelligence — unlimited everything',
     maxFacilities: 'unlimited',
     maxUsers: 'unlimited',
@@ -173,6 +190,92 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla',
+      'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
+      'waste_tracking', 'supplier_management',
+      'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
+      'response_metrics', 'weapons_inventory', 'compliance_reporting',
+    ],
+  },
+
+  // ── Retail tiers ────────────────────────────────────────────────────────────
+  retail_starter: {
+    id: 'retail_starter',
+    name: 'Retail Starter',
+    price: 97,
+    priceId: 'price_1TGTF3Dfw4bOR2dfenLjfUMf',
+    description: 'Essential retail compliance for single-location operations',
+    maxFacilities: 1,
+    maxUsers: 5,
+    maxEquipment: 100,
+    features: [
+      'inventory_library', 'compliance_logging', 'email_alerts',
+      'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
+    ],
+  },
+  retail_pro: {
+    id: 'retail_pro',
+    name: 'Retail Pro',
+    price: 197,
+    priceId: 'price_1TGTIMDfw4bOR2dfWvWCGU87',
+    description: 'Multi-location retail with supplier management and waste tracking',
+    maxFacilities: 3,
+    maxUsers: 10,
+    maxEquipment: 500,
+    features: [
+      'inventory_library', 'compliance_logging', 'email_alerts',
+      'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
+      'waste_tracking', 'supplier_management', 'compliance_documents', 'manager_dashboard',
+    ],
+  },
+
+  // ── Government / Public Safety tiers ────────────────────────────────────────
+  command_basic: {
+    id: 'command_basic',
+    name: 'Command Basic',
+    price: 497,
+    priceId: 'price_1TGTMYDfw4bOR2dfkANtaj0z',
+    description: 'Core tools for public safety departments',
+    maxFacilities: 1,
+    maxUsers: 15,
+    maxEquipment: 200,
+    features: [
+      'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
+      'equipment_library', 'work_orders', 'compliance_logging', 'email_alerts',
+    ],
+  },
+  command_standard: {
+    id: 'command_standard',
+    name: 'Command Standard',
+    price: 997,
+    priceId: 'price_1TGTNzDfw4bOR2df7EU4x1DQ',
+    description: 'Response metrics and multi-unit coordination',
+    maxFacilities: 5,
+    maxUsers: 30,
+    maxEquipment: 'unlimited',
+    features: [
+      'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
+      'equipment_library', 'work_orders', 'compliance_logging', 'email_alerts',
+      'response_metrics', 'weapons_inventory', 'compliance_reporting',
+      'inventory_library', 'compliance_documents',
+    ],
+  },
+  command_pro: {
+    id: 'command_pro',
+    name: 'Command Pro',
+    price: 1997,
+    priceId: 'price_1TGTPGDfw4bOR2dfJZVGSrm5',
+    description: 'Full platform for large public safety agencies',
+    maxFacilities: 'unlimited',
+    maxUsers: 'unlimited',
+    maxEquipment: 'unlimited',
+    features: [
+      'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
+      'equipment_library', 'work_orders', 'compliance_logging', 'email_alerts',
+      'response_metrics', 'weapons_inventory', 'compliance_reporting',
+      'inventory_library', 'compliance_documents',
+      'ai_compliance', 'lms', 'dedicated_manager',
+      'operations_center', 'kanban', 'messages', 'vendors', 'calendar',
+      'workload', 'violations_tracking', 'priority_support',
     ],
   },
 };
@@ -187,7 +290,6 @@ export function hasFeature(tier: SubscriptionTier | undefined, feature: TierFeat
 export function getTierFromRole(role: string, subscription?: string): SubscriptionTier {
   if (role === 'admin') return 'admin';
   if (subscription) return subscription as SubscriptionTier;
-  // Default tier based on role if no subscription set
   const roleTierMap: Record<string, SubscriptionTier> = {
     executive: 'premium',
     director:  'business',
@@ -202,25 +304,36 @@ export function getTierFromRole(role: string, subscription?: string): Subscripti
 }
 
 export const TIER_NAMES: Record<SubscriptionTier, string> = {
-  basic:      'Basic',
-  standard:   'Standard',
-  business:   'Business',
-  premium:    'Premium',
-  enterprise: 'Enterprise',
-  admin:      'Admin',
+  basic:            'Basic',
+  standard:         'Standard',
+  business:         'Business',
+  premium:          'Premium',
+  enterprise:       'Enterprise',
+  admin:            'Admin',
+  retail_starter:   'Retail Starter',
+  retail_pro:       'Retail Pro',
+  command_basic:    'Command Basic',
+  command_standard: 'Command Standard',
+  command_pro:      'Command Pro',
 };
 
 export const TIER_COLORS: Record<SubscriptionTier, string> = {
-  basic:      'text-muted-foreground border-border/40',
-  standard:   'text-blue-400 border-blue-400/30',
-  business:   'text-purple-400 border-purple-400/30',
-  premium:    'text-yellow-400 border-yellow-400/30',
-  enterprise: 'text-primary border-primary/30',
-  admin:      'text-red-400 border-red-400/30',
+  basic:            'text-muted-foreground border-border/40',
+  standard:         'text-blue-400 border-blue-400/30',
+  business:         'text-purple-400 border-purple-400/30',
+  premium:          'text-yellow-400 border-yellow-400/30',
+  enterprise:       'text-primary border-primary/30',
+  admin:            'text-red-400 border-red-400/30',
+  retail_starter:   'text-green-400 border-green-400/30',
+  retail_pro:       'text-emerald-400 border-emerald-400/30',
+  command_basic:    'text-blue-400 border-blue-400/30',
+  command_standard: 'text-cyan-400 border-cyan-400/30',
+  command_pro:      'text-purple-400 border-purple-400/30',
 };
 
 // Feature to tier mapping (what tier first unlocks a feature)
 export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
+  // Core facility
   facility_data_source:  'basic',
   equipment_library:     'basic',
   work_orders:           'basic',
@@ -228,6 +341,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   basic_dashboards:      'basic',
   compliance_logging:    'basic',
   email_alerts:          'basic',
+  // Standard facility
   inventory_library:     'standard',
   inventory_logger:      'standard',
   retail_inventory:      'standard',
@@ -237,6 +351,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   energy_dashboard:      'standard',
   kanban:                'standard',
   compliance_documents:  'standard',
+  // Business facility
   operations_center:     'business',
   decision_intelligence: 'business',
   multi_facility:        'business',
@@ -246,14 +361,29 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   calendar:              'business',
   advanced_compliance:   'business',
   mpcc:                  'business',
+  // Premium facility
   executive_dashboard:   'premium',
   vvfi:                  'premium',
   ai_compliance:         'premium',
   lms:                   'premium',
   api_access:            'premium',
   priority_support:      'premium',
+  // Enterprise
   white_label:           'enterprise',
   custom_integrations:   'enterprise',
   dedicated_manager:     'enterprise',
   custom_sla:            'enterprise',
+  // Retail
+  shelf_life_alerts:     'retail_starter',
+  health_inspection_score: 'retail_starter',
+  daily_checklists:      'retail_starter',
+  waste_tracking:        'retail_pro',
+  supplier_management:   'retail_pro',
+  // Government
+  apparatus_tracking:    'command_basic',
+  personnel_certs:       'command_basic',
+  chain_of_custody:      'command_basic',
+  response_metrics:      'command_standard',
+  weapons_inventory:     'command_standard',
+  compliance_reporting:  'command_standard',
 };

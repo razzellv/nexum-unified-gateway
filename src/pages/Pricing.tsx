@@ -3,20 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Flame, Zap, Building2, Crown, ArrowRight, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Check, Flame, Zap, Building2, Crown, ArrowRight, X,
+  ShoppingCart, Shield, Star, Sparkles,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const PLANS = [
+type SectorTab = 'facility' | 'retail' | 'government';
+type BillingCycle = 'monthly' | 'annual';
+
+interface Plan {
+  name: string;
+  priceId: string | null;
+  monthlyPrice: number | null;
+  icon: any;
+  color: string;
+  border: string;
+  bg: string;
+  badge?: string | null;
+  description: string;
+  features: string[];
+  isEnterprise?: boolean;
+}
+
+const FACILITY_PLANS: Plan[] = [
   {
-    name: 'BASIC',
-    annualPrice: 10788,
-    monthlyEquiv: 899,
-    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
+    name: 'Basic',
+    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
+    monthlyPrice: 899,
     icon: Zap,
     color: 'text-blue-400',
     border: 'border-blue-400/30',
     bg: 'bg-blue-400/5',
     badge: null,
-    description: 'For small facilities getting started with digital operations.',
+    description: 'Core facility logging and visibility for small operations. Perfect for getting started with digital compliance.',
     features: [
       'Up to 2 facilities',
       'Equipment Library',
@@ -26,19 +49,17 @@ const PLANS = [
       'Basic dashboards',
       'Email support',
     ],
-    excluded: ['VVFI Facility Instructor', 'OVPI Performance Intelligence', 'Vendor Hub', 'Multi-facility analytics'],
   },
   {
-    name: 'STANDARD',
-    annualPrice: 23988,
-    monthlyEquiv: 1999,
-    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
+    name: 'Standard',
+    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
+    monthlyPrice: 1999,
     icon: Building2,
     color: 'text-cyan-400',
     border: 'border-cyan-400/30',
     bg: 'bg-cyan-400/5',
     badge: null,
-    description: 'For growing facilities needing full operational visibility.',
+    description: 'Full operational visibility for growing facilities. Includes inventory management and team coordination.',
     features: [
       'Up to 5 facilities',
       'Everything in Basic',
@@ -49,19 +70,17 @@ const PLANS = [
       'Inventory Library',
       'Priority email support',
     ],
-    excluded: ['VVFI Facility Instructor', 'OVPI Performance Intelligence'],
   },
   {
-    name: 'BUSINESS',
-    annualPrice: 47988,
-    monthlyEquiv: 3999,
-    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
+    name: 'Business',
+    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
+    monthlyPrice: 3999,
     icon: Flame,
     color: 'text-orange-400',
     border: 'border-orange-400/40',
     bg: 'bg-orange-400/5',
     badge: 'Most Popular',
-    description: 'For multi-site operations requiring advanced intelligence.',
+    description: 'Multi-site intelligence for complex operations. Advanced analytics and AI-powered compliance analysis.',
     features: [
       'Up to 15 facilities',
       'Everything in Standard',
@@ -72,19 +91,17 @@ const PLANS = [
       'Command Hub (full)',
       'Phone + email support',
     ],
-    excluded: ['VVFI Facility Instructor', 'OVPI Performance Intelligence'],
   },
   {
-    name: 'PREMIUM',
-    annualPrice: 83988,
-    monthlyEquiv: 6999,
-    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
+    name: 'Premium',
+    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
+    monthlyPrice: 6999,
     icon: Crown,
     color: 'text-purple-400',
     border: 'border-purple-400/40',
     bg: 'bg-purple-400/5',
     badge: 'Full Platform',
-    description: 'Unlimited access to every feature including AI-powered tools.',
+    description: 'Unlimited access to every feature including AI-powered tools. Includes dedicated account manager and 24/7 support.',
     features: [
       'Unlimited facilities',
       'Everything in Business',
@@ -95,7 +112,132 @@ const PLANS = [
       'Dedicated account manager',
       '24/7 priority support',
     ],
-    excluded: [],
+  },
+];
+
+const RETAIL_PLANS: Plan[] = [
+  {
+    name: 'Retail Starter',
+    priceId: 'price_1TGTF3Dfw4bOR2dfenLjfUMf',
+    monthlyPrice: 97,
+    icon: ShoppingCart,
+    color: 'text-green-400',
+    border: 'border-green-400/30',
+    bg: 'bg-green-400/5',
+    badge: null,
+    description: 'Essential compliance tools for single-location retail and food service. Built for daily operations that demand audit-ready records.',
+    features: [
+      'Inventory tracking',
+      'Shelf life + FIFO alerts',
+      'Temperature compliance logs',
+      'Daily open/close checklists',
+      'Health inspection readiness score',
+      '1 location',
+      '5 users',
+    ],
+  },
+  {
+    name: 'Retail Pro',
+    priceId: 'price_1TGTIMDfw4bOR2dfWvWCGU87',
+    monthlyPrice: 197,
+    icon: Star,
+    color: 'text-emerald-400',
+    border: 'border-emerald-400/40',
+    bg: 'bg-emerald-400/5',
+    badge: 'Best Value',
+    description: 'Multi-location retail intelligence with supplier management and waste tracking. Scales with your growing operation.',
+    features: [
+      'Everything in Starter',
+      'Multi-location (up to 3)',
+      'Waste tracking',
+      'Compliance document storage',
+      'Supplier management',
+      'Manager dashboard',
+      '10 users',
+    ],
+  },
+];
+
+const GOVERNMENT_PLANS: Plan[] = [
+  {
+    name: 'Command Basic',
+    priceId: 'price_1TGTMYDfw4bOR2dfkANtaj0z',
+    monthlyPrice: 497,
+    icon: Shield,
+    color: 'text-blue-400',
+    border: 'border-blue-400/30',
+    bg: 'bg-blue-400/5',
+    badge: null,
+    description: 'Core tools for public safety departments. Apparatus tracking, personnel certifications, and compliance logging in one platform.',
+    features: [
+      'Apparatus / fleet tracking',
+      'Personnel certifications',
+      'Chain of custody logging',
+      'Equipment inventory',
+      'Work orders',
+      'Compliance logging',
+      '1 department · 15 users',
+    ],
+  },
+  {
+    name: 'Command Standard',
+    priceId: 'price_1TGTNzDfw4bOR2df7EU4x1DQ',
+    monthlyPrice: 997,
+    icon: Shield,
+    color: 'text-cyan-400',
+    border: 'border-cyan-400/30',
+    bg: 'bg-cyan-400/5',
+    badge: null,
+    description: 'Advanced response metrics and multi-unit coordination. Includes NFPA 1710 benchmark scoring and weapons inventory.',
+    features: [
+      'Everything in Basic',
+      'Response metrics (NFPA 1710)',
+      'Weapons + uniform inventory',
+      'Compliance reporting',
+      'Multi-unit (up to 5)',
+      '30 users',
+    ],
+  },
+  {
+    name: 'Command Pro',
+    priceId: 'price_1TGTPGDfw4bOR2dfJZVGSrm5',
+    monthlyPrice: 1997,
+    icon: Crown,
+    color: 'text-purple-400',
+    border: 'border-purple-400/40',
+    bg: 'bg-purple-400/5',
+    badge: 'Most Capable',
+    description: 'Full platform access for large public safety agencies. AI compliance analysis, unlimited units, and a dedicated account manager.',
+    features: [
+      'Everything in Standard',
+      'AI compliance analysis',
+      'Unlimited units',
+      'Full Command Hub',
+      'Optimize & Learn LMS',
+      'Dedicated account manager',
+      'Unlimited users',
+    ],
+  },
+  {
+    name: 'Command Enterprise',
+    priceId: null,
+    monthlyPrice: null,
+    icon: Sparkles,
+    color: 'text-yellow-400',
+    border: 'border-yellow-400/40',
+    bg: 'bg-yellow-400/5',
+    badge: 'Custom',
+    isEnterprise: true,
+    description: 'Custom pricing for statewide or multi-agency deployments. Full white-label, custom integrations, and dedicated SLA.',
+    features: [
+      'Everything in Command Pro',
+      'Multi-agency deployment',
+      'White-label options',
+      'Custom integrations',
+      'Dedicated SLA',
+      'On-site training',
+      'Custom contract',
+    ],
   },
 ];
 
@@ -110,8 +252,37 @@ const ADDONS = [
 
 export default function Pricing() {
   const navigate = useNavigate();
+  const [sector, setSector] = useState<SectorTab>('facility');
+  const [billing, setBilling] = useState<BillingCycle>('monthly');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [quoteForm, setQuoteForm] = useState({
+    companyName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    estimatedLocations: '',
+    teamSize: '',
+    orgType: '',
+    notes: '',
+  });
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [quoteSuccess, setQuoteSuccess] = useState(false);
+
+  const activePlans =
+    sector === 'facility' ? FACILITY_PLANS :
+    sector === 'retail' ? RETAIL_PLANS :
+    GOVERNMENT_PLANS;
+
+  const displayPrice = (plan: Plan): number | null => {
+    if (plan.monthlyPrice === null) return null;
+    return billing === 'annual' ? plan.monthlyPrice * 10 : plan.monthlyPrice;
+  };
+
+  const annualSavings = (plan: Plan): number => {
+    if (plan.monthlyPrice === null) return 0;
+    return plan.monthlyPrice * 2;
+  };
 
   const toggleAddon = (priceId: string) => {
     setSelectedAddons(prev =>
@@ -119,7 +290,8 @@ export default function Pricing() {
     );
   };
 
-  const handleCheckout = async (plan: typeof PLANS[0]) => {
+  const handleCheckout = async (plan: Plan) => {
+    if (!plan.priceId) return;
     setLoadingPlan(plan.name);
     try {
       const lineItems = [
@@ -153,6 +325,35 @@ export default function Pricing() {
     }
   };
 
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuoteSubmitting(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/enterprise-quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(quoteForm),
+      });
+      setQuoteSuccess(true);
+    } catch (err) {
+      console.error('Quote submit error:', err);
+      setQuoteSuccess(true);
+    } finally {
+      setQuoteSubmitting(false);
+    }
+  };
+
+  const ctaBg = (plan: Plan) => {
+    if (plan.name === 'Premium' || plan.name === 'Command Pro') return 'bg-purple-500 hover:bg-purple-600';
+    if (plan.name === 'Business') return 'bg-orange-500 hover:bg-orange-600';
+    if (plan.name === 'Retail Pro') return 'bg-emerald-600 hover:bg-emerald-700';
+    return '';
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -172,17 +373,88 @@ export default function Pricing() {
         {/* Hero */}
         <div className="text-center space-y-4">
           <Badge className="bg-primary/20 text-primary border-primary/30">Decision Defensibility™</Badge>
-          <h1 className="text-4xl md:text-5xl font-bold">Facility Intelligence for Every Scale</h1>
+          <h1 className="text-4xl md:text-5xl font-bold">Intelligence for Every Sector</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Real-time monitoring, AI-powered insights, and comprehensive compliance tracking for facility operations teams.
+            Real-time monitoring, AI-powered insights, and comprehensive compliance tracking for facility, retail, and public safety operations.
           </p>
-          <p className="text-sm text-muted-foreground">All plans billed annually · Cancel anytime</p>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PLANS.map((plan) => {
+        {/* Sector tabs + Billing toggle */}
+        <div className="flex flex-col items-center gap-6">
+          <div className="inline-flex rounded-lg border border-border bg-card/50 p-1 gap-1">
+            {([
+              { value: 'facility' as const, label: 'Facility', icon: Building2 },
+              { value: 'retail' as const, label: 'Retail', icon: ShoppingCart },
+              { value: 'government' as const, label: 'Government', icon: Shield },
+            ]).map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setSector(value)}
+                className={cn(
+                  'flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all',
+                  sector === value
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className={cn('text-sm font-medium', billing === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
+              Monthly
+            </span>
+            <button
+              onClick={() => setBilling(b => b === 'monthly' ? 'annual' : 'monthly')}
+              className={cn(
+                'relative w-12 h-6 rounded-full transition-colors focus:outline-none',
+                billing === 'annual' ? 'bg-primary' : 'bg-muted'
+              )}
+            >
+              <span className={cn(
+                'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm',
+                billing === 'annual' ? 'translate-x-7' : 'translate-x-1'
+              )} />
+            </button>
+            <span className={cn('text-sm font-medium', billing === 'annual' ? 'text-foreground' : 'text-muted-foreground')}>
+              Annual
+            </span>
+            {billing === 'annual' && (
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                2 months free
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Government credibility strip */}
+        {sector === 'government' && (
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 py-3 px-6 rounded-lg border border-blue-400/20 bg-blue-400/5 text-sm text-blue-300 font-medium">
+            <span>MBE Certified</span>
+            <span className="text-blue-400/30">·</span>
+            <span>SAM.gov Registered</span>
+            <span className="text-blue-400/30">·</span>
+            <span>TWIC Cleared</span>
+            <span className="text-blue-400/30">·</span>
+            <span>NJ Licensed Stationary Engineer</span>
+          </div>
+        )}
+
+        {/* Plan cards */}
+        <div className={cn(
+          'grid gap-6',
+          sector === 'retail'
+            ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto w-full'
+            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+        )}>
+          {activePlans.map((plan) => {
             const Icon = plan.icon;
+            const price = displayPrice(plan);
+            const savings = annualSavings(plan);
+
             return (
               <Card
                 key={plan.name}
@@ -190,30 +462,56 @@ export default function Pricing() {
               >
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className={`${plan.name === 'PREMIUM' ? 'bg-purple-500' : 'bg-orange-500'} text-white border-0`}>
+                    <Badge className={cn(
+                      'text-white border-0 whitespace-nowrap',
+                      plan.badge === 'Full Platform' ? 'bg-purple-500' :
+                      plan.badge === 'Most Popular' ? 'bg-orange-500' :
+                      plan.badge === 'Most Capable' ? 'bg-purple-500' :
+                      plan.badge === 'Best Value' ? 'bg-emerald-600' :
+                      plan.badge === 'Custom' ? 'bg-yellow-600' : 'bg-primary'
+                    )}>
                       {plan.badge}
                     </Badge>
                   </div>
                 )}
+
                 <CardHeader className="pb-4 pt-6">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${plan.bg} border ${plan.border}`}>
                     <Icon className={`w-5 h-5 ${plan.color}`} />
                   </div>
                   <h3 className="text-xl font-bold">{plan.name}</h3>
 
-                  {/* Annual price — prominent */}
                   <div className="mt-1">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold">${plan.annualPrice.toLocaleString()}</span>
-                      <span className="text-muted-foreground text-sm">/yr</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      ${plan.monthlyEquiv.toLocaleString()}/mo billed annually
-                    </p>
+                    {plan.isEnterprise ? (
+                      <div>
+                        <p className="text-2xl font-bold">Custom Pricing</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Tailored to your deployment</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold">${price!.toLocaleString()}</span>
+                          <span className="text-muted-foreground text-sm">/{billing === 'annual' ? 'yr' : 'mo'}</span>
+                        </div>
+                        {billing === 'annual' ? (
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <p className="text-xs text-muted-foreground">${plan.monthlyPrice!.toLocaleString()}/mo equivalent</p>
+                            <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                              Save ${savings.toLocaleString()}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Annual: save ${savings.toLocaleString()} (2 months free)
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
                 </CardHeader>
+
                 <CardContent className="flex-1 flex flex-col gap-4">
                   <div className="space-y-2">
                     {plan.features.map((f, i) => (
@@ -222,25 +520,149 @@ export default function Pricing() {
                         <span>{f}</span>
                       </div>
                     ))}
-                    {plan.excluded.map((f, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm opacity-40">
-                        <X className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{f}</span>
-                      </div>
-                    ))}
                   </div>
-                  <Button
-                    className={`mt-auto w-full ${plan.name === 'PREMIUM' ? 'bg-purple-500 hover:bg-purple-600' : plan.name === 'BUSINESS' ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
-                    onClick={() => handleCheckout(plan)}
-                    disabled={loadingPlan === plan.name}
-                  >
-                    {loadingPlan === plan.name ? 'Redirecting...' : `Get ${plan.name}`}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+
+                  {plan.isEnterprise ? (
+                    <Button
+                      variant="outline"
+                      className={`mt-auto w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10`}
+                      onClick={() => document.getElementById('enterprise-quote')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      Request Quote
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      className={`mt-auto w-full ${ctaBg(plan)}`}
+                      onClick={() => handleCheckout(plan)}
+                      disabled={loadingPlan === plan.name}
+                    >
+                      {loadingPlan === plan.name ? 'Redirecting...' : `Get ${plan.name}`}
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+
+        {/* Enterprise Quote Form */}
+        <div id="enterprise-quote" className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold">Request Enterprise Quote</h2>
+            <p className="text-muted-foreground mt-1">
+              Custom pricing for large deployments, multi-agency coordination, or white-label needs
+            </p>
+          </div>
+
+          {quoteSuccess ? (
+            <Card className="max-w-2xl mx-auto border-green-400/30 bg-green-400/5">
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="w-16 h-16 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-8 h-8 text-green-400" />
+                </div>
+                <h3 className="text-xl font-bold">Quote Request Received</h3>
+                <p className="text-muted-foreground">
+                  Our team will reach out within 1–2 business days to discuss your requirements.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="max-w-2xl mx-auto border-border/40">
+              <CardContent className="p-8">
+                <form onSubmit={handleQuoteSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Company Name</label>
+                      <Input
+                        required
+                        value={quoteForm.companyName}
+                        onChange={e => setQuoteForm(f => ({ ...f, companyName: e.target.value }))}
+                        placeholder="Acme Public Safety"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Contact Name</label>
+                      <Input
+                        required
+                        value={quoteForm.contactName}
+                        onChange={e => setQuoteForm(f => ({ ...f, contactName: e.target.value }))}
+                        placeholder="Jane Smith"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Email</label>
+                      <Input
+                        required
+                        type="email"
+                        value={quoteForm.email}
+                        onChange={e => setQuoteForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="jane@agency.gov"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Phone</label>
+                      <Input
+                        value={quoteForm.phone}
+                        onChange={e => setQuoteForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="+1 (555) 000-0000"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Estimated Facilities / Locations</label>
+                      <Input
+                        value={quoteForm.estimatedLocations}
+                        onChange={e => setQuoteForm(f => ({ ...f, estimatedLocations: e.target.value }))}
+                        placeholder="e.g. 12"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Team Size</label>
+                      <Input
+                        value={quoteForm.teamSize}
+                        onChange={e => setQuoteForm(f => ({ ...f, teamSize: e.target.value }))}
+                        placeholder="e.g. 50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Organization Type</label>
+                    <Select
+                      value={quoteForm.orgType}
+                      onValueChange={val => setQuoteForm(f => ({ ...f, orgType: val }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="facility">Facility Management</SelectItem>
+                        <SelectItem value="retail">Retail / Food Service</SelectItem>
+                        <SelectItem value="government">Government / Public Safety</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Additional Notes</label>
+                    <Textarea
+                      value={quoteForm.notes}
+                      onChange={e => setQuoteForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Describe your use case, integration needs, or any questions..."
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={quoteSubmitting}>
+                    {quoteSubmitting ? 'Submitting...' : 'Submit Quote Request'}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Add-ons */}
