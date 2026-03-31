@@ -218,56 +218,90 @@ export const api = {
   },
 };
 
+// Decode a JWT payload section without any library
+function decodeJwtPayload(token: string): Record<string, any> {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
+}
+
 // Submit facility log entry
+// Endpoint: POST /facility-log-ingest
+// Writes to DynamoDB FacilityLogs-v2 with PK "FACILITY#<id>" / SK "LOG#<ts>"
 export const submitFacilityLog = async (logData: any) => {
-  const token = localStorage.getItem('nexum_id_token');
-  
+  // Prefer access token; fall back to id token
+  const token =
+    localStorage.getItem('nexum_access_token') ||
+    localStorage.getItem('nexum_id_token');
+
   if (!token) {
     throw new Error('No authentication token available');
   }
 
-  // Transform data to match Lambda expectations
+  // Resolve facilityId: JWT claim is authoritative, then logData, then fallback
+  const jwtPayload = decodeJwtPayload(token);
+  const facilityId =
+    jwtPayload['custom:facilityId'] ||
+    logData.facilityId ||
+    'facility-001';
+
+  const timestamp = logData.timestamp || new Date().toISOString();
+
+  // Include PK/SK explicitly so the Lambda can write the correct DynamoDB keys.
+  // Dashboard Lambdas query: PK = "FACILITY#<id>" AND SK >= "LOG#<since>"
   const payload = {
-    equipmentType: logData.systemType, // Dashboard compatibility
-    facility_id: logData.facilityId,
-    system: logData.systemType,
-    equipment_id: logData.systemId,
-    timestamp: logData.timestamp,
-    operator: {
-      name: logData.operator,
-      id: logData.operatorId,
-    },
-    system_asset: {
-      id: logData.systemId,
-      equipment_id: logData.systemId,
-    },
-    // Spread all the metrics from the form
+    PK:  `FACILITY#${facilityId}`,
+    SK:  `LOG#${timestamp}`,
+
+    // Canonical camelCase fields
+    facilityId,
+    buildingId:        logData.buildingId,
+    systemType:        logData.systemType,
+    systemId:          logData.systemId,
+    equipmentId:       logData.systemId,
+    timestamp,
+    shift:             logData.shift,
+    operator:          logData.operator,
+    operatorId:        logData.operatorId,
+    measurementType:   logData.measurementType,
+    abnormalCondition: logData.abnormalCondition,
+    operatorNotes:     logData.operatorNotes,
+    metrics:           logData.metrics || {},
+    source:            'manual',
+
+    // Spread metrics to top level for dashboard backward compatibility
     ...logData.metrics,
-    // Add metadata
-    measurement_type: logData.measurementType,
-    abnormal_condition: logData.abnormalCondition,
-    operator_notes: logData.operatorNotes,
-    shift: logData.shift,
   };
 
+  console.log('📤 submitFacilityLog → /facility-log-ingest', {
+    PK: payload.PK, SK: payload.SK, systemType: payload.systemType,
+  });
+
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/logs`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-    
+    const response = await fetch(`${API_BASE_URL}/facility-log-ingest`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('❌ Error submitting facility log:', error);
