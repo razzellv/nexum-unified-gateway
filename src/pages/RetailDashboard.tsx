@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useRetail } from '@/contexts/RetailContext';
+import { apiRequest } from '@/lib/api';
 import {
   ShoppingCart, Thermometer, ClipboardList, AlertTriangle,
   CheckCircle, TrendingUp, Package, Users, ArrowRight,
@@ -51,11 +52,25 @@ const HEALTH_CHECKS = [
   { id: 'staff_trained', label: 'Staff food safety trained', weight: 10 },
 ];
 
+const MOCK_INVENTORY = [
+  { partId: 'r1', name: 'Whole Milk (1 Gallon)', category: 'dairy', itemType: 'food', quantity: 12, minQuantity: 6, reorderPoint: 6, location: 'Walk-in Cooler', expirationDate: new Date(Date.now() + 3*86400000).toISOString().split('T')[0], storageTemp: '35-38°F', fifoOrder: 1, unitCost: 3.99 },
+  { partId: 'r2', name: 'Orange Juice (64oz)', category: 'beverage', itemType: 'beverage', quantity: 8, minQuantity: 4, reorderPoint: 4, location: 'Cooler Section 2', expirationDate: new Date(Date.now() + 14*86400000).toISOString().split('T')[0], fifoOrder: 2, unitCost: 4.49 },
+  { partId: 'r3', name: 'Sliced Turkey (1lb)', category: 'deli', itemType: 'food', quantity: 3, minQuantity: 5, reorderPoint: 5, location: 'Deli Case', expirationDate: new Date(Date.now() + 1*86400000).toISOString().split('T')[0], storageTemp: '34-38°F', fifoOrder: 1, allergens: ['Gluten'], unitCost: 6.99 },
+  { partId: 'r4', name: 'Bread Loaf', category: 'bakery', itemType: 'food', quantity: 15, minQuantity: 8, location: 'Shelf B2', expirationDate: new Date(Date.now() + 5*86400000).toISOString().split('T')[0], fifoOrder: 1, unitCost: 2.99 },
+  { partId: 'r5', name: 'Paper Bags (500ct)', category: 'supply', itemType: 'supply', quantity: 2, minQuantity: 3, reorderPoint: 3, location: 'Storage Room', unitCost: 24.99 },
+];
+
 export default function RetailDashboard() {
   const { user } = useAuth();
   const { storeInfo } = useRetail();
-  const displayName = storeInfo.name || user?.facilityId ? 'My Store' : 'Retail Dashboard';
   const navigate = useNavigate();
+
+  const facilityId = user?.facilityId || (user as any)?.['custom:facilityId'] || 'facility-001';
+
+  const [loading, setLoading] = useState(true);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [tempLogs, setTempLogs] = useState<any[]>([]);
+  const [checkoutLogs, setCheckoutLogs] = useState<any[]>([]);
 
   const [checklistType, setChecklistType] = useState<'open' | 'close'>('open');
   const [completedChecks, setCompletedChecks] = useState<Record<string, boolean>>(() => {
@@ -66,23 +81,66 @@ export default function RetailDashboard() {
     try { return JSON.parse(localStorage.getItem('retail_health_checks') || '{}'); } catch { return {}; }
   });
 
-  // Load real data from localStorage
-  const inventory = (() => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
+      const [invRes, tempRes, checkoutRes] = await Promise.allSettled([
+        apiRequest(`/inventory?facilityId=${facilityId}&limit=100`),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=temperature&limit=50`),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=checkout&limit=50`),
+      ]);
+
+      // Inventory — prefer API, fallback to localStorage then mock
+      if (invRes.status === 'fulfilled') {
+        const items = invRes.value?.items || invRes.value?.inventory || invRes.value;
+        const apiItems = Array.isArray(items) ? items : [];
+        if (apiItems.length > 0) {
+          setInventory(apiItems);
+        } else {
+          const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+          setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
+        }
+      } else {
+        const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+        setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
+      }
+
+      // Temp logs — prefer API, fallback to localStorage
+      if (tempRes.status === 'fulfilled') {
+        const logs = tempRes.value?.logs || tempRes.value?.items || tempRes.value;
+        const apiLogs = Array.isArray(logs) ? logs : [];
+        if (apiLogs.length > 0) {
+          setTempLogs(apiLogs);
+        } else {
+          setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
+        }
+      } else {
+        setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
+      }
+
+      // Checkout logs — prefer API, fallback to localStorage
+      if (checkoutRes.status === 'fulfilled') {
+        const logs = checkoutRes.value?.logs || checkoutRes.value?.items || checkoutRes.value;
+        const apiLogs = Array.isArray(logs) ? logs : [];
+        if (apiLogs.length > 0) {
+          setCheckoutLogs(apiLogs);
+        } else {
+          setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+        }
+      } else {
+        setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+      }
+    } catch {
       const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
-      if (saved.length > 0) return saved;
-      // Mock data for demo/empty state
-      return [
-        { partId: 'r1', name: 'Whole Milk (1 Gallon)', category: 'dairy', itemType: 'food', quantity: 12, minQuantity: 6, reorderPoint: 6, location: 'Walk-in Cooler', expirationDate: new Date(Date.now() + 3*86400000).toISOString().split('T')[0], storageTemp: '35-38°F', fifoOrder: 1, unitCost: 3.99 },
-        { partId: 'r2', name: 'Orange Juice (64oz)', category: 'beverage', itemType: 'beverage', quantity: 8, minQuantity: 4, reorderPoint: 4, location: 'Cooler Section 2', expirationDate: new Date(Date.now() + 14*86400000).toISOString().split('T')[0], fifoOrder: 2, unitCost: 4.49 },
-        { partId: 'r3', name: 'Sliced Turkey (1lb)', category: 'deli', itemType: 'food', quantity: 3, minQuantity: 5, reorderPoint: 5, location: 'Deli Case', expirationDate: new Date(Date.now() + 1*86400000).toISOString().split('T')[0], storageTemp: '34-38°F', fifoOrder: 1, allergens: ['Gluten'], unitCost: 6.99 },
-        { partId: 'r4', name: 'Bread Loaf', category: 'bakery', itemType: 'food', quantity: 15, minQuantity: 8, location: 'Shelf B2', expirationDate: new Date(Date.now() + 5*86400000).toISOString().split('T')[0], fifoOrder: 1, unitCost: 2.99 },
-        { partId: 'r5', name: 'Paper Bags (500ct)', category: 'supply', itemType: 'supply', quantity: 2, minQuantity: 3, reorderPoint: 3, location: 'Storage Room', unitCost: 24.99 },
-      ];
-    } catch { return []; }
-  })();
-  const tempLogs = (() => { try { return JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'); } catch { return []; } })();
-  const checkoutLogs = (() => { try { return JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'); } catch { return []; } })();
+      setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
+      setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
+      setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+    } finally {
+      setLoading(false);
+    }
+  }, [facilityId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const today = new Date().toISOString().split('T')[0];
   const todayTempLogs = tempLogs.filter((l: any) => l.timestamp?.startsWith(today));

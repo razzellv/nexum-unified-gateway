@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
+import { apiRequest } from '@/lib/api';
 import {
   Shield, Truck, Users, AlertTriangle, Clock, CheckCircle, XCircle,
   FileText, Award, Activity, Package, ArrowRight, Zap, TrendingUp,
@@ -88,13 +89,56 @@ export default function GovernmentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const facilityId = user?.facilityId || (user as any)?.['custom:facilityId'] || 'facility-001';
+
+  const [loading, setLoading] = useState(true);
+  const [units, setUnits] = useState<any[]>(MOCK_UNITS);
+  const [personnel, setPersonnel] = useState<any[]>(MOCK_PERSONNEL);
+  const [incidents, setIncidents] = useState<any[]>(MOCK_INCIDENTS);
   const [custodyNew, setCustodyNew] = useState({ item: '', action: 'Signed Out', officer: '', time: new Date().toTimeString().slice(0, 5) });
   const [custodyLog, setCustodyLog] = useState(MOCK_CUSTODY_LOG);
   const [showAddCustody, setShowAddCustody] = useState(false);
 
-  const units = MOCK_UNITS;
-  const personnel = MOCK_PERSONNEL;
-  const todayIncidents = MOCK_INCIDENTS.filter(i => i.date === new Date().toISOString().split('T')[0]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [workOrdersRes, violationsRes, equipmentRes, usersRes] = await Promise.allSettled([
+        apiRequest(`/work-orders?facilityId=${facilityId}`),
+        apiRequest(`/violations?facilityId=${facilityId}`),
+        apiRequest(`/equipment?facilityId=${facilityId}`),
+        apiRequest('/users-list'),
+      ]);
+
+      // Equipment → units (apparatus/fleet)
+      if (equipmentRes.status === 'fulfilled') {
+        const items = equipmentRes.value?.items || equipmentRes.value?.equipment || equipmentRes.value;
+        const apiUnits = Array.isArray(items) ? items : [];
+        if (apiUnits.length > 0) setUnits(apiUnits);
+      }
+
+      // Violations → incidents
+      if (violationsRes.status === 'fulfilled') {
+        const items = violationsRes.value?.items || violationsRes.value?.violations || violationsRes.value;
+        const apiIncidents = Array.isArray(items) ? items : [];
+        if (apiIncidents.length > 0) setIncidents(apiIncidents);
+      }
+
+      // Users → personnel
+      if (usersRes.status === 'fulfilled') {
+        const items = usersRes.value?.users || usersRes.value?.items || usersRes.value;
+        const apiPersonnel = Array.isArray(items) ? items : [];
+        if (apiPersonnel.length > 0) setPersonnel(apiPersonnel);
+      }
+    } catch {
+      // keep mock defaults already set in state
+    } finally {
+      setLoading(false);
+    }
+  }, [facilityId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const todayIncidents = incidents.filter((i: any) => i.date === new Date().toISOString().split('T')[0]);
 
   const availableUnits = units.filter(u => u.status === 'available').length;
   const respondingUnits = units.filter(u => u.status === 'responding').length;
@@ -111,10 +155,10 @@ export default function GovernmentDashboard() {
     : '—';
 
   // Certification readiness
-  const allCerts = personnel.flatMap(p => p.certs.map(c => ({ ...c, name: p.name })));
+  const allCerts = personnel.flatMap(p => (p.certs || []).map((c: any) => ({ ...c, name: p.name })));
   const expiredCerts = allCerts.filter(c => getDaysUntilExpiry(c.expiry) < 0);
   const expiringCerts = allCerts.filter(c => { const d = getDaysUntilExpiry(c.expiry); return d >= 0 && d <= 60; });
-  const personnelReadiness = Math.round(((allCerts.length - expiredCerts.length) / allCerts.length) * 100);
+  const personnelReadiness = allCerts.length > 0 ? Math.round(((allCerts.length - expiredCerts.length) / allCerts.length) * 100) : 100;
 
   const addCustodyEntry = () => {
     if (!custodyNew.item || !custodyNew.officer) return;
