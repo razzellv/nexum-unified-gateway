@@ -19,6 +19,8 @@ interface Plan {
   priceId: string | null;
   price: number | null;
   billingLabel: '/yr' | '/mo';
+  annualPriceId?: string;
+  annualPrice?: number;
   icon: any;
   color: string;
   border: string;
@@ -125,13 +127,15 @@ const FACILITY_PLANS: Plan[] = [
   },
 ];
 
-// ── RETAIL — monthly only ──────────────────────────────────────────────────────
+// ── RETAIL — monthly + annual ─────────────────────────────────────────────────
 const RETAIL_PLANS: Plan[] = [
   {
     name: 'Retail Starter',
     priceId: 'price_1TGTF3Dfw4bOR2dfenLjfUMf',
     price: 197,
     billingLabel: '/mo',
+    annualPriceId: 'price_1THMfpDfw4bOR2dfwtc7c1LJ',
+    annualPrice: 1970,
     icon: ShoppingCart,
     color: 'text-green-400',
     border: 'border-green-400/30',
@@ -152,6 +156,8 @@ const RETAIL_PLANS: Plan[] = [
     priceId: 'price_1TGTIMDfw4bOR2dfWvWCGU87',
     price: 297,
     billingLabel: '/mo',
+    annualPriceId: 'price_1THMepDfw4bOR2df4bO6qRtW',
+    annualPrice: 2970,
     icon: Star,
     color: 'text-emerald-400',
     border: 'border-emerald-400/40',
@@ -273,6 +279,7 @@ const ADDONS = [
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
+  const [retailBilling, setRetailBilling] = useState<'monthly' | 'annual'>('monthly');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState({
@@ -299,12 +306,13 @@ export default function Pricing() {
     );
   };
 
-  const handleCheckout = async (plan: Plan) => {
-    if (!plan.priceId) return;
+  const handleCheckout = async (plan: Plan, effectivePriceId?: string) => {
+    const priceId = effectivePriceId || plan.priceId;
+    if (!priceId) return;
     setLoadingPlan(plan.name);
     try {
       const lineItems = [
-        { price: plan.priceId, quantity: 1 },
+        { price: priceId, quantity: 1 },
         ...selectedAddons.map(id => ({ price: id, quantity: 1 })),
       ];
       const token = localStorage.getItem('nexum_access_token');
@@ -412,12 +420,36 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Billing model note */}
+        {/* Billing model note / retail toggle */}
         <div className="flex justify-center">
           {sector === 'retail' ? (
-            <Badge variant="outline" className="text-xs border-green-400/30 text-green-400">
-              Monthly subscription — cancel anytime
-            </Badge>
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center gap-3">
+                <span className={cn('text-sm font-medium', retailBilling === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
+                  Monthly
+                </span>
+                <button
+                  onClick={() => setRetailBilling(b => b === 'monthly' ? 'annual' : 'monthly')}
+                  className={cn(
+                    'relative w-12 h-6 rounded-full transition-colors focus:outline-none',
+                    retailBilling === 'annual' ? 'bg-green-500' : 'bg-muted'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm',
+                    retailBilling === 'annual' ? 'translate-x-7' : 'translate-x-1'
+                  )} />
+                </button>
+                <span className={cn('text-sm font-medium', retailBilling === 'annual' ? 'text-foreground' : 'text-muted-foreground')}>
+                  Annual
+                </span>
+                {retailBilling === 'annual' && (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    2 months free
+                  </Badge>
+                )}
+              </div>
+            </div>
           ) : (
             <Badge variant="outline" className="text-xs border-primary/30 text-primary">
               Annual license — billed once per year
@@ -447,6 +479,12 @@ export default function Pricing() {
         )}>
           {activePlans.map((plan) => {
             const Icon = plan.icon;
+            const isRetail = sector === 'retail';
+            const useAnnual = isRetail && retailBilling === 'annual';
+            const effectivePrice   = useAnnual && plan.annualPrice   ? plan.annualPrice   : plan.price;
+            const effectivePriceId = useAnnual && plan.annualPriceId ? plan.annualPriceId : plan.priceId;
+            const effectiveLabel   = useAnnual ? '/yr' : plan.billingLabel;
+            const annualSavings    = isRetail && plan.price ? plan.price * 2 : 0;
 
             return (
               <Card
@@ -488,10 +526,25 @@ export default function Pricing() {
                         <p className="text-xs text-muted-foreground mt-0.5">Tailored to your deployment</p>
                       </div>
                     ) : (
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold">${plan.price!.toLocaleString()}</span>
-                        <span className="text-muted-foreground text-sm">{plan.billingLabel}</span>
-                      </div>
+                      <>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold">${effectivePrice!.toLocaleString()}</span>
+                          <span className="text-muted-foreground text-sm">{effectiveLabel}</span>
+                        </div>
+                        {useAnnual && annualSavings > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">${plan.price!.toLocaleString()}/mo equivalent</span>
+                            <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                              Save ${annualSavings.toLocaleString()}
+                            </Badge>
+                          </div>
+                        )}
+                        {!useAnnual && isRetail && annualSavings > 0 && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Annual: save ${annualSavings.toLocaleString()} (2 months free)
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -520,7 +573,7 @@ export default function Pricing() {
                   ) : (
                     <Button
                       className={`mt-auto w-full ${ctaBg(plan)}`}
-                      onClick={() => handleCheckout(plan)}
+                      onClick={() => handleCheckout(plan, effectivePriceId || undefined)}
                       disabled={loadingPlan === plan.name}
                     >
                       {loadingPlan === plan.name ? 'Redirecting...' : `Get ${plan.name}`}
