@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { WorkOrder, WorkOrderType, WorkOrderPriority, EquipmentType } from '@/types/command-hub/workOrder';
+import { WorkOrder, WorkOrderType, WorkOrderPriority, EquipmentType, WorkOrderContextType } from '@/types/command-hub/workOrder';
 import { mockEquipment } from '@/data/command-hub/workOrderData';
 import { mockEmployees } from '@/data/mockData';
 import { getEquipmentTypeLabel } from '@/lib/command-hub/workOrderService';
@@ -24,9 +24,19 @@ interface WorkOrderModalProps {
   onSave: (workOrder: Partial<WorkOrder>) => void;
 }
 
+// Derive default contextType from orgType stored in localStorage
+function defaultContextType(): WorkOrderContextType {
+  const orgType = localStorage.getItem('nexum_org_type') || 'facility';
+  if (orgType === 'retail') return 'location';
+  if (orgType === 'government') return 'general';
+  return 'equipment';
+}
+
 export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOrderModalProps) {
   const isEditing = !!workOrder;
-  
+
+  const [contextType, setContextType] = useState<WorkOrderContextType>(defaultContextType);
+  const [locationContext, setLocationContext] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<WorkOrderType>('corrective');
@@ -53,11 +63,13 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
   // Reset form when opening/closing or when workOrder changes
   useEffect(() => {
     if (open && workOrder) {
+      setContextType(workOrder.contextType || defaultContextType());
+      setLocationContext(workOrder.locationContext || '');
       setTitle(workOrder.title);
       setDescription(workOrder.description);
       setType(workOrder.type);
       setPriority(workOrder.priority);
-      setEquipmentId(workOrder.equipmentId);
+      setEquipmentId(workOrder.equipmentId || '');
       setAssignedTo(workOrder.assignedTo || '');
       setDueDate(new Date(workOrder.dueDate));
       setScheduledDate(workOrder.scheduledDate ? new Date(workOrder.scheduledDate) : undefined);
@@ -67,7 +79,8 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
       setTags(workOrder.tags || []);
       setSafetyPrecautions(workOrder.safetyPrecautions || '');
     } else if (open && !workOrder) {
-      // Reset for new work order
+      setContextType(defaultContextType());
+      setLocationContext('');
       setTitle('');
       setDescription('');
       setType('corrective');
@@ -106,22 +119,26 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
     setTags(tags.filter(t => t !== tag));
   };
 
+  // Equipment required only when contextType === 'equipment'
+  const isValid = title && description && dueDate &&
+    (contextType !== 'equipment' || equipmentId);
+
   const handleSubmit = () => {
-    if (!title || !description || !equipmentId || !dueDate) {
-      return;
-    }
+    if (!isValid) return;
 
     onSave({
       ...(workOrder && { workOrderId: workOrder.workOrderId }),
+      contextType,
+      locationContext: contextType !== 'equipment' ? (locationContext || undefined) : undefined,
       title,
       description,
       type,
       priority,
-      equipmentId,
-      equipmentType: equipmentType as EquipmentType,
+      equipmentId: contextType === 'equipment' ? equipmentId : '',
+      equipmentType: contextType === 'equipment' ? (equipmentType as EquipmentType) : undefined,
       assignedTo: assignedTo || undefined,
       assignedToName: assignedEmployee?.name,
-      dueDate: dueDate.toISOString(),
+      dueDate: dueDate!.toISOString(),
       scheduledDate: scheduledDate?.toISOString(),
       estimatedHours: estimatedHours ? parseFloat(estimatedHours) : undefined,
       estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
@@ -203,41 +220,81 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
             </div>
           </div>
 
-          {/* Equipment */}
+          {/* Context Type + Equipment/Location */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Equipment</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Equipment *</Label>
-                <Select value={equipmentId} onValueChange={setEquipmentId}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Select equipment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockEquipment.map((eq) => (
-                      <SelectItem key={eq.id} value={eq.id}>
-                        {eq.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Equipment Type</Label>
-                <Input
-                  value={equipmentType ? getEquipmentTypeLabel(equipmentType) : ''}
-                  disabled
-                  className="bg-muted border-border"
-                />
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Context</h3>
+              <div className="flex gap-1">
+                {(['equipment', 'location', 'general'] as WorkOrderContextType[]).map(ct => (
+                  <button
+                    key={ct}
+                    type="button"
+                    onClick={() => setContextType(ct)}
+                    className={cn(
+                      'px-3 py-1 rounded-full text-xs border capitalize transition-all',
+                      contextType === ct
+                        ? 'bg-primary/20 border-primary/50 text-primary'
+                        : 'border-border/40 text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    {ct}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {selectedEquipment && (
-              <div className="text-sm text-muted-foreground">
-                Location: {selectedEquipment.location}
+            {/* Equipment context */}
+            {contextType === 'equipment' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Equipment *</Label>
+                  <Select value={equipmentId} onValueChange={setEquipmentId}>
+                    <SelectTrigger className="bg-background border-border">
+                      <SelectValue placeholder="Select equipment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockEquipment.map((eq) => (
+                        <SelectItem key={eq.id} value={eq.id}>
+                          {eq.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Equipment Type</Label>
+                  <Input
+                    value={equipmentType ? getEquipmentTypeLabel(equipmentType) : ''}
+                    disabled
+                    className="bg-muted border-border"
+                  />
+                </div>
+                {selectedEquipment && (
+                  <p className="col-span-2 text-xs text-muted-foreground -mt-2">
+                    Location: {selectedEquipment.location}
+                  </p>
+                )}
               </div>
+            )}
+
+            {/* Location context */}
+            {contextType === 'location' && (
+              <div className="space-y-2">
+                <Label>Aisle / Department / Zone / Room</Label>
+                <Input
+                  value={locationContext}
+                  onChange={e => setLocationContext(e.target.value)}
+                  placeholder="e.g. Aisle 3, Walk-in Cooler, Zone B, Room 204"
+                  className="bg-background border-border"
+                />
+              </div>
+            )}
+
+            {/* General context — no equipment/location required */}
+            {contextType === 'general' && (
+              <p className="text-xs text-muted-foreground">
+                No specific equipment or location required. Describe the work in the description field.
+              </p>
             )}
           </div>
 
@@ -433,9 +490,9 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
-            disabled={!title || !description || !equipmentId || !dueDate}
+            disabled={!isValid}
           >
             {isEditing ? 'Update Work Order' : 'Create Work Order'}
           </Button>
