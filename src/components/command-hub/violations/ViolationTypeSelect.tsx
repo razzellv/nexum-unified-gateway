@@ -7,9 +7,9 @@ import { getSeverityColor } from '@/lib/command-hub/violationService';
 interface ViolationTypeSelectProps {
   value: ViolationType | '';
   onValueChange: (value: ViolationType, config: ViolationTypeConfig) => void;
+  filterSector?: 'facility' | 'retail' | 'government';
 }
 
-// Build grouped structure: General → Facility (Equipment/Custodian/Compliance) → Retail → Government
 const SECTOR_ORDER = ['general', 'facility', 'retail', 'government'] as const;
 const SECTOR_LABELS: Record<string, string> = {
   general: 'General',
@@ -20,10 +20,12 @@ const SECTOR_LABELS: Record<string, string> = {
 
 type GroupMap = Record<string, Record<string, ViolationTypeConfig[]>>;
 
-function buildGroups(): GroupMap {
+function buildGroups(filterSector?: string): GroupMap {
   const groups: GroupMap = {};
   for (const cfg of violationTypeConfigs) {
     const sector = cfg.sector ?? 'general';
+    // If filtering, only include general + the target sector
+    if (filterSector && sector !== 'general' && sector !== filterSector) continue;
     const sub = cfg.subcategory ?? 'General';
     if (!groups[sector]) groups[sector] = {};
     if (!groups[sector][sub]) groups[sector][sub] = [];
@@ -32,9 +34,9 @@ function buildGroups(): GroupMap {
   return groups;
 }
 
-const groups = buildGroups();
+export function ViolationTypeSelect({ value, onValueChange, filterSector }: ViolationTypeSelectProps) {
+  const groups = buildGroups(filterSector);
 
-export function ViolationTypeSelect({ value, onValueChange }: ViolationTypeSelectProps) {
   const handleChange = (val: string) => {
     const config = violationTypeConfigs.find(c => c.value === val);
     if (config) onValueChange(val as ViolationType, config);
