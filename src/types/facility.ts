@@ -120,11 +120,51 @@ export interface MetricCard {
 }
 
 // Violation types (predefined list)
-export type ViolationType = 
-  | 'safety-protocol' | 'equipment-misuse' | 'attendance' 
-  | 'documentation' | 'procedure-deviation' | 'ppe-compliance' 
-  | 'lockout-tagout' | 'chemical-handling' | 'unauthorized-access' 
-  | 'quality-control' | 'time-reporting' | 'housekeeping';
+export type ViolationType =
+  // ── Existing ──
+  | 'safety-protocol' | 'equipment-misuse' | 'attendance'
+  | 'documentation' | 'procedure-deviation' | 'ppe-compliance'
+  | 'lockout-tagout' | 'chemical-handling' | 'unauthorized-access'
+  | 'quality-control' | 'time-reporting' | 'housekeeping'
+  // ── Facility › Equipment ──
+  | 'boiler-pressure-exceeded' | 'chiller-cop-below-threshold'
+  | 'pm-not-completed' | 'filter-not-replaced'
+  | 'refrigerant-leak' | 'emergency-shutoff-inaccessible'
+  // ── Facility › Custodian ──
+  | 'spill-not-cleaned' | 'biohazard-improper-disposal'
+  | 'chemical-storage-unsecured' | 'floor-drain-blocked'
+  | 'restroom-sanitation' | 'trash-removal-missed'
+  | 'cleaning-chemical-dilution' | 'safety-signage-missing'
+  // ── Facility › Compliance ──
+  | 'operating-log-incomplete' | 'license-cert-expired'
+  | 'inspection-overdue' | 'emergency-contact-outdated'
+  | 'sds-sheet-missing' | 'fire-extinguisher-overdue'
+  | 'emergency-lighting-failed'
+  // ── Retail › Food Safety ──
+  | 'product-temp-out-of-range' | 'expired-product-on-shelf'
+  | 'fifo-not-followed' | 'cross-contamination-risk'
+  | 'food-surface-not-sanitized' | 'handwashing-not-followed'
+  | 'pest-activity' | 'improper-food-storage'
+  // ── Retail › Inventory & Operations ──
+  | 'inventory-count-discrepancy' | 'supplier-delivery-rejected'
+  | 'shrinkage-theft-incident' | 'pos-discrepancy'
+  | 'waste-log-incomplete'
+  // ── Retail › Compliance ──
+  | 'health-permit-not-posted' | 'food-handler-cert-expired'
+  | 'temperature-log-incomplete' | 'allergen-label-missing'
+  | 'health-inspection-violation'
+  // ── Government › Apparatus & Fleet ──
+  | 'apparatus-failed-inspection' | 'vehicle-out-of-service'
+  | 'maintenance-overdue-apparatus' | 'equipment-not-returned'
+  | 'chain-of-custody-not-documented'
+  // ── Government › Personnel ──
+  | 'required-cert-expired' | 'training-hours-incomplete'
+  | 'shift-briefing-not-documented' | 'protective-gear-not-worn'
+  | 'use-of-force-incomplete'
+  // ── Government › Facility ──
+  | 'evidence-storage-protocol' | 'weapons-inventory-discrepancy'
+  | 'uniform-gear-not-accounted' | 'radio-equipment-failure'
+  | 'station-safety-issue';
 
 // Compliance categories
 export type ComplianceCategory = 'safety' | 'operational' | 'regulatory' | 'environmental' | 'quality';
@@ -172,6 +212,8 @@ export interface ViolationTypeConfig {
   defaultSeverity: number;
   defaultCategory: ComplianceCategory;
   weightFactor: number;
+  sector?: 'facility' | 'retail' | 'government';
+  subcategory?: string;
 }
 
 // Employee for dropdowns
