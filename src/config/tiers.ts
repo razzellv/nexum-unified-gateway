@@ -78,8 +78,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   basic: {
     id: 'basic',
     name: 'Basic',
-    price: 899,
-    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
+    price: 10788,
+    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
     description: 'Core facility logging and visibility',
     maxFacilities: 2,
     maxUsers: 10,
@@ -92,8 +92,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   standard: {
     id: 'standard',
     name: 'Standard',
-    price: 1999,
-    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
+    price: 23988,
+    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
     description: 'Operations + inventory management',
     maxFacilities: 5,
     maxUsers: 25,
@@ -109,8 +109,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   business: {
     id: 'business',
     name: 'Business',
-    price: 3999,
-    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
+    price: 47988,
+    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
     description: 'Multi-facility + advanced intelligence',
     maxFacilities: 15,
     maxUsers: 50,
@@ -129,8 +129,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   premium: {
     id: 'premium',
     name: 'Premium',
-    price: 6999,
-    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
+    price: 83988,
+    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
     description: 'Full platform intelligence — unlimited everything',
     maxFacilities: 'unlimited',
     maxUsers: 'unlimited',
@@ -201,7 +201,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   retail_starter: {
     id: 'retail_starter',
     name: 'Retail Starter',
-    price: 97,
+    price: 197,
     priceId: 'price_1TGTF3Dfw4bOR2dfenLjfUMf',
     description: 'Essential retail compliance for single-location operations',
     maxFacilities: 1,
@@ -215,7 +215,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   retail_pro: {
     id: 'retail_pro',
     name: 'Retail Pro',
-    price: 197,
+    price: 297,
     priceId: 'price_1TGTIMDfw4bOR2dfWvWCGU87',
     description: 'Multi-location retail with supplier management and waste tracking',
     maxFacilities: 3,
@@ -232,7 +232,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   command_basic: {
     id: 'command_basic',
     name: 'Command Basic',
-    price: 497,
+    price: 4970,
     priceId: 'price_1TGTMYDfw4bOR2dfkANtaj0z',
     description: 'Core tools for public safety departments',
     maxFacilities: 1,
@@ -246,7 +246,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   command_standard: {
     id: 'command_standard',
     name: 'Command Standard',
-    price: 997,
+    price: 9970,
     priceId: 'price_1TGTNzDfw4bOR2df7EU4x1DQ',
     description: 'Response metrics and multi-unit coordination',
     maxFacilities: 5,
@@ -262,7 +262,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   command_pro: {
     id: 'command_pro',
     name: 'Command Pro',
-    price: 1997,
+    price: 19970,
     priceId: 'price_1TGTPGDfw4bOR2dfJZVGSrm5',
     description: 'Full platform for large public safety agencies',
     maxFacilities: 'unlimited',

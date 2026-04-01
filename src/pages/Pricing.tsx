@@ -13,27 +13,31 @@ import {
 import { cn } from '@/lib/utils';
 
 type SectorTab = 'facility' | 'retail' | 'government';
-type BillingCycle = 'monthly' | 'annual';
 
 interface Plan {
   name: string;
   priceId: string | null;
-  monthlyPrice: number | null;
+  price: number | null;
+  billingLabel: '/yr' | '/mo';
   icon: any;
   color: string;
   border: string;
   bg: string;
   badge?: string | null;
+  annualLicense?: boolean;
   description: string;
   features: string[];
   isEnterprise?: boolean;
 }
 
+// ── FACILITY — annual license only ────────────────────────────────────────────
 const FACILITY_PLANS: Plan[] = [
   {
     name: 'Basic',
-    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
-    monthlyPrice: 899,
+    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
+    price: 10788,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Zap,
     color: 'text-blue-400',
     border: 'border-blue-400/30',
@@ -52,8 +56,10 @@ const FACILITY_PLANS: Plan[] = [
   },
   {
     name: 'Standard',
-    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
-    monthlyPrice: 1999,
+    priceId: 'price_1TAbKQDfw4bOR2df9CbJymgf',
+    price: 23988,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Building2,
     color: 'text-cyan-400',
     border: 'border-cyan-400/30',
@@ -73,8 +79,10 @@ const FACILITY_PLANS: Plan[] = [
   },
   {
     name: 'Business',
-    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
-    monthlyPrice: 3999,
+    priceId: 'price_1TAbNoDfw4bOR2dfepJUVort',
+    price: 47988,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Flame,
     color: 'text-orange-400',
     border: 'border-orange-400/40',
@@ -94,8 +102,10 @@ const FACILITY_PLANS: Plan[] = [
   },
   {
     name: 'Premium',
-    priceId: 'price_1TAbJ4Dfw4bOR2dfEHzEs5qY',
-    monthlyPrice: 6999,
+    priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
+    price: 83988,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Crown,
     color: 'text-purple-400',
     border: 'border-purple-400/40',
@@ -115,11 +125,13 @@ const FACILITY_PLANS: Plan[] = [
   },
 ];
 
+// ── RETAIL — monthly only ──────────────────────────────────────────────────────
 const RETAIL_PLANS: Plan[] = [
   {
     name: 'Retail Starter',
     priceId: 'price_1TGTF3Dfw4bOR2dfenLjfUMf',
-    monthlyPrice: 97,
+    price: 197,
+    billingLabel: '/mo',
     icon: ShoppingCart,
     color: 'text-green-400',
     border: 'border-green-400/30',
@@ -132,14 +144,14 @@ const RETAIL_PLANS: Plan[] = [
       'Temperature compliance logs',
       'Daily open/close checklists',
       'Health inspection readiness score',
-      '1 location',
-      '5 users',
+      '1 location · 5 users',
     ],
   },
   {
     name: 'Retail Pro',
     priceId: 'price_1TGTIMDfw4bOR2dfWvWCGU87',
-    monthlyPrice: 197,
+    price: 297,
+    billingLabel: '/mo',
     icon: Star,
     color: 'text-emerald-400',
     border: 'border-emerald-400/40',
@@ -158,11 +170,14 @@ const RETAIL_PLANS: Plan[] = [
   },
 ];
 
+// ── GOVERNMENT — annual license only ──────────────────────────────────────────
 const GOVERNMENT_PLANS: Plan[] = [
   {
     name: 'Command Basic',
     priceId: 'price_1TGTMYDfw4bOR2dfkANtaj0z',
-    monthlyPrice: 497,
+    price: 4970,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Shield,
     color: 'text-blue-400',
     border: 'border-blue-400/30',
@@ -182,7 +197,9 @@ const GOVERNMENT_PLANS: Plan[] = [
   {
     name: 'Command Standard',
     priceId: 'price_1TGTNzDfw4bOR2df7EU4x1DQ',
-    monthlyPrice: 997,
+    price: 9970,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Shield,
     color: 'text-cyan-400',
     border: 'border-cyan-400/30',
@@ -201,7 +218,9 @@ const GOVERNMENT_PLANS: Plan[] = [
   {
     name: 'Command Pro',
     priceId: 'price_1TGTPGDfw4bOR2dfJZVGSrm5',
-    monthlyPrice: 1997,
+    price: 19970,
+    billingLabel: '/yr',
+    annualLicense: true,
     icon: Crown,
     color: 'text-purple-400',
     border: 'border-purple-400/40',
@@ -221,7 +240,8 @@ const GOVERNMENT_PLANS: Plan[] = [
   {
     name: 'Command Enterprise',
     priceId: null,
-    monthlyPrice: null,
+    price: null,
+    billingLabel: '/yr',
     icon: Sparkles,
     color: 'text-yellow-400',
     border: 'border-yellow-400/40',
@@ -253,7 +273,6 @@ const ADDONS = [
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
-  const [billing, setBilling] = useState<BillingCycle>('monthly');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState({
@@ -273,16 +292,6 @@ export default function Pricing() {
     sector === 'facility' ? FACILITY_PLANS :
     sector === 'retail' ? RETAIL_PLANS :
     GOVERNMENT_PLANS;
-
-  const displayPrice = (plan: Plan): number | null => {
-    if (plan.monthlyPrice === null) return null;
-    return billing === 'annual' ? plan.monthlyPrice * 10 : plan.monthlyPrice;
-  };
-
-  const annualSavings = (plan: Plan): number => {
-    if (plan.monthlyPrice === null) return 0;
-    return plan.monthlyPrice * 2;
-  };
 
   const toggleAddon = (priceId: string) => {
     setSelectedAddons(prev =>
@@ -339,8 +348,7 @@ export default function Pricing() {
         body: JSON.stringify(quoteForm),
       });
       setQuoteSuccess(true);
-    } catch (err) {
-      console.error('Quote submit error:', err);
+    } catch {
       setQuoteSuccess(true);
     } finally {
       setQuoteSubmitting(false);
@@ -379,8 +387,8 @@ export default function Pricing() {
           </p>
         </div>
 
-        {/* Sector tabs + Billing toggle */}
-        <div className="flex flex-col items-center gap-6">
+        {/* Sector tabs */}
+        <div className="flex justify-center">
           <div className="inline-flex rounded-lg border border-border bg-card/50 p-1 gap-1">
             {([
               { value: 'facility' as const, label: 'Facility', icon: Building2 },
@@ -402,32 +410,19 @@ export default function Pricing() {
               </button>
             ))}
           </div>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <span className={cn('text-sm font-medium', billing === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setBilling(b => b === 'monthly' ? 'annual' : 'monthly')}
-              className={cn(
-                'relative w-12 h-6 rounded-full transition-colors focus:outline-none',
-                billing === 'annual' ? 'bg-primary' : 'bg-muted'
-              )}
-            >
-              <span className={cn(
-                'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm',
-                billing === 'annual' ? 'translate-x-7' : 'translate-x-1'
-              )} />
-            </button>
-            <span className={cn('text-sm font-medium', billing === 'annual' ? 'text-foreground' : 'text-muted-foreground')}>
-              Annual
-            </span>
-            {billing === 'annual' && (
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                2 months free
-              </Badge>
-            )}
-          </div>
+        {/* Billing model note */}
+        <div className="flex justify-center">
+          {sector === 'retail' ? (
+            <Badge variant="outline" className="text-xs border-green-400/30 text-green-400">
+              Monthly subscription — cancel anytime
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+              Annual license — billed once per year
+            </Badge>
+          )}
         </div>
 
         {/* Government credibility strip */}
@@ -452,8 +447,6 @@ export default function Pricing() {
         )}>
           {activePlans.map((plan) => {
             const Icon = plan.icon;
-            const price = displayPrice(plan);
-            const savings = annualSavings(plan);
 
             return (
               <Card
@@ -479,33 +472,26 @@ export default function Pricing() {
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${plan.bg} border ${plan.border}`}>
                     <Icon className={`w-5 h-5 ${plan.color}`} />
                   </div>
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl font-bold">{plan.name}</h3>
+                    {plan.annualLicense && (
+                      <Badge variant="outline" className="text-[10px] border-primary/30 text-primary shrink-0">
+                        Annual License
+                      </Badge>
+                    )}
+                  </div>
 
                   <div className="mt-1">
                     {plan.isEnterprise ? (
                       <div>
-                        <p className="text-2xl font-bold">Custom Pricing</p>
+                        <p className="text-2xl font-bold">Request Quote</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Tailored to your deployment</p>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-bold">${price!.toLocaleString()}</span>
-                          <span className="text-muted-foreground text-sm">/{billing === 'annual' ? 'yr' : 'mo'}</span>
-                        </div>
-                        {billing === 'annual' ? (
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <p className="text-xs text-muted-foreground">${plan.monthlyPrice!.toLocaleString()}/mo equivalent</p>
-                            <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
-                              Save ${savings.toLocaleString()}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Annual: save ${savings.toLocaleString()} (2 months free)
-                          </p>
-                        )}
-                      </>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold">${plan.price!.toLocaleString()}</span>
+                        <span className="text-muted-foreground text-sm">{plan.billingLabel}</span>
+                      </div>
                     )}
                   </div>
 
@@ -525,7 +511,7 @@ export default function Pricing() {
                   {plan.isEnterprise ? (
                     <Button
                       variant="outline"
-                      className={`mt-auto w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10`}
+                      className="mt-auto w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10"
                       onClick={() => document.getElementById('enterprise-quote')?.scrollIntoView({ behavior: 'smooth' })}
                     >
                       Request Quote
@@ -575,67 +561,46 @@ export default function Pricing() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Company Name</label>
-                      <Input
-                        required
-                        value={quoteForm.companyName}
+                      <Input required value={quoteForm.companyName}
                         onChange={e => setQuoteForm(f => ({ ...f, companyName: e.target.value }))}
-                        placeholder="Acme Public Safety"
-                      />
+                        placeholder="Acme Public Safety" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Contact Name</label>
-                      <Input
-                        required
-                        value={quoteForm.contactName}
+                      <Input required value={quoteForm.contactName}
                         onChange={e => setQuoteForm(f => ({ ...f, contactName: e.target.value }))}
-                        placeholder="Jane Smith"
-                      />
+                        placeholder="Jane Smith" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Email</label>
-                      <Input
-                        required
-                        type="email"
-                        value={quoteForm.email}
+                      <Input required type="email" value={quoteForm.email}
                         onChange={e => setQuoteForm(f => ({ ...f, email: e.target.value }))}
-                        placeholder="jane@agency.gov"
-                      />
+                        placeholder="jane@agency.gov" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Phone</label>
-                      <Input
-                        value={quoteForm.phone}
+                      <Input value={quoteForm.phone}
                         onChange={e => setQuoteForm(f => ({ ...f, phone: e.target.value }))}
-                        placeholder="+1 (555) 000-0000"
-                      />
+                        placeholder="+1 (555) 000-0000" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Estimated Facilities / Locations</label>
-                      <Input
-                        value={quoteForm.estimatedLocations}
+                      <Input value={quoteForm.estimatedLocations}
                         onChange={e => setQuoteForm(f => ({ ...f, estimatedLocations: e.target.value }))}
-                        placeholder="e.g. 12"
-                      />
+                        placeholder="e.g. 12" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Team Size</label>
-                      <Input
-                        value={quoteForm.teamSize}
+                      <Input value={quoteForm.teamSize}
                         onChange={e => setQuoteForm(f => ({ ...f, teamSize: e.target.value }))}
-                        placeholder="e.g. 50"
-                      />
+                        placeholder="e.g. 50" />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Organization Type</label>
-                    <Select
-                      value={quoteForm.orgType}
-                      onValueChange={val => setQuoteForm(f => ({ ...f, orgType: val }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type..." />
-                      </SelectTrigger>
+                    <Select value={quoteForm.orgType} onValueChange={val => setQuoteForm(f => ({ ...f, orgType: val }))}>
+                      <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="facility">Facility Management</SelectItem>
                         <SelectItem value="retail">Retail / Food Service</SelectItem>
@@ -647,12 +612,10 @@ export default function Pricing() {
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Additional Notes</label>
-                    <Textarea
-                      value={quoteForm.notes}
+                    <Textarea value={quoteForm.notes}
                       onChange={e => setQuoteForm(f => ({ ...f, notes: e.target.value }))}
                       placeholder="Describe your use case, integration needs, or any questions..."
-                      rows={4}
-                    />
+                      rows={4} />
                   </div>
 
                   <Button type="submit" className="w-full" disabled={quoteSubmitting}>
@@ -675,11 +638,8 @@ export default function Pricing() {
             {ADDONS.map((addon) => {
               const selected = selectedAddons.includes(addon.priceId);
               return (
-                <Card
-                  key={addon.priceId}
-                  onClick={() => toggleAddon(addon.priceId)}
-                  className={`cursor-pointer transition-all border-2 ${selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
-                >
+                <Card key={addon.priceId} onClick={() => toggleAddon(addon.priceId)}
+                  className={`cursor-pointer transition-all border-2 ${selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm">{addon.name}</p>
