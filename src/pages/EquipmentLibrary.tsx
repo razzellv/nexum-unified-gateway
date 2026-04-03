@@ -12,9 +12,10 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3 } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import EquipmentImportModal from '@/components/import/EquipmentImportModal';
 
 interface Equipment {
   equipmentId: string;
@@ -101,6 +102,7 @@ export default function EquipmentLibrary() {
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -453,6 +455,11 @@ export default function EquipmentLibrary() {
               <BarChart3 className="w-4 h-4 mr-2" />{showSummary ? 'Hide' : 'Show'} Summary
             </Button>
             {canEdit && (
+              <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+                <Upload className="w-4 h-4 mr-2" />Import
+              </Button>
+            )}
+            {canEdit && (
               <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />Add Equipment</Button></DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -565,6 +572,14 @@ export default function EquipmentLibrary() {
             })}
           </div>
         )}
+
+        {/* Import Modal */}
+        <EquipmentImportModal
+          open={importModalOpen}
+          onOpenChange={setImportModalOpen}
+          onImportComplete={loadEquipment}
+          facilityId={user?.facilityId}
+        />
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

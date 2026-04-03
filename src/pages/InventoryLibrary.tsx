@@ -23,6 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import InventoryImportModal from '@/components/import/InventoryImportModal';
+import { Upload } from 'lucide-react';
 
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
@@ -229,6 +231,7 @@ export default function InventoryLibrary() {
   const [showAddGovModal, setShowAddGovModal] = useState(false);
   const [govForm, setGovForm] = useState({ ...EMPTY_GOV_FORM });
   const [govSubmitting, setGovSubmitting] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -463,6 +466,9 @@ export default function InventoryLibrary() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />Import
             </Button>
             <Button size="sm" onClick={() => setShowAddModal(true)}>
               <Plus className="w-4 h-4 mr-2" />Add Inventory
@@ -1105,6 +1111,13 @@ export default function InventoryLibrary() {
           </div>
         </div>
       )}
+
+      {/* Inventory Import Modal */}
+      <InventoryImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onImportComplete={fetchInventory}
+      />
     </MainLayout>
   );
 }

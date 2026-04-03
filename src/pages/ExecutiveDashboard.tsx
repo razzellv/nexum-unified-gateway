@@ -342,6 +342,7 @@ export default function ExecutiveDashboard() {
   const [selectedFacility, setSelectedFacility] = useState('all');
   const [selectedBuilding, setSelectedBuilding]  = useState('all');
   const [selectedSystem,   setSelectedSystem]    = useState('all');
+  const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryValue: 0, inventoryItems: 0 });
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -438,6 +439,27 @@ export default function ExecutiveDashboard() {
     }
   }, [isAuthenticated, fetchData]);
 
+  // Fetch asset count + value for scorecards
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = localStorage.getItem('nexum_access_token');
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    Promise.all([
+      fetch(`${baseUrl}/equipment?facility_id=${facilityId}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { equipment: [] }).catch(() => ({ equipment: [] })),
+      fetch(`${baseUrl}/inventory`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
+    ]).then(([eqData, invData]) => {
+      const eqList: any[] = eqData.equipment || [];
+      const invList: any[] = invData.items || invData.inventory || [];
+      const totalAssets = eqList.reduce((s: number, e: any) => s + (e.count || 1), 0);
+      const totalValue = eqList.reduce((s: number, e: any) => s + (parseFloat(e.replacementCost || e.purchasePrice || 0) * (e.count || 1)), 0);
+      const inventoryItems = invList.length;
+      const inventoryValue = invList.reduce((s: number, i: any) => s + ((i.quantity || 0) * (i.unitCost || 0)), 0);
+      setAssetStats({ totalAssets, totalValue, inventoryItems, inventoryValue });
+    });
+  }, [isAuthenticated, facilityId]);
+
   if (loading) return <NexumPageLoader message="Loading..." />;
 
   const filteredSites  = data?.topSites?.filter((s: any) => selectedFacility === 'all' || s.name === selectedFacility) || [];
@@ -513,6 +535,25 @@ export default function ExecutiveDashboard() {
                   <KPICard title="ROI %"             value={data.metrics.roi}              unit="%"  icon={BarChart3}     delay={250} />
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
+                </div>
+
+                {/* ── Asset + Inventory Scorecards ── */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: 'Total Equipment Units', value: assetStats.totalAssets.toLocaleString(), icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-400/10 border-cyan-400/20', desc: 'Across all equipment types' },
+                    { label: 'Equipment Asset Value', value: `$${(assetStats.totalValue / 1000).toFixed(0)}K`, icon: DollarSign, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20', desc: 'Total replacement cost on record' },
+                    { label: 'Inventory Line Items', value: assetStats.inventoryItems.toLocaleString(), icon: Building2, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20', desc: 'Parts, supplies & materials' },
+                    { label: 'Inventory Stock Value', value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`, icon: TrendingUp, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20', desc: 'Based on qty × unit cost' },
+                  ].map((card, i) => (
+                    <Card key={i} className="executive-card neon-border p-4">
+                      <div className={cn('inline-flex p-2 rounded-lg border mb-3', card.bg)}>
+                        <card.icon className={cn('w-5 h-5', card.color)} />
+                      </div>
+                      <p className={cn('text-2xl font-bold', card.color)}>{card.value}</p>
+                      <p className="text-sm font-medium text-foreground mt-0.5">{card.label}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{card.desc}</p>
+                    </Card>
+                  ))}
                 </div>
 
                 <div className="flex justify-center">

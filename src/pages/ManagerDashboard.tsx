@@ -146,6 +146,7 @@ export default function ManagerDashboard() {
   const [energyTrend, setEnergyTrend] = useState<any[]>([]);
   const [budgetData, setBudgetData]   = useState<any>(null);
   const [confidenceData, setConfidenceData] = useState<any>(null);
+  const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryItems: 0, inventoryValue: 0, lowStock: 0 });
 
   // ── Main data load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -194,6 +195,27 @@ export default function ManagerDashboard() {
     const interval = setInterval(() => setRefreshKey(k => k + 1), 60000);
     return () => clearInterval(interval);
   }, [refreshKey, selectedFacility, selectedBuilding, selectedSystem]);
+
+  // ── Asset count + value ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const token = getToken();
+    const baseUrl = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+    Promise.all([
+      fetch(`${baseUrl}/equipment`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { equipment: [] }).catch(() => ({ equipment: [] })),
+      fetch(`${baseUrl}/inventory`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
+    ]).then(([eqData, invData]) => {
+      const eqList: any[] = eqData.equipment || [];
+      const invList: any[] = invData.items || invData.inventory || [];
+      const totalAssets = eqList.reduce((s: number, e: any) => s + (e.count || 1), 0);
+      const totalValue = eqList.reduce((s: number, e: any) => s + (parseFloat(e.replacementCost || e.purchasePrice || 0) * (e.count || 1)), 0);
+      const inventoryItems = invList.length;
+      const inventoryValue = invList.reduce((s: number, i: any) => s + ((i.quantity || 0) * (i.unitCost || 0)), 0);
+      const lowStock = invList.filter((i: any) => i.quantity != null && i.minQuantity != null && i.quantity <= i.minQuantity).length;
+      setAssetStats({ totalAssets, totalValue, inventoryItems, inventoryValue, lowStock });
+    });
+  }, [refreshKey]);
 
   // ── Energy / utility trend ──────────────────────────────────────────────────
   useEffect(() => {
@@ -438,6 +460,32 @@ export default function ManagerDashboard() {
           <KPICard title="Avg WO Age"           value={Math.round(avgWorkOrderAge)} unit=" days" icon={Clock} trend={avgWorkOrderAge > 5 ? 'down' : 'up'}        trendValue={avgWorkOrderAge > 5 ? 'Aging' : 'On Track'} />
           <KPICard title="Downtime Events"      value={0}                        unit="/mo" icon={AlertTriangle} trend="neutral" trendValue="Stable" />
           <KPICard title="Log Consistency"      value={logConsistencyPercent}    unit="%" icon={Users}      trend={logConsistencyPercent >= 90 ? 'up' : 'down'}  trendValue={`${loggingConsistency} logs/7d`} />
+        </div>
+
+        {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            { title: 'Equipment Units',    value: assetStats.totalAssets.toLocaleString(),             icon: Activity,  color: 'text-neon-cyan', sub: 'All equipment on record' },
+            { title: 'Asset Value',        value: `$${(assetStats.totalValue / 1000).toFixed(0)}K`,    icon: DollarSign,color: 'text-green-400', sub: 'Total replacement cost' },
+            { title: 'Inventory Items',    value: assetStats.inventoryItems.toLocaleString(),           icon: BarChart3, color: 'text-purple-400', sub: 'Parts & supplies lines' },
+            { title: 'Inventory Value',    value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`,icon: TrendingUp,color: 'text-yellow-400', sub: 'Qty × unit cost' },
+            { title: 'Low Stock Alerts',   value: assetStats.lowStock.toLocaleString(),                icon: AlertTriangle, color: assetStats.lowStock > 0 ? 'text-orange-400' : 'text-green-400', sub: 'Items at or below min qty' },
+          ].map((card, i) => (
+            <Card key={i} className="bg-card/80 border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-muted/40">
+                    <card.icon className={`w-4 h-4 ${card.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{card.title}</p>
+                    <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{card.sub}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Main Grid */}
