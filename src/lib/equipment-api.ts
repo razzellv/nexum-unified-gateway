@@ -263,8 +263,7 @@ export const submitFacilityLog = async (logData: any) => {
     PK:  `FACILITY#${facilityId}`,
     SK:  `LOG#${timestamp}`,
 
-    // Both casings — Lambda requires snake_case, frontend uses camelCase
-    facility_id:       facilityId,
+    // camelCase (frontend convention)
     facilityId,
     buildingId:        logData.buildingId,
     systemType:        logData.systemType,
@@ -279,6 +278,18 @@ export const submitFacilityLog = async (logData: any) => {
     operatorNotes:     logData.operatorNotes,
     metrics:           logData.metrics || {},
     source:            'manual',
+
+    // snake_case aliases — Lambda validation uses these
+    facility_id:       facilityId,
+    building_id:       logData.buildingId,
+    system:            logData.systemType,
+    system_type:       logData.systemType,
+    system_id:         logData.systemId,
+    equipment_id:      logData.systemId,
+    operator_id:       logData.operatorId,
+    measurement_type:  logData.measurementType,
+    abnormal_condition: logData.abnormalCondition,
+    operator_notes:    logData.operatorNotes,
 
     // Spread metrics to top level for dashboard backward compatibility
     ...logData.metrics,
