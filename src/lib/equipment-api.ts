@@ -316,7 +316,16 @@ export const submitFacilityLog = async (logData: any) => {
       throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+
+    // Cache submitted log locally so dashboards can show updates before API polling refreshes
+    try {
+      const cache: any[] = JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]');
+      cache.unshift({ systemType: logData.systemType, facilityId, timestamp, metrics: logData.metrics || {} });
+      localStorage.setItem('nexum_submitted_logs', JSON.stringify(cache.slice(0, 200)));
+    } catch { /* silent */ }
+
+    return result;
   } catch (error) {
     console.error('❌ Error submitting facility log:', error);
     throw error;

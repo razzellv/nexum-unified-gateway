@@ -79,6 +79,97 @@ function analyzeBoilerLogs(logs: any[]): Diagnosis[] {
   return diagnoses;
 }
 
+function analyzeAHULogs(logs: any[]): Diagnosis[] {
+  const diagnoses: Diagnosis[] = [];
+  if (logs.length === 0) return diagnoses;
+  const recent = logs.slice(0, 10);
+  const avg = (key: string) => recent.reduce((s, l) => s + (parseFloat(l[key]) || 0), 0) / recent.length;
+
+  // Filter status — check most recent log first, then scan history
+  const filterStatuses = recent.map(l => l.filterStatus).filter(Boolean);
+  const latestFilter = filterStatuses[0];
+  const replaceCount = filterStatuses.filter(s => s === 'replace').length;
+  const dirtyCount = filterStatuses.filter(s => s === 'dirty').length;
+
+  if (latestFilter === 'replace' || replaceCount >= 1) {
+    diagnoses.push({
+      id: 'filter-replace', severity: 'critical', pattern: 'Filter requires immediate replacement',
+      meaning: 'Filter is at end of life. Restricted airflow causes the system to work harder, reduces cooling/heating capacity, increases energy consumption, and can cause coil icing or overheating.',
+      decision: 'Replace filter immediately. Document filter MERV rating and brand. Inspect coil for ice or debris. Check static pressure after replacement.',
+      defensibility: 'Log filter change with date, old/new MERV rating, and static pressure readings before and after.',
+      metrics: [
+        { label: 'Filter Status', value: 'Replace', status: 'critical' },
+        { label: 'Occurrences', value: replaceCount + ' readings', status: 'critical' },
+        { label: 'Action', value: 'Immediate', status: 'critical' },
+      ],
+    });
+  } else if (latestFilter === 'dirty' || dirtyCount >= 2) {
+    diagnoses.push({
+      id: 'filter-dirty', severity: 'warning', pattern: 'Dirty filter detected',
+      meaning: 'Filter loading is reducing airflow. Expect 5-15% efficiency penalty and potential comfort complaints. Left unaddressed, dirty filters cause coil fouling and reduced equipment life.',
+      decision: 'Schedule filter replacement within the week. Check supply air temperatures and static pressure. Increase inspection frequency if filters are loading quickly.',
+      defensibility: 'Document dirty filter readings with dates. Note any occupant complaints or supply temp deviations.',
+      metrics: [
+        { label: 'Filter Status', value: 'Dirty', status: 'warning' },
+        { label: 'Readings', value: dirtyCount + ' dirty', status: 'warning' },
+        { label: 'Priority', value: 'This Week', status: 'warning' },
+      ],
+    });
+  }
+
+  // Supply/return temp delta — low delta at high fan speed = poor coil performance
+  const avgSupply = avg('supplyAirTemp');
+  const avgReturn = avg('returnAirTemp');
+  const avgFanSpeed = avg('fanSpeed');
+  const tempDelta = avgReturn - avgSupply;
+
+  if (avgSupply > 0 && avgReturn > 0 && avgFanSpeed > 60 && tempDelta < 10) {
+    diagnoses.push({
+      id: 'poor-cooling', severity: 'warning', pattern: 'Low temp differential at high fan speed',
+      meaning: 'Supply-to-return temperature differential is below expected range at current fan speed. Indicates low refrigerant charge, fouled coil, or over-airflow condition.',
+      decision: 'Check refrigerant charge and coil cleanliness. Verify economizer damper operation. Consider reducing fan speed or resetting supply air setpoint.',
+      defensibility: 'Document supply/return temps and fan speed readings. Include any refrigerant service records.',
+      metrics: [
+        { label: 'Supply Temp', value: Math.round(avgSupply) + '°F', status: 'warning' },
+        { label: 'Return Temp', value: Math.round(avgReturn) + '°F', status: 'normal' },
+        { label: 'ΔT', value: Math.round(tempDelta) + '°F', status: 'warning' },
+      ],
+    });
+  }
+
+  // Supply air temp too high at high fan speed = cooling failure
+  if (avgSupply > 65 && avgFanSpeed > 70) {
+    diagnoses.push({
+      id: 'high-supply-temp', severity: 'critical', pattern: 'High supply temp at high fan speed',
+      meaning: 'Supply air temperature is higher than design cooling setpoint while the unit is running at high capacity. Points to cooling system failure — compressor, refrigerant, or controls issue.',
+      decision: 'Inspect compressor operation and refrigerant levels. Check control sequences and economizer override. Escalate to HVAC contractor if compressor fault present.',
+      defensibility: 'Log supply temp and fan speed readings with timestamps. Attach any fault codes from BAS or thermostat.',
+      metrics: [
+        { label: 'Supply Temp', value: Math.round(avgSupply) + '°F', status: 'critical' },
+        { label: 'Fan Speed', value: Math.round(avgFanSpeed) + '%', status: 'warning' },
+        { label: 'Target', value: '< 60°F', status: 'normal' },
+      ],
+    });
+  }
+
+  // Good state
+  if (diagnoses.length === 0) {
+    diagnoses.push({
+      id: 'ahu-good', severity: 'good', pattern: 'AHU operating normally',
+      meaning: 'Filter is clean, supply and return temperatures are within normal range, and fan is operating at appropriate speed.',
+      decision: 'Continue scheduled inspections. Maintain PM schedule for filter replacement and coil cleaning.',
+      defensibility: 'Log readings as compliance documentation of normal equipment operation.',
+      metrics: [
+        { label: 'Filter', value: latestFilter || 'Clean', status: 'normal' },
+        { label: 'Supply Temp', value: avgSupply > 0 ? Math.round(avgSupply) + '°F' : 'N/A', status: 'normal' },
+        { label: 'Status', value: 'Normal', status: 'normal' },
+      ],
+    });
+  }
+
+  return diagnoses;
+}
+
 function analyzeChillerLogs(logs: any[]): Diagnosis[] {
   const diagnoses: Diagnosis[] = [];
   if (logs.length === 0) return diagnoses;
@@ -151,7 +242,10 @@ export function DecisionIntelligence({ logs }: Props) {
 
   const patterns = Object.values(equipmentMap).map((eq: any) => {
     const t = (eq.equipmentType || '').toLowerCase();
-    const d = t === 'boiler' ? analyzeBoilerLogs(eq.readings) : t === 'chiller' ? analyzeChillerLogs(eq.readings) : [];
+    const d = t === 'boiler' ? analyzeBoilerLogs(eq.readings)
+            : t === 'chiller' ? analyzeChillerLogs(eq.readings)
+            : (t === 'ahu' || t === 'air_handler' || t === 'ahu_rtu') ? analyzeAHULogs(eq.readings)
+            : [];
     return { ...eq, diagnoses: d, overallHealth: getEquipmentHealth(d), trend: getHealthTrend(eq.readings) };
   }).sort((a: any, b: any) => a.overallHealth - b.overallHealth);
 

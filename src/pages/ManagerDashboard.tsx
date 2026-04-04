@@ -170,18 +170,48 @@ export default function ManagerDashboard() {
           console.error('Confidence metrics failed:', e);
         }
 
-        // Budget summary
+        // Budget summary — try API first, fall back to Settings localStorage data
         const token = getToken();
+        let apiBudgetOk = false;
         if (token) {
           try {
             const budgetRes = await fetch(
               'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
               { headers: { Authorization: `Bearer ${token}` } }
             );
-            if (budgetRes.ok) setBudgetData(await budgetRes.json());
+            if (budgetRes.ok) {
+              setBudgetData(await budgetRes.json());
+              apiBudgetOk = true;
+            }
           } catch (e) {
             console.error('Budget fetch failed:', e);
           }
+        }
+        // If API budget unavailable, build from localStorage nexum_dept_budgets
+        if (!apiBudgetOk) {
+          try {
+            const stored = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+            if (stored.length > 0) {
+              const totalBudget = stored.reduce((s: number, d: any) => s + (Number(d.annualBudget) || 0), 0);
+              const totalActual = stored.reduce((s: number, d: any) => s + (Number(d.spent) || 0), 0);
+              const variance = totalBudget - totalActual;
+              const utilizationPercent = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
+              const categories = stored.map((d: any) => {
+                const budget = Number(d.annualBudget) || 0;
+                const actual = Number(d.spent) || 0;
+                const pct = budget > 0 ? Math.round((actual / budget) * 100) : 0;
+                return {
+                  category: d.dept,
+                  budget,
+                  actual,
+                  variance: budget - actual,
+                  percentage: pct,
+                  status: pct >= 100 ? 'over' : pct >= 90 ? 'at_limit' : 'under',
+                };
+              });
+              setBudgetData({ period: new Date().getFullYear() + ' YTD', totalBudget, totalActual, variance, utilizationPercent, categories });
+            }
+          } catch { /* silent */ }
         }
       } catch (err) {
         console.error('Manager dashboard load failed:', err);
@@ -296,8 +326,37 @@ export default function ManagerDashboard() {
     };
   });
 
+  // ── Asset health — merge API data with locally submitted logs ────────────────
   const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
-  const assetHealthBySystem = Object.entries(equipmentHealthByType).map(([type, stats]: [string, any]) => {
+
+  // Pull recent locally-stored log submissions (written by LogEntryForm via submitFacilityLog)
+  const localLogs: any[] = (() => {
+    try { return JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]'); } catch { return []; }
+  })();
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentLocalLogs = localLogs.filter((l: any) => new Date(l.timestamp).getTime() > sevenDaysAgo);
+
+  // Build a local health map from submitted logs
+  const localHealthMap: Record<string, { log_count: number; last_log: string }> = {};
+  recentLocalLogs.forEach((l: any) => {
+    const t = l.systemType || 'unknown';
+    if (!localHealthMap[t]) localHealthMap[t] = { log_count: 0, last_log: l.timestamp };
+    localHealthMap[t].log_count++;
+    if (l.timestamp > localHealthMap[t].last_log) localHealthMap[t].last_log = l.timestamp;
+  });
+
+  // Merge: local data wins for recency, API data fills in the rest
+  const mergedHealth: Record<string, { log_count: number; last_log: string }> = { ...equipmentHealthByType };
+  Object.entries(localHealthMap).forEach(([type, local]) => {
+    if (!mergedHealth[type] || local.last_log > (mergedHealth[type].last_log || '')) {
+      mergedHealth[type] = {
+        log_count: Math.max(local.log_count, mergedHealth[type]?.log_count || 0),
+        last_log: local.last_log,
+      };
+    }
+  });
+
+  const assetHealthBySystem = Object.entries(mergedHealth).map(([type, stats]: [string, any]) => {
     const healthScore = Math.min(100, Math.round(((stats.log_count || 0) / 7) * 100));
     const status: 'healthy' | 'warning' | 'critical' =
       healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'warning' : 'critical';
@@ -307,7 +366,7 @@ export default function ManagerDashboard() {
       ? minsAgo < 60 ? `${minsAgo} min ago` : `${Math.round(minsAgo / 60)} hr ago`
       : 'No data';
     return {
-      system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
+      system: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' '),
       score: healthScore,
       status,
       lastUpdated,
