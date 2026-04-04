@@ -30,6 +30,9 @@ interface Equipment {
   baseline?: any;
   equipmentName?: string;
   count?: number;
+  purchasePrice?: number;
+  replacementCost?: number;
+  warrantyExpiry?: string;
 }
 
 const cleanText = (text: string) => {
@@ -112,6 +115,7 @@ export default function EquipmentLibrary() {
     equipmentType: '', manufacturer: '', model: '', serialNumber: '',
     location: '', installDate: '', buildingId: '', status: 'active',
     equipmentName: '', count: '1',
+    purchasePrice: '', replacementCost: '', warrantyExpiry: '',
   });
   const [requestReason, setRequestReason] = useState('');
 
@@ -172,7 +176,12 @@ export default function EquipmentLibrary() {
     }
     try {
       setSubmitting(true);
-      await apiRequest('/equipment', { method: 'POST', body: JSON.stringify({ ...formData, count: parseInt(formData.count) || 1 }) });
+      await apiRequest('/equipment', { method: 'POST', body: JSON.stringify({
+        ...formData,
+        count: parseInt(formData.count) || 1,
+        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
+        replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
+      }) });
       toast({ title: 'Success', description: 'Equipment added successfully' });
       setAddDialogOpen(false);
       resetForm();
@@ -214,7 +223,12 @@ export default function EquipmentLibrary() {
     try {
       setSubmitting(true);
       await apiRequest(`/equipment/${selectedEquipment.equipmentId}`, {
-        method: 'PUT', body: JSON.stringify({ ...formData, count: parseInt(formData.count) || 1 }),
+        method: 'PUT', body: JSON.stringify({
+          ...formData,
+          count: parseInt(formData.count) || 1,
+          purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
+          replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
+        }),
       });
       toast({ title: 'Success', description: 'Equipment updated' });
       setEditDialogOpen(false);
@@ -264,7 +278,7 @@ export default function EquipmentLibrary() {
 
   const openEditDialog = (eq: Equipment) => {
     setSelectedEquipment(eq);
-    setFormData({ equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model, serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active', equipmentName: eq.equipmentName || '', count: String(eq.count || 1) });
+    setFormData({ equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model, serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active', equipmentName: eq.equipmentName || '', count: String(eq.count || 1), purchasePrice: eq.purchasePrice ? String(eq.purchasePrice) : '', replacementCost: eq.replacementCost ? String(eq.replacementCost) : '', warrantyExpiry: eq.warrantyExpiry || '' });
     setEditDialogOpen(true);
   };
 
@@ -276,7 +290,7 @@ export default function EquipmentLibrary() {
     setBaselineDialogOpen(true);
   };
 
-  const resetForm = () => setFormData({ equipmentType: '', manufacturer: '', model: '', serialNumber: '', location: '', installDate: '', buildingId: '', status: 'active', equipmentName: '', count: '1' });
+  const resetForm = () => setFormData({ equipmentType: '', manufacturer: '', model: '', serialNumber: '', location: '', installDate: '', buildingId: '', status: 'active', equipmentName: '', count: '1', purchasePrice: '', replacementCost: '', warrantyExpiry: '' });
 
   const filteredEquipment = equipment.filter(eq =>
     eq.equipmentId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -339,6 +353,11 @@ export default function EquipmentLibrary() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2"><Label>Location</Label><Input value={formData.location} onChange={e => setFormData(f => ({ ...f, location: e.target.value }))} placeholder="e.g., Mechanical Room 2" /></div>
         <div className="space-y-2"><Label>Building ID</Label><Input value={formData.buildingId} onChange={e => setFormData(f => ({ ...f, buildingId: e.target.value }))} placeholder="e.g., BLDG-A" /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2"><Label>Purchase Price ($)</Label><Input type="number" value={formData.purchasePrice} onChange={e => setFormData(f => ({ ...f, purchasePrice: e.target.value }))} placeholder="125000" /></div>
+        <div className="space-y-2"><Label>Replacement Cost ($)</Label><Input type="number" value={formData.replacementCost} onChange={e => setFormData(f => ({ ...f, replacementCost: e.target.value }))} placeholder="180000" /></div>
+        <div className="space-y-2"><Label>Warranty Expiry</Label><Input type="date" value={formData.warrantyExpiry} onChange={e => setFormData(f => ({ ...f, warrantyExpiry: e.target.value }))} /></div>
       </div>
     </div>
   );
@@ -438,6 +457,7 @@ export default function EquipmentLibrary() {
   };
 
   const totalUnits = equipment.reduce((sum, eq) => sum + (countAdjustments[eq.equipmentId] ?? eq.count ?? 1), 0);
+  const totalAssetValue = equipment.reduce((sum, eq) => sum + ((eq.replacementCost || eq.purchasePrice || 0) * (eq.count || 1)), 0);
 
   return (
     <MainLayout>
@@ -447,7 +467,7 @@ export default function EquipmentLibrary() {
           <div>
             <h1 className="text-2xl font-bold">Equipment Library</h1>
             <p className="text-muted-foreground text-sm">
-              {equipment.length} equipment type{equipment.length !== 1 ? 's' : ''} · {totalUnits} total unit{totalUnits !== 1 ? 's' : ''}
+              {equipment.length} equipment type{equipment.length !== 1 ? 's' : ''} · {totalUnits} total unit{totalUnits !== 1 ? 's' : ''}{totalAssetValue > 0 ? ` · Asset Value: $${totalAssetValue.toLocaleString()}` : ''}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -533,6 +553,11 @@ export default function EquipmentLibrary() {
                           {eq.serialNumber && <p><strong>Serial:</strong> {cleanText(eq.serialNumber)}</p>}
                           {eq.location && <p><strong>Location:</strong> {eq.location}</p>}
                           {eq.installDate && <p><strong>Installed:</strong> {eq.installDate}</p>}
+                          {eq.replacementCost ? (
+                            <p><strong>Value:</strong> ${eq.replacementCost.toLocaleString()} (replacement cost)</p>
+                          ) : eq.purchasePrice ? (
+                            <p><strong>Purchase Price:</strong> ${eq.purchasePrice.toLocaleString()}</p>
+                          ) : null}
                         </div>
                       </div>
 

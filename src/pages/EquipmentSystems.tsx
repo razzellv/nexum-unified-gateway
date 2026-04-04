@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Loader2, Network, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Loader2, Network, AlertCircle, RefreshCw } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -68,6 +68,7 @@ export default function EquipmentSystems() {
   const [systems, setSystems] = useState<EquipmentSystem[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [systemsError, setSystemsError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -92,15 +93,13 @@ useEffect(() => {
 
     try {
       setLoading(true);
+      setSystemsError(null);
       const data = await apiRequest('/equipment-systems');
       setSystems(data.systems || []);
     } catch (error) {
       console.error('Failed to load systems:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load equipment systems',
-        variant: 'destructive',
-      });
+      setSystemsError('Equipment systems data unavailable. The service may be temporarily down.');
+      setSystems([]);
     } finally {
       setLoading(false);
     }
@@ -442,6 +441,23 @@ useEffect(() => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {systemsError && (
+          <Card className="border-yellow-500/30 bg-yellow-500/5">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />
+                <div>
+                  <p className="font-medium text-yellow-500">Systems Unavailable</p>
+                  <p className="text-sm text-muted-foreground">{systemsError}</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadSystems}>
+                <RefreshCw className="w-4 h-4 mr-2" />Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">

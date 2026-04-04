@@ -13,7 +13,7 @@ import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
 import { NexumError } from '@/components/global/NexumError';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { getFacilityLogs, type FacilityLog } from '@/lib/nexum-api';
-import { 
+import {
   Activity,
   RefreshCw,
   Flame,
@@ -31,7 +31,9 @@ import {
   Info,
   Gauge,
   Brain,
-  BarChart3
+  BarChart3,
+  SortAsc,
+  SortDesc
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React from 'react';
@@ -67,6 +69,9 @@ export default function EquipmentMetrics() {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortField, setSortField] = useState<'date' | 'equipment' | 'operator' | 'efficiency'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [locationFilter, setLocationFilter] = useState('');
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -155,7 +160,7 @@ export default function EquipmentMetrics() {
     }
   }, [isAuthenticated, fetchLogs]);
 
-  // Apply search filter
+  // Apply search filter + sort
   useEffect(() => {
     let filtered = logs;
 
@@ -167,9 +172,26 @@ export default function EquipmentMetrics() {
       );
     }
 
+    if (locationFilter) {
+      filtered = filtered.filter(log =>
+        log.equipmentId.toLowerCase().includes(locationFilter.toLowerCase()) ||
+        (log as any).location?.toLowerCase().includes(locationFilter.toLowerCase())
+      );
+    }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'date') cmp = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      else if (sortField === 'equipment') cmp = a.equipmentId.localeCompare(b.equipmentId);
+      else if (sortField === 'operator') cmp = a.operator.localeCompare(b.operator);
+      else if (sortField === 'efficiency') cmp = ((a as any).efficiency || (a.data as any)?.efficiency || 0) - ((b as any).efficiency || (b.data as any)?.efficiency || 0);
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+
     setFilteredLogs(filtered);
     setCurrentPage(1);
-  }, [searchTerm, logs]);
+  }, [searchTerm, locationFilter, sortField, sortDirection, logs]);
 
   // Pagination
   const indexOfLastLog = currentPage * logsPerPage;
@@ -321,6 +343,31 @@ export default function EquipmentMetrics() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full"
                 />
+              </div>
+
+              {/* Sort By */}
+              <div className="space-y-2">
+                <Label>Sort By</Label>
+                <div className="flex gap-2">
+                  <Select value={sortField} onValueChange={(v: any) => setSortField(v)}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="equipment">Equipment ID</SelectItem>
+                      <SelectItem value="operator">Operator</SelectItem>
+                      <SelectItem value="efficiency">Efficiency</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="icon" onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}>
+                    {sortDirection === 'desc' ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Location Filter */}
+              <div className="space-y-2">
+                <Label>Location / Building</Label>
+                <Input placeholder="Filter by location..." value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
               </div>
             </div>
           </CardContent>

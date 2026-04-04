@@ -93,8 +93,8 @@ const KPICard = ({ title, value, unit = '', icon: Icon, trend, trendValue, color
 };
 
 // ── System Health Card ────────────────────────────────────────────────────────
-const SystemHealthCard = ({ system, score, status, lastUpdated }: {
-  system: string; score: number; status: 'healthy' | 'warning' | 'critical'; lastUpdated: string;
+const SystemHealthCard = ({ system, score, status, lastUpdated, unitCount }: {
+  system: string; score: number; status: 'healthy' | 'warning' | 'critical'; lastUpdated: string; unitCount?: number | null;
 }) => {
   const statusColors = {
     healthy: 'text-green-400 bg-green-400/20',
@@ -111,6 +111,7 @@ const SystemHealthCard = ({ system, score, status, lastUpdated }: {
         <div className="text-right">
           <p className="text-lg font-bold">{score}</p>
           <Badge variant="outline" className={statusColors[status]}>{status}</Badge>
+          <p className="text-xs text-muted-foreground">{unitCount != null ? `${unitCount} units` : ''}</p>
         </div>
       </div>
     </div>
@@ -319,20 +320,24 @@ export default function ManagerDashboard() {
   });
 
   const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
+  const equipmentByType = data?.equipment?.by_type || data?.equipment?.summary?.by_type || {};
   const assetHealthBySystem = Object.entries(equipmentHealthByType).map(([type, stats]: [string, any]) => {
-    const healthScore = Math.min(100, Math.round(((stats.log_count || 0) / 7) * 100));
+    const logCount = stats.log_count ?? stats.logs ?? 0;
+    const healthScore = Math.min(100, Math.round((logCount / 7) * 100));
     const status: 'healthy' | 'warning' | 'critical' =
       healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'warning' : 'critical';
-    const lastLog   = stats.last_log ? new Date(stats.last_log) : null;
-    const minsAgo   = lastLog ? Math.round((Date.now() - lastLog.getTime()) / 60000) : null;
+    const lastLog = stats.last_log ? new Date(stats.last_log) : null;
+    const minsAgo = lastLog ? Math.round((Date.now() - lastLog.getTime()) / 60000) : null;
     const lastUpdated = minsAgo !== null
-      ? minsAgo < 60 ? `${minsAgo} min ago` : `${Math.round(minsAgo / 60)} hr ago`
+      ? minsAgo < 60 ? `${minsAgo} min ago` : minsAgo < 1440 ? `${Math.round(minsAgo/60)} hr ago` : `${Math.round(minsAgo/1440)} days ago`
       : 'No data';
+    const unitCount = equipmentByType[type]?.count ?? equipmentByType[type] ?? null;
     return {
       system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
       score: healthScore,
       status,
       lastUpdated,
+      unitCount,
     };
   });
 
@@ -652,6 +657,61 @@ export default function ManagerDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Department Budget Utilization */}
+        {(() => {
+          const deptBudgets: any[] = (() => {
+            try { return JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]'); } catch { return []; }
+          })();
+          if (deptBudgets.length === 0) return (
+            <Card className="bg-card/80 border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-neon-cyan" />Department Budgets
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No budgets configured. Set budgets in <strong>Settings → Budget</strong> tab.
+                </p>
+              </CardContent>
+            </Card>
+          );
+          return (
+            <Card className="bg-card/80 border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-neon-cyan" />Department Budget Utilization
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {deptBudgets.filter((d: any) => d.department && d.annualBudget).map((dept: any, i: number) => {
+                  const annual = parseFloat(dept.annualBudget) || 0;
+                  const spent = parseFloat(dept.spent || dept.spentToDate || '0') || 0;
+                  const remaining = annual - spent;
+                  const pct = annual > 0 ? Math.min(100, Math.round((spent / annual) * 100)) : 0;
+                  const color = pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400';
+                  const barColor = pct >= 90 ? 'bg-red-400' : pct >= 75 ? 'bg-yellow-400' : 'bg-green-400';
+                  return (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{dept.department}</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">Budget: ${annual.toLocaleString()}</span>
+                          <span className="text-muted-foreground">Remaining: ${remaining.toLocaleString()}</span>
+                          <span className={`font-bold ${color}`}>{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Budget vs Cost */}
         <BudgetVsCost budgetData={budgetData} isLoading={loading} />

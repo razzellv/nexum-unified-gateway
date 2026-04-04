@@ -556,6 +556,54 @@ export default function ExecutiveDashboard() {
                   ))}
                 </div>
 
+                {/* ── Financial Overview ── */}
+                <Card className="executive-card neon-border p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-primary" />Financial Overview
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                      { label: 'Daily Op Cost',       value: `$${(data.metrics.dailyCost || 0).toLocaleString()}`,              sub: 'Energy + ops' },
+                      { label: 'Monthly Projected',   value: `$${((data.metrics.dailyCost || 0) * 30).toLocaleString()}`,        sub: 'Daily × 30' },
+                      { label: 'Annual Projected',    value: `$${((data.metrics.dailyCost || 0) * 365).toLocaleString()}`,       sub: 'Daily × 365' },
+                      { label: 'Equipment Value',     value: assetStats.totalValue > 0 ? `$${Math.round(assetStats.totalValue/1000)}K` : '—', sub: 'Replacement cost' },
+                      { label: 'Inventory Value',     value: assetStats.inventoryValue > 0 ? `$${(assetStats.inventoryValue/1000).toFixed(1)}K` : '—', sub: 'Qty × unit cost' },
+                      { label: 'Total Asset Value',   value: (assetStats.totalValue + assetStats.inventoryValue) > 0 ? `$${Math.round((assetStats.totalValue + assetStats.inventoryValue)/1000)}K` : '—', sub: 'Equipment + inventory' },
+                    ].map((item, i) => (
+                      <div key={i} className="p-3 rounded-lg bg-background/50 border border-border text-center">
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                        <p className="text-lg font-bold text-primary mt-1">{item.value}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{item.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Department budgets */}
+                  {(() => {
+                    const deptBudgets: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]'); } catch { return []; } })();
+                    if (deptBudgets.length === 0) return (
+                      <p className="text-sm text-muted-foreground mt-4 text-center">Set department budgets in <strong>Settings → Budget</strong></p>
+                    );
+                    const totalBudget = deptBudgets.reduce((s: number, d: any) => s + (parseFloat(d.annualBudget) || 0), 0);
+                    const totalSpent  = deptBudgets.reduce((s: number, d: any) => s + (parseFloat(d.spent || '0') || 0), 0);
+                    return (
+                      <div className="mt-4 pt-4 border-t border-border space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Total Annual Budget</span>
+                          <span className="font-semibold">${totalBudget.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Spent to Date</span>
+                          <span className="font-semibold text-yellow-400">${totalSpent.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Remaining</span>
+                          <span className="font-semibold text-green-400">${(totalBudget - totalSpent).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </Card>
+
                 <div className="flex justify-center">
                   <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>
                     <FacilityGauge value={overallScore} label="Overall Facility Intelligence Score" size="lg" />
