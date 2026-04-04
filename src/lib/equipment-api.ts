@@ -288,7 +288,8 @@ export const submitFacilityLog = async (logData: any) => {
   });
 
   try {
-    const response = await fetch(`${API_BASE_URL}/facility-log-ingest`, {
+    // Route through Netlify proxy to avoid CORS on the API Gateway OPTIONS preflight
+    const response = await fetch('/.netlify/functions/facility-log-ingest', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
