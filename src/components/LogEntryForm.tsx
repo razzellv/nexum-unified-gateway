@@ -217,9 +217,9 @@ export function LogEntryForm({
     switch (systemType) {
       // Existing
       case 'boiler':
-        return <BoilerForm data={boilerData} onChange={setBoilerData} errors={errors} />;
+        return <BoilerForm data={boilerData} onChange={setBoilerData} errors={errors} equipmentId={system?.id} facilityId={facility.id} />;
       case 'chiller':
-        return <ChillerForm data={chillerData} onChange={setChillerData} errors={errors} />;
+        return <ChillerForm data={chillerData} onChange={setChillerData} errors={errors} equipmentId={system?.id} facilityId={facility.id} />;
       case 'pump':
         return <PumpForm data={pumpData} onChange={setPumpData} errors={errors} />;
       case 'ahu':
