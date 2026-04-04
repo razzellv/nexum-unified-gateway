@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/hooks/useAuth';
+import { DEPARTMENTS } from '@/config/roles';
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { NexumBranding } from "@/components/NexumBranding";
 import { ScopeFilters } from '@/components/global/ScopeFilters';
@@ -134,6 +137,11 @@ function getToken() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ManagerDashboard() {
   const { currentRole } = useRole();
+  const { user } = useAuth();
+
+  // Department filter — defaults to user's department, 'All' sees everything
+  const userDept = user?.department || 'Operations';
+  const [selectedDept, setSelectedDept] = useState<string>(userDept);
 
   // Filter state — wired into API calls
   const [selectedFacility, setSelectedFacility] = useState('all');
@@ -307,7 +315,24 @@ export default function ManagerDashboard() {
   const loggingConsistency   = data?.performance?.logs_last_7_days || 0;
   const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / 7) * 100));
 
-  const workOrders = data?.work_orders?.recent || [];
+  const allWorkOrders = data?.work_orders?.recent || [];
+  // Department filter: show all when selectedDept is 'All', otherwise match department field
+  const workOrders = selectedDept === 'All'
+    ? allWorkOrders
+    : allWorkOrders.filter((wo: any) => !wo.department || wo.department === selectedDept);
+
+  // Department-filtered violations count
+  const allViolationDetails = data?.violations?.details || [];
+  const deptViolations = selectedDept === 'All'
+    ? allViolationDetails
+    : allViolationDetails.filter((v: any) => !v.department || v.department === selectedDept);
+  const deptViolationCount = deptViolations.length || activeViolations;
+
+  // Department-filtered budget highlight
+  const budgetCategories: any[] = budgetData?.categories || [];
+  const deptBudgetRow = budgetCategories.find(
+    (c: any) => c.category?.toLowerCase() === selectedDept.toLowerCase()
+  );
 
   // ✅ WO aging — safe date handling (created_at AND createdAt)
   const workOrderAging = [
@@ -482,6 +507,31 @@ export default function ManagerDashboard() {
           onBuildingChange={setSelectedBuilding}
           onSystemChange={setSelectedSystem}
         />
+
+        {/* Department Filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Showing: <span className="text-foreground font-medium">{selectedDept}</span> department
+            </span>
+          </div>
+          <Select value={selectedDept} onValueChange={setSelectedDept}>
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              {DEPARTMENTS.map(d => (
+                <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {deptBudgetRow && (
+            <Badge variant="outline" className="text-xs border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10">
+              {selectedDept} Budget: ${(deptBudgetRow.budget || 0).toLocaleString()} · Used: {deptBudgetRow.percentage || 0}%
+            </Badge>
+          )}
+        </div>
 
         {/* Primary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

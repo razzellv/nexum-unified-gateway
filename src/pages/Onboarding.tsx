@@ -16,13 +16,16 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+import { DEPARTMENTS, getRolesForOrgType, ROLE_DISPLAY_NAMES } from '@/config/roles';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface StaffMember { name: string; role: string; email: string; }
+interface StaffMember { name: string; role: string; email: string; department: string; }
 interface EquipmentItem { equipmentType: string; manufacturer: string; model: string; location: string; serialNumber: string; }
 interface InventoryItem { itemName: string; partNumber: string; quantity: string; unit: string; location: string; }
 interface BaselineData { [equipmentType: string]: { [field: string]: string } }
 interface DepartmentBudget { department: string; annualBudget: string; monthlyBudget: string; }
 
+// Legacy fallback; actual roles derived from orgType at render time
 const ROLES = ['operator', 'technician', 'engineer', 'custodian', 'supervisor', 'manager', 'executive'];
 const EQUIPMENT_TYPES = ['boiler', 'chiller', 'pump', 'ahu', 'cooling_tower', 'fan', 'compressor', 'vav', 'heat_exchanger'];
 const FACILITY_TYPES = ['commercial_office', 'healthcare', 'education', 'industrial', 'residential', 'retail', 'hospitality', 'government'];
@@ -93,7 +96,7 @@ export default function Onboarding() {
   const [org, setOrg] = useState({ name: '', facilityCount: '1', facilityType: '', address: '', city: '', state: '', zip: '' });
 
   // Step 2 — Staff
-  const [staff, setStaff] = useState<StaffMember[]>([{ name: '', role: '', email: '' }]);
+  const [staff, setStaff] = useState<StaffMember[]>([{ name: '', role: '', email: '', department: 'Operations' }]);
 
   // Step 3 — Equipment
   const [equipment, setEquipment] = useState<EquipmentItem[]>([{ equipmentType: '', manufacturer: '', model: '', location: '', serialNumber: '' }]);
@@ -125,7 +128,7 @@ export default function Onboarding() {
   const progress = (step / (STEPS.length - 1)) * 100;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
-  const addStaff = () => setStaff([...staff, { name: '', role: '', email: '' }]);
+  const addStaff = () => setStaff([...staff, { name: '', role: '', email: '', department: 'Operations' }]);
   const removeStaff = (i: number) => setStaff(staff.filter((_, idx) => idx !== i));
   const updateStaff = (i: number, field: keyof StaffMember, value: string) => {
     const updated = [...staff]; updated[i][field] = value; setStaff(updated);
@@ -212,7 +215,12 @@ export default function Onboarding() {
         await fetch(`${baseUrl}/onboarding/invite`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ...member, facilityId: user?.facilityId, orgId: user?.orgId }),
+          body: JSON.stringify({
+            ...member,
+            facilityId: user?.facilityId,
+            orgId: user?.orgId,
+            orgType,
+          }),
         });
       }
 
@@ -422,36 +430,54 @@ export default function Onboarding() {
               <p className="text-muted-foreground mt-1">Each staff member will receive an email invite to create their account.</p>
             </div>
             <div className="space-y-3">
-              {staff.map((member, i) => (
-                <Card key={i}><CardContent className="p-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Full Name</Label>
-                      <Input value={member.name} onChange={e => updateStaff(i, 'name', e.target.value)} placeholder="Jane Smith" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Role</Label>
-                      <Select value={member.role} onValueChange={v => updateStaff(i, 'role', v)}>
-                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map(r => <SelectItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1 flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label className="text-xs">Email</Label>
-                        <Input value={member.email} onChange={e => updateStaff(i, 'email', e.target.value)} placeholder="jane@company.com" type="email" />
+              {staff.map((member, i) => {
+                const orgRoles = getRolesForOrgType(orgType as string);
+                return (
+                  <Card key={i}><CardContent className="p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Full Name</Label>
+                        <Input value={member.name} onChange={e => updateStaff(i, 'name', e.target.value)} placeholder="Jane Smith" />
                       </div>
-                      {staff.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeStaff(i)} className="mb-0.5 text-destructive hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Role</Label>
+                        <Select value={member.role} onValueChange={v => updateStaff(i, 'role', v)}>
+                          <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            {orgRoles.map(r => (
+                              <SelectItem key={r} value={r}>
+                                {ROLE_DISPLAY_NAMES[r] || r.charAt(0).toUpperCase() + r.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Department</Label>
+                        <Select value={member.department} onValueChange={v => updateStaff(i, 'department', v)}>
+                          <SelectTrigger><SelectValue placeholder="Dept" /></SelectTrigger>
+                          <SelectContent>
+                            {DEPARTMENTS.filter(d => d !== 'All').map(d => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1 flex items-end gap-2">
+                        <div className="flex-1">
+                          <Label className="text-xs">Email</Label>
+                          <Input value={member.email} onChange={e => updateStaff(i, 'email', e.target.value)} placeholder="jane@company.com" type="email" />
+                        </div>
+                        {staff.length > 1 && (
+                          <Button variant="ghost" size="icon" onClick={() => removeStaff(i)} className="mb-0.5 text-destructive hover:text-destructive">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent></Card>
-              ))}
+                  </CardContent></Card>
+                );
+              })}
               <Button variant="outline" onClick={addStaff} className="w-full">
                 <Plus className="w-4 h-4 mr-2" />Add Staff Member
               </Button>
