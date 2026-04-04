@@ -190,7 +190,9 @@ export default function ManagerDashboard() {
         // If API budget unavailable, build from localStorage nexum_dept_budgets
         if (!apiBudgetOk) {
           try {
-            const stored = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+            const raw = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+            // Settings saves { rows: [...], fiscalYear }; handle both formats
+            const stored: any[] = Array.isArray(raw) ? raw : (raw?.rows ?? []);
             if (stored.length > 0) {
               const totalBudget = stored.reduce((s: number, d: any) => s + (Number(d.annualBudget) || 0), 0);
               const totalActual = stored.reduce((s: number, d: any) => s + (Number(d.spent) || 0), 0);
