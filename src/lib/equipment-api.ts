@@ -239,10 +239,11 @@ function decodeJwtPayload(token: string): Record<string, any> {
 // Endpoint: POST /facility-log-ingest
 // Writes to DynamoDB FacilityLogs-v2 with PK "FACILITY#<id>" / SK "LOG#<ts>"
 export const submitFacilityLog = async (logData: any) => {
-  // Prefer access token; fall back to id token
+  // Use ID token — Lambda checks custom:facilityId which only exists in the ID token,
+  // not the access token. Fall back to access token if ID token is unavailable.
   const token =
-    localStorage.getItem('nexum_access_token') ||
-    localStorage.getItem('nexum_id_token');
+    localStorage.getItem('nexum_id_token') ||
+    localStorage.getItem('nexum_access_token');
 
   if (!token) {
     throw new Error('No authentication token available');
