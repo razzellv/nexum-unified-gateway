@@ -41,6 +41,28 @@ const STEPS = [
   { id: 8, label: 'Audit Report', icon: FileCheck },
 ];
 
+const RETAIL_STEPS = [
+  { id: 0, label: 'Org Type', icon: LayoutDashboard },
+  { id: 1, label: 'Store Info', icon: Building2 },
+  { id: 2, label: 'Staff', icon: Users },
+  { id: 3, label: 'Categories', icon: ShoppingCart },
+  { id: 4, label: 'Suppliers', icon: Package },
+  { id: 5, label: 'Temp Zones', icon: Zap },
+  { id: 6, label: 'Budget', icon: DollarSign },
+];
+
+const GOVT_STEPS = [
+  { id: 0, label: 'Org Type', icon: LayoutDashboard },
+  { id: 1, label: 'Agency Info', icon: Building2 },
+  { id: 2, label: 'Personnel', icon: Users },
+  { id: 3, label: 'Fleet', icon: Wrench },
+  { id: 4, label: 'Budget', icon: DollarSign },
+];
+
+const STORE_TYPES = ['convenience_store', 'grocery', 'pharmacy', 'restaurant', 'cafe', 'bakery', 'bar', 'food_truck', 'other'];
+const AGENCY_TYPES = ['fire_department', 'police_department', 'ems', 'public_works', 'municipality', 'county', 'state_agency', 'federal_agency'];
+const APPARATUS_TYPES = ['engine', 'ladder', 'rescue', 'ambulance', 'hazmat', 'tanker', 'patrol_car', 'utility_vehicle', 'pickup_truck', 'other'];
+
 const ORG_TYPES = [
   {
     value: 'facility',
@@ -122,7 +144,21 @@ export default function Onboarding() {
   const [auditFile, setAuditFile] = useState<File | null>(null);
   const [auditMeta, setAuditMeta] = useState({ agency: '', inspectionDate: '', result: 'pass' });
 
-  const progress = (step / (STEPS.length - 1)) * 100;
+  // Retail-specific state
+  const [retailStore, setRetailStore] = useState({ storeName: '', storeType: '', address: '', city: '', state: '', zip: '' });
+  const [retailCategories, setRetailCategories] = useState<string[]>(['']);
+  const [retailSuppliers, setRetailSuppliers] = useState<{ name: string; contact: string; product: string }[]>([{ name: '', contact: '', product: '' }]);
+  const [retailTempZones, setRetailTempZones] = useState<{ zone: string; minTemp: string; maxTemp: string }[]>([{ zone: '', minTemp: '', maxTemp: '' }]);
+  const [retailBudget, setRetailBudget] = useState({ annualTotal: '', fiscalYearStart: 'January' });
+
+  // Government-specific state
+  const [govAgency, setGovAgency] = useState({ agencyName: '', agencyType: '', address: '', city: '', state: '', zip: '' });
+  const [govPersonnel, setGovPersonnel] = useState<StaffMember[]>([{ name: '', role: '', email: '' }]);
+  const [govApparatus, setGovApparatus] = useState<{ unitNumber: string; type: string; year: string; make: string; model: string }[]>([{ unitNumber: '', type: '', year: '', make: '', model: '' }]);
+  const [govBudget, setGovBudget] = useState({ annualTotal: '', fiscalYearStart: 'January' });
+
+  const currentSteps = orgType === 'retail' ? RETAIL_STEPS : orgType === 'government' ? GOVT_STEPS : STEPS;
+  const progress = (step / (currentSteps.length - 1)) * 100;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   const addStaff = () => setStaff([...staff, { name: '', role: '', email: '' }]);
@@ -192,7 +228,13 @@ export default function Onboarding() {
 
   const totalDeptBudget = deptBudgets.reduce((sum, d) => sum + (parseFloat(d.annualBudget) || 0), 0);
 
-  const next = () => { if (step < STEPS.length - 1) setStep(step + 1); };
+  const next = () => {
+    if (step === 0 && orgType) {
+      localStorage.setItem('nexum_org_type', orgType);
+      sessionStorage.setItem('nexum_org_type', orgType);
+    }
+    if (step < currentSteps.length - 1) setStep(step + 1);
+  };
   const back = () => { if (step > 0) setStep(step - 1); };
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -294,14 +336,14 @@ export default function Onboarding() {
           <span className="font-bold text-lg text-primary">Nexum Suum</span>
           <Badge variant="outline" className="text-xs">Facility Setup</Badge>
         </div>
-        {step > 0 && <p className="text-sm text-muted-foreground">Step {step} of {STEPS.length - 1}</p>}
+        {step > 0 && <p className="text-sm text-muted-foreground">Step {step} of {currentSteps.length - 1}</p>}
       </div>
 
       {/* Progress */}
       {step > 0 && <div className="px-6 pt-4">
         <Progress value={progress} className="h-1.5" />
         <div className="flex justify-between mt-3">
-          {STEPS.map((s) => {
+          {currentSteps.map((s) => {
             const Icon = s.icon;
             const active = step === s.id;
             const done = step > s.id;
@@ -365,8 +407,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 1: Organization ── */}
-        {step === 1 && (
+        {/* ── Step 1: Organization (Facility) ── */}
+        {step === 1 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Set up your organization</h2>
@@ -414,8 +456,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 2: Staff ── */}
-        {step === 2 && (
+        {/* ── Step 2: Staff (Facility) ── */}
+        {step === 2 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Register your team</h2>
@@ -460,8 +502,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 3: Equipment ── */}
-        {step === 3 && (
+        {/* ── Step 3: Equipment (Facility) ── */}
+        {step === 3 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Current equipment</h2>
@@ -514,8 +556,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 4: Baselines ── */}
-        {step === 4 && (
+        {/* ── Step 4: Baselines (Facility) ── */}
+        {step === 4 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Equipment baselines</h2>
@@ -553,8 +595,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 5: Inventory ── */}
-        {step === 5 && (
+        {/* ── Step 5: Inventory (Facility) ── */}
+        {step === 5 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Current inventory</h2>
@@ -606,8 +648,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 6: Budget ── */}
-        {step === 6 && (
+        {/* ── Step 6: Budget (Facility) ── */}
+        {step === 6 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Budget configuration</h2>
@@ -733,8 +775,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 7: Utility Rates ── */}
-        {step === 7 && (
+        {/* ── Step 7: Utility Rates (Facility) ── */}
+        {step === 7 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Utility rates</h2>
@@ -761,8 +803,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* ── Step 8: Audit Report ── */}
-        {step === 8 && (
+        {/* ── Step 8: Audit Report (Facility) ── */}
+        {step === 8 && orgType === 'facility' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold">Upload audit report <span className="text-muted-foreground text-lg font-normal">(optional)</span></h2>
@@ -839,19 +881,452 @@ export default function Onboarding() {
           </div>
         )}
 
+        {/* ── RETAIL STEPS ── */}
+
+        {/* Retail Step 1: Store Info */}
+        {step === 1 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Set up your store</h2>
+              <p className="text-muted-foreground mt-1">Tell us about your store so we can configure the right tools.</p>
+            </div>
+            <Card><CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label>Store Name *</Label>
+                  <Input value={retailStore.storeName} onChange={e => setRetailStore({ ...retailStore, storeName: e.target.value })} placeholder="e.g., Main Street Deli" />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Store Type *</Label>
+                  <Select value={retailStore.storeType} onValueChange={v => setRetailStore({ ...retailStore, storeType: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      {STORE_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Street Address</Label>
+                  <Input value={retailStore.address} onChange={e => setRetailStore({ ...retailStore, address: e.target.value })} placeholder="123 Main St" />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={retailStore.city} onChange={e => setRetailStore({ ...retailStore, city: e.target.value })} placeholder="Newark" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label>State</Label>
+                    <Input value={retailStore.state} onChange={e => setRetailStore({ ...retailStore, state: e.target.value })} placeholder="NJ" maxLength={2} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ZIP</Label>
+                    <Input value={retailStore.zip} onChange={e => setRetailStore({ ...retailStore, zip: e.target.value })} placeholder="07102" />
+                  </div>
+                </div>
+              </div>
+            </CardContent></Card>
+          </div>
+        )}
+
+        {/* Retail Step 2: Staff */}
+        {step === 2 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Register your team</h2>
+              <p className="text-muted-foreground mt-1">Each staff member will receive an email invite to create their account.</p>
+            </div>
+            <div className="space-y-3">
+              {staff.map((member, i) => (
+                <Card key={i}><CardContent className="p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Full Name</Label>
+                      <Input value={member.name} onChange={e => updateStaff(i, 'name', e.target.value)} placeholder="Jane Smith" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Role</Label>
+                      <Select value={member.role} onValueChange={v => updateStaff(i, 'role', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map(r => <SelectItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input value={member.email} onChange={e => updateStaff(i, 'email', e.target.value)} placeholder="jane@store.com" type="email" />
+                      </div>
+                      {staff.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => removeStaff(i)} className="mb-0.5 text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent></Card>
+              ))}
+              <Button variant="outline" onClick={addStaff} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Staff Member
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Retail Step 3: Product Categories */}
+        {step === 3 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Product categories</h2>
+              <p className="text-muted-foreground mt-1">List the main product categories you carry. Used for inventory organization.</p>
+            </div>
+            <div className="space-y-3">
+              {retailCategories.map((cat, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input value={cat} onChange={e => { const u = [...retailCategories]; u[i] = e.target.value; setRetailCategories(u); }} placeholder={`e.g., ${['Beverages', 'Dairy & Deli', 'Snacks', 'Produce', 'Frozen Foods'][i % 5]}`} />
+                  {retailCategories.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => setRetailCategories(retailCategories.filter((_, idx) => idx !== i))} className="text-destructive hover:text-destructive shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button variant="outline" onClick={() => setRetailCategories([...retailCategories, ''])} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Category
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">You can manage categories from Inventory Library later.</p>
+          </div>
+        )}
+
+        {/* Retail Step 4: Suppliers */}
+        {step === 4 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Suppliers</h2>
+              <p className="text-muted-foreground mt-1">Add your key suppliers for reorder tracking and purchase orders.</p>
+            </div>
+            <div className="space-y-3">
+              {retailSuppliers.map((sup, i) => (
+                <Card key={i}><CardContent className="p-4">
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Supplier Name *</Label>
+                      <Input value={sup.name} onChange={e => { const u = [...retailSuppliers]; u[i].name = e.target.value; setRetailSuppliers(u); }} placeholder="e.g., US Foods" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact / Phone</Label>
+                      <Input value={sup.contact} onChange={e => { const u = [...retailSuppliers]; u[i].contact = e.target.value; setRetailSuppliers(u); }} placeholder="e.g., 800-555-0100" />
+                    </div>
+                    <div className="space-y-1 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">Primary Product</Label>
+                        <Input value={sup.product} onChange={e => { const u = [...retailSuppliers]; u[i].product = e.target.value; setRetailSuppliers(u); }} placeholder="e.g., Dairy" />
+                      </div>
+                      {retailSuppliers.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => setRetailSuppliers(retailSuppliers.filter((_, idx) => idx !== i))} className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent></Card>
+              ))}
+              <Button variant="outline" onClick={() => setRetailSuppliers([...retailSuppliers, { name: '', contact: '', product: '' }])} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Supplier
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Retail Step 5: Temperature Zones */}
+        {step === 5 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Temperature zones</h2>
+              <p className="text-muted-foreground mt-1">Define storage zones for temperature compliance logging and health inspection readiness.</p>
+            </div>
+            <div className="space-y-3">
+              {retailTempZones.map((zone, i) => (
+                <Card key={i}><CardContent className="p-4">
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Zone Name *</Label>
+                      <Input value={zone.zone} onChange={e => { const u = [...retailTempZones]; u[i].zone = e.target.value; setRetailTempZones(u); }} placeholder={`e.g., ${['Walk-in Cooler', 'Freezer', 'Hot Hold', 'Prep Area'][i % 4]}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Min Temp (°F)</Label>
+                      <Input type="number" value={zone.minTemp} onChange={e => { const u = [...retailTempZones]; u[i].minTemp = e.target.value; setRetailTempZones(u); }} placeholder="e.g., 33" />
+                    </div>
+                    <div className="space-y-1 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">Max Temp (°F)</Label>
+                        <Input type="number" value={zone.maxTemp} onChange={e => { const u = [...retailTempZones]; u[i].maxTemp = e.target.value; setRetailTempZones(u); }} placeholder="e.g., 41" />
+                      </div>
+                      {retailTempZones.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => setRetailTempZones(retailTempZones.filter((_, idx) => idx !== i))} className="text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent></Card>
+              ))}
+              <Button variant="outline" onClick={() => setRetailTempZones([...retailTempZones, { zone: '', minTemp: '', maxTemp: '' }])} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Zone
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Temperature logs feed into health inspection reports and compliance alerts.</p>
+          </div>
+        )}
+
+        {/* Retail Step 6: Budget */}
+        {step === 6 && orgType === 'retail' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Budget configuration</h2>
+              <p className="text-muted-foreground mt-1">Set your store's annual budget baseline for dashboard tracking.</p>
+            </div>
+            <Card><CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label>Total Annual Budget ($)</Label>
+                <Input type="number" min="0" value={retailBudget.annualTotal} onChange={e => setRetailBudget({ ...retailBudget, annualTotal: e.target.value })} placeholder="e.g., 250000" />
+                {retailBudget.annualTotal && (
+                  <p className="text-xs text-muted-foreground">Monthly equivalent: ${(parseFloat(retailBudget.annualTotal) / 12).toLocaleString('en-US', { maximumFractionDigits: 2 })} / mo</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Fiscal Year Start</Label>
+                <Select value={retailBudget.fiscalYearStart} onValueChange={v => setRetailBudget({ ...retailBudget, fiscalYearStart: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FISCAL_MONTHS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent></Card>
+
+            {/* Launch summary */}
+            <Card className="border-primary/30 bg-primary/5"><CardContent className="p-6">
+              <h3 className="font-semibold mb-2">Ready to launch your store</h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Store: {retailStore.storeName || 'Not set'}</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{staff.filter(s => s.email).length} staff member(s) to invite</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{retailCategories.filter(Boolean).length} product category(ies)</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{retailSuppliers.filter(s => s.name).length} supplier(s)</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{retailTempZones.filter(z => z.zone).length} temperature zone(s)</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Budget: {retailBudget.annualTotal ? `$${parseFloat(retailBudget.annualTotal).toLocaleString()}/yr` : 'Not set'}</li>
+              </ul>
+            </CardContent></Card>
+          </div>
+        )}
+
+        {/* ── GOVERNMENT STEPS ── */}
+
+        {/* Govt Step 1: Agency Info */}
+        {step === 1 && orgType === 'government' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Agency information</h2>
+              <p className="text-muted-foreground mt-1">Tell us about your agency so we can configure the right dashboard and compliance tools.</p>
+            </div>
+            <Card><CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label>Agency Name *</Label>
+                  <Input value={govAgency.agencyName} onChange={e => setGovAgency({ ...govAgency, agencyName: e.target.value })} placeholder="e.g., Newark Fire Department" />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Agency Type *</Label>
+                  <Select value={govAgency.agencyType} onValueChange={v => setGovAgency({ ...govAgency, agencyType: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      {AGENCY_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Street Address</Label>
+                  <Input value={govAgency.address} onChange={e => setGovAgency({ ...govAgency, address: e.target.value })} placeholder="123 Fire Station Rd" />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={govAgency.city} onChange={e => setGovAgency({ ...govAgency, city: e.target.value })} placeholder="Newark" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label>State</Label>
+                    <Input value={govAgency.state} onChange={e => setGovAgency({ ...govAgency, state: e.target.value })} placeholder="NJ" maxLength={2} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ZIP</Label>
+                    <Input value={govAgency.zip} onChange={e => setGovAgency({ ...govAgency, zip: e.target.value })} placeholder="07102" />
+                  </div>
+                </div>
+              </div>
+            </CardContent></Card>
+          </div>
+        )}
+
+        {/* Govt Step 2: Personnel */}
+        {step === 2 && orgType === 'government' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Personnel</h2>
+              <p className="text-muted-foreground mt-1">Register your staff. Each member will receive an email invite to create their account.</p>
+            </div>
+            <div className="space-y-3">
+              {govPersonnel.map((member, i) => (
+                <Card key={i}><CardContent className="p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Full Name</Label>
+                      <Input value={member.name} onChange={e => { const u = [...govPersonnel]; u[i].name = e.target.value; setGovPersonnel(u); }} placeholder="John Smith" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Rank / Role</Label>
+                      <Select value={member.role} onValueChange={v => { const u = [...govPersonnel]; u[i].role = v; setGovPersonnel(u); }}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map(r => <SelectItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input value={member.email} onChange={e => { const u = [...govPersonnel]; u[i].email = e.target.value; setGovPersonnel(u); }} placeholder="john@agency.gov" type="email" />
+                      </div>
+                      {govPersonnel.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => setGovPersonnel(govPersonnel.filter((_, idx) => idx !== i))} className="mb-0.5 text-destructive hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent></Card>
+              ))}
+              <Button variant="outline" onClick={() => setGovPersonnel([...govPersonnel, { name: '', role: '', email: '' }])} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Personnel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Govt Step 3: Apparatus / Fleet */}
+        {step === 3 && orgType === 'government' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Apparatus & fleet</h2>
+              <p className="text-muted-foreground mt-1">Log your vehicles and apparatus for maintenance tracking and response metrics.</p>
+            </div>
+            <div className="space-y-3">
+              {govApparatus.map((unit, i) => (
+                <Card key={i}><CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline">Unit {i + 1}</Badge>
+                    {govApparatus.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => setGovApparatus(govApparatus.filter((_, idx) => idx !== i))} className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Unit Number *</Label>
+                      <Input value={unit.unitNumber} onChange={e => { const u = [...govApparatus]; u[i].unitNumber = e.target.value; setGovApparatus(u); }} placeholder="e.g., E-1, PD-42" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Type *</Label>
+                      <Select value={unit.type} onValueChange={v => { const u = [...govApparatus]; u[i].type = v; setGovApparatus(u); }}>
+                        <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                        <SelectContent>
+                          {APPARATUS_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Year</Label>
+                      <Input value={unit.year} onChange={e => { const u = [...govApparatus]; u[i].year = e.target.value; setGovApparatus(u); }} placeholder="e.g., 2019" maxLength={4} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Make</Label>
+                      <Input value={unit.make} onChange={e => { const u = [...govApparatus]; u[i].make = e.target.value; setGovApparatus(u); }} placeholder="e.g., Pierce, Ford" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Model</Label>
+                      <Input value={unit.model} onChange={e => { const u = [...govApparatus]; u[i].model = e.target.value; setGovApparatus(u); }} placeholder="e.g., Arrow XT, F-550" />
+                    </div>
+                  </div>
+                </CardContent></Card>
+              ))}
+              <Button variant="outline" onClick={() => setGovApparatus([...govApparatus, { unitNumber: '', type: '', year: '', make: '', model: '' }])} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />Add Apparatus
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Govt Step 4: Budget */}
+        {step === 4 && orgType === 'government' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Budget configuration</h2>
+              <p className="text-muted-foreground mt-1">Set your agency's annual budget baseline for dashboard tracking.</p>
+            </div>
+            <Card><CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label>Total Annual Budget ($)</Label>
+                <Input type="number" min="0" value={govBudget.annualTotal} onChange={e => setGovBudget({ ...govBudget, annualTotal: e.target.value })} placeholder="e.g., 2500000" />
+                {govBudget.annualTotal && (
+                  <p className="text-xs text-muted-foreground">Monthly equivalent: ${(parseFloat(govBudget.annualTotal) / 12).toLocaleString('en-US', { maximumFractionDigits: 2 })} / mo</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Fiscal Year Start</Label>
+                <Select value={govBudget.fiscalYearStart} onValueChange={v => setGovBudget({ ...govBudget, fiscalYearStart: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FISCAL_MONTHS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent></Card>
+
+            {/* Launch summary */}
+            <Card className="border-primary/30 bg-primary/5"><CardContent className="p-6">
+              <h3 className="font-semibold mb-2">Ready to launch your agency</h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Agency: {govAgency.agencyName || 'Not set'}</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{govPersonnel.filter(p => p.email).length} personnel to invite</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />{govApparatus.filter(a => a.unitNumber).length} apparatus / fleet unit(s)</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 shrink-0" />Budget: {govBudget.annualTotal ? `$${parseFloat(govBudget.annualTotal).toLocaleString()}/yr` : 'Not set'}</li>
+              </ul>
+            </CardContent></Card>
+          </div>
+        )}
+
         {/* ── Navigation ── */}
         {step > 0 && (
           <div className="flex justify-between mt-8">
             <Button variant="outline" onClick={back} disabled={step === 0}>
               <ChevronLeft className="w-4 h-4 mr-2" />Back
             </Button>
-            {step < STEPS.length - 1 ? (
+            {step < currentSteps.length - 1 ? (
               <Button onClick={next}>
                 Next<ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
               <Button onClick={handleFinish} disabled={submitting} className="min-w-32">
-                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Setting up...</> : <>Launch Facility<ChevronRight className="w-4 h-4 ml-2" /></>}
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Setting up...</>
+                ) : orgType === 'retail' ? (
+                  <>Launch Store<ChevronRight className="w-4 h-4 ml-2" /></>
+                ) : orgType === 'government' ? (
+                  <>Launch Agency<ChevronRight className="w-4 h-4 ml-2" /></>
+                ) : (
+                  <>Launch Facility<ChevronRight className="w-4 h-4 ml-2" /></>
+                )}
               </Button>
             )}
           </div>
