@@ -263,7 +263,8 @@ export const submitFacilityLog = async (logData: any) => {
     PK:  `FACILITY#${facilityId}`,
     SK:  `LOG#${timestamp}`,
 
-    // Canonical camelCase fields
+    // Both casings — Lambda requires snake_case, frontend uses camelCase
+    facility_id:       facilityId,
     facilityId,
     buildingId:        logData.buildingId,
     systemType:        logData.systemType,
