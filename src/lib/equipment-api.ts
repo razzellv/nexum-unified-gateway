@@ -239,10 +239,11 @@ function decodeJwtPayload(token: string): Record<string, any> {
 // Endpoint: POST /facility-log-ingest
 // Writes to DynamoDB FacilityLogs-v2 with PK "FACILITY#<id>" / SK "LOG#<ts>"
 export const submitFacilityLog = async (logData: any) => {
-  // Prefer access token; fall back to id token
+  // Use ID token — Lambda checks custom:facilityId which only exists in the ID token,
+  // not the access token. Fall back to access token if ID token is unavailable.
   const token =
-    localStorage.getItem('nexum_access_token') ||
-    localStorage.getItem('nexum_id_token');
+    localStorage.getItem('nexum_id_token') ||
+    localStorage.getItem('nexum_access_token');
 
   if (!token) {
     throw new Error('No authentication token available');
@@ -263,7 +264,7 @@ export const submitFacilityLog = async (logData: any) => {
     PK:  `FACILITY#${facilityId}`,
     SK:  `LOG#${timestamp}`,
 
-    // Canonical camelCase fields
+    // camelCase (frontend convention)
     facilityId,
     buildingId:        logData.buildingId,
     systemType:        logData.systemType,
@@ -279,6 +280,18 @@ export const submitFacilityLog = async (logData: any) => {
     metrics:           logData.metrics || {},
     source:            'manual',
 
+    // snake_case aliases — Lambda validation uses these
+    facility_id:       facilityId,
+    building_id:       logData.buildingId,
+    system:            logData.systemType,
+    system_type:       logData.systemType,
+    system_id:         logData.systemId,
+    equipment_id:      logData.systemId,
+    operator_id:       logData.operatorId,
+    measurement_type:  logData.measurementType,
+    abnormal_condition: logData.abnormalCondition,
+    operator_notes:    logData.operatorNotes,
+
     // Spread metrics to top level for dashboard backward compatibility
     ...logData.metrics,
   };
@@ -288,7 +301,8 @@ export const submitFacilityLog = async (logData: any) => {
   });
 
   try {
-    const response = await fetch(`${API_BASE_URL}/facility-log-ingest`, {
+    // Route through Netlify proxy to avoid CORS on the API Gateway OPTIONS preflight
+    const response = await fetch('/.netlify/functions/facility-log-ingest', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -302,7 +316,16 @@ export const submitFacilityLog = async (logData: any) => {
       throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+
+    // Cache submitted log locally so dashboards can show updates before API polling refreshes
+    try {
+      const cache: any[] = JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]');
+      cache.unshift({ systemType: logData.systemType, facilityId, timestamp, metrics: logData.metrics || {} });
+      localStorage.setItem('nexum_submitted_logs', JSON.stringify(cache.slice(0, 200)));
+    } catch { /* silent */ }
+
+    return result;
   } catch (error) {
     console.error('❌ Error submitting facility log:', error);
     throw error;

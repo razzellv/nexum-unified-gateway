@@ -5,6 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Flame, Shield, Zap, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PumpSelector } from '@/components/equipment/PumpSelector';
+import { ConnectedToBanner } from '@/components/equipment/ConnectedToBanner';
 
 interface BoilerFormData {
   operatingMode: string;
@@ -21,19 +23,20 @@ interface BoilerFormData {
   secondaryGasUsage: string;
   makeUpWater: boolean;
   safetyStatus: string;
-  // Simplified LWCO fields
   lwcoTestResult: 'pass' | 'fail' | '';
   blowdownPerformed: boolean;
-  // ✅ NEW: Energy calculation fields
   runtimeHours: string;
   gasCCF: string;
   kwDraw: string;
+  linkedPumpIds: string[];
 }
 
 interface BoilerFormProps {
   data: BoilerFormData;
   onChange: (data: BoilerFormData) => void;
   errors: Record<string, string>;
+  equipmentId?: string;
+  facilityId?: string;
 }
 
 const safetyStatusColors = {
@@ -42,8 +45,8 @@ const safetyStatusColors = {
   lockout: 'bg-destructive/20 border-destructive/50 text-destructive',
 };
 
-export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
-  const updateField = (field: keyof BoilerFormData, value: string | boolean) => {
+export function BoilerForm({ data, onChange, errors, equipmentId, facilityId }: BoilerFormProps) {
+  const updateField = (field: keyof BoilerFormData, value: string | boolean | string[]) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -273,6 +276,27 @@ export function BoilerForm({ data, onChange, errors }: BoilerFormProps) {
         </div>
       </div>
 
+      {/* Linked Pumps */}
+      {facilityId && (
+        <div className="mt-6 pt-6 border-t border-border/50">
+          <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-md bg-primary/10">
+              <Flame className="h-4 w-4 text-primary" />
+            </div>
+            Linked Pumps
+          </h3>
+          <ConnectedToBanner linkedPumpIds={data.linkedPumpIds} />
+          <div className="mt-3">
+            <PumpSelector
+              facilityId={facilityId}
+              currentEquipmentId={equipmentId}
+              selectedIds={data.linkedPumpIds}
+              onChange={(ids) => updateField('linkedPumpIds', ids)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Safety Status */}
       <div className="input-group mt-6">
         <Label className="text-sm font-medium">
@@ -395,10 +419,10 @@ export const initialBoilerData: BoilerFormData = {
   safetyStatus: '',
   lwcoTestResult: '',
   blowdownPerformed: false,
-  // ✅ NEW: Energy fields
   runtimeHours: '',
   gasCCF: '',
   kwDraw: '',
+  linkedPumpIds: [],
 };
 
 export function validateBoilerForm(data: BoilerFormData): Record<string, string> {

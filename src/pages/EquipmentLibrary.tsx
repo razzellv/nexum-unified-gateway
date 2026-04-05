@@ -16,6 +16,7 @@ import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload }
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import EquipmentImportModal from '@/components/import/EquipmentImportModal';
+import { ImportModal } from '@/components/ImportModal';
 
 interface Equipment {
   equipmentId: string;
@@ -104,6 +105,7 @@ export default function EquipmentLibrary() {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
+  const [importOpen, setImportOpen] = useState(false);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
   const [importModalOpen, setImportModalOpen] = useState(false);
 
@@ -475,11 +477,10 @@ export default function EquipmentLibrary() {
               <BarChart3 className="w-4 h-4 mr-2" />{showSummary ? 'Hide' : 'Show'} Summary
             </Button>
             {canEdit && (
+              <>
               <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" />Import
               </Button>
-            )}
-            {canEdit && (
               <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />Add Equipment</Button></DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -493,6 +494,7 @@ export default function EquipmentLibrary() {
                   </div>
                 </DialogContent>
               </Dialog>
+              </>
             )}
             {canRequest && (
               <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
@@ -647,6 +649,60 @@ export default function EquipmentLibrary() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Equipment Import Modal */}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import Equipment"
+        storageKey="equipment_import"
+        templateHeaders={[
+          'equipmentName', 'equipmentType', 'manufacturer', 'model', 'serialNumber',
+          'assetTag', 'assetNumber', 'location', 'building', 'installDate',
+          'purchasePrice', 'replacementCost', 'warrantyExpiry', 'status', 'notes',
+        ]}
+        fields={[
+          { key: 'equipmentName', label: 'Equipment Name', required: true },
+          { key: 'equipmentType', label: 'Equipment Type', required: true },
+          { key: 'manufacturer', label: 'Manufacturer' },
+          { key: 'model', label: 'Model' },
+          { key: 'serialNumber', label: 'Serial Number' },
+          { key: 'assetTag', label: 'Asset Tag' },
+          { key: 'assetNumber', label: 'Asset Number' },
+          { key: 'location', label: 'Location' },
+          { key: 'building', label: 'Building' },
+          { key: 'installDate', label: 'Install Date' },
+          { key: 'purchasePrice', label: 'Purchase Price' },
+          { key: 'replacementCost', label: 'Replacement Cost' },
+          { key: 'warrantyExpiry', label: 'Warranty Expiry' },
+          { key: 'status', label: 'Status' },
+          { key: 'notes', label: 'Notes' },
+        ]}
+        onImportRow={async (row) => {
+          await apiRequest('/equipment', {
+            method: 'POST',
+            body: JSON.stringify({
+              equipmentName: row.equipmentName,
+              equipmentType: row.equipmentType,
+              manufacturer: row.manufacturer || '',
+              model: row.model || '',
+              serialNumber: row.serialNumber || undefined,
+              assetTag: row.assetTag || undefined,
+              assetNumber: row.assetNumber || undefined,
+              location: row.location || undefined,
+              buildingId: row.building || undefined,
+              installDate: row.installDate || undefined,
+              purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : undefined,
+              replacementCost: row.replacementCost ? parseFloat(row.replacementCost) : undefined,
+              warrantyExpiry: row.warrantyExpiry || undefined,
+              status: row.status || 'active',
+              notes: row.notes || undefined,
+              facilityId: user?.facilityId,
+            }),
+          });
+          loadEquipment();
+        }}
+      />
     </MainLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   User, Bell, Shield, Users, Zap, Database, Save,
-  DollarSign, Flame, Lock, Eye, Plus, Trash2, RefreshCw
+  DollarSign, Flame, Lock, Eye, Plus, Trash2, RefreshCw,
+  FileText, Upload, Download, Search, X, FolderOpen, Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ApprovalsTab } from '@/components/settings/ApprovalsTab';
 
-const ADMIN_ROLES = ['admin'];
-const EXECUTIVE_ROLES = ['admin', 'executive'];
+const ADMIN_ROLES      = ['admin'];
+const EXECUTIVE_ROLES  = ['admin', 'executive'];
+const MANAGER_ROLES    = ['admin', 'executive', 'manager'];
 const LEADERSHIP_ROLES = ['admin', 'executive', 'manager', 'supervisor'];
-const ALL_ROLES = ['admin', 'executive', 'manager', 'supervisor', 'engineer', 'operator', 'technician', 'custodian'];
+const ALL_ROLES        = ['admin', 'executive', 'manager', 'supervisor', 'engineer', 'operator', 'technician', 'custodian'];
 
 function can(userRole: string, roles: string[]) {
   return roles.includes(userRole?.toLowerCase());
@@ -29,14 +32,52 @@ const ALL_TABS = [
   { id: 'notifications', label: 'Notifications',    icon: Bell,       access: ALL_ROLES },
   { id: 'security',      label: 'Security',         icon: Shield,     access: ALL_ROLES },
   { id: 'team',          label: 'Team & Roles',     icon: Users,      access: LEADERSHIP_ROLES },
-  { id: 'budget',        label: 'Budget',           icon: DollarSign, access: EXECUTIVE_ROLES },
+  { id: 'documents',     label: 'Documents',        icon: FileText,   access: MANAGER_ROLES },
+  { id: 'budget',        label: 'Budget',           icon: DollarSign, access: MANAGER_ROLES },
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];
 
-const DEPT_DEFAULTS = ['Maintenance', 'Energy', 'Procurement', 'Operations', 'Safety & Compliance'];
+const DOC_CATEGORIES = ['SOP', 'EOP', 'Checklist', 'PM Schedule', 'Audit Report', 'Permit', 'Certification', 'Policy', 'Other'];
+const DOC_STATUSES   = ['Active', 'Draft', 'Archived', 'Expired', 'Under Review'];
+
+const DEFAULT_DEPT_NAMES = ['Operations', 'Maintenance', 'Utilities', 'Compliance', 'Training', 'Security', 'Other'];
+const emptyDept = (name = '') => ({ department: name, annualBudget: '', spentToDate: '', notes: '' });
+
+interface ComplianceDoc {
+  id: string;
+  title: string;
+  nickname: string;
+  category: string;
+  status: string;
+  tags: string[];
+  uploadedAt: string;
+  fileName: string;
+  fileSize: number;
+  fileData?: string;
+}
+
+interface DeptBudgetRow {
+  department: string;
+  annualBudget: string;
+  spentToDate: string;
+  notes: string;
+}
+
+const utilPct = (row: DeptBudgetRow) => {
+  const budget = parseFloat(row.annualBudget);
+  const spent  = parseFloat(row.spentToDate);
+  if (!budget || isNaN(budget) || !spent || isNaN(spent)) return 0;
+  return Math.min((spent / budget) * 100, 100);
+};
+
+const utilColor = (pct: number) =>
+  pct >= 90 ? 'bg-red-500' : pct >= 75 ? 'bg-yellow-500' : 'bg-green-500';
+
+const utilTextColor = (pct: number) =>
+  pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -47,36 +88,53 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState(visibleTabs[0]?.id || 'profile');
 
   const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', phone: '' });
-  const [budgetData, setBudgetData] = useState<any>(null);
-  const [budgetLoading, setBudgetLoading] = useState(false);
-  const [deptBudgets, setDeptBudgets] = useState<any[]>([]);
   const [utilities, setUtilities] = useState({ electricRate: '0.18', gasRate: '1.52', waterRate: '15.07' });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [utilitiesLoading, setUtilitiesLoading] = useState(false);
 
-  const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
+  // ── Documents state ──────────────────────────────────────────────────────────
+  const [complianceDocs, setComplianceDocs] = useState<ComplianceDoc[]>([]);
+  const [docSearch, setDocSearch] = useState('');
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: '', nickname: '', category: 'SOP', status: 'Active', tags: '', file: null as File | null,
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Budget state ─────────────────────────────────────────────────────────────
+  const [deptBudgets, setDeptBudgets] = useState<DeptBudgetRow[]>(
+    DEFAULT_DEPT_NAMES.map(emptyDept)
+  );
+  const [fiscalYear, setFiscalYear] = useState('2026');
+  const [budgetSaving, setBudgetSaving] = useState(false);
+
+  const token   = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
+  // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (activeTab === 'budget' || activeTab === 'utilities') fetchBudget();
-    if (activeTab === 'team') fetchTeam();
+    if (activeTab === 'utilities') fetchUtilities();
+    if (activeTab === 'team')      fetchTeam();
+    if (activeTab === 'documents') loadDocs();
+    if (activeTab === 'budget')    loadBudgets();
   }, [activeTab]);
 
-  const fetchBudget = async () => {
-    setBudgetLoading(true);
+  const fetchUtilities = async () => {
+    setUtilitiesLoading(true);
     try {
-      const res = await fetch(`${baseUrl}/onboarding/utilities`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${baseUrl}/onboarding/utilities`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
-        setUtilities({ electricRate: String(data.electricRate || '0.18'), gasRate: String(data.gasRate || '1.52'), waterRate: String(data.waterRate || '15.07') });
-        if (data.budget) {
-          setBudgetData(data.budget);
-          setDeptBudgets(data.budget.departments || DEPT_DEFAULTS.map(d => ({ department: d, annualBudget: '', monthlyBudget: '' })));
-        } else {
-          setDeptBudgets(DEPT_DEFAULTS.map(d => ({ department: d, annualBudget: '', monthlyBudget: '' })));
-        }
+        setUtilities({
+          electricRate: String(data.electricRate || '0.18'),
+          gasRate:      String(data.gasRate      || '1.52'),
+          waterRate:    String(data.waterRate     || '15.07'),
+        });
       }
-    } catch (err) { console.error(err); } finally { setBudgetLoading(false); }
+    } catch { /* ignore */ } finally { setUtilitiesLoading(false); }
   };
 
   const fetchTeam = async () => {
@@ -84,18 +142,7 @@ const Settings = () => {
     try {
       const res = await fetch(`${baseUrl}/users`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const data = await res.json(); setTeamMembers(data.users || []); }
-    } catch (err) { console.error(err); } finally { setTeamLoading(false); }
-  };
-
-  const saveBudget = async () => {
-    try {
-      await fetch(`${baseUrl}/onboarding/utilities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...utilities, facilityId: user?.facilityId, budget: { ...(budgetData || {}), departments: deptBudgets.filter(d => d.department) } }),
-      });
-      toast({ title: 'Budget saved' });
-    } catch { toast({ title: 'Save failed', variant: 'destructive' }); }
+    } catch { /* ignore */ } finally { setTeamLoading(false); }
   };
 
   const saveUtilities = async () => {
@@ -109,19 +156,118 @@ const Settings = () => {
     } catch { toast({ title: 'Save failed', variant: 'destructive' }); }
   };
 
-  const updateDept = (i: number, field: string, value: string) => {
-    const updated = [...deptBudgets];
-    updated[i][field] = value;
-    if (field === 'annualBudget' && value) updated[i].monthlyBudget = (parseFloat(value) / 12).toFixed(2);
-    setDeptBudgets(updated);
+  // ── Documents helpers ─────────────────────────────────────────────────────────
+  const loadDocs = () => {
+    try {
+      const raw = localStorage.getItem('compliance_docs');
+      setComplianceDocs(raw ? JSON.parse(raw) : []);
+    } catch { setComplianceDocs([]); }
   };
 
-  const initials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  const isReadOnly = (tab: string) => {
-    if (tab === 'budget') return !can(userRole, EXECUTIVE_ROLES);
-    if (tab === 'team') return !can(userRole, ADMIN_ROLES);
-    return false;
+  const saveDocs = (docs: ComplianceDoc[]) => {
+    localStorage.setItem('compliance_docs', JSON.stringify(docs));
+    setComplianceDocs(docs);
   };
+
+  const handleUpload = () => {
+    if (!uploadForm.title) { toast({ title: 'Title required', variant: 'destructive' }); return; }
+    if (!uploadForm.file)  { toast({ title: 'File required', variant: 'destructive' }); return; }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const doc: ComplianceDoc = {
+        id:         `doc-${Date.now()}`,
+        title:      uploadForm.title,
+        nickname:   uploadForm.nickname,
+        category:   uploadForm.category,
+        status:     uploadForm.status,
+        tags:       uploadForm.tags.split(',').map(t => t.trim()).filter(Boolean),
+        uploadedAt: new Date().toISOString(),
+        fileName:   uploadForm.file!.name,
+        fileSize:   uploadForm.file!.size,
+        fileData:   e.target?.result as string,
+      };
+      saveDocs([doc, ...complianceDocs]);
+      setShowUploadModal(false);
+      setUploadForm({ title: '', nickname: '', category: 'SOP', status: 'Active', tags: '', file: null });
+      toast({ title: 'Document uploaded', description: doc.title });
+    };
+    reader.readAsDataURL(uploadForm.file);
+  };
+
+  const handleDownload = (doc: ComplianceDoc) => {
+    if (!doc.fileData) { toast({ title: 'No file data available', variant: 'destructive' }); return; }
+    const a = document.createElement('a');
+    a.href = doc.fileData;
+    a.download = doc.fileName;
+    a.click();
+  };
+
+  const handleDeleteDoc = (id: string) => {
+    const updated = complianceDocs.filter(d => d.id !== id);
+    saveDocs(updated);
+    toast({ title: 'Document deleted' });
+  };
+
+  const filteredDocs = complianceDocs.filter(doc => {
+    if (!docSearch.trim()) return true;
+    const q = docSearch.toLowerCase();
+    return (
+      doc.title.toLowerCase().includes(q) ||
+      doc.nickname.toLowerCase().includes(q) ||
+      doc.category.toLowerCase().includes(q) ||
+      doc.tags.some(t => t.toLowerCase().includes(q))
+    );
+  });
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // ── Budget helpers ────────────────────────────────────────────────────────────
+  const loadBudgets = () => {
+    try {
+      const raw = localStorage.getItem('nexum_dept_budgets');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.rows)       setDeptBudgets(parsed.rows);
+        if (parsed.fiscalYear) setFiscalYear(parsed.fiscalYear);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const updateDeptRow = (i: number, field: keyof DeptBudgetRow, value: string) => {
+    setDeptBudgets(prev => {
+      const next = [...prev];
+      next[i] = { ...next[i], [field]: value };
+      return next;
+    });
+  };
+
+  const saveNewBudgets = async () => {
+    setBudgetSaving(true);
+    const payload = { rows: deptBudgets, fiscalYear };
+    localStorage.setItem('nexum_dept_budgets', JSON.stringify(payload));
+    try {
+      await fetch(`${baseUrl}/onboarding/utilities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ facilityId: user?.facilityId, deptBudgets: deptBudgets, fiscalYear }),
+      });
+      toast({ title: 'Budget saved' });
+    } catch {
+      toast({ title: 'Saved locally — API unreachable', description: 'Budget stored in localStorage.' });
+    } finally { setBudgetSaving(false); }
+  };
+
+  const totalBudget = deptBudgets.reduce((s, r) => s + (parseFloat(r.annualBudget) || 0), 0);
+  const totalSpent  = deptBudgets.reduce((s, r) => s + (parseFloat(r.spentToDate)  || 0), 0);
+  const totalUtil   = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  const initials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const isReadOnly = (tab: string) => tab === 'team' && !can(userRole, ADMIN_ROLES);
 
   return (
     <MainLayout>
@@ -130,7 +276,7 @@ const Settings = () => {
           <h1 className="text-xl md:text-2xl font-bold">Settings</h1>
           <p className="text-sm text-muted-foreground">
             Manage your account and system preferences
-            {can(userRole, ADMIN_ROLES) && <Badge className="ml-2 text-xs bg-primary/20 text-primary">Admin</Badge>}
+            {can(userRole, ADMIN_ROLES)     && <Badge className="ml-2 text-xs bg-primary/20 text-primary">Admin</Badge>}
             {!can(userRole, ADMIN_ROLES) && can(userRole, EXECUTIVE_ROLES) && <Badge className="ml-2 text-xs bg-purple-500/20 text-purple-400">Executive</Badge>}
           </p>
         </div>
@@ -141,8 +287,10 @@ const Settings = () => {
             <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0">
               {visibleTabs.map((tab) => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={cn("flex items-center gap-2 md:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shrink-0",
-                    activeTab === tab.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+                  className={cn(
+                    'flex items-center gap-2 md:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shrink-0',
+                    activeTab === tab.id ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  )}>
                   <tab.icon className="w-4 h-4 shrink-0" />
                   {tab.label}
                   {isReadOnly(tab.id) && <Eye className="w-3 h-3 ml-auto opacity-50" />}
@@ -154,7 +302,7 @@ const Settings = () => {
           {/* Content */}
           <div className="flex-1 glass-panel p-4 md:p-6 min-w-0">
 
-            {/* Profile */}
+            {/* ── Profile ── */}
             {activeTab === 'profile' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Profile Settings</h2>
@@ -177,17 +325,17 @@ const Settings = () => {
               </div>
             )}
 
-            {/* Notifications */}
+            {/* ── Notifications ── */}
             {activeTab === 'notifications' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Notification Preferences</h2>
                 <div className="space-y-3">
                   {[
-                    { label: 'Critical Signals', desc: 'Immediate alerts for critical system signals', enabled: true },
-                    { label: 'Task Assignments', desc: 'When you are assigned to a task', enabled: true },
-                    { label: 'Emergency Alerts', desc: 'All emergency declarations and updates', enabled: true },
-                    { label: 'Vendor Responses', desc: 'When vendors respond to requests', enabled: can(userRole, LEADERSHIP_ROLES) },
-                    { label: 'Weekly Summary', desc: 'Weekly digest of facility operations', enabled: false },
+                    { label: 'Critical Signals',  desc: 'Immediate alerts for critical system signals',    enabled: true },
+                    { label: 'Task Assignments',   desc: 'When you are assigned to a task',                enabled: true },
+                    { label: 'Emergency Alerts',   desc: 'All emergency declarations and updates',         enabled: true },
+                    { label: 'Vendor Responses',   desc: 'When vendors respond to requests',               enabled: can(userRole, LEADERSHIP_ROLES) },
+                    { label: 'Weekly Summary',     desc: 'Weekly digest of facility operations',           enabled: false },
                   ].map((item) => (
                     <div key={item.label} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/30">
                       <div><p className="font-medium text-sm">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
@@ -200,7 +348,7 @@ const Settings = () => {
               </div>
             )}
 
-            {/* Security */}
+            {/* ── Security ── */}
             {activeTab === 'security' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Security</h2>
@@ -217,7 +365,7 @@ const Settings = () => {
               </div>
             )}
 
-            {/* Team & Roles */}
+            {/* ── Team & Roles ── */}
             {activeTab === 'team' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -263,105 +411,360 @@ const Settings = () => {
               </div>
             )}
 
-            {/* Budget */}
-            {activeTab === 'budget' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base md:text-lg font-semibold">Budget Configuration</h2>
-                  <Badge className="bg-purple-500/20 text-purple-400 text-xs">Executive Access</Badge>
+            {/* ── Documents ── */}
+            {activeTab === 'documents' && (
+              !can(userRole, MANAGER_ROLES) ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <Lock className="w-10 h-10 text-muted-foreground/40" />
+                  <p className="font-medium">Access restricted to managers and above</p>
+                  <p className="text-sm text-muted-foreground">Contact your manager or administrator for access.</p>
                 </div>
-                {budgetLoading ? (
-                  <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-                ) : (
-                  <>
-                    <Card className="border-border/50">
-                      <CardHeader className="pb-3"><CardTitle className="text-sm">Annual Facility Budget</CardTitle></CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="col-span-2 space-y-2">
-                            <Label>Total Annual Budget ($)</Label>
-                            <Input type="number" value={budgetData?.annualTotal || ''} onChange={e => setBudgetData({ ...(budgetData || {}), annualTotal: e.target.value })} placeholder="e.g., 500000" />
-                            {budgetData?.annualTotal && <p className="text-xs text-muted-foreground">Monthly: ${(parseFloat(budgetData.annualTotal) / 12).toLocaleString('en-US', { maximumFractionDigits: 0 })} / mo</p>}
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Fiscal Year Start</Label>
-                            <Select value={budgetData?.fiscalYearStart || 'January'} onValueChange={v => setBudgetData({ ...(budgetData || {}), fiscalYearStart: v })}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {['January','February','March','April','May','June','July','August','September','October','November','December'].map(m => (
-                                  <SelectItem key={m} value={m}>{m}</SelectItem>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base md:text-lg font-semibold">Compliance Documents</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">{complianceDocs.length} document{complianceDocs.length !== 1 ? 's' : ''} stored locally</p>
+                    </div>
+                    <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                      <Upload className="w-4 h-4 mr-1.5" />Upload Document
+                    </Button>
+                  </div>
+
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={docSearch}
+                      onChange={e => setDocSearch(e.target.value)}
+                      placeholder="Search by title, nickname, category, or tag..."
+                      className="pl-9"
+                    />
+                  </div>
+
+                  {/* Doc list */}
+                  {filteredDocs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+                      <FolderOpen className="w-10 h-10 opacity-30" />
+                      <p className="text-sm">{docSearch ? 'No documents match your search' : 'No documents uploaded yet'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredDocs.map(doc => (
+                        <div key={doc.id} className="flex items-start justify-between gap-3 p-4 rounded-lg bg-muted/30 border border-border/30">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                              <FileText className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{doc.title}</p>
+                              {doc.nickname && (
+                                <p className="text-xs text-muted-foreground truncate">"{doc.nickname}"</p>
+                              )}
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                <Badge variant="outline" className="text-[10px] px-1.5">{doc.category}</Badge>
+                                <Badge className={cn('text-[10px] px-1.5 border-0',
+                                  doc.status === 'Active'      ? 'bg-green-500/20 text-green-400' :
+                                  doc.status === 'Draft'       ? 'bg-yellow-500/20 text-yellow-400' :
+                                  doc.status === 'Expired'     ? 'bg-red-500/20 text-red-400' :
+                                  doc.status === 'Archived'    ? 'bg-muted/60 text-muted-foreground' :
+                                  'bg-blue-500/20 text-blue-400'
+                                )}>{doc.status}</Badge>
+                                {doc.tags.map(tag => (
+                                  <Badge key={tag} variant="outline" className="text-[10px] px-1.5 border-border/30 text-muted-foreground">{tag}</Badge>
                                 ))}
-                              </SelectContent>
-                            </Select>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                <span>·</span>
+                                <span>{doc.fileName}</span>
+                                <span>·</span>
+                                <span>{formatFileSize(doc.fileSize)}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>Track Budget vs Actuals</Label>
-                            <Select value={budgetData?.trackActuals ? 'yes' : 'no'} onValueChange={v => setBudgetData({ ...(budgetData || {}), trackActuals: v === 'yes' })}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="yes">Yes — enabled</SelectItem>
-                                <SelectItem value="no">No — disabled</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleDownload(doc)}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteDoc(doc.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-border/50">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Department Budgets</CardTitle>
-                          <Button variant="outline" size="sm" onClick={() => setDeptBudgets([...deptBudgets, { department: '', annualBudget: '', monthlyBudget: '' }])}>
-                            <Plus className="w-3.5 h-3.5 mr-1" />Add
-                          </Button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload modal */}
+                  {showUploadModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                      <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                          <h3 className="font-semibold">Upload Document</h3>
+                          <button onClick={() => setShowUploadModal(false)} className="text-muted-foreground hover:text-foreground">
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {deptBudgets.map((dept, i) => (
-                          <div key={i} className="grid grid-cols-5 gap-2 items-end">
-                            <div className="col-span-2 space-y-1"><Label className="text-xs">Department</Label><Input value={dept.department} onChange={e => updateDept(i, 'department', e.target.value)} placeholder="e.g., Maintenance" /></div>
-                            <div className="space-y-1"><Label className="text-xs">Annual ($)</Label><Input type="number" value={dept.annualBudget} onChange={e => updateDept(i, 'annualBudget', e.target.value)} placeholder="0" /></div>
-                            <div className="space-y-1"><Label className="text-xs">Monthly ($)</Label><Input type="number" value={dept.monthlyBudget} onChange={e => updateDept(i, 'monthlyBudget', e.target.value)} placeholder="Auto" /></div>
-                            <Button variant="ghost" size="icon" onClick={() => setDeptBudgets(deptBudgets.filter((_, idx) => idx !== i))} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                        <div className="p-6 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2 space-y-1.5">
+                              <Label className="text-xs">Title *</Label>
+                              <Input value={uploadForm.title} onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g., HVAC Shutdown SOP" />
+                            </div>
+                            <div className="col-span-2 space-y-1.5">
+                              <Label className="text-xs">Nickname <span className="text-muted-foreground font-normal">(searchable alias)</span></Label>
+                              <Input value={uploadForm.nickname} onChange={e => setUploadForm(f => ({ ...f, nickname: e.target.value }))} placeholder="e.g., hvac-shutdown" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Category</Label>
+                              <Select value={uploadForm.category} onValueChange={v => setUploadForm(f => ({ ...f, category: v }))}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {DOC_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Status</Label>
+                              <Select value={uploadForm.status} onValueChange={v => setUploadForm(f => ({ ...f, status: v }))}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {DOC_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="col-span-2 space-y-1.5">
+                              <Label className="text-xs">Tags <span className="text-muted-foreground font-normal">(comma-separated)</span></Label>
+                              <Input value={uploadForm.tags} onChange={e => setUploadForm(f => ({ ...f, tags: e.target.value }))} placeholder="boiler, shutdown, HVAC" />
+                            </div>
+                            <div className="col-span-2 space-y-1.5">
+                              <Label className="text-xs">File *</Label>
+                              <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border-2 border-dashed border-border/50 rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                              >
+                                <input
+                                  ref={fileInputRef}
+                                  type="file"
+                                  className="hidden"
+                                  onChange={e => setUploadForm(f => ({ ...f, file: e.target.files?.[0] || null }))}
+                                />
+                                {uploadForm.file ? (
+                                  <p className="text-sm font-medium text-primary">{uploadForm.file.name} <span className="text-muted-foreground font-normal">({formatFileSize(uploadForm.file.size)})</span></p>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                                    <Upload className="w-6 h-6" />
+                                    <p className="text-sm">Click to select file</p>
+                                    <p className="text-xs">PDF, DOC, XLS, PNG, JPG up to 10MB</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                    <Button onClick={saveBudget}><Save className="w-4 h-4 mr-2" />Save Budget</Button>
-                  </>
-                )}
-              </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+                          <Button variant="outline" onClick={() => setShowUploadModal(false)}>Cancel</Button>
+                          <Button onClick={handleUpload}><Upload className="w-4 h-4 mr-2" />Upload</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
             )}
 
-            {/* Utility Rates */}
+            {/* ── Budget ── */}
+            {activeTab === 'budget' && (
+              !can(userRole, MANAGER_ROLES) ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <Lock className="w-10 h-10 text-muted-foreground/40" />
+                  <p className="font-medium">Access restricted to managers and above</p>
+                  <p className="text-sm text-muted-foreground">Contact your manager or administrator for access.</p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base md:text-lg font-semibold">Department Budgets</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Track annual budget and spending by department</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs shrink-0">Fiscal Year</Label>
+                      <Select value={fiscalYear} onValueChange={setFiscalYear}>
+                        <SelectTrigger className="w-24 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {['2024', '2025', '2026', '2027'].map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Department rows */}
+                  <div className="space-y-3">
+                    {deptBudgets.map((row, i) => {
+                      const pct = utilPct(row);
+                      return (
+                        <div key={i} className="p-4 rounded-lg bg-muted/30 border border-border/30 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Input
+                                value={row.department}
+                                onChange={e => updateDeptRow(i, 'department', e.target.value)}
+                                placeholder="Department name"
+                                className="h-8 text-sm font-medium bg-transparent border-0 border-b border-border/40 rounded-none px-0 focus-visible:ring-0 w-40"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {pct > 0 && (
+                                <span className={cn('text-xs font-mono font-semibold', utilTextColor(pct))}>
+                                  {pct.toFixed(0)}%
+                                </span>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => setDeptBudgets(prev => prev.filter((_, idx) => idx !== i))}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Annual Budget ($)</Label>
+                              <Input
+                                type="number"
+                                value={row.annualBudget}
+                                onChange={e => updateDeptRow(i, 'annualBudget', e.target.value)}
+                                placeholder="0"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Spent to Date ($)</Label>
+                              <Input
+                                type="number"
+                                value={row.spentToDate}
+                                onChange={e => updateDeptRow(i, 'spentToDate', e.target.value)}
+                                placeholder="0"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          {(row.annualBudget || row.spentToDate) && (
+                            <div className="space-y-1">
+                              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={cn('h-full rounded-full transition-all', utilColor(pct))}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              {row.annualBudget && row.spentToDate && (
+                                <div className="flex justify-between text-[10px] text-muted-foreground">
+                                  <span>${(parseFloat(row.spentToDate) || 0).toLocaleString()} spent</span>
+                                  <span>${(parseFloat(row.annualBudget) || 0).toLocaleString()} budget</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Notes</Label>
+                            <Input
+                              value={row.notes}
+                              onChange={e => updateDeptRow(i, 'notes', e.target.value)}
+                              placeholder="Budget notes..."
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add department */}
+                  <Button variant="outline" size="sm" onClick={() => setDeptBudgets(prev => [...prev, emptyDept()])}>
+                    <Plus className="w-4 h-4 mr-1.5" />Add Department
+                  </Button>
+
+                  {/* Total summary */}
+                  {(totalBudget > 0 || totalSpent > 0) && (
+                    <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">FY{fiscalYear} Total Summary</p>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Budget</p>
+                          <p className="text-lg font-bold">${totalBudget.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Spent</p>
+                          <p className={cn('text-lg font-bold', utilTextColor(totalUtil))}>${totalSpent.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Remaining</p>
+                          <p className="text-lg font-bold">${(totalBudget - totalSpent).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden mt-1">
+                        <div
+                          className={cn('h-full rounded-full transition-all', utilColor(totalUtil))}
+                          style={{ width: `${Math.min(totalUtil, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <Button onClick={saveNewBudgets} disabled={budgetSaving}>
+                    {budgetSaving
+                      ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                      : <><Save className="w-4 h-4 mr-2" />Save Budget</>
+                    }
+                  </Button>
+                </div>
+              )
+            )}
+
+            {/* ── Utility Rates ── */}
             {activeTab === 'utilities' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold">Utility Rates</h2>
                   <Badge className="bg-purple-500/20 text-purple-400 text-xs">Executive Access</Badge>
                 </div>
-                <Card className="border-border/50"><CardContent className="p-6 space-y-5">
-                  <div className="space-y-2"><Label>Electric Rate ($/kWh)</Label><Input type="number" step="0.001" value={utilities.electricRate} onChange={e => setUtilities({ ...utilities, electricRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $0.18/kWh</p></div>
-                  <div className="space-y-2"><Label>Natural Gas Rate ($/therm)</Label><Input type="number" step="0.01" value={utilities.gasRate} onChange={e => setUtilities({ ...utilities, gasRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $1.52/therm</p></div>
-                  <div className="space-y-2"><Label>Water Rate ($/1,000 gallons)</Label><Input type="number" step="0.01" value={utilities.waterRate} onChange={e => setUtilities({ ...utilities, waterRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $15.07/1,000 gal</p></div>
-                </CardContent></Card>
-                <Button onClick={saveUtilities}><Save className="w-4 h-4 mr-2" />Save Utility Rates</Button>
+                {utilitiesLoading ? (
+                  <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <>
+                    <Card className="border-border/50"><CardContent className="p-6 space-y-5">
+                      <div className="space-y-2"><Label>Electric Rate ($/kWh)</Label><Input type="number" step="0.001" value={utilities.electricRate} onChange={e => setUtilities({ ...utilities, electricRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $0.18/kWh</p></div>
+                      <div className="space-y-2"><Label>Natural Gas Rate ($/therm)</Label><Input type="number" step="0.01" value={utilities.gasRate} onChange={e => setUtilities({ ...utilities, gasRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $1.52/therm</p></div>
+                      <div className="space-y-2"><Label>Water Rate ($/1,000 gallons)</Label><Input type="number" step="0.01" value={utilities.waterRate} onChange={e => setUtilities({ ...utilities, waterRate: e.target.value })} /><p className="text-xs text-muted-foreground">NJ average: $15.07/1,000 gal</p></div>
+                    </CardContent></Card>
+                    <Button onClick={saveUtilities}><Save className="w-4 h-4 mr-2" />Save Utility Rates</Button>
+                  </>
+                )}
               </div>
             )}
 
-            {/* ── Approvals (executive/admin only) ── */}
+            {/* ── Approvals ── */}
             {activeTab === 'approvals' && <ApprovalsTab />}
 
-            {/* Integrations */}
+            {/* ── Integrations ── */}
             {activeTab === 'integration' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Integrations</h2>
                 <div className="space-y-3">
                   {[
-                    { name: 'Stripe Billing', desc: 'Payment processing and subscription management', status: 'connected' },
-                    { name: 'AWS Cognito', desc: 'Authentication and user management', status: 'connected' },
-                    { name: 'Claude AI', desc: 'VVFI Instructor, compliance narratives, photo analysis', status: 'connected' },
-                    { name: 'S3 Storage', desc: 'Audit report and document storage', status: 'connected' },
+                    { name: 'Stripe Billing',  desc: 'Payment processing and subscription management',       status: 'connected' },
+                    { name: 'AWS Cognito',      desc: 'Authentication and user management',                   status: 'connected' },
+                    { name: 'Claude AI',        desc: 'VVFI Instructor, compliance narratives, photo analysis', status: 'connected' },
+                    { name: 'S3 Storage',       desc: 'Audit report and document storage',                   status: 'connected' },
                   ].map((int) => (
                     <div key={int.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                       <div><p className="font-medium text-sm">{int.name}</p><p className="text-xs text-muted-foreground">{int.desc}</p></div>
@@ -372,16 +775,16 @@ const Settings = () => {
               </div>
             )}
 
-            {/* Data & Backup */}
+            {/* ── Data & Backup ── */}
             {activeTab === 'data' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Data & Backup</h2>
                 <div className="space-y-3">
                   {[
                     { label: 'DynamoDB Tables', desc: '19 tables — AuditReports, EquipmentLibrary, FacilityLogs, WorkOrders...', status: 'healthy' },
-                    { label: 'S3 Buckets', desc: 'nexumsuum-audit-reports — audit PDFs and images', status: 'healthy' },
-                    { label: 'Lambda Functions', desc: '20+ functions — all active in us-east-2', status: 'healthy' },
-                    { label: 'Data Export', desc: 'Export facility data as CSV or JSON', status: 'available' },
+                    { label: 'S3 Buckets',       desc: 'nexumsuum-audit-reports — audit PDFs and images',                         status: 'healthy' },
+                    { label: 'Lambda Functions', desc: '20+ functions — all active in us-east-2',                                  status: 'healthy' },
+                    { label: 'Data Export',      desc: 'Export facility data as CSV or JSON',                                      status: 'available' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                       <div><p className="font-medium text-sm">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>

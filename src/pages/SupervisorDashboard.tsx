@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DEPARTMENTS } from '@/config/roles';
 import { NexumBranding } from "@/components/NexumBranding";
 import { getSupervisorDashboard } from "@/lib/nexum-api";
 import { ParticleBackground } from "@/components/ParticleBackground";
@@ -58,8 +60,11 @@ function safeString(value: any, fallback: string = 'Unknown'): string {
 }
 
 export default function SupervisorDashboard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   console.log("🔵 SupervisorDashboard auth:", { isAuthenticated, loading });
+
+  const userDept = user?.department || 'Operations';
+  const [selectedDept, setSelectedDept] = useState<string>(userDept);
   const [stats, setStats] = useState<SupervisorStats | null>(null);
   const [violationsSummary, setViolationsSummary] = useState<ViolationSummary[]>([]);
   const [departmentMetrics, setDepartmentMetrics] = useState<VirtuousMetrics[]>([]);
@@ -209,6 +214,19 @@ export default function SupervisorDashboard() {
     return <Activity className="h-4 w-4 text-muted-foreground" />;
   };
 
+  // Department filtering
+  const filteredWorkOrders = selectedDept === 'All'
+    ? workOrders
+    : workOrders.filter((wo: WorkOrder & { department?: string }) => !wo.department || wo.department === selectedDept);
+
+  const filteredViolations = selectedDept === 'All'
+    ? violationsSummary
+    : violationsSummary.filter((v: ViolationSummary & { department?: string }) => !v.department || v.department === selectedDept);
+
+  const filteredTeam = selectedDept === 'All'
+    ? onShiftTeam
+    : onShiftTeam.filter((t: any) => !t.department || t.department === selectedDept);
+
   return (
     <MainLayout>
       <ParticleBackground />
@@ -239,6 +257,26 @@ export default function SupervisorDashboard() {
               ] : undefined}
             />
           </div>
+        </div>
+
+        {/* Department Filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Showing: <span className="text-foreground font-medium">{selectedDept}</span> department
+            </span>
+          </div>
+          <Select value={selectedDept} onValueChange={setSelectedDept}>
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              {DEPARTMENTS.map(d => (
+                <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {error && <NexumError message={error} onRetry={fetchData} />}
@@ -357,10 +395,10 @@ export default function SupervisorDashboard() {
             )}
 
             {/* Employee Status Table */}
-            <EmployeeStatusTable employees={violationsSummary} />
+            <EmployeeStatusTable employees={filteredViolations} />
 
             {/* On-Shift Team Activity */}
-            <OnShiftTeamTable team={onShiftTeam} />
+            <OnShiftTeamTable team={filteredTeam} />
 
             {/* Open Work Orders */}
             <Card className="neon-border" style={{ animationDelay: '400ms' }}>
@@ -368,15 +406,15 @@ export default function SupervisorDashboard() {
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardList className="h-5 w-5 text-primary" />
                   Open Work Orders
-                  <Badge variant="outline" className="ml-auto">{workOrders.length}</Badge>
+                  <Badge variant="outline" className="ml-auto">{filteredWorkOrders.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {workOrders.length === 0 ? (
+                  {filteredWorkOrders.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">No open work orders</p>
                   ) : (
-                    workOrders.map((wo) => (
+                    filteredWorkOrders.map((wo) => (
                       <div
                         key={wo.id}
                         className="p-4 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-all"

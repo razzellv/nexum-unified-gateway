@@ -287,18 +287,91 @@ export const systemHealthData = [
 
 // Violation Type Configurations
 export const violationTypeConfigs: ViolationTypeConfig[] = [
-  { value: 'safety-protocol', label: 'Safety Protocol Violation', defaultSeverity: 8, defaultCategory: 'safety', weightFactor: 2.0 },
-  { value: 'equipment-misuse', label: 'Equipment Misuse', defaultSeverity: 6, defaultCategory: 'operational', weightFactor: 1.5 },
-  { value: 'attendance', label: 'Attendance Issue', defaultSeverity: 3, defaultCategory: 'operational', weightFactor: 1.0 },
-  { value: 'documentation', label: 'Documentation Failure', defaultSeverity: 4, defaultCategory: 'regulatory', weightFactor: 1.0 },
-  { value: 'procedure-deviation', label: 'Procedure Deviation', defaultSeverity: 5, defaultCategory: 'quality', weightFactor: 1.5 },
-  { value: 'ppe-compliance', label: 'PPE Non-Compliance', defaultSeverity: 7, defaultCategory: 'safety', weightFactor: 2.0 },
-  { value: 'lockout-tagout', label: 'LOTO Violation', defaultSeverity: 10, defaultCategory: 'safety', weightFactor: 2.5 },
-  { value: 'chemical-handling', label: 'Chemical Handling Violation', defaultSeverity: 9, defaultCategory: 'environmental', weightFactor: 2.0 },
-  { value: 'unauthorized-access', label: 'Unauthorized Access', defaultSeverity: 6, defaultCategory: 'safety', weightFactor: 1.5 },
-  { value: 'quality-control', label: 'Quality Control Failure', defaultSeverity: 5, defaultCategory: 'quality', weightFactor: 1.5 },
-  { value: 'time-reporting', label: 'Time Reporting Issue', defaultSeverity: 2, defaultCategory: 'operational', weightFactor: 1.0 },
-  { value: 'housekeeping', label: 'Housekeeping Violation', defaultSeverity: 3, defaultCategory: 'operational', weightFactor: 1.0 },
+  // ── General (no sector) ────────────────────────────────────────────────────
+  { value: 'safety-protocol',    label: 'Safety Protocol Violation',   defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0 },
+  { value: 'equipment-misuse',   label: 'Equipment Misuse',            defaultSeverity: 6,  defaultCategory: 'operational',  weightFactor: 1.5 },
+  { value: 'attendance',         label: 'Attendance Issue',            defaultSeverity: 3,  defaultCategory: 'operational',  weightFactor: 1.0 },
+  { value: 'documentation',      label: 'Documentation Failure',       defaultSeverity: 4,  defaultCategory: 'regulatory',   weightFactor: 1.0 },
+  { value: 'procedure-deviation',label: 'Procedure Deviation',         defaultSeverity: 5,  defaultCategory: 'quality',      weightFactor: 1.5 },
+  { value: 'ppe-compliance',     label: 'PPE Non-Compliance',          defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0 },
+  { value: 'lockout-tagout',     label: 'LOTO Violation',              defaultSeverity: 10, defaultCategory: 'safety',       weightFactor: 2.5 },
+  { value: 'chemical-handling',  label: 'Chemical Handling Violation', defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 2.0 },
+  { value: 'unauthorized-access',label: 'Unauthorized Access',         defaultSeverity: 6,  defaultCategory: 'safety',       weightFactor: 1.5 },
+  { value: 'quality-control',    label: 'Quality Control Failure',     defaultSeverity: 5,  defaultCategory: 'quality',      weightFactor: 1.5 },
+  { value: 'time-reporting',     label: 'Time Reporting Issue',        defaultSeverity: 2,  defaultCategory: 'operational',  weightFactor: 1.0 },
+  { value: 'housekeeping',       label: 'Housekeeping Violation',      defaultSeverity: 3,  defaultCategory: 'operational',  weightFactor: 1.0 },
+
+  // ── Facility › Equipment ──────────────────────────────────────────────────
+  { value: 'boiler-pressure-exceeded',      label: 'Boiler Pressure Exceeded Safe Limit',    defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 2.5, sector: 'facility', subcategory: 'Equipment' },
+  { value: 'chiller-cop-below-threshold',   label: 'Chiller COP Below Acceptable Threshold', defaultSeverity: 7,  defaultCategory: 'operational',  weightFactor: 2.0, sector: 'facility', subcategory: 'Equipment' },
+  { value: 'pm-not-completed',              label: 'Equipment Running Without PM Completed',  defaultSeverity: 6,  defaultCategory: 'operational',  weightFactor: 1.5, sector: 'facility', subcategory: 'Equipment' },
+  { value: 'filter-not-replaced',           label: 'Filter Not Replaced Per Schedule',        defaultSeverity: 5,  defaultCategory: 'operational',  weightFactor: 1.5, sector: 'facility', subcategory: 'Equipment' },
+  { value: 'refrigerant-leak',              label: 'Refrigerant Leak Detected',               defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 2.5, sector: 'facility', subcategory: 'Equipment' },
+  { value: 'emergency-shutoff-inaccessible',label: 'Emergency Shutoff Inaccessible',          defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 2.5, sector: 'facility', subcategory: 'Equipment' },
+
+  // ── Facility › Custodian ──────────────────────────────────────────────────
+  { value: 'spill-not-cleaned',          label: 'Spill Not Cleaned Within Required Time',  defaultSeverity: 6,  defaultCategory: 'safety',       weightFactor: 1.5, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'biohazard-improper-disposal',label: 'Biohazard Waste Improperly Disposed',     defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 2.5, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'chemical-storage-unsecured', label: 'Chemical Storage Area Not Secured',       defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'floor-drain-blocked',        label: 'Floor Drain Blocked or Overflowing',      defaultSeverity: 6,  defaultCategory: 'operational',  weightFactor: 1.5, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'restroom-sanitation',        label: 'Restroom Sanitation Standard Not Met',    defaultSeverity: 5,  defaultCategory: 'quality',      weightFactor: 1.5, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'trash-removal-missed',       label: 'Trash Not Removed Per Schedule',          defaultSeverity: 3,  defaultCategory: 'operational',  weightFactor: 1.0, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'cleaning-chemical-dilution', label: 'Cleaning Chemical Improperly Diluted',    defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'facility', subcategory: 'Custodian' },
+  { value: 'safety-signage-missing',     label: 'Safety Signage Missing or Obscured',      defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'facility', subcategory: 'Custodian' },
+
+  // ── Facility › Compliance ─────────────────────────────────────────────────
+  { value: 'operating-log-incomplete',   label: 'Operating Log Not Completed',             defaultSeverity: 4,  defaultCategory: 'regulatory',   weightFactor: 1.0, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'license-cert-expired',       label: 'License / Certification Expired',         defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.0, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'inspection-overdue',         label: 'Inspection Overdue',                      defaultSeverity: 6,  defaultCategory: 'regulatory',   weightFactor: 1.5, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'emergency-contact-outdated', label: 'Emergency Contact List Outdated',         defaultSeverity: 5,  defaultCategory: 'regulatory',   weightFactor: 1.0, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'sds-sheet-missing',          label: 'MSDS/SDS Sheet Missing for Chemical',     defaultSeverity: 7,  defaultCategory: 'regulatory',   weightFactor: 2.0, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'fire-extinguisher-overdue',  label: 'Fire Extinguisher Inspection Overdue',    defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'facility', subcategory: 'Compliance' },
+  { value: 'emergency-lighting-failed',  label: 'Exit Sign / Emergency Lighting Failed',   defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'facility', subcategory: 'Compliance' },
+
+  // ── Retail › Food Safety ─────────────────────────────────────────────────
+  { value: 'product-temp-out-of-range',  label: 'Product Temperature Out of Safe Range',   defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 2.5, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'expired-product-on-shelf',   label: 'Expired Product Found on Shelf',          defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'fifo-not-followed',          label: 'FIFO Rotation Not Followed',              defaultSeverity: 5,  defaultCategory: 'operational',  weightFactor: 1.5, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'cross-contamination-risk',   label: 'Cross-Contamination Risk Identified',     defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 2.5, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'food-surface-not-sanitized', label: 'Food Contact Surface Not Sanitized',      defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'handwashing-not-followed',   label: 'Handwashing Protocol Not Followed',       defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'pest-activity',              label: 'Pest Activity Observed',                  defaultSeverity: 9,  defaultCategory: 'regulatory',   weightFactor: 2.5, sector: 'retail', subcategory: 'Food Safety' },
+  { value: 'improper-food-storage',      label: 'Improper Food Storage (Raw Above RTE)',   defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.0, sector: 'retail', subcategory: 'Food Safety' },
+
+  // ── Retail › Inventory & Operations ──────────────────────────────────────
+  { value: 'inventory-count-discrepancy',label: 'Inventory Count Discrepancy',             defaultSeverity: 5,  defaultCategory: 'quality',      weightFactor: 1.5, sector: 'retail', subcategory: 'Inventory & Operations' },
+  { value: 'supplier-delivery-rejected', label: 'Supplier Delivery Rejected (Quality)',    defaultSeverity: 6,  defaultCategory: 'quality',      weightFactor: 1.5, sector: 'retail', subcategory: 'Inventory & Operations' },
+  { value: 'shrinkage-theft-incident',   label: 'Shrinkage / Theft Incident',              defaultSeverity: 7,  defaultCategory: 'operational',  weightFactor: 2.0, sector: 'retail', subcategory: 'Inventory & Operations' },
+  { value: 'pos-discrepancy',            label: 'POS Discrepancy at Close',                defaultSeverity: 6,  defaultCategory: 'operational',  weightFactor: 1.5, sector: 'retail', subcategory: 'Inventory & Operations' },
+  { value: 'waste-log-incomplete',       label: 'Waste Log Not Completed',                 defaultSeverity: 4,  defaultCategory: 'regulatory',   weightFactor: 1.0, sector: 'retail', subcategory: 'Inventory & Operations' },
+
+  // ── Retail › Compliance ───────────────────────────────────────────────────
+  { value: 'health-permit-not-posted',   label: 'Health Permit Not Posted',                defaultSeverity: 7,  defaultCategory: 'regulatory',   weightFactor: 2.0, sector: 'retail', subcategory: 'Compliance' },
+  { value: 'food-handler-cert-expired',  label: 'Employee Food Handler Cert Expired',      defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.0, sector: 'retail', subcategory: 'Compliance' },
+  { value: 'temperature-log-incomplete', label: 'Temperature Log Not Completed',           defaultSeverity: 6,  defaultCategory: 'regulatory',   weightFactor: 1.5, sector: 'retail', subcategory: 'Compliance' },
+  { value: 'allergen-label-missing',     label: 'Allergen Label Missing on Product',       defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, sector: 'retail', subcategory: 'Compliance' },
+  { value: 'health-inspection-violation',label: 'Health Inspection Violation',             defaultSeverity: 9,  defaultCategory: 'regulatory',   weightFactor: 2.5, sector: 'retail', subcategory: 'Compliance' },
+
+  // ── Government › Apparatus & Fleet ───────────────────────────────────────
+  { value: 'apparatus-failed-inspection',    label: 'Apparatus Failed Daily Inspection',        defaultSeverity: 8,  defaultCategory: 'safety',     weightFactor: 2.5, sector: 'government', subcategory: 'Apparatus & Fleet' },
+  { value: 'vehicle-out-of-service',         label: 'Vehicle Out of Service — Unscheduled',     defaultSeverity: 7,  defaultCategory: 'operational',weightFactor: 2.0, sector: 'government', subcategory: 'Apparatus & Fleet' },
+  { value: 'maintenance-overdue-apparatus',  label: 'Maintenance Overdue on Apparatus',         defaultSeverity: 7,  defaultCategory: 'operational',weightFactor: 2.0, sector: 'government', subcategory: 'Apparatus & Fleet' },
+  { value: 'equipment-not-returned',         label: 'Equipment Not Returned to Proper Location', defaultSeverity: 5,  defaultCategory: 'operational',weightFactor: 1.5, sector: 'government', subcategory: 'Apparatus & Fleet' },
+  { value: 'chain-of-custody-not-documented',label: 'Chain of Custody Not Documented',          defaultSeverity: 8,  defaultCategory: 'regulatory', weightFactor: 2.5, sector: 'government', subcategory: 'Apparatus & Fleet' },
+
+  // ── Government › Personnel ────────────────────────────────────────────────
+  { value: 'required-cert-expired',         label: 'Required Certification Expired',          defaultSeverity: 8,  defaultCategory: 'regulatory', weightFactor: 2.0, sector: 'government', subcategory: 'Personnel' },
+  { value: 'training-hours-incomplete',     label: 'Training Hours Not Completed',            defaultSeverity: 6,  defaultCategory: 'regulatory', weightFactor: 1.5, sector: 'government', subcategory: 'Personnel' },
+  { value: 'shift-briefing-not-documented', label: 'Shift Briefing Not Documented',           defaultSeverity: 5,  defaultCategory: 'regulatory', weightFactor: 1.5, sector: 'government', subcategory: 'Personnel' },
+  { value: 'protective-gear-not-worn',      label: 'Protective Gear Not Worn',                defaultSeverity: 8,  defaultCategory: 'safety',     weightFactor: 2.5, sector: 'government', subcategory: 'Personnel' },
+  { value: 'use-of-force-incomplete',       label: 'Use of Force Documentation Incomplete',   defaultSeverity: 9,  defaultCategory: 'regulatory', weightFactor: 2.5, sector: 'government', subcategory: 'Personnel' },
+
+  // ── Government › Facility ─────────────────────────────────────────────────
+  { value: 'evidence-storage-protocol',    label: 'Evidence Storage Protocol Not Followed',  defaultSeverity: 9,  defaultCategory: 'regulatory', weightFactor: 2.5, sector: 'government', subcategory: 'Facility' },
+  { value: 'weapons-inventory-discrepancy',label: 'Weapons Inventory Discrepancy',           defaultSeverity: 9,  defaultCategory: 'regulatory', weightFactor: 2.5, sector: 'government', subcategory: 'Facility' },
+  { value: 'uniform-gear-not-accounted',   label: 'Uniform / Gear Not Accounted For',        defaultSeverity: 5,  defaultCategory: 'operational',weightFactor: 1.5, sector: 'government', subcategory: 'Facility' },
+  { value: 'radio-equipment-failure',      label: 'Radio / Communication Equipment Failure', defaultSeverity: 7,  defaultCategory: 'operational',weightFactor: 2.0, sector: 'government', subcategory: 'Facility' },
+  { value: 'station-safety-issue',         label: 'Station Facility Safety Issue',           defaultSeverity: 7,  defaultCategory: 'safety',     weightFactor: 2.0, sector: 'government', subcategory: 'Facility' },
 ];
 
 // Mock Employees

@@ -18,7 +18,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   userRole: string | null;
-  user: { sub: string; email?: string; role?: string; facilityId?: string; orgId?: string; name?: string; [key: string]: any } | null;
+  user: { sub: string; email?: string; role?: string; department?: string; facilityId?: string; orgId?: string; name?: string; [key: string]: any } | null;
   login: () => void;
   logout: () => void;
   authEvents: AuthEvent[];
@@ -70,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const role = decoded?.["custom:role"] || decoded?.role || "employee";
         const facilityId = decoded?.["custom:facilityId"] || "facility-001";
         const orgId = decoded?.["custom:orgId"] || "org-001";
-        const userData = { sub: decoded?.sub, email: decoded?.email, name: decoded?.name || decoded?.email, role, ...decoded, facilityId, orgId };
+        const department = decoded?.["custom:department"] || "Operations";
+        const userData = { sub: decoded?.sub, email: decoded?.email, name: decoded?.name || decoded?.email, role, department, ...decoded, facilityId, orgId };
         setUserRole(role);
         setUser(userData);
         console.log("✅ User data:", userData);

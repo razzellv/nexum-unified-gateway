@@ -1,6 +1,6 @@
-import { 
-  LayoutDashboard, 
-  AlertTriangle, 
+import {
+  LayoutDashboard,
+  AlertTriangle,
   ClipboardList,
   ShieldCheck,
   Command,
@@ -31,11 +31,30 @@ import { useAuth } from '@/hooks/useAuth';
 import { TierBadge } from '@/components/global/TierGate';
 import { useTier } from '@/hooks/useTier';
 import type { TierFeature } from '@/config/tiers';
+import { ROLES_BY_ORG_TYPE } from '@/config/roles';
 
-const STAFF_ROLES = ['engineer', 'operator', 'technician', 'custodian', 'employee'];
-const LEADERSHIP_ROLES = ['admin', 'executive', 'manager', 'supervisor'];
+// ── Role sets ────────────────────────────────────────────────────────────────
+const FACILITY_LEADERSHIP  = ROLES_BY_ORG_TYPE.facility.leadership;
+const RETAIL_STAFF         = ROLES_BY_ORG_TYPE.retail.staff;
+const RETAIL_LEADERSHIP    = ROLES_BY_ORG_TYPE.retail.leadership;
+const GOVT_STAFF           = ROLES_BY_ORG_TYPE.government.staff;
+const GOVT_LEADERSHIP      = ROLES_BY_ORG_TYPE.government.leadership;
+// Legacy facility staff definition
+const FACILITY_STAFF       = ROLES_BY_ORG_TYPE.facility.staff;
 
-const allNavItems: { name?: string; href?: string; icon?: any; access: string; type?: string; tier?: TierFeature }[] = [
+type NavItem = {
+  name?: string;
+  href?: string;
+  icon?: any;
+  /** 'all' | 'leadership' | 'retail_staff' | 'govt_staff' | string[] of exact hrefs */
+  access: string;
+  type?: string;
+  tier?: TierFeature;
+  /** Only show for these org types (undefined = all) */
+  orgTypes?: string[];
+};
+
+const allNavItems: NavItem[] = [
   { name: 'Main Hub', href: '/', icon: Home, access: 'all' },
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
@@ -49,6 +68,20 @@ const allNavItems: { name?: string; href?: string; icon?: any; access: string; t
   { name: 'Workflows', href: '/workflows', icon: Workflow, access: 'leadership', tier: 'operations_center' },
   { name: 'Workload', href: '/workload', icon: Users, access: 'leadership', tier: 'workload' },
   { name: 'Settings', href: '/settings', icon: Settings, access: 'leadership' },
+
+  // Retail-staff-only items (minimal nav)
+  { type: 'separator', name: 'My Work', access: 'retail_staff' },
+  { name: 'Checklist', href: '/employee-dashboard', icon: ClipboardList, access: 'retail_staff' },
+  { name: 'Inventory', href: '/inventory-library', icon: Boxes, access: 'retail_staff', tier: 'inventory_library' },
+  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'retail_staff', tier: 'violations_tracking' },
+
+  // Govt-staff-only items (minimal nav)
+  { type: 'separator', name: 'My Work', access: 'govt_staff' },
+  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'govt_staff', tier: 'work_orders' },
+  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'govt_staff', tier: 'violations_tracking' },
+  { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'govt_staff', tier: 'messages' },
+  { name: 'Personnel', href: '/employee-dashboard', icon: Users, access: 'govt_staff' },
+
   { type: 'separator', name: 'Operations', access: 'all' },
   { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera, access: 'all' },
   { name: 'Facility Data Source', href: '/data-source', icon: Upload, access: 'all', tier: 'facility_data_source' },
@@ -56,10 +89,11 @@ const allNavItems: { name?: string; href?: string; icon?: any; access: string; t
   { name: 'Equipment Library', href: '/equipment-library', icon: Package, access: 'all', tier: 'equipment_library' },
   { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
   { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
-  { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory' },
-  { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory' },
+  { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
+  { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
+
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
@@ -70,22 +104,77 @@ const allNavItems: { name?: string; href?: string; icon?: any; access: string; t
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 ];
 
-export function AppSidebar() {
-  const { collapsed } = useSidebar();
-  const { userRole, logout } = useAuth();
-  const { can, isAdmin } = useTier();
+// ── Nav visibility logic ─────────────────────────────────────────────────────
+function getVisibleItems(
+  role: string,
+  orgType: string,
+  isLeadership: boolean,
+  isAdmin: boolean,
+): NavItem[] {
+  const isRetailStaff    = orgType === 'retail'      && RETAIL_STAFF.includes(role);
+  const isRetailLeader   = orgType === 'retail'      && RETAIL_LEADERSHIP.includes(role);
+  const isGovtStaff      = orgType === 'government'  && GOVT_STAFF.includes(role);
+  const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
-  const isLeadership = LEADERSHIP_ROLES.includes(userRole || '');
-  const orgType = localStorage.getItem('nexum_org_type') || '';
+  return allNavItems.filter(item => {
+    // Org-type filter (Retail Dashboard only for retail, etc.)
+    if (item.orgTypes && item.orgTypes.length > 0) {
+      if (!item.orgTypes.includes(orgType)) return false;
+    }
 
-  const visibleItems = allNavItems.filter(item => {
-    // Org-type gating for retail/govt dashboard links
-    if (item.href === '/retail-dashboard') return orgType === 'retail' || !orgType;
-    if (item.href === '/government-dashboard') return orgType === 'government' || !orgType;
+    if (item.type === 'separator') {
+      // Show separator only if its access group is visible
+      if (item.access === 'retail_staff') return isRetailStaff;
+      if (item.access === 'govt_staff')   return isGovtStaff;
+      if (item.access === 'leadership')   return isAdmin || isLeadership || isRetailLeader || isGovtLeader;
+      return true;
+    }
+
+    if (isAdmin) return true;
+
+    // Retail staff: only see retail_staff items + Main Hub
+    if (isRetailStaff) {
+      return item.access === 'retail_staff' || item.href === '/';
+    }
+
+    // Govt staff: only see govt_staff items + Main Hub
+    if (isGovtStaff) {
+      return item.access === 'govt_staff' || item.href === '/';
+    }
+
+    // Retail / govt leadership: full nav minus org-type-exclusive items
+    if (isRetailLeader || isGovtLeader) {
+      if (item.access === 'retail_staff' || item.access === 'govt_staff') return false;
+      if (item.access === 'all') return true;
+      if (item.access === 'leadership') return true;
+      return false;
+    }
+
+    // Default facility behavior
+    if (item.access === 'retail_staff' || item.access === 'govt_staff') return false;
     if (item.access === 'all') return true;
     if (item.access === 'leadership') return isLeadership;
     return false;
   });
+}
+
+export function AppSidebar() {
+  const { collapsed } = useSidebar();
+  const { userRole, logout } = useAuth();
+  const { isAdmin } = useTier();
+
+  const orgType   = localStorage.getItem('nexum_org_type') || 'facility';
+  const role      = userRole || 'employee';
+
+  const allLeadershipRoles = [
+    ...FACILITY_LEADERSHIP,
+    ...RETAIL_LEADERSHIP,
+    ...GOVT_LEADERSHIP,
+    'admin',
+  ];
+  const isLeadership = allLeadershipRoles.includes(role);
+
+  const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin);
 
   return (
     <aside className={cn(

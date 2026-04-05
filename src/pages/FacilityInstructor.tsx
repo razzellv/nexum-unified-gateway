@@ -172,8 +172,13 @@ const PhotoAnalyzer = () => {
       setAnalysis(null);
       setAnalyzing(true);
       try {
-        const token = localStorage.getItem('nexum_access_token') || '';
-        const data = await callVVFI('analyze-photo', { imageBase64: base64 }, token);
+        const resp = await fetch('/.netlify/functions/analyze-equipment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photos: [base64], equipmentType: 'facility-equipment', context: '' }),
+        });
+        if (!resp.ok) throw new Error('Analysis request failed');
+        const data = await resp.json();
         setAnalysis(data.analysis || data.response);
         toast({ title: 'Analysis complete' });
       } catch (err) {

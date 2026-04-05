@@ -17,8 +17,9 @@ import {
   Package, Search, AlertTriangle, TrendingUp, TrendingDown,
   Download, ArrowUpDown, Wrench, Zap, Wind, Hammer, Droplets, Cylinder, Box,
   ClipboardList, CheckCircle, User, Clock, Plus, X, History,
-  Thermometer, ShoppingCart, Shield, Truck, Lock, AlertOctagon,
+  Thermometer, ShoppingCart, Shield, Truck, Lock, AlertOctagon, Upload,
 } from 'lucide-react';
+import { ImportModal } from '@/components/ImportModal';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -212,6 +213,7 @@ export default function InventoryLibrary() {
 
   // Add Inventory modal
   const [showAddModal, setShowAddModal] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [addItemType, setAddItemType] = useState<AddItemType>('parts');
   const [partsForm, setPartsForm] = useState({ ...EMPTY_PARTS_FORM });
   const [foodForm, setFoodForm] = useState({ ...EMPTY_FOOD_FORM });
@@ -467,7 +469,7 @@ export default function InventoryLibrary() {
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />Export CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               <Upload className="w-4 h-4 mr-2" />Import
             </Button>
             <Button size="sm" onClick={() => setShowAddModal(true)}>
@@ -1111,12 +1113,65 @@ export default function InventoryLibrary() {
           </div>
         </div>
       )}
-
       {/* Inventory Import Modal */}
-      <InventoryImportModal
-        open={importModalOpen}
-        onOpenChange={setImportModalOpen}
-        onImportComplete={fetchInventory}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import Inventory"
+        storageKey="inventory_import"
+        templateHeaders={[
+          'itemName', 'category', 'partNumber', 'sku', 'assetTag', 'assetNumber',
+          'quantity', 'minQuantity', 'reorderPoint', 'location', 'supplier',
+          'unitCost', 'expirationDate', 'storageTemp', 'notes',
+        ]}
+        fields={[
+          { key: 'itemName', label: 'Item Name', required: true },
+          { key: 'category', label: 'Category', required: true },
+          { key: 'partNumber', label: 'Part Number' },
+          { key: 'sku', label: 'SKU' },
+          { key: 'assetTag', label: 'Asset Tag' },
+          { key: 'assetNumber', label: 'Asset Number' },
+          { key: 'quantity', label: 'Quantity' },
+          { key: 'minQuantity', label: 'Min Quantity' },
+          { key: 'reorderPoint', label: 'Reorder Point' },
+          { key: 'location', label: 'Location' },
+          { key: 'supplier', label: 'Supplier' },
+          { key: 'unitCost', label: 'Unit Cost' },
+          { key: 'expirationDate', label: 'Expiration Date' },
+          { key: 'storageTemp', label: 'Storage Temp' },
+          { key: 'notes', label: 'Notes' },
+        ]}
+        onImportRow={async (row) => {
+          const partId = `part-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const newItem = {
+            partId,
+            name: row.itemName,
+            category: row.category,
+            partNumber: row.partNumber || '',
+            quantity: parseInt(row.quantity) || 0,
+            minQuantity: parseInt(row.minQuantity) || 0,
+            reorderPoint: parseInt(row.reorderPoint) || undefined,
+            location: row.location || '',
+            supplier: row.supplier || '',
+            unitCost: parseFloat(row.unitCost) || 0,
+            expirationDate: row.expirationDate || undefined,
+            storageTemp: row.storageTemp || undefined,
+            notes: row.notes || undefined,
+            createdAt: new Date().toISOString(),
+          };
+          const saved = (() => { try { return JSON.parse(localStorage.getItem('nexum_inventory') || '[]'); } catch { return []; } })();
+          const updated = [newItem, ...saved];
+          localStorage.setItem('nexum_inventory', JSON.stringify(updated));
+          setInventory(prev => [newItem as any, ...prev]);
+          try {
+            const token = localStorage.getItem('nexum_access_token');
+            await fetch(`${API_BASE_URL}/inventory`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify(newItem),
+            });
+          } catch { /* silent — localStorage is source of truth */ }
+        }}
       />
     </MainLayout>
   );

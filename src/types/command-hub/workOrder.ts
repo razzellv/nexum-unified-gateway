@@ -3,6 +3,7 @@ export type WorkOrderType = 'corrective' | 'preventive' | 'predictive' | 'inspec
 export type WorkOrderPriority = 'routine' | 'normal' | 'urgent' | 'emergency';
 export type WorkOrderStatus = 'open' | 'assigned' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
 export type EquipmentType = 'boiler' | 'chiller' | 'ahu' | 'rtu' | 'pump' | 'compressor' | 'electrical' | 'hvac' | 'plumbing' | 'fire_safety' | 'controls';
+export type WorkOrderContextType = 'equipment' | 'location' | 'general';
 
 export interface WorkOrderAttachment {
   id: string;
@@ -25,6 +26,8 @@ export interface WorkOrder {
   workOrderId: string;
   facilityId: string;
   orgId: string;
+  contextType: WorkOrderContextType;
+  locationContext?: string;
   equipmentId: string;
   equipmentType: EquipmentType;
   type: WorkOrderType;

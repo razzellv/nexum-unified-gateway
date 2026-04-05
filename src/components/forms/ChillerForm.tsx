@@ -3,6 +3,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Snowflake, Droplets, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PumpSelector } from '@/components/equipment/PumpSelector';
+import { ConnectedToBanner } from '@/components/equipment/ConnectedToBanner';
 
 interface ChillerFormData {
   chillerType: string;
@@ -17,14 +19,16 @@ interface ChillerFormData {
   currentKw: string;
   runStatus: string;
   alarmStatus: string;
-  // ✅ NEW: Runtime for energy calculations
   runtimeHours: string;
+  linkedPumpIds: string[];
 }
 
 interface ChillerFormProps {
   data: ChillerFormData;
   onChange: (data: ChillerFormData) => void;
   errors: Record<string, string>;
+  equipmentId?: string;
+  facilityId?: string;
 }
 
 const runStatusColors = {
@@ -45,8 +49,8 @@ const isWaterCooled = (type: string) => {
   return type && type !== 'air-cooled';
 };
 
-export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
-  const updateField = (field: keyof ChillerFormData, value: string) => {
+export function ChillerForm({ data, onChange, errors, equipmentId, facilityId }: ChillerFormProps) {
+  const updateField = (field: keyof ChillerFormData, value: string | string[]) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -302,6 +306,27 @@ export function ChillerForm({ data, onChange, errors }: ChillerFormProps) {
         </div>
       </div>
 
+      {/* Linked Pumps */}
+      {facilityId && (
+        <div className="mt-6 pt-6 border-t border-border/50">
+          <h3 className="font-semibold text-foreground flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-md bg-primary/10">
+              <Snowflake className="h-4 w-4 text-primary" />
+            </div>
+            Linked Pumps
+          </h3>
+          <ConnectedToBanner linkedPumpIds={data.linkedPumpIds} />
+          <div className="mt-3">
+            <PumpSelector
+              facilityId={facilityId}
+              currentEquipmentId={equipmentId}
+              selectedIds={data.linkedPumpIds}
+              onChange={(ids) => updateField('linkedPumpIds', ids)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Run Status */}
       <div className="input-group mt-6">
         <Label className="text-sm font-medium">
@@ -383,8 +408,8 @@ export const initialChillerData: ChillerFormData = {
   dischargePressure: '',
   currentKw: '',
   alarmStatus: '',
-  // ✅ NEW: Runtime field
   runtimeHours: '',
+  linkedPumpIds: [],
 };
 
 export function validateChillerForm(data: ChillerFormData): Record<string, string> {

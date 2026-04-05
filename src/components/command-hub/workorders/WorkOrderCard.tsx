@@ -1,4 +1,4 @@
-import { AlertCircle, Calendar, Clock, MoreVertical, Eye, Edit, Trash2, Copy, User } from 'lucide-react';
+import { AlertCircle, Calendar, Clock, MoreVertical, Eye, Edit, Trash2, Copy, User, MapPin, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -82,14 +82,34 @@ export function WorkOrderCard({ workOrder, onView, onEdit, onDelete, onDuplicate
       {/* Title */}
       <h3 className="font-medium text-foreground mb-2 line-clamp-2">{workOrder.title}</h3>
 
-      {/* Equipment */}
+      {/* Equipment / Location / General context */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="p-1.5 rounded bg-muted">
-          <EquipmentIcon className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <span className="text-sm text-muted-foreground truncate">
-          {equipment?.name || workOrder.equipmentId}
-        </span>
+        {workOrder.contextType === 'location' ? (
+          <>
+            <div className="p-1.5 rounded bg-muted">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm text-muted-foreground truncate">
+              {workOrder.locationContext || 'Location not specified'}
+            </span>
+          </>
+        ) : workOrder.contextType === 'general' ? (
+          <>
+            <div className="p-1.5 rounded bg-muted">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm text-muted-foreground truncate">General</span>
+          </>
+        ) : (
+          <>
+            <div className="p-1.5 rounded bg-muted">
+              <EquipmentIcon className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm text-muted-foreground truncate">
+              {equipment?.name || workOrder.equipmentId}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Badges */}

@@ -105,6 +105,7 @@ export const useAuth = () => {
         email: payload.email,
         name: payload.name || payload.email,
         role: payload["custom:role"] || payload.role || "employee",
+        department: payload["custom:department"] || "Operations",
         facilityId: payload["custom:facilityId"] || "facility-001",
         orgId: payload["custom:orgId"] || "org-001",
         ...payload,

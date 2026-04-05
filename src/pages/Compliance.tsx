@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { logComplianceEvent } from '@/lib/nexum-api';
+import { violationTypeConfigs } from '@/data/mockData';
 
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
 
@@ -42,26 +43,41 @@ const SYSTEM_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+// Legacy violation types kept for PM/Safety tabs that still use them
 const VIOLATION_TYPES = [
-  { value: 'MISSING_LOG', label: 'Missing Equipment Log', severity: 25 },
-  { value: 'LATE_LOG', label: 'Late Log Entry', severity: 15 },
-  { value: 'INCOMPLETE_DATA', label: 'Incomplete Data Entry', severity: 35 },
-  { value: 'OUT_OF_RANGE', label: 'Out of Range Reading', severity: 50 },
-  { value: 'CRITICAL_FAILURE', label: 'Critical Equipment Failure', severity: 100 },
-  { value: 'UNSAFE_OPERATION', label: 'Unsafe Operation', severity: 90 },
-  { value: 'MISSED_ROUND', label: 'Missed Equipment Round', severity: 40 },
-  { value: 'DOCUMENTATION_ERROR', label: 'Documentation Error', severity: 30 },
-  { value: 'UNAUTHORIZED_CHANGE', label: 'Unauthorized System Change', severity: 75 },
-  { value: 'SAFETY_VIOLATION', label: 'Safety Protocol Violation', severity: 95 },
-  { value: 'TRAINING_LAPSE', label: 'Training/Certification Lapse', severity: 35 },
-  { value: 'PROCEDURE_DEVIATION', label: 'Procedure Deviation', severity: 45 },
-  { value: 'POOR_COMMUNICATION', label: 'Poor Communication', severity: 25 },
-  { value: 'QUALITY_ISSUE', label: 'Quality Issue', severity: 40 },
-  { value: 'RESPONSE_DELAY', label: 'Delayed Response to Issue', severity: 55 },
-  { value: 'UNETHICAL_CONDUCT', label: 'Unethical Conduct', severity: 85 },
-  { value: 'DISHONESTY', label: 'Dishonesty/Falsification', severity: 95 },
-  { value: 'POLICY_VIOLATION', label: 'Company Policy Violation', severity: 65 },
+  { value: 'MISSING_LOG',         label: 'Missing Equipment Log',        severity: 25 },
+  { value: 'LATE_LOG',            label: 'Late Log Entry',               severity: 15 },
+  { value: 'INCOMPLETE_DATA',     label: 'Incomplete Data Entry',        severity: 35 },
+  { value: 'OUT_OF_RANGE',        label: 'Out of Range Reading',         severity: 50 },
+  { value: 'CRITICAL_FAILURE',    label: 'Critical Equipment Failure',   severity: 100 },
+  { value: 'UNSAFE_OPERATION',    label: 'Unsafe Operation',             severity: 90 },
+  { value: 'MISSED_ROUND',        label: 'Missed Equipment Round',       severity: 40 },
+  { value: 'DOCUMENTATION_ERROR', label: 'Documentation Error',          severity: 30 },
+  { value: 'UNAUTHORIZED_CHANGE', label: 'Unauthorized System Change',   severity: 75 },
+  { value: 'SAFETY_VIOLATION',    label: 'Safety Protocol Violation',    severity: 95 },
+  { value: 'TRAINING_LAPSE',      label: 'Training/Certification Lapse', severity: 35 },
+  { value: 'PROCEDURE_DEVIATION', label: 'Procedure Deviation',          severity: 45 },
+  { value: 'POOR_COMMUNICATION',  label: 'Poor Communication',           severity: 25 },
+  { value: 'QUALITY_ISSUE',       label: 'Quality Issue',                severity: 40 },
+  { value: 'RESPONSE_DELAY',      label: 'Delayed Response to Issue',    severity: 55 },
+  { value: 'UNETHICAL_CONDUCT',   label: 'Unethical Conduct',            severity: 85 },
+  { value: 'DISHONESTY',          label: 'Dishonesty/Falsification',     severity: 95 },
+  { value: 'POLICY_VIOLATION',    label: 'Company Policy Violation',     severity: 65 },
 ];
+
+const SEVERITY_OPTIONS = [
+  { value: 'low',      label: 'Low — Minor, no immediate risk',          score: 25 },
+  { value: 'medium',   label: 'Medium — Operational impact',             score: 50 },
+  { value: 'high',     label: 'High — Safety/regulatory risk',           score: 75 },
+  { value: 'critical', label: 'Critical — Immediate corrective action',  score: 100 },
+];
+
+const SEVERITY_COLORS: Record<string, string> = {
+  low:      'text-blue-400',
+  medium:   'text-yellow-400',
+  high:     'text-orange-400',
+  critical: 'text-red-400',
+};
 
 const POSITIVE_BEHAVIORS = [
   { value: 'EXEMPLARY_SAFETY', label: 'Exemplary Safety Practice', severity: -20 },
@@ -718,36 +734,85 @@ function AuditReportsTab() {
 
 // ─── Main Compliance ──────────────────────────────────────────────────────────
 
+const PAGE_TITLES: Record<string, string> = {
+  facility:   'Facility Compliance Logger',
+  retail:     'Retail Compliance Logger',
+  government: 'Public Safety Compliance Logger',
+};
+
 export default function Compliance() {
+  const orgType = localStorage.getItem('nexum_org_type') || 'facility';
+  const pageTitle = PAGE_TITLES[orgType] ?? PAGE_TITLES.facility;
+
   const [activeTab, setActiveTab] = useState('violation');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastVirtuousScore, setLastVirtuousScore] = useState<number | null>(null);
 
-  const violationForm = useForm({ defaultValues: { operatorId: '' } });
+  const violationForm = useForm({ defaultValues: { operatorId: '', severity: 'medium' } });
   const pmForm = useForm({ defaultValues: { operatorId: '' } });
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
+
+  // Build orgType-filtered, subcategory-grouped violation types
+  const orgViolationGroups = useMemo(() => {
+    const filtered = violationTypeConfigs.filter(c => !c.sector || c.sector === orgType);
+    const groups: Record<string, typeof violationTypeConfigs> = {};
+    for (const cfg of filtered) {
+      const sub = cfg.subcategory ?? 'General';
+      if (!groups[sub]) groups[sub] = [];
+      groups[sub].push(cfg);
+    }
+    return groups;
+  }, [orgType]);
 
   const handleViolationSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        type: data.violationType,
-        operatorId: data.operatorId,
-        operator: data.operator || data.operatorId,
-        description: data.description,
-        equipmentId: data.equipmentId,
-        equipmentType: data.equipmentType,
-        notes: data.notes,
+      const token = getToken();
+      const facilityId = localStorage.getItem('nexum_facility_id') || 'facility-001';
+      const severityScore = SEVERITY_OPTIONS.find(s => s.value === data.severity)?.score ?? 50;
+
+      // POST to /violations endpoint
+      await fetch(`${API_BASE}/violations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          facilityId,
+          orgType,
+          type:             data.violationType,
+          severity:         data.severity,
+          severityScore,
+          operatorId:       data.operatorId,
+          operator:         data.operator || data.operatorId,
+          description:      data.description,
+          equipmentId:      data.equipmentId,
+          equipmentType:    data.equipmentType,
+          location:         data.location,
+          staffInvolved:    data.staffInvolved,
+          notes:            data.notes,
+          correctiveAction: data.correctiveAction,
+          policyReference:  data.policyReference,
+          timestamp:        new Date().toISOString(),
+        }),
+      }).catch(() => {}); // fire-and-forget if endpoint unavailable
+
+      // Also log via legacy compliance event for backward compat
+      const response = await logComplianceEvent({
+        type:             data.violationType,
+        operatorId:       data.operatorId,
+        operator:         data.operator || data.operatorId,
+        description:      data.description,
+        equipmentId:      data.equipmentId,
+        equipmentType:    data.equipmentType,
+        notes:            data.notes,
         correctiveAction: data.correctiveAction,
-      };
-      const response = await logComplianceEvent(payload);
+      });
       const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
       if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
       toast({
         title: '✅ Violation Logged Successfully',
         description: virtuousScore !== undefined ? `Employee Virtuous Score: ${virtuousScore}%` : 'The violation has been recorded.',
       });
-      violationForm.reset({ operatorId: '' });
+      violationForm.reset({ operatorId: '', severity: 'medium' });
     } catch (error: any) {
       toast({ title: 'Error Logging Violation', description: error.message, variant: 'destructive' });
     } finally {
@@ -812,7 +877,7 @@ export default function Compliance() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
               <FileText className="w-8 h-8 text-neon-cyan" />
-              Facility Compliance Logger
+              {pageTitle}
             </h1>
             <p className="text-muted-foreground mt-1">Immutable compliance event logging system</p>
           </div>
@@ -858,33 +923,78 @@ export default function Compliance() {
                   <div className="space-y-4 p-6 rounded-lg border border-warning/30 bg-card/50">
                     <div className="flex items-center gap-2 mb-4">
                       <AlertTriangle className="w-5 h-5 text-warning" />
-                      <h3 className="font-semibold text-foreground">Violation Type</h3>
+                      <h3 className="font-semibold text-foreground">Violation Details</h3>
                     </div>
                     <div className="space-y-4">
+                      {/* Violation Type — org-filtered & grouped */}
                       <div className="space-y-2">
                         <Label>Violation Type *</Label>
                         <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
                           <SelectTrigger><SelectValue placeholder="Select violation type" /></SelectTrigger>
-                          <SelectContent className="max-h-[400px]">
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Equipment Violations</div>
-                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(0, 6).map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Compliance Violations</div>
-                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(6, 11).map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Operational Issues</div>
-                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(11, 15).map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Serious Violations</div>
-                            {VIOLATION_TYPES.filter(v => v.severity > 0).slice(15).map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                            <div className="px-2 py-1.5 text-xs font-semibold text-green-500 mt-2">✅ Positive Behaviors</div>
-                            {POSITIVE_BEHAVIORS.map(({ value, label }) => <SelectItem key={value} value={value} className="text-green-500">{label}</SelectItem>)}
+                          <SelectContent className="max-h-[400px] bg-popover border-border">
+                            {Object.entries(orgViolationGroups).map(([subcategory, configs]) => (
+                              <div key={subcategory}>
+                                <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{subcategory}</div>
+                                {configs.map(({ value, label }) => (
+                                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                            <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-green-500 mt-1">Positive Behaviors</div>
+                            {POSITIVE_BEHAVIORS.map(({ value, label }) => (
+                              <SelectItem key={value} value={value} className="text-green-500">{label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Severity */}
                       <div className="space-y-2">
-                        <Label>Policy / Code Reference</Label>
+                        <Label>Severity *</Label>
+                        <Select defaultValue="medium" onValueChange={(v) => violationForm.setValue('severity', v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {SEVERITY_OPTIONS.map(({ value, label }) => (
+                              <SelectItem key={value} value={value}>
+                                <span className={SEVERITY_COLORS[value]}>{label}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Equipment / Location */}
+                      <div className="space-y-2">
+                        <Label>
+                          {orgType === 'retail' ? 'Location (cooler, shelf, aisle…)' : orgType === 'government' ? 'Unit / Location' : 'Equipment / Location'}
+                          <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+                        </Label>
+                        <input
+                          {...violationForm.register('location')}
+                          placeholder={orgType === 'retail' ? 'e.g. Walk-in Cooler, Deli Case' : orgType === 'government' ? 'e.g. Engine 1, Station 2' : 'e.g. Boiler Room, AHU-3'}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+
+                      {/* Staff Involved */}
+                      <div className="space-y-2">
+                        <Label>Staff Involved <span className="text-muted-foreground ml-1 text-xs">(optional)</span></Label>
+                        <input
+                          {...violationForm.register('staffInvolved')}
+                          placeholder="Names of additional staff involved"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+
+                      {/* Policy Reference */}
+                      <div className="space-y-2">
+                        <Label>Policy / Code Reference <span className="text-muted-foreground ml-1 text-xs">(optional)</span></Label>
                         <Select onValueChange={(v) => violationForm.setValue('policyReference', v)}>
                           <SelectTrigger><SelectValue placeholder="Select policy or code" /></SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {POLICY_REFERENCES.map(({ value, label }) => <SelectItem key={value} value={value} className="font-mono text-sm">{label}</SelectItem>)}
+                          <SelectContent className="max-h-[300px] bg-popover border-border">
+                            {POLICY_REFERENCES.map(({ value, label }) => (
+                              <SelectItem key={value} value={value} className="font-mono text-sm">{label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

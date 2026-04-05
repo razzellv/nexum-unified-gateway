@@ -165,19 +165,21 @@ const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        system: data.equipmentType || 'general',
-        equipmentId: data.equipmentId,
-        equipmentName: data.equipmentId,
-        buildingId: 'building-001',
-        type: data.type || 'manual',
-        priority: data.priority || 'medium',
-        title: data.title || 'Work Order',
-        description: data.description || '',
-        reason: data.description || '',
-        createdByName: user?.name || user?.email || 'User',
-        estimatedCost: data.estimatedCost || 0,  // ✅ ADD THIS LINE
-        estimatedHours: data.estimatedHours || 0, // ✅ ADD THIS LINE
-        partsRequired: data.partsRequired || [],   // ✅ ADD THIS LINE
+        contextType:     data.contextType || 'equipment',
+        locationContext: data.locationContext,
+        system:          data.equipmentType || 'general',
+        equipmentId:     data.equipmentId || '',
+        equipmentName:   data.equipmentId || '',
+        buildingId:      'building-001',
+        type:            data.type || 'manual',
+        priority:        data.priority || 'medium',
+        title:           data.title || 'Work Order',
+        description:     data.description || '',
+        reason:          data.description || '',
+        createdByName:   user?.name || user?.email || 'User',
+        estimatedCost:   data.estimatedCost || 0,
+        estimatedHours:  data.estimatedHours || 0,
+        partsRequired:   data.partsRequired || [],
       })
     });
 

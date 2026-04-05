@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/hooks/useAuth';
+import { DEPARTMENTS } from '@/config/roles';
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { NexumBranding } from "@/components/NexumBranding";
 import { ScopeFilters } from '@/components/global/ScopeFilters';
@@ -135,6 +138,11 @@ function getToken() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ManagerDashboard() {
   const { currentRole } = useRole();
+  const { user } = useAuth();
+
+  // Department filter — defaults to user's department, 'All' sees everything
+  const userDept = user?.department || 'Operations';
+  const [selectedDept, setSelectedDept] = useState<string>(userDept);
 
   // Filter state — wired into API calls
   const [selectedFacility, setSelectedFacility] = useState('all');
@@ -172,18 +180,50 @@ export default function ManagerDashboard() {
           console.error('Confidence metrics failed:', e);
         }
 
-        // Budget summary
+        // Budget summary — try API first, fall back to Settings localStorage data
         const token = getToken();
+        let apiBudgetOk = false;
         if (token) {
           try {
             const budgetRes = await fetch(
               'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/budget/summary',
               { headers: { Authorization: `Bearer ${token}` } }
             );
-            if (budgetRes.ok) setBudgetData(await budgetRes.json());
+            if (budgetRes.ok) {
+              setBudgetData(await budgetRes.json());
+              apiBudgetOk = true;
+            }
           } catch (e) {
             console.error('Budget fetch failed:', e);
           }
+        }
+        // If API budget unavailable, build from localStorage nexum_dept_budgets
+        if (!apiBudgetOk) {
+          try {
+            const raw = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+            // Settings saves { rows: [...], fiscalYear }; handle both formats
+            const stored: any[] = Array.isArray(raw) ? raw : (raw?.rows ?? []);
+            if (stored.length > 0) {
+              const totalBudget = stored.reduce((s: number, d: any) => s + (Number(d.annualBudget) || 0), 0);
+              const totalActual = stored.reduce((s: number, d: any) => s + (Number(d.spent) || 0), 0);
+              const variance = totalBudget - totalActual;
+              const utilizationPercent = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
+              const categories = stored.map((d: any) => {
+                const budget = Number(d.annualBudget) || 0;
+                const actual = Number(d.spent) || 0;
+                const pct = budget > 0 ? Math.round((actual / budget) * 100) : 0;
+                return {
+                  category: d.dept,
+                  budget,
+                  actual,
+                  variance: budget - actual,
+                  percentage: pct,
+                  status: pct >= 100 ? 'over' : pct >= 90 ? 'at_limit' : 'under',
+                };
+              });
+              setBudgetData({ period: new Date().getFullYear() + ' YTD', totalBudget, totalActual, variance, utilizationPercent, categories });
+            }
+          } catch { /* silent */ }
         }
       } catch (err) {
         console.error('Manager dashboard load failed:', err);
@@ -298,7 +338,24 @@ export default function ManagerDashboard() {
   const loggingConsistency   = data?.performance?.logs_last_7_days || 0;
   const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / 7) * 100));
 
-  const workOrders = data?.work_orders?.recent || [];
+  const allWorkOrders = data?.work_orders?.recent || [];
+  // Department filter: show all when selectedDept is 'All', otherwise match department field
+  const workOrders = selectedDept === 'All'
+    ? allWorkOrders
+    : allWorkOrders.filter((wo: any) => !wo.department || wo.department === selectedDept);
+
+  // Department-filtered violations count
+  const allViolationDetails = data?.violations?.details || [];
+  const deptViolations = selectedDept === 'All'
+    ? allViolationDetails
+    : allViolationDetails.filter((v: any) => !v.department || v.department === selectedDept);
+  const deptViolationCount = deptViolations.length || activeViolations;
+
+  // Department-filtered budget highlight
+  const budgetCategories: any[] = budgetData?.categories || [];
+  const deptBudgetRow = budgetCategories.find(
+    (c: any) => c.category?.toLowerCase() === selectedDept.toLowerCase()
+  );
 
   // ✅ WO aging — safe date handling (created_at AND createdAt)
   const workOrderAging = [
@@ -319,11 +376,39 @@ export default function ManagerDashboard() {
     };
   });
 
+  // ── Asset health — merge API data with locally submitted logs ────────────────
   const equipmentHealthByType = data?.performance?.equipment_health_by_type || {};
   const equipmentByType = data?.equipment?.by_type || data?.equipment?.summary?.by_type || {};
-  const assetHealthBySystem = Object.entries(equipmentHealthByType).map(([type, stats]: [string, any]) => {
-    const logCount = stats.log_count ?? stats.logs ?? 0;
-    const healthScore = Math.min(100, Math.round((logCount / 7) * 100));
+
+  // Pull recent locally-stored log submissions (written by LogEntryForm via submitFacilityLog)
+  const localLogs: any[] = (() => {
+    try { return JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]'); } catch { return []; }
+  })();
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentLocalLogs = localLogs.filter((l: any) => new Date(l.timestamp).getTime() > sevenDaysAgo);
+
+  // Build a local health map from submitted logs
+  const localHealthMap: Record<string, { log_count: number; last_log: string }> = {};
+  recentLocalLogs.forEach((l: any) => {
+    const t = l.systemType || 'unknown';
+    if (!localHealthMap[t]) localHealthMap[t] = { log_count: 0, last_log: l.timestamp };
+    localHealthMap[t].log_count++;
+    if (l.timestamp > localHealthMap[t].last_log) localHealthMap[t].last_log = l.timestamp;
+  });
+
+  // Merge: local data wins for recency, API data fills in the rest
+  const mergedHealth: Record<string, { log_count: number; last_log: string }> = { ...equipmentHealthByType };
+  Object.entries(localHealthMap).forEach(([type, local]) => {
+    if (!mergedHealth[type] || local.last_log > (mergedHealth[type].last_log || '')) {
+      mergedHealth[type] = {
+        log_count: Math.max(local.log_count, mergedHealth[type]?.log_count || 0),
+        last_log: local.last_log,
+      };
+    }
+  });
+
+  const assetHealthBySystem = Object.entries(mergedHealth).map(([type, stats]: [string, any]) => {
+    const healthScore = Math.min(100, Math.round(((stats.log_count || 0) / 7) * 100));
     const status: 'healthy' | 'warning' | 'critical' =
       healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'warning' : 'critical';
     const lastLog = stats.last_log ? new Date(stats.last_log) : null;
@@ -333,7 +418,7 @@ export default function ManagerDashboard() {
       : 'No data';
     const unitCount = equipmentByType[type]?.count ?? equipmentByType[type] ?? null;
     return {
-      system: type.charAt(0).toUpperCase() + type.slice(1) + 's',
+      system: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' '),
       score: healthScore,
       status,
       lastUpdated,
@@ -448,6 +533,31 @@ export default function ManagerDashboard() {
           onBuildingChange={setSelectedBuilding}
           onSystemChange={setSelectedSystem}
         />
+
+        {/* Department Filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Showing: <span className="text-foreground font-medium">{selectedDept}</span> department
+            </span>
+          </div>
+          <Select value={selectedDept} onValueChange={setSelectedDept}>
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              {DEPARTMENTS.map(d => (
+                <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {deptBudgetRow && (
+            <Badge variant="outline" className="text-xs border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10">
+              {selectedDept} Budget: ${(deptBudgetRow.budget || 0).toLocaleString()} · Used: {deptBudgetRow.percentage || 0}%
+            </Badge>
+          )}
+        </div>
 
         {/* Primary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

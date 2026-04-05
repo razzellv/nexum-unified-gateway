@@ -15,6 +15,12 @@ import { useToast } from '@/hooks/use-toast';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const currentUserRole = 'manager';
 
+const ORG_LABELS: Record<string, { title: string; badge: string }> = {
+  facility:   { title: 'Violations & Accountability', badge: 'Facility' },
+  retail:     { title: 'Violations & Incident Log',   badge: 'Retail' },
+  government: { title: 'Violations & Compliance Log', badge: 'Gov / Public Safety' },
+};
+
 // ── Build employee accountability from raw violations ─────────────────────────
 function buildAccountability(violations: any[]) {
   const now = Date.now();
@@ -84,6 +90,9 @@ function buildAccountability(violations: any[]) {
 export default function Violations() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const orgType = (localStorage.getItem('nexum_org_type') || 'facility') as 'facility' | 'retail' | 'government';
+  const orgLabel = ORG_LABELS[orgType] ?? ORG_LABELS.facility;
+
   const [violations, setViolations]         = useState<any[]>([]);
   const [accountability, setAccountability] = useState<any[]>([]);
   const [isLoading, setIsLoading]           = useState(true);
@@ -157,10 +166,11 @@ export default function Violations() {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <AlertOctagon className="w-7 h-7 text-primary" />
-              Violations & Accountability
+              {orgLabel.title}
+              <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full border border-primary/30 text-primary">{orgLabel.badge}</span>
             </h1>
             <p className="text-muted-foreground mt-1">
-              {activeViolations} active violations • {accountability.length} employees tracked
+              {activeViolations} active violations • {accountability.length} {orgType === 'government' ? 'personnel' : 'employees'} tracked
             </p>
           </div>
           {canManageViolations && (
@@ -256,6 +266,7 @@ export default function Violations() {
         open={showIssueDialog}
         onOpenChange={setShowIssueDialog}
         onSubmit={handleIssueViolation}
+        orgType={orgType}
       />
       <AssignWorkOrderDialog
         open={showWorkOrderDialog}
