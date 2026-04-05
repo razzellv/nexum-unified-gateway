@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, Flame, Snowflake, Wind, Droplets, Waves, Camera, FileText, Activity, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RecentEquipmentItem {
   equipmentId: string;
@@ -61,6 +62,7 @@ const getTimeAgo = (timestamp: string) => {
 };
 
 export default function RecentEquipment() {
+  const { user } = useAuth();
   const [recentEquipment, setRecentEquipment] = useState<RecentEquipmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,7 +74,7 @@ export default function RecentEquipment() {
       console.log('📥 Fetching recent equipment from /equipment/intelligence...');
       
       const response = await fetch(
-        `${API_BASE_URL}/equipment/intelligence?facilityId=facility-001&recent=true&limit=5`,
+        `${API_BASE_URL}/equipment/intelligence?facilityId=${user?.facilityId || 'facility-001'}&recent=true&limit=5`,
         {
           method: 'GET',
           headers: {
@@ -120,7 +122,7 @@ export default function RecentEquipment() {
       window.removeEventListener('equipment-updated', handleEquipmentAdded);
       window.removeEventListener('equipmentAdded', handleEquipmentAdded);
     };
-  }, []);
+  }, [user?.facilityId]);
 
   return (
     <Card className="neon-border">

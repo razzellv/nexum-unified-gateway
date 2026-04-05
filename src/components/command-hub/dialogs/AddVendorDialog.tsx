@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { Vendor } from '@/pages/command-hub/Vendors';
 
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
@@ -30,6 +31,7 @@ const EMPTY = {
 };
 
 export function AddVendorDialog({ open, onOpenChange, onVendorAdded }: AddVendorDialogProps) {
+  const { user } = useAuth();
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
 
@@ -47,7 +49,7 @@ export function AddVendorDialog({ open, onOpenChange, onVendorAdded }: AddVendor
           Authorization: `Bearer ${getToken()}`,
         },
         body: JSON.stringify({
-          facilityId: 'facility-001',
+          facilityId: user?.facilityId || 'facility-001',
           name: form.name.trim(),
           contactName: form.contactName.trim(),
           email: form.email.trim(),

@@ -15,7 +15,6 @@ import {
 import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import EquipmentImportModal from '@/components/import/EquipmentImportModal';
 import { ImportModal } from '@/components/ImportModal';
 
 interface Equipment {
@@ -107,7 +106,6 @@ export default function EquipmentLibrary() {
   const [showSummary, setShowSummary] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
-  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -478,7 +476,7 @@ export default function EquipmentLibrary() {
             </Button>
             {canEdit && (
               <>
-              <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" />Import
               </Button>
               <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -600,13 +598,6 @@ export default function EquipmentLibrary() {
           </div>
         )}
 
-        {/* Import Modal */}
-        <EquipmentImportModal
-          open={importModalOpen}
-          onOpenChange={setImportModalOpen}
-          onImportComplete={loadEquipment}
-          facilityId={user?.facilityId}
-        />
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

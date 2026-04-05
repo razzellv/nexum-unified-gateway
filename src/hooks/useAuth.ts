@@ -100,15 +100,21 @@ export const useAuth = () => {
       const parts = tokenToDecode.split(".");
       if (parts.length !== 3) return null;
       const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const ADMIN_DOMAINS = ['nexumsuum.com', 'nexumsuum-facilityintelligence.com'];
+      const emailDomain = (payload.email || '').split('@')[1]?.toLowerCase() || '';
+      const isAdminDomain = ADMIN_DOMAINS.includes(emailDomain);
+
       return {
         sub: payload.sub,
         email: payload.email,
         name: payload.name || payload.email,
-        role: payload["custom:role"] || payload.role || "employee",
+        role: isAdminDomain ? 'admin' : (payload["custom:role"] || payload.role || "employee"),
         department: payload["custom:department"] || "Operations",
         facilityId: payload["custom:facilityId"] || "facility-001",
         orgId: payload["custom:orgId"] || "org-001",
         ...payload,
+        // Ensure admin domain always wins, even if spread overwrites role above
+        ...(isAdminDomain ? { role: 'admin' } : {}),
       };
     } catch {
       return null;

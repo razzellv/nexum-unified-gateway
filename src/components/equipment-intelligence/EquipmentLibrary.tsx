@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from '@/hooks/useAuth';
 
 interface Equipment {
   equipmentId: string;
@@ -31,6 +32,7 @@ interface EquipmentSummary {
 }
 
 const EquipmentLibrary = () => {
+  const { user } = useAuth();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [summary, setSummary] = useState<EquipmentSummary>({});
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ const EquipmentLibrary = () => {
       console.log('📥 Fetching equipment from /equipment/intelligence...');
       
       const response = await fetch(
-        `${API_BASE_URL}/equipment/intelligence?facilityId=facility-001&limit=100`,
+        `${API_BASE_URL}/equipment/intelligence?facilityId=${user?.facilityId || 'facility-001'}&limit=100`,
         {
           method: 'GET',
           headers: {
@@ -92,7 +94,7 @@ const EquipmentLibrary = () => {
     return () => {
       window.removeEventListener('equipment-updated', handleUpdate);
     };
-  }, []);
+  }, [user?.facilityId]);
 
   const handleExportAll = () => {
     const data = equipment.map(item => ({

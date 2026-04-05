@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Clock, Flame, Snowflake, Wind, Droplets, Waves, Camera, FileText, Activity, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getRecentEquipment } from '@/lib/nexum-api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RecentEquipmentItem {
   equipmentId: string;
@@ -57,13 +58,14 @@ const getTimeAgo = (timestamp: string) => {
 };
 
 export default function RecentEquipment() {
+  const { user } = useAuth();
   const [recentEquipment, setRecentEquipment] = useState<RecentEquipmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchRecentEquipment = async () => {
     setIsLoading(true);
     try {
-      const data = await getRecentEquipment('facility-001');
+      const data = await getRecentEquipment(user?.facilityId || 'facility-001');
       const equipment = data.equipment || data.items || data || [];
       setRecentEquipment(equipment);
     } catch (error) {
@@ -89,7 +91,7 @@ export default function RecentEquipment() {
       clearInterval(interval);
       window.removeEventListener('equipmentAdded', handleEquipmentAdded);
     };
-  }, []);
+  }, [user?.facilityId]);
 
   return (
     <Card className="neon-border">
