@@ -208,7 +208,7 @@ function mergeCourses(apiCourses: any[]): Course[] {
 const ALLOWED_ROLES = ['admin', 'executive', 'manager', 'supervisor', 'engineer'];
 
 export default function Courses() {
-  const { userRole } = useAuth();
+  const { userRole, loading: authLoading } = useAuth();
   const hasAccess = ALLOWED_ROLES.includes(userRole || '');
 
   const [courses, setCourses]           = useState<Course[]>([]);
@@ -306,6 +306,19 @@ export default function Courses() {
     enrolled:  Object.keys(enrollments).length,
     completed: Object.values(enrollments).filter((e) => e.status === 'completed').length,
   };
+
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-full py-20">
+          <div className="text-center space-y-2">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!hasAccess) {
     return (

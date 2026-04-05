@@ -206,11 +206,15 @@ export default function OperationCenter() {
   }, []);
 
   useEffect(() => {
+    if (loading) return; // still waiting for auth check
     if (isAuthenticated) {
       fetchData();
       fetchRecentWOs();
+    } else {
+      setIsLoading(false);
+      setError('Authentication required. Please log in.');
     }
-  }, [isAuthenticated, fetchData, fetchRecentWOs]);
+  }, [isAuthenticated, loading, fetchData, fetchRecentWOs]);
 
 
 

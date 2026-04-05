@@ -76,8 +76,12 @@ export function AppSidebar() {
   const { can, isAdmin } = useTier();
 
   const isLeadership = LEADERSHIP_ROLES.includes(userRole || '');
+  const orgType = localStorage.getItem('nexum_org_type') || '';
 
   const visibleItems = allNavItems.filter(item => {
+    // Org-type gating for retail/govt dashboard links
+    if (item.href === '/retail-dashboard') return orgType === 'retail' || !orgType;
+    if (item.href === '/government-dashboard') return orgType === 'government' || !orgType;
     if (item.access === 'all') return true;
     if (item.access === 'leadership') return isLeadership;
     return false;
@@ -104,10 +108,10 @@ export function AppSidebar() {
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         <div className="space-y-1">
-          {visibleItems.map((item) => {
+          {visibleItems.map((item, idx) => {
             if (item.type === 'separator') {
               return (
-                <div key={item.name} className="px-3 pt-4 pb-2">
+                <div key={`sep-${item.name}-${idx}`} className="px-3 pt-4 pb-2">
                   <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                     {!collapsed && item.name}
                   </h3>
@@ -116,7 +120,7 @@ export function AppSidebar() {
             }
             return (
               <NavLink
-                key={item.name}
+                key={item.href || item.name}
                 to={item.href!}
                 icon={item.icon!}
                 collapsed={collapsed}
