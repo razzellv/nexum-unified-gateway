@@ -117,20 +117,23 @@ function getVisibleItems(
   const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
   return allNavItems.filter(item => {
-    // Org-type filter (Retail Dashboard only for retail, etc.)
+    // Org-type filter — admin sees all org dashboards; others only see their own
     if (item.orgTypes && item.orgTypes.length > 0) {
-      if (!item.orgTypes.includes(orgType)) return false;
+      if (!isAdmin && !item.orgTypes.includes(orgType)) return false;
     }
 
     if (item.type === 'separator') {
-      // Show separator only if its access group is visible
-      if (item.access === 'retail_staff') return isRetailStaff;
-      if (item.access === 'govt_staff')   return isGovtStaff;
+      // Never show staff-only separators to admin (they see leadership section already)
+      if (item.access === 'retail_staff' || item.access === 'govt_staff') return !isAdmin && (isRetailStaff || isGovtStaff);
       if (item.access === 'leadership')   return isAdmin || isLeadership || isRetailLeader || isGovtLeader;
       return true;
     }
 
-    if (isAdmin) return true;
+    // Admin sees everything EXCEPT staff-only items (already covered by leadership section)
+    if (isAdmin) {
+      if (item.access === 'retail_staff' || item.access === 'govt_staff') return false;
+      return true;
+    }
 
     // Retail staff: only see retail_staff items + Main Hub
     if (isRetailStaff) {
