@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { VendorCard } from '@/components/command-hub/vendors/VendorCard';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ export interface Vendor {
 const SPECIALTIES = ['All', 'Boilers', 'Chillers', 'Electrical', 'Controls', 'Safety', 'General', 'Pumps', 'Piping', 'Refrigeration', 'Burners'];
 
 const Vendors = () => {
+  const { user } = useAuth();
+  const facilityId = user?.facilityId || 'facility-001';
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -44,7 +47,7 @@ const Vendors = () => {
   const fetchVendors = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/vendors?facilityId=facility-001`, {
+      const res = await fetch(`${API_BASE}/vendors?facilityId=${facilityId}`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -67,7 +70,7 @@ const Vendors = () => {
 
   const handleDeleteVendor = async (vendorId: string, vendorName: string) => {
     try {
-      const res = await fetch(`${API_BASE}/vendors?facilityId=facility-001&vendorId=${vendorId}`, {
+      const res = await fetch(`${API_BASE}/vendors?facilityId=${facilityId}&vendorId=${vendorId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${getToken()}` },
       });

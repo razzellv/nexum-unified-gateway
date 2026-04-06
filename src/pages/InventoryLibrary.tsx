@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import InventoryImportModal from '@/components/import/InventoryImportModal';
 
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
@@ -185,6 +186,8 @@ const MOCK_GOV_ITEMS: GovItem[] = [
 ];
 
 export default function InventoryLibrary() {
+  const { user } = useAuth();
+  const facilityId = user?.facilityId || 'facility-001';
   // ── State ────────────────────────────────────────────────────────────────────
   const [inventory, setInventory] = useState<InventoryPart[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryPart[]>([]);
@@ -247,24 +250,42 @@ export default function InventoryLibrary() {
     setShowCheckoutModal(true);
   };
 
-  const submitCheckout = () => {
+  const submitCheckout = async () => {
     if (!checkoutForm.checkedOutBy) { toast({ title: 'Name required', variant: 'destructive' }); return; }
-    const log = { id: Date.now().toString(), ...checkoutForm, timestamp: new Date().toISOString(), facilityId: localStorage.getItem('facilityId') || 'facility-001' };
+    const log = { id: Date.now().toString(), ...checkoutForm, timestamp: new Date().toISOString(), facilityId, logType: 'checkout' };
     const updated = [log, ...checkoutLogs].slice(0, 500);
     setCheckoutLogs(updated);
     localStorage.setItem('inventory_checkout_logs', JSON.stringify(updated));
     setShowCheckoutModal(false);
     toast({ title: `Item ${checkoutForm.action === 'checkout' ? 'checked out' : checkoutForm.action === 'checkin' ? 'returned' : 'verified'}`, description: `${checkoutForm.itemName} — ${checkoutForm.checkedOutBy}` });
+    // Persist to backend
+    try {
+      const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
+      await fetch(`${API_BASE_URL}/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(log),
+      });
+    } catch { /* backend unavailable — localStorage is the fallback */ }
   };
 
-  const submitTempLog = () => {
+  const submitTempLog = async () => {
     if (!tempForm.temp || !tempForm.loggedBy) return;
-    const log = { ...tempForm, id: Date.now().toString(), timestamp: new Date().toISOString() };
+    const log = { ...tempForm, id: Date.now().toString(), timestamp: new Date().toISOString(), facilityId, logType: 'temperature' };
     const updated = [log, ...tempLogs].slice(0, 200);
     setTempLogs(updated);
     localStorage.setItem('inventory_temp_logs', JSON.stringify(updated));
     setShowTempLog(false);
     setTempForm({ itemId: '', itemName: '', temp: '', unit: 'F', location: '', loggedBy: '', notes: '' });
+    // Persist to backend
+    try {
+      const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
+      await fetch(`${API_BASE_URL}/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(log),
+      });
+    } catch { /* backend unavailable — localStorage is the fallback */ }
   };
 
   const fetchInventory = async () => {

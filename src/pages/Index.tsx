@@ -232,6 +232,8 @@ const typeLabel = (type: string) => {
 
 const FacilityTopology = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const facilityId = user?.facilityId || 'facility-001';
   const [nodes, setNodes] = useState<EquipmentNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -241,10 +243,10 @@ const FacilityTopology = () => {
     const token = getToken();
     try {
       const [eqRes, vRes] = await Promise.all([
-        fetch(`${API_BASE}/equipment?facilityId=facility-001`, {
+        fetch(`${API_BASE}/equipment?facilityId=${facilityId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE}/violations?facilityId=facility-001&limit=100`, {
+        fetch(`${API_BASE}/violations?facilityId=${facilityId}&limit=100`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -305,7 +307,7 @@ const FacilityTopology = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [facilityId]);
 
   useEffect(() => {
     fetchTopology();

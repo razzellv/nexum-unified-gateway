@@ -227,6 +227,22 @@ export default function RetailDashboard() {
     localStorage.setItem('retail_health_checks', JSON.stringify(updated));
   };
 
+  // Org-type guard — only retail orgs and admin have access
+  const orgType = localStorage.getItem('nexum_org_type') || sessionStorage.getItem('nexum_org_type') || '';
+  const role = user?.role?.toLowerCase() || '';
+  if (orgType !== 'retail' && role !== 'admin') {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-6">
+          <ShoppingCart className="w-12 h-12 text-muted-foreground/40" />
+          <h2 className="text-lg font-semibold">Retail Mode Required</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">This dashboard is for retail organizations. If you run a store or food service operation, select Retail during onboarding to unlock this view.</p>
+          <button onClick={() => navigate('/onboarding')} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">Go to Onboarding</button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <ParticleBackground />

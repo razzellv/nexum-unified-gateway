@@ -462,6 +462,20 @@ export default function ExecutiveDashboard() {
 
   if (loading) return <NexumPageLoader message="Loading..." />;
 
+  // Role guard — only executive, admin, and director have access
+  const role = user?.role?.toLowerCase() || '';
+  if (!['admin', 'executive', 'director'].includes(role)) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-6">
+          <Shield className="w-12 h-12 text-muted-foreground/40" />
+          <h2 className="text-lg font-semibold">Executive Access Required</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">This dashboard is restricted to Executive and Director-level accounts. Contact your administrator if you need access.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
   const filteredSites  = data?.topSites?.filter((s: any) => selectedFacility === 'all' || s.name === selectedFacility) || [];
   const overallScore   = data?.metrics ? Math.round((data.metrics.avgEfficiency + data.metrics.uptime + data.metrics.complianceScore) / 3) : 0;
   const availableFacilities = getAvailableFacilities(currentRole);

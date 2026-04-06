@@ -199,6 +199,22 @@ export default function GovernmentDashboard() {
     setShowAddCustody(false);
   };
 
+  // Org-type guard — only government orgs and admin have access
+  const orgType = localStorage.getItem('nexum_org_type') || sessionStorage.getItem('nexum_org_type') || '';
+  const role = user?.role?.toLowerCase() || '';
+  if (orgType !== 'government' && role !== 'admin') {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-6">
+          <Shield className="w-12 h-12 text-muted-foreground/40" />
+          <h2 className="text-lg font-semibold">Government / Public Safety Access Required</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">This dashboard is for government agencies and public safety departments. Select Government during onboarding to unlock this view.</p>
+          <button onClick={() => navigate('/onboarding')} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">Go to Onboarding</button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <ParticleBackground />
