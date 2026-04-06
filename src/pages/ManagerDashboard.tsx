@@ -201,19 +201,37 @@ export default function ManagerDashboard() {
         if (!apiBudgetOk) {
           try {
             const raw = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
-            // Settings saves { rows: [...], fiscalYear }; handle both formats
             const stored: any[] = Array.isArray(raw) ? raw : (raw?.rows ?? []);
             if (stored.length > 0) {
+              // Pull work order costs by department from API (best-effort)
+              const woCostByDept: Record<string, number> = {};
+              try {
+                const woRes = await fetch(
+                  'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/work-orders?limit=200',
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (woRes.ok) {
+                  const woData = await woRes.json();
+                  const wos: any[] = woData.workOrders || woData.items || [];
+                  wos.forEach((wo: any) => {
+                    const dept = wo.department || wo.dept || 'Operations';
+                    const cost = parseFloat(wo.cost || wo.totalCost || 0);
+                    if (cost > 0) woCostByDept[dept] = (woCostByDept[dept] || 0) + cost;
+                  });
+                }
+              } catch { /* best-effort */ }
+
               const totalBudget = stored.reduce((s: number, d: any) => s + (Number(d.annualBudget) || 0), 0);
-              const totalActual = stored.reduce((s: number, d: any) => s + (Number(d.spent) || 0), 0);
-              const variance = totalBudget - totalActual;
-              const utilizationPercent = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
               const categories = stored.map((d: any) => {
+                const dept = d.department || d.dept || '';
                 const budget = Number(d.annualBudget) || 0;
-                const actual = Number(d.spent) || 0;
+                // actual = saved spentToDate + any WO costs rolled up for this dept
+                const savedSpent = Number(d.spentToDate || d.spent || 0) || 0;
+                const woSpent = woCostByDept[dept] || 0;
+                const actual = savedSpent + woSpent;
                 const pct = budget > 0 ? Math.round((actual / budget) * 100) : 0;
                 return {
-                  category: d.dept,
+                  category: dept,
                   budget,
                   actual,
                   variance: budget - actual,
@@ -221,6 +239,9 @@ export default function ManagerDashboard() {
                   status: pct >= 100 ? 'over' : pct >= 90 ? 'at_limit' : 'under',
                 };
               });
+              const totalActual = categories.reduce((s: number, c: any) => s + c.actual, 0);
+              const variance = totalBudget - totalActual;
+              const utilizationPercent = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
               setBudgetData({ period: new Date().getFullYear() + ' YTD', totalBudget, totalActual, variance, utilizationPercent, categories });
             }
           } catch { /* silent */ }

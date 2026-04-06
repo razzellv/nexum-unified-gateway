@@ -175,6 +175,7 @@ export default function OperationCenter() {
   const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'workorders' | 'compliance' | 'personnel' | 'workflows'>('overview');
   const [recentWOs, setRecentWOs] = useState<any[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<typeof WORKFLOW_TEMPLATES[0] | null>(null);
+  const [dateRange, setDateRange] = useState<'24h' | '7d' | '1m' | '3m' | 'all'>('7d');
   const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
@@ -226,6 +227,16 @@ export default function OperationCenter() {
     </MainLayout>
   );
 
+  const filterByDateRange = (items: any[], field = 'timestamp') => {
+    if (dateRange === 'all') return items;
+    const now = Date.now();
+    const ms = dateRange === '24h' ? 86400000 : dateRange === '7d' ? 604800000 : dateRange === '1m' ? 2592000000 : 7776000000;
+    return items.filter(item => {
+      const t = new Date(item[field] || item.createdAt || item.timestamp || 0).getTime();
+      return !isNaN(t) && t >= now - ms;
+    });
+  };
+
   const tabs = [
     { key: 'overview',   label: 'Overview',    icon: Radio },
     { key: 'equipment',  label: 'Equipment',   icon: Gauge },
@@ -254,7 +265,16 @@ export default function OperationCenter() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex gap-1 bg-muted/30 rounded-lg p-1 border border-border/40">
+              {(['24h', '7d', '1m', '3m', 'all'] as const).map(r => (
+                <button key={r} onClick={() => setDateRange(r)}
+                  className={cn('px-2 py-1 text-xs rounded font-medium transition-all',
+                    dateRange === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                  {r === 'all' ? 'All' : r === '1m' ? '30d' : r === '3m' ? '90d' : r.toUpperCase()}
+                </button>
+              ))}
+            </div>
             <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading} className="border-primary/30 hover:border-primary">
               <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />Refresh
             </Button>
@@ -341,15 +361,15 @@ export default function OperationCenter() {
                     <CardTitle className="flex items-center gap-2">
                       <Activity className="w-5 h-5 text-primary" />
                       Recent Log Activity
-                      <Badge variant="outline" className="ml-auto">{(data.recentLogsFeed || []).length} entries</Badge>
+                      <Badge variant="outline" className="ml-auto">{filterByDateRange(data.recentLogsFeed || []).length} entries</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {(data.recentLogsFeed || []).length === 0 ? (
+                    {filterByDateRange(data.recentLogsFeed || []).length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No recent logs</p>
                     ) : (
                       <div className="space-y-2">
-                        {(data.recentLogsFeed || []).map((log, i) => (
+                        {filterByDateRange(data.recentLogsFeed || []).map((log, i) => (
                           <div key={log.logId || i} className={cn('flex items-start gap-3 p-3 rounded-lg border transition-all',
                             log.flagged ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/30 bg-muted/20 hover:border-primary/20')}>
                             <div className="mt-0.5"><EquipmentTypeIcon type={log.equipmentType} /></div>
@@ -436,11 +456,11 @@ export default function OperationCenter() {
                 <Card className="neon-border">
                   <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardList className="w-5 h-5 text-primary" />Recent Work Orders</CardTitle></CardHeader>
                   <CardContent>
-                    {(data.workOrdersSummary?.recent || []).length === 0 ? (
+                    {filterByDateRange(data.workOrdersSummary?.recent || [], 'createdAt').length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">No work orders found</p>
                     ) : (
                       <div className="space-y-3">
-                        {(data.workOrdersSummary?.recent || []).map((wo) => (
+                        {filterByDateRange(data.workOrdersSummary?.recent || [], 'createdAt').map((wo) => (
                           <div key={wo.id} className="p-4 rounded-lg bg-muted/30 border border-border/40 hover:border-primary/30 transition-all">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
@@ -480,13 +500,13 @@ export default function OperationCenter() {
                   ))}
                 </div>
                 <Card className="neon-border">
-                  <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5 text-primary" />Compliance Events<Badge variant="outline" className="ml-auto">{(data.complianceSummary?.events || []).length}</Badge></CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5 text-primary" />Compliance Events<Badge variant="outline" className="ml-auto">{filterByDateRange(data.complianceSummary?.events || []).length}</Badge></CardTitle></CardHeader>
                   <CardContent>
-                    {(data.complianceSummary?.events || []).length === 0 ? (
+                    {filterByDateRange(data.complianceSummary?.events || []).length === 0 ? (
                       <div className="text-center py-8"><CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-2" /><p className="text-muted-foreground">No compliance issues — all clear</p></div>
                     ) : (
                       <div className="space-y-3">
-                        {(data.complianceSummary?.events || []).map((event, i) => (
+                        {filterByDateRange(data.complianceSummary?.events || []).map((event, i) => (
                           <div key={event.id || i} className={cn('p-4 rounded-lg border transition-all',
                             event.severity >= 4 ? 'border-destructive/50 bg-destructive/5 animate-pulse' :
                             event.severity >= 3 ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/40 bg-muted/20')}>
