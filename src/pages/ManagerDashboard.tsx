@@ -237,6 +237,13 @@ export default function ManagerDashboard() {
     return () => clearInterval(interval);
   }, [refreshKey, selectedFacility, selectedBuilding, selectedSystem]);
 
+  // Re-fetch asset stats when equipment is updated from EquipmentLibrary
+  useEffect(() => {
+    const handler = () => setRefreshKey(k => k + 1);
+    window.addEventListener('equipment-updated', handler);
+    return () => window.removeEventListener('equipment-updated', handler);
+  }, []);
+
   // ── Asset count + value ─────────────────────────────────────────────────────
   useEffect(() => {
     const token = getToken();
@@ -248,7 +255,14 @@ export default function ManagerDashboard() {
         .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
     ]).then(([eqData, invData]) => {
       const eqList: any[] = eqData.equipment || [];
-      const invList: any[] = invData.items || invData.inventory || [];
+      // Prefer API inventory; fall back to localStorage if API returned nothing
+      const apiInv: any[] = invData.items || invData.inventory || invData.parts || [];
+      const invList: any[] = apiInv.length > 0 ? apiInv : (() => {
+        try {
+          const local = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+          return Array.isArray(local) ? local : [];
+        } catch { return []; }
+      })();
       const totalAssets = eqList.reduce((s: number, e: any) => s + (e.count || 1), 0);
       const totalValue = eqList.reduce((s: number, e: any) => s + (parseFloat(e.replacementCost || e.purchasePrice || 0) * (e.count || 1)), 0);
       const inventoryItems = invList.length;

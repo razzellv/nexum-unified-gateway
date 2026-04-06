@@ -12,6 +12,7 @@ import {
   User, Bell, Shield, Users, Zap, Database, Save,
   DollarSign, Flame, Lock, Eye, Plus, Trash2, RefreshCw,
   FileText, Upload, Download, Search, X, FolderOpen, Calendar,
+  CreditCard, ExternalLink, AlertTriangle, CheckCircle, ArrowUpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ const ALL_TABS = [
   { id: 'budget',        label: 'Budget',           icon: DollarSign, access: MANAGER_ROLES },
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
+  { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard, access: EXECUTIVE_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];
@@ -78,6 +80,191 @@ const utilColor = (pct: number) =>
 
 const utilTextColor = (pct: number) =>
   pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400';
+
+// ── Billing / Plan tab ────────────────────────────────────────────────────────
+const PLAN_TIERS = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    price: '$49/mo',
+    features: ['Up to 5 users', 'Core facility monitoring', 'Work orders', 'Basic reporting'],
+    highlight: false,
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    price: '$149/mo',
+    features: ['Up to 20 users', 'Everything in Basic', 'Compliance tracking', 'Vendor management', 'API access'],
+    highlight: false,
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: '$349/mo',
+    features: ['Up to 75 users', 'Everything in Standard', 'Advanced analytics', 'Multi-building', 'Priority support'],
+    highlight: true,
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    price: '$699/mo',
+    features: ['Unlimited users', 'Everything in Business', 'Executive dashboards', 'Custom integrations', 'Dedicated CSM'],
+    highlight: false,
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 'Custom',
+    features: ['Everything in Premium', 'On-premise option', 'SLA guarantee', 'Custom contracts', 'White-label'],
+    highlight: false,
+  },
+];
+
+const CANCELLATION_POLICY = [
+  'You may cancel your subscription at any time from this page.',
+  'Cancellation takes effect at the end of your current billing period — you keep full access until then.',
+  'No refunds are issued for partial billing periods.',
+  'All facility data is retained for 90 days after cancellation and can be exported before deletion.',
+  'To reactivate, simply choose a new plan — your historical data will be restored if within the retention window.',
+];
+
+function BillingTab({ user }: { user: any }) {
+  const { toast } = useToast();
+  const currentTier: string = user?.tier || 'basic';
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const handleUpgrade = (planId: string) => {
+    // Redirect to billing portal — replace URL with your actual Stripe / billing portal link
+    const billingUrl = `https://billing.nexumsuum.com/upgrade?plan=${planId}&email=${encodeURIComponent(user?.email || '')}`;
+    window.open(billingUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleManageBilling = () => {
+    const billingUrl = `https://billing.nexumsuum.com/portal?email=${encodeURIComponent(user?.email || '')}`;
+    window.open(billingUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCancelSubscription = () => {
+    toast({
+      title: 'Cancellation Request Sent',
+      description: 'Your cancellation has been submitted. Access continues until the end of your billing period.',
+    });
+    setShowCancelConfirm(false);
+    // In production: POST to /billing/cancel endpoint here
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Current plan banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-cyan-500/20"><CreditCard className="w-5 h-5 text-cyan-400" /></div>
+          <div>
+            <p className="text-xs text-muted-foreground">Current Plan</p>
+            <p className="font-semibold text-lg capitalize">{currentTier.replace('_', ' ')}</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={handleManageBilling}>
+          <ExternalLink className="w-4 h-4" /> Manage Billing Portal
+        </Button>
+      </div>
+
+      {/* Plan comparison */}
+      <div>
+        <h2 className="text-base font-semibold mb-4">Available Plans</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {PLAN_TIERS.map(plan => {
+            const isCurrent = currentTier === plan.id;
+            return (
+              <div
+                key={plan.id}
+                className={cn(
+                  'relative rounded-xl border p-4 flex flex-col gap-3 transition-all',
+                  isCurrent
+                    ? 'border-cyan-500/60 bg-cyan-500/10'
+                    : plan.highlight
+                    ? 'border-purple-500/50 bg-purple-500/10'
+                    : 'border-border bg-muted/20',
+                )}
+              >
+                {plan.highlight && !isCurrent && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500 text-white">
+                    Most Popular
+                  </span>
+                )}
+                {isCurrent && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500 text-white">
+                    Current
+                  </span>
+                )}
+                <div>
+                  <p className="font-semibold">{plan.name}</p>
+                  <p className="text-lg font-bold text-cyan-400">{plan.price}</p>
+                </div>
+                <ul className="space-y-1 flex-1">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle className="w-3 h-3 mt-0.5 text-green-400 shrink-0" />{f}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  size="sm"
+                  disabled={isCurrent}
+                  variant={isCurrent ? 'outline' : 'default'}
+                  className={cn('w-full gap-1.5 mt-1', !isCurrent && 'bg-cyan-600 hover:bg-cyan-500')}
+                  onClick={() => !isCurrent && handleUpgrade(plan.id)}
+                >
+                  {isCurrent ? 'Active Plan' : <><ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade</>}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Cancellation policy */}
+      <div className="rounded-xl border border-border bg-muted/20 p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-yellow-400" />
+          <h3 className="font-semibold text-sm">Cancellation Policy</h3>
+        </div>
+        <ul className="space-y-2">
+          {CANCELLATION_POLICY.map((point, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-yellow-400/70 shrink-0" />
+              {point}
+            </li>
+          ))}
+        </ul>
+        <div className="pt-2">
+          {!showCancelConfirm ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/60"
+              onClick={() => setShowCancelConfirm(true)}
+            >
+              Cancel Subscription
+            </Button>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+              <p className="text-sm text-red-400 flex-1">
+                Are you sure? You'll keep access until the end of your billing period.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setShowCancelConfirm(false)}>Keep Plan</Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-500 text-white" onClick={handleCancelSubscription}>
+                  Yes, Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const Settings = () => {
   const { user } = useAuth();
@@ -754,6 +941,9 @@ const Settings = () => {
 
             {/* ── Approvals ── */}
             {activeTab === 'approvals' && <ApprovalsTab />}
+
+            {/* ── Plan & Billing ── */}
+            {activeTab === 'billing' && <BillingTab user={user} />}
 
             {/* ── Integrations ── */}
             {activeTab === 'integration' && (

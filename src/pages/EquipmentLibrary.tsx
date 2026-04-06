@@ -220,6 +220,7 @@ export default function EquipmentLibrary() {
       setAddDialogOpen(false);
       resetForm();
       loadEquipment();
+      window.dispatchEvent(new CustomEvent('equipment-updated'));
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to add equipment', variant: 'destructive' });
     } finally { setSubmitting(false); }
@@ -269,6 +270,7 @@ export default function EquipmentLibrary() {
       setSelectedEquipment(null);
       resetForm();
       loadEquipment();
+      window.dispatchEvent(new CustomEvent('equipment-updated'));
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to update', variant: 'destructive' });
     } finally { setSubmitting(false); }
