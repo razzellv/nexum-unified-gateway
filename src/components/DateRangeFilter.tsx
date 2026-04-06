@@ -29,34 +29,43 @@ export function getRangeStart(range: DateRange): Date | null {
   }
 }
 
-/** Filter a list of records by a timestamp field. */
+/** Safely parse any value into an array — never throws. */
+function toArray<T>(items: T[] | null | undefined): T[] {
+  return Array.isArray(items) ? items : [];
+}
+
+/** Filter a list of records by a timestamp field. Always returns an array. */
 export function filterByRange<T extends Record<string, any>>(
-  items: T[],
+  items: T[] | null | undefined,
   range: DateRange,
   field = 'timestamp',
 ): T[] {
+  const arr = toArray(items);
   const start = getRangeStart(range);
-  if (!start) return items;
-  return items.filter(item => {
+  if (!start) return arr;
+  return arr.filter(item => {
     const ts = item[field];
     if (!ts) return false;
-    return new Date(ts).getTime() >= start.getTime();
+    const t = new Date(ts).getTime();
+    return !isNaN(t) && t >= start.getTime();
   });
 }
 
-/** Bucket items into daily/weekly labels based on range. */
+/** Bucket items into daily labels based on range. Always returns an array. */
 export function bucketByDay<T extends Record<string, any>>(
-  items: T[],
+  items: T[] | null | undefined,
   range: DateRange,
   field = 'timestamp',
 ): { label: string; count: number; date: string }[] {
+  const arr = toArray(items);
   const start = getRangeStart(range);
   const buckets: Record<string, number> = {};
 
-  items.forEach(item => {
+  arr.forEach(item => {
     const ts = item[field];
     if (!ts) return;
     const d = new Date(ts);
+    if (isNaN(d.getTime())) return;           // skip invalid dates
     if (start && d.getTime() < start.getTime()) return;
     const key = d.toISOString().split('T')[0]; // YYYY-MM-DD
     buckets[key] = (buckets[key] || 0) + 1;
@@ -64,13 +73,16 @@ export function bucketByDay<T extends Record<string, any>>(
 
   return Object.entries(buckets)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({
-      date,
-      count,
-      label: new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric',
-      }),
-    }));
+    .map(([date, count]) => {
+      const d = new Date(date + 'T12:00:00');
+      return {
+        date,
+        count,
+        label: isNaN(d.getTime())
+          ? date
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      };
+    });
 }
 
 interface Props {

@@ -86,6 +86,13 @@ function statusBadge(status: string) {
   }
 }
 
+const safeParseArray = (key: string): any[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+};
+
 export default function GovernmentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -129,7 +136,7 @@ export default function GovernmentDashboard() {
         const apiIncidents = apiItems.slice(0, 50);
         if (apiIncidents.length > 0) setIncidents(apiIncidents);
       } else {
-        setAllViolations(JSON.parse(localStorage.getItem('nexum_violations') || '[]'));
+        setAllViolations(safeParseArray('nexum_violations'));
       }
 
       // Users → personnel
@@ -144,7 +151,7 @@ export default function GovernmentDashboard() {
         const logs = complianceRes.value?.logs || complianceRes.value?.items || complianceRes.value;
         setComplianceLogs(Array.isArray(logs) ? logs : []);
       } else {
-        setComplianceLogs(JSON.parse(localStorage.getItem('nexum_compliance_logs') || '[]'));
+        setComplianceLogs(safeParseArray('nexum_compliance_logs'));
       }
     } catch {
       // keep mock defaults already set in state

@@ -61,6 +61,13 @@ const MOCK_INVENTORY = [
   { partId: 'r5', name: 'Paper Bags (500ct)', category: 'supply', itemType: 'supply', quantity: 2, minQuantity: 3, reorderPoint: 3, location: 'Storage Room', unitCost: 24.99 },
 ];
 
+const safeParseArray = (key: string): any[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+};
+
 export default function RetailDashboard() {
   const { user } = useAuth();
   const { storeInfo } = useRetail();
@@ -103,11 +110,11 @@ export default function RetailDashboard() {
         if (apiItems.length > 0) {
           setInventory(apiItems);
         } else {
-          const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+          const saved = safeParseArray('nexum_inventory');
           setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
         }
       } else {
-        const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+        const saved = safeParseArray('nexum_inventory');
         setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
       }
 
@@ -118,10 +125,10 @@ export default function RetailDashboard() {
         if (apiLogs.length > 0) {
           setTempLogs(apiLogs);
         } else {
-          setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
+          setTempLogs(safeParseArray('inventory_temp_logs'));
         }
       } else {
-        setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
+        setTempLogs(safeParseArray('inventory_temp_logs'));
       }
 
       // Checkout logs — prefer API, fallback to localStorage
@@ -131,10 +138,10 @@ export default function RetailDashboard() {
         if (apiLogs.length > 0) {
           setCheckoutLogs(apiLogs);
         } else {
-          setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+          setCheckoutLogs(safeParseArray('inventory_checkout_logs'));
         }
       } else {
-        setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+        setCheckoutLogs(safeParseArray('inventory_checkout_logs'));
       }
 
       // Compliance history
@@ -142,7 +149,7 @@ export default function RetailDashboard() {
         const logs = complianceRes.value?.logs || complianceRes.value?.items || complianceRes.value;
         setComplianceLogs(Array.isArray(logs) ? logs : []);
       } else {
-        setComplianceLogs(JSON.parse(localStorage.getItem('nexum_compliance_logs') || '[]'));
+        setComplianceLogs(safeParseArray('nexum_compliance_logs'));
       }
 
       // Violation history
@@ -150,13 +157,13 @@ export default function RetailDashboard() {
         const items = violationRes.value?.items || violationRes.value?.violations || violationRes.value;
         setViolationLogs(Array.isArray(items) ? items : []);
       } else {
-        setViolationLogs(JSON.parse(localStorage.getItem('nexum_violations') || '[]'));
+        setViolationLogs(safeParseArray('nexum_violations'));
       }
     } catch {
-      const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+      const saved = safeParseArray('nexum_inventory');
       setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
-      setTempLogs(JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'));
-      setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
+      setTempLogs(safeParseArray('inventory_temp_logs'));
+      setCheckoutLogs(safeParseArray('inventory_checkout_logs'));
     } finally {
       setLoading(false);
     }
