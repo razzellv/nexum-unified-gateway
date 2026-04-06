@@ -593,7 +593,12 @@ export default function ExecutiveDashboard() {
                   </div>
                   {/* Department budgets */}
                   {(() => {
-                    const deptBudgets: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]'); } catch { return []; } })();
+                    const deptBudgets: any[] = (() => {
+                      try {
+                        const raw = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+                        return Array.isArray(raw) ? raw : (raw?.rows ?? []);
+                      } catch { return []; }
+                    })();
                     if (deptBudgets.length === 0) return (
                       <p className="text-sm text-muted-foreground mt-4 text-center">Set department budgets in <strong>Settings → Budget</strong></p>
                     );

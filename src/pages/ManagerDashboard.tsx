@@ -338,14 +338,14 @@ export default function ManagerDashboard() {
   const loggingConsistency   = data?.performance?.logs_last_7_days || 0;
   const logConsistencyPercent = Math.min(100, Math.round((loggingConsistency / 7) * 100));
 
-  const allWorkOrders = data?.work_orders?.recent || [];
+  const allWorkOrders: any[] = Array.isArray(data?.work_orders?.recent) ? data.work_orders.recent : [];
   // Department filter: show all when selectedDept is 'All', otherwise match department field
   const workOrders = selectedDept === 'All'
     ? allWorkOrders
     : allWorkOrders.filter((wo: any) => !wo.department || wo.department === selectedDept);
 
   // Department-filtered violations count
-  const allViolationDetails = data?.violations?.details || [];
+  const allViolationDetails: any[] = Array.isArray(data?.violations?.details) ? data.violations.details : [];
   const deptViolations = selectedDept === 'All'
     ? allViolationDetails
     : allViolationDetails.filter((v: any) => !v.department || v.department === selectedDept);
@@ -382,7 +382,10 @@ export default function ManagerDashboard() {
 
   // Pull recent locally-stored log submissions (written by LogEntryForm via submitFacilityLog)
   const localLogs: any[] = (() => {
-    try { return JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]'); } catch { return []; }
+    try {
+      const v = JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
   })();
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recentLocalLogs = localLogs.filter((l: any) => new Date(l.timestamp).getTime() > sevenDaysAgo);
@@ -771,7 +774,10 @@ export default function ManagerDashboard() {
         {/* Department Budget Utilization */}
         {(() => {
           const deptBudgets: any[] = (() => {
-            try { return JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]'); } catch { return []; }
+            try {
+              const raw = JSON.parse(localStorage.getItem('nexum_dept_budgets') || '[]');
+              return Array.isArray(raw) ? raw : (raw?.rows ?? []);
+            } catch { return []; }
           })();
           if (deptBudgets.length === 0) return (
             <Card className="bg-card/80 border-border">
