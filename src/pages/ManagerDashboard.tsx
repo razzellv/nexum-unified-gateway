@@ -69,24 +69,24 @@ interface KPICardProps {
 const KPICard = ({ title, value, unit = '', icon: Icon, trend, trendValue, color = 'neon-cyan' }: KPICardProps) => {
   const animatedValue = useCountUp(value);
   return (
-    <Card className="bg-card/80 border-border hover:border-neon-cyan/50 transition-all">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg bg-${color}/20`}>
-              <Icon className={`w-5 h-5 text-${color}`} />
+    <Card className="bg-card/80 border-border hover:border-neon-cyan/50 transition-all min-w-0">
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className={`p-1.5 rounded-lg bg-${color}/20 shrink-0`}>
+              <Icon className={`w-4 h-4 text-${color}`} />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{title}</p>
-              <p className="text-2xl font-bold">{animatedValue}{unit}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-muted-foreground truncate leading-tight">{title}</p>
+              <p className="text-lg font-bold leading-tight truncate">{animatedValue}{unit}</p>
             </div>
           </div>
           {trend && (
-            <div className={`flex items-center gap-1 text-xs ${
+            <div className={`flex items-center gap-0.5 text-[10px] shrink-0 mt-0.5 ${
               trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'
             }`}>
               {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : trend === 'down' ? <TrendingDown className="w-3 h-3" /> : null}
-              {trendValue}
+              <span className="truncate max-w-[60px]">{trendValue}</span>
             </div>
           )}
         </div>
@@ -624,16 +624,16 @@ export default function ManagerDashboard() {
             { title: 'Inventory Value',    value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`,icon: TrendingUp,color: 'text-yellow-400', sub: 'Qty × unit cost' },
             { title: 'Low Stock Alerts',   value: assetStats.lowStock.toLocaleString(),                icon: AlertTriangle, color: assetStats.lowStock > 0 ? 'text-orange-400' : 'text-green-400', sub: 'Items at or below min qty' },
           ].map((card, i) => (
-            <Card key={i} className="bg-card/80 border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted/40">
+            <Card key={i} className="bg-card/80 border-border min-w-0">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-muted/40 shrink-0">
                     <card.icon className={`w-4 h-4 ${card.color}`} />
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{card.title}</p>
-                    <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
-                    <p className="text-[10px] text-muted-foreground">{card.sub}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] text-muted-foreground truncate">{card.title}</p>
+                    <p className={`text-lg font-bold leading-tight truncate ${card.color}`}>{card.value}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{card.sub}</p>
                   </div>
                 </div>
               </CardContent>

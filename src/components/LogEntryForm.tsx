@@ -183,6 +183,9 @@ export function LogEntryForm({
       const result = await submitFacilityLog(logData);
       console.log('✅ Log submitted successfully:', result);
 
+      // Notify dashboards/Operation Center to re-fetch
+      window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { systemType } }));
+
       const logName = isEnergyLog ? 'Energy & Utilities' : system?.name;
       toast({
         title: 'Log Submitted Successfully',

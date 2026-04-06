@@ -152,14 +152,14 @@ const getRoleIcon = (role: string) => {
 };
 
 const KPICard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: string | number; icon: any; accent?: string; sub?: string }) => (
-  <Card className="neon-border">
-    <CardContent className="p-4">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-        <Icon className={cn('w-4 h-4 opacity-60', accent || 'text-primary')} />
+  <Card className="neon-border min-w-0">
+    <CardContent className="p-3">
+      <div className="flex items-start justify-between gap-1 mb-1">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight truncate flex-1">{label}</p>
+        <Icon className={cn('w-4 h-4 opacity-60 shrink-0', accent || 'text-primary')} />
       </div>
-      <p className={cn('text-2xl font-bold', accent || 'text-primary')}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+      <p className={cn('text-xl font-bold leading-tight truncate', accent || 'text-primary')}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
     </CardContent>
   </Card>
 );
@@ -211,6 +211,15 @@ export default function OperationCenter() {
     if (isAuthenticated) {
       fetchData();
       fetchRecentWOs();
+      // Auto-refresh every 30s so new logs appear without manual refresh
+      const interval = setInterval(() => { fetchData(); fetchRecentWOs(); }, 30000);
+      // Also refresh immediately when a facility log is submitted from this session
+      const logHandler = () => { fetchData(); fetchRecentWOs(); };
+      window.addEventListener('facility-log-submitted', logHandler);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('facility-log-submitted', logHandler);
+      };
     } else {
       setIsLoading(false);
       setError('Authentication required. Please log in.');
