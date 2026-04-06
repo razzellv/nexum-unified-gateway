@@ -12,9 +12,10 @@ import { apiRequest } from '@/lib/api';
 import {
   ShoppingCart, Thermometer, ClipboardList, AlertTriangle,
   CheckCircle, TrendingUp, Package, Users, ArrowRight,
-  AlertOctagon, Clock, Star, Zap,
+  AlertOctagon, Clock, Star, Zap, History, BarChart2, Flag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DateRangeFilter, filterByRange, bucketByDay, type DateRange } from '@/components/DateRangeFilter';
 
 const CHECKLIST_TEMPLATES = {
   open: [
@@ -71,6 +72,9 @@ export default function RetailDashboard() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [tempLogs, setTempLogs] = useState<any[]>([]);
   const [checkoutLogs, setCheckoutLogs] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>('7d');
+  const [complianceLogs, setComplianceLogs] = useState<any[]>([]);
+  const [violationLogs, setViolationLogs] = useState<any[]>([]);
 
   const [checklistType, setChecklistType] = useState<'open' | 'close'>('open');
   const [completedChecks, setCompletedChecks] = useState<Record<string, boolean>>(() => {
@@ -84,10 +88,12 @@ export default function RetailDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [invRes, tempRes, checkoutRes] = await Promise.allSettled([
+      const [invRes, tempRes, checkoutRes, complianceRes, violationRes] = await Promise.allSettled([
         apiRequest(`/inventory?facilityId=${facilityId}&limit=100`),
-        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=temperature&limit=50`),
-        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=checkout&limit=50`),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=temperature&limit=200`),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=checkout&limit=200`),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=compliance&limit=500`),
+        apiRequest(`/violations?facilityId=${facilityId}&limit=500`),
       ]);
 
       // Inventory — prefer API, fallback to localStorage then mock
@@ -130,6 +136,22 @@ export default function RetailDashboard() {
       } else {
         setCheckoutLogs(JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'));
       }
+
+      // Compliance history
+      if (complianceRes.status === 'fulfilled') {
+        const logs = complianceRes.value?.logs || complianceRes.value?.items || complianceRes.value;
+        setComplianceLogs(Array.isArray(logs) ? logs : []);
+      } else {
+        setComplianceLogs(JSON.parse(localStorage.getItem('nexum_compliance_logs') || '[]'));
+      }
+
+      // Violation history
+      if (violationRes.status === 'fulfilled') {
+        const items = violationRes.value?.items || violationRes.value?.violations || violationRes.value;
+        setViolationLogs(Array.isArray(items) ? items : []);
+      } else {
+        setViolationLogs(JSON.parse(localStorage.getItem('nexum_violations') || '[]'));
+      }
     } catch {
       const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
       setInventory(saved.length > 0 ? saved : MOCK_INVENTORY);
@@ -145,6 +167,25 @@ export default function RetailDashboard() {
   const today = new Date().toISOString().split('T')[0];
   const todayTempLogs = tempLogs.filter((l: any) => l.timestamp?.startsWith(today));
   const todayCheckouts = checkoutLogs.filter((l: any) => l.timestamp?.startsWith(today));
+
+  // Date-range filtered historical sets
+  const rangedTempLogs    = filterByRange(tempLogs, dateRange);
+  const rangedCheckouts   = filterByRange(checkoutLogs, dateRange);
+  const rangedCompliance  = filterByRange(complianceLogs, dateRange);
+  const rangedViolations  = filterByRange(violationLogs, dateRange, 'createdAt');
+
+  // Trend buckets for charts
+  const tempBuckets       = bucketByDay(tempLogs, dateRange);
+  const violationBuckets  = bucketByDay(violationLogs, dateRange, 'createdAt');
+  const complianceBuckets = bucketByDay(complianceLogs, dateRange);
+
+  // Scored & flagged aggregates
+  const flaggedViolations = rangedViolations.filter((v: any) => v.status === 'open' || v.severity === 'critical');
+  const avgComplianceScore = (() => {
+    const scored = rangedCompliance.filter((l: any) => typeof l.score === 'number');
+    if (!scored.length) return null;
+    return Math.round(scored.reduce((s: number, l: any) => s + l.score, 0) / scored.length);
+  })();
 
   // Calculate health inspection score
   const healthScore = Math.round(
@@ -316,6 +357,148 @@ export default function RetailDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* ── Historical Analytics ─────────────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Historical Analytics</h2>
+            </div>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          </div>
+
+          {/* Aggregate KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Temp Logs', value: rangedTempLogs.length, icon: Thermometer, color: 'text-blue-400', sub: 'recorded' },
+              { label: 'Checkouts', value: rangedCheckouts.length, icon: Package, color: 'text-green-400', sub: 'logged' },
+              { label: 'Violations', value: rangedViolations.length, icon: Flag, color: rangedViolations.length > 0 ? 'text-red-400' : 'text-green-400', sub: `${flaggedViolations.length} flagged open` },
+              { label: 'Avg Compliance', value: avgComplianceScore !== null ? `${avgComplianceScore}%` : '—', icon: BarChart2, color: avgComplianceScore === null ? 'text-muted-foreground' : avgComplianceScore >= 80 ? 'text-green-400' : avgComplianceScore >= 60 ? 'text-yellow-400' : 'text-red-400', sub: 'scored entries' },
+            ].map(({ label, value, icon: Icon, color, sub }) => (
+              <Card key={label} className="neon-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <Icon className={cn('w-4 h-4', color)} />
+                  </div>
+                  <p className={cn('text-2xl font-bold', color)}>{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Trend charts */}
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* Temperature log trend */}
+            <Card className="neon-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Thermometer className="w-4 h-4 text-blue-400" />Temperature Logs Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {tempBuckets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No temperature logs in range</p>
+                ) : (
+                  <div className="space-y-1">
+                    {tempBuckets.slice(-7).map(b => (
+                      <div key={b.date} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{b.label}</span>
+                        <div className="flex-1 bg-muted/20 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-blue-400 rounded-full" style={{ width: `${Math.min(100, (b.count / Math.max(...tempBuckets.map(x => x.count))) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Violation trend */}
+            <Card className="neon-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Flag className="w-4 h-4 text-red-400" />Violations Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {violationBuckets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No violations in range</p>
+                ) : (
+                  <div className="space-y-1">
+                    {violationBuckets.slice(-7).map(b => (
+                      <div key={b.date} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{b.label}</span>
+                        <div className="flex-1 bg-muted/20 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(100, (b.count / Math.max(...violationBuckets.map(x => x.count), 1)) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Compliance log trend */}
+            <Card className="neon-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-green-400" />Compliance Entries Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {complianceBuckets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No compliance logs in range</p>
+                ) : (
+                  <div className="space-y-1">
+                    {complianceBuckets.slice(-7).map(b => (
+                      <div key={b.date} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{b.label}</span>
+                        <div className="flex-1 bg-muted/20 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-green-400 rounded-full" style={{ width: `${Math.min(100, (b.count / Math.max(...complianceBuckets.map(x => x.count))) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Flagged violations list */}
+          {flaggedViolations.length > 0 && (
+            <Card className="neon-border border-red-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-red-400">
+                  <Flag className="w-4 h-4" />Flagged Open Violations ({flaggedViolations.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {flaggedViolations.slice(0, 5).map((v: any, i: number) => (
+                    <div key={v.violationId || i} className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 bg-muted/10">
+                      <div>
+                        <p className="text-sm font-medium">{v.description || v.type || 'Violation'}</p>
+                        <p className="text-xs text-muted-foreground">{v.location || v.area || '—'} · {v.createdAt ? new Date(v.createdAt).toLocaleDateString() : '—'}</p>
+                      </div>
+                      <Badge variant="outline" className={cn('text-xs shrink-0', v.severity === 'critical' ? 'border-red-500/30 text-red-400' : 'border-orange-400/30 text-orange-400')}>
+                        {v.severity || v.status || 'open'}
+                      </Badge>
+                    </div>
+                  ))}
+                  {flaggedViolations.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center">+{flaggedViolations.length - 5} more violations</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Upgrade CTA */}
         <div className="glass-panel rounded-2xl p-6 border border-primary/20 bg-primary/5">

@@ -11,9 +11,10 @@ import { apiRequest } from '@/lib/api';
 import {
   Shield, Truck, Users, AlertTriangle, Clock, CheckCircle, XCircle,
   FileText, Award, Activity, Package, ArrowRight, Zap, TrendingUp,
-  AlertOctagon, Radio, MapPin, Lock,
+  AlertOctagon, Radio, MapPin, Lock, History, BarChart2, Flag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DateRangeFilter, filterByRange, bucketByDay, type DateRange } from '@/components/DateRangeFilter';
 
 // ─── Mock / localStorage data ─────────────────────────────────────────────────
 const MOCK_UNITS = [
@@ -98,15 +99,19 @@ export default function GovernmentDashboard() {
   const [custodyNew, setCustodyNew] = useState({ item: '', action: 'Signed Out', officer: '', time: new Date().toTimeString().slice(0, 5) });
   const [custodyLog, setCustodyLog] = useState(MOCK_CUSTODY_LOG);
   const [showAddCustody, setShowAddCustody] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>('7d');
+  const [complianceLogs, setComplianceLogs] = useState<any[]>([]);
+  const [allViolations, setAllViolations] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [workOrdersRes, violationsRes, equipmentRes, usersRes] = await Promise.allSettled([
+      const [workOrdersRes, violationsRes, equipmentRes, usersRes, complianceRes] = await Promise.allSettled([
         apiRequest(`/work-orders?facilityId=${facilityId}`),
-        apiRequest(`/violations?facilityId=${facilityId}`),
+        apiRequest(`/violations?facilityId=${facilityId}&limit=500`),
         apiRequest(`/equipment?facilityId=${facilityId}`),
         apiRequest('/users-list'),
+        apiRequest(`/logs/latest?facilityId=${facilityId}&logType=compliance&limit=500`),
       ]);
 
       // Equipment → units (apparatus/fleet)
@@ -116,11 +121,15 @@ export default function GovernmentDashboard() {
         if (apiUnits.length > 0) setUnits(apiUnits);
       }
 
-      // Violations → incidents
+      // Violations → incidents + historical
       if (violationsRes.status === 'fulfilled') {
         const items = violationsRes.value?.items || violationsRes.value?.violations || violationsRes.value;
-        const apiIncidents = Array.isArray(items) ? items : [];
+        const apiItems = Array.isArray(items) ? items : [];
+        setAllViolations(apiItems);
+        const apiIncidents = apiItems.slice(0, 50);
         if (apiIncidents.length > 0) setIncidents(apiIncidents);
+      } else {
+        setAllViolations(JSON.parse(localStorage.getItem('nexum_violations') || '[]'));
       }
 
       // Users → personnel
@@ -128,6 +137,14 @@ export default function GovernmentDashboard() {
         const items = usersRes.value?.users || usersRes.value?.items || usersRes.value;
         const apiPersonnel = Array.isArray(items) ? items : [];
         if (apiPersonnel.length > 0) setPersonnel(apiPersonnel);
+      }
+
+      // Compliance history
+      if (complianceRes.status === 'fulfilled') {
+        const logs = complianceRes.value?.logs || complianceRes.value?.items || complianceRes.value;
+        setComplianceLogs(Array.isArray(logs) ? logs : []);
+      } else {
+        setComplianceLogs(JSON.parse(localStorage.getItem('nexum_compliance_logs') || '[]'));
       }
     } catch {
       // keep mock defaults already set in state
@@ -153,6 +170,19 @@ export default function GovernmentDashboard() {
   const avgTotal = todayIncidents.length
     ? (todayIncidents.reduce((s, i) => s + i.total, 0) / todayIncidents.length).toFixed(1)
     : '—';
+
+  // Date-range historical aggregates
+  const violationSource = allViolations.length > 0 ? allViolations : incidents;
+  const rangedViolations  = filterByRange(violationSource, dateRange, 'createdAt');
+  const rangedCompliance  = filterByRange(complianceLogs, dateRange);
+  const incidentBuckets   = bucketByDay(violationSource, dateRange, 'createdAt');
+  const complianceBuckets = bucketByDay(complianceLogs, dateRange);
+  const flaggedViolations = rangedViolations.filter((v: any) => v.status === 'open' || v.severity === 'critical');
+  const avgComplianceScore = (() => {
+    const scored = rangedCompliance.filter((l: any) => typeof l.score === 'number');
+    if (!scored.length) return null;
+    return Math.round(scored.reduce((s: number, l: any) => s + l.score, 0) / scored.length);
+  })();
 
   // Certification readiness
   const allCerts = personnel.flatMap(p => (p.certs || []).map((c: any) => ({ ...c, name: p.name })));
@@ -522,6 +552,120 @@ export default function GovernmentDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* ── Historical Analytics ─────────────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Historical Analytics</h2>
+            </div>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          </div>
+
+          {/* Aggregate KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Incidents / Violations', value: rangedViolations.length, icon: AlertOctagon, color: 'text-orange-400', sub: 'in range' },
+              { label: 'Compliance Entries', value: rangedCompliance.length, icon: BarChart2, color: 'text-blue-400', sub: 'logged' },
+              { label: 'Flagged Open', value: flaggedViolations.length, icon: Flag, color: flaggedViolations.length > 0 ? 'text-red-400' : 'text-green-400', sub: 'critical / open' },
+              { label: 'Avg Compliance', value: avgComplianceScore !== null ? `${avgComplianceScore}%` : '—', icon: CheckCircle, color: avgComplianceScore === null ? 'text-muted-foreground' : avgComplianceScore >= 80 ? 'text-green-400' : avgComplianceScore >= 60 ? 'text-yellow-400' : 'text-red-400', sub: 'scored entries' },
+            ].map(({ label, value, icon: Icon, color, sub }) => (
+              <Card key={label} className="neon-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <Icon className={cn('w-4 h-4', color)} />
+                  </div>
+                  <p className={cn('text-2xl font-bold', color)}>{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Trend charts */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card className="neon-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 text-orange-400" />Incident / Violation Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {incidentBuckets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No incidents in range</p>
+                ) : (
+                  <div className="space-y-1">
+                    {incidentBuckets.slice(-7).map(b => (
+                      <div key={b.date} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{b.label}</span>
+                        <div className="flex-1 bg-muted/20 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-orange-400 rounded-full" style={{ width: `${Math.min(100, (b.count / Math.max(...incidentBuckets.map(x => x.count), 1)) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="neon-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-blue-400" />Compliance Log Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {complianceBuckets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No compliance logs in range</p>
+                ) : (
+                  <div className="space-y-1">
+                    {complianceBuckets.slice(-7).map(b => (
+                      <div key={b.date} className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{b.label}</span>
+                        <div className="flex-1 bg-muted/20 rounded-full h-2 overflow-hidden">
+                          <div className="h-full bg-blue-400 rounded-full" style={{ width: `${Math.min(100, (b.count / Math.max(...complianceBuckets.map(x => x.count), 1)) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Flagged violations */}
+          {flaggedViolations.length > 0 && (
+            <Card className="neon-border border-red-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-red-400">
+                  <Flag className="w-4 h-4" />Flagged Open Incidents ({flaggedViolations.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {flaggedViolations.slice(0, 5).map((v: any, i: number) => (
+                    <div key={v.violationId || v.id || i} className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 bg-muted/10">
+                      <div>
+                        <p className="text-sm font-medium">{v.description || v.type || 'Incident'}</p>
+                        <p className="text-xs text-muted-foreground">{v.location || v.area || v.unit || '—'} · {(v.createdAt || v.date) ? new Date(v.createdAt || v.date).toLocaleDateString() : '—'}</p>
+                      </div>
+                      <Badge variant="outline" className={cn('text-xs shrink-0', v.severity === 'critical' ? 'border-red-500/30 text-red-400' : 'border-orange-400/30 text-orange-400')}>
+                        {v.severity || v.status || 'open'}
+                      </Badge>
+                    </div>
+                  ))}
+                  {flaggedViolations.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center">+{flaggedViolations.length - 5} more</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Upgrade CTA */}
         <div className="glass-panel rounded-2xl p-6 border border-primary/20 bg-primary/5">

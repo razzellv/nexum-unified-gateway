@@ -280,10 +280,46 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   },
 };
 
+// ── Org-type specific features ────────────────────────────────────────────────
+// Retail/Govt orgs always retain access to their org-specific features,
+// AND they inherit full facility tier features when they upgrade to
+// standard / business / premium / enterprise.
+const RETAIL_ORG_FEATURES: TierFeature[] = [
+  'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
+  'waste_tracking', 'supplier_management',
+];
+const GOVT_ORG_FEATURES: TierFeature[] = [
+  'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
+  'response_metrics', 'weapons_inventory', 'compliance_reporting',
+];
+// Facility tiers that retail/govt can cross-upgrade into
+const FACILITY_UPGRADE_TIERS: SubscriptionTier[] = ['standard', 'business', 'premium', 'enterprise'];
+
+export type OrgType = 'facility' | 'retail' | 'government';
+
 // ── TIER HOOK ─────────────────────────────────────────────────────────────────
-export function hasFeature(tier: SubscriptionTier | undefined, feature: TierFeature): boolean {
+export function hasFeature(
+  tier: SubscriptionTier | undefined,
+  feature: TierFeature,
+  orgType?: OrgType,
+): boolean {
   if (!tier) return false;
   if (tier === 'admin') return true;
+
+  // Retail orgs always have their specific features, regardless of tier
+  if (orgType === 'retail' && RETAIL_ORG_FEATURES.includes(feature)) return true;
+
+  // Govt orgs always have their specific features, regardless of tier
+  if (orgType === 'government' && GOVT_ORG_FEATURES.includes(feature)) return true;
+
+  // When retail/govt orgs upgrade to a facility tier (standard/business/premium/enterprise),
+  // they get full facility tier access on top of their org features
+  if (orgType === 'retail' || orgType === 'government') {
+    if (FACILITY_UPGRADE_TIERS.includes(tier)) {
+      return TIERS[tier]?.features.includes(feature) ?? false;
+    }
+  }
+
   return TIERS[tier]?.features.includes(feature) ?? false;
 }
 

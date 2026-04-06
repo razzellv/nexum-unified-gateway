@@ -40,7 +40,8 @@ const cleanText = (text: string) => {
   return text.replace(/\*\*/g, '').replace(/™/g, '').replace(/®/g, '').split('(')[0].trim() || 'N/A';
 };
 
-const equipmentTypeGroups = [
+// ── Equipment type groups by org type ────────────────────────────────────────
+const FACILITY_TYPE_GROUPS = [
   { label: 'HVAC', types: ['boiler', 'chiller', 'ahu', 'air_handler', 'cooling_tower', 'fan', 'vav'] },
   { label: 'Mechanical', types: ['heat_exchanger', 'hot_water_heater', 'turbine', 'condenser', 'evaporator'] },
   { label: 'Steam & Condensate', types: ['condensate_system'] },
@@ -51,6 +52,37 @@ const equipmentTypeGroups = [
   { label: 'Production', types: ['conveyor', 'spiral_freezer', 'mixer', 'press', 'packaging_line'] },
   { label: 'Other', types: ['other'] },
 ];
+
+const RETAIL_TYPE_GROUPS = [
+  { label: 'Refrigeration', types: ['walk_in_cooler', 'walk_in_freezer', 'display_case', 'reach_in_cooler', 'ice_machine'] },
+  { label: 'POS & Tech', types: ['pos_terminal', 'self_checkout', 'barcode_scanner', 'receipt_printer', 'cash_drawer'] },
+  { label: 'Displays & Fixtures', types: ['shelving_unit', 'display_rack', 'gondola', 'end_cap', 'cooler_door'] },
+  { label: 'Food Service', types: ['deli_slicer', 'hot_case', 'food_warmer', 'oven', 'fryer', 'grill'] },
+  { label: 'Scales & Measuring', types: ['produce_scale', 'deli_scale', 'price_scanner', 'self_weigh'] },
+  { label: 'HVAC & Lighting', types: ['hvac_unit', 'ceiling_fan', 'led_lighting', 'exhaust_fan'] },
+  { label: 'Security', types: ['camera', 'alarm_panel', 'access_control', 'eas_system'] },
+  { label: 'Other', types: ['other'] },
+];
+
+const GOVT_TYPE_GROUPS = [
+  { label: 'Apparatus / Vehicles', types: ['engine', 'ladder_truck', 'rescue_unit', 'patrol_vehicle', 'ambulance', 'command_vehicle', 'boat', 'atv'] },
+  { label: 'Weapons & Armory', types: ['handgun', 'rifle', 'shotgun', 'less_lethal', 'taser', 'pepper_spray', 'breaching_tool'] },
+  { label: 'Protective Equipment', types: ['ballistic_vest', 'helmet', 'turnout_gear', 'scba', 'gas_mask', 'shield'] },
+  { label: 'Communications', types: ['radio', 'repeater', 'mobile_data_terminal', 'dispatch_console', 'body_camera'] },
+  { label: 'Medical / EMS', types: ['defibrillator', 'stretcher', 'airway_kit', 'trauma_bag', 'iv_kit', 'oxygen_unit'] },
+  { label: 'Firefighting', types: ['hose', 'nozzle', 'foam_unit', 'thermal_camera', 'ladder', 'jaws_of_life'] },
+  { label: 'Electrical & Power', types: ['generator', 'portable_light', 'inverter', 'ups'] },
+  { label: 'Other', types: ['other'] },
+];
+
+function getEquipmentTypeGroups(orgType: string) {
+  if (orgType === 'retail') return RETAIL_TYPE_GROUPS;
+  if (orgType === 'government') return GOVT_TYPE_GROUPS;
+  return FACILITY_TYPE_GROUPS;
+}
+
+// Keep a combined flat list for select dropdowns
+const equipmentTypeGroups = FACILITY_TYPE_GROUPS;
 
 const formatTypeName = (t: string) => {
   if (!t) return '';
@@ -110,6 +142,8 @@ export default function EquipmentLibrary() {
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
   const canRequest = role === 'engineer';
+  const orgType = localStorage.getItem('nexum_org_type') || sessionStorage.getItem('nexum_org_type') || 'facility';
+  const activeTypeGroups = getEquipmentTypeGroups(orgType);
 
   const [formData, setFormData] = useState({
     equipmentType: '', manufacturer: '', model: '', serialNumber: '',
@@ -306,7 +340,7 @@ export default function EquipmentLibrary() {
     <Select value={formData.equipmentType} onValueChange={v => setFormData(f => ({ ...f, equipmentType: v }))}>
       <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
       <SelectContent>
-        {equipmentTypeGroups.map(group => (
+        {activeTypeGroups.map(group => (
           <SelectGroup key={group.label}>
             <SelectLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">{group.label}</SelectLabel>
             {group.types.map(t => <SelectItem key={t} value={t}>{formatTypeName(t)}</SelectItem>)}
@@ -465,7 +499,16 @@ export default function EquipmentLibrary() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Equipment Library</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">Equipment Library</h1>
+              <Badge variant="outline" className={
+                orgType === 'retail' ? 'text-emerald-400 border-emerald-400/30 text-xs' :
+                orgType === 'government' ? 'text-blue-400 border-blue-400/30 text-xs' :
+                'text-muted-foreground border-border/40 text-xs'
+              }>
+                {orgType === 'retail' ? 'Retail' : orgType === 'government' ? 'Gov / Public Safety' : 'Facility'}
+              </Badge>
+            </div>
             <p className="text-muted-foreground text-sm">
               {equipment.length} equipment type{equipment.length !== 1 ? 's' : ''} · {totalUnits} total unit{totalUnits !== 1 ? 's' : ''}{totalAssetValue > 0 ? ` · Asset Value: $${totalAssetValue.toLocaleString()}` : ''}
             </p>

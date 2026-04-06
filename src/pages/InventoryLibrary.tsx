@@ -25,7 +25,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import InventoryImportModal from '@/components/import/InventoryImportModal';
-import { Upload } from 'lucide-react';
 
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
