@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, authError } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -240,7 +240,23 @@ export default function Login() {
           <div className="auth-box">
             <h1 className="auth-title">ACCESS CONSOLE</h1>
             <p className="auth-subtitle">Sign in to Nexum Suum Systems</p>
-            
+
+            {authError && (
+              <div style={{
+                margin: '12px 0',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: 'rgba(255,60,60,0.12)',
+                border: '1px solid rgba(255,80,80,0.4)',
+                color: '#ff6b6b',
+                fontSize: '0.82rem',
+                textAlign: 'center',
+                lineHeight: 1.5,
+              }}>
+                {authError}
+              </div>
+            )}
+
             <button onClick={login} className="auth-button">
               Enter System
             </button>

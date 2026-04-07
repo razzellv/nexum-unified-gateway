@@ -327,7 +327,7 @@ export default function GovernmentDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground hidden sm:block">{unit.mileage.toLocaleString()} mi</span>
+                      {unit.mileage != null && <span className="text-[10px] text-muted-foreground hidden sm:block">{unit.mileage.toLocaleString()} mi</span>}
                       <Badge variant="outline" className={cn('text-[10px]', badge.cls)}>{badge.label}</Badge>
                     </div>
                   </div>

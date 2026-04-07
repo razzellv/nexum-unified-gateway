@@ -16,12 +16,25 @@ export interface AuthEvent {
   timestamp: Date;
 }
 
+const ADMIN_DOMAINS = ['nexumsuum.com', 'nexumsuum-facilityintelligence.com'];
+
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+}
+
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
     tokens: null,
   });
+  const [authError, setAuthError] = useState<string | null>(
+    sessionStorage.getItem('nexum_auth_error') || null
+  );
 
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
 
@@ -43,6 +56,24 @@ export const useAuth = () => {
         if (success) {
           addAuthEvent("login", "Successfully authenticated via OAuth");
           const tokens = getStoredTokens();
+          // Admin domain restriction — block non-Nexum emails claiming admin role
+          const idToken = localStorage.getItem('nexum_id_token');
+          if (idToken) {
+            const decoded = decodeJwtPayload(idToken);
+            const claimedRole = decoded?.['custom:role'] || decoded?.role || '';
+            const email = decoded?.email || '';
+            const domain = email.split('@')[1]?.toLowerCase() || '';
+            if (claimedRole === 'admin' && !ADMIN_DOMAINS.includes(domain)) {
+              authLogout();
+              const msg = 'Admin access requires a Nexum Suum company email address.';
+              sessionStorage.setItem('nexum_auth_error', msg);
+              setAuthError(msg);
+              setAuthState({ isAuthenticated: false, isLoading: false, tokens: null });
+              return;
+            }
+          }
+          sessionStorage.removeItem('nexum_auth_error');
+          setAuthError(null);
           setAuthState({ isAuthenticated: true, isLoading: false, tokens });
           return;
         } else {
@@ -97,24 +128,39 @@ export const useAuth = () => {
     try {
       const idToken = localStorage.getItem('nexum_id_token');
       const tokenToDecode = idToken || authState.tokens.access_token;
-      const parts = tokenToDecode.split(".");
-      if (parts.length !== 3) return null;
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-      const ADMIN_DOMAINS = ['nexumsuum.com', 'nexumsuum-facilityintelligence.com'];
+      const payload = decodeJwtPayload(tokenToDecode);
+      if (!payload) return null;
+
       const emailDomain = (payload.email || '').split('@')[1]?.toLowerCase() || '';
       const isAdminDomain = ADMIN_DOMAINS.includes(emailDomain);
+      const claimedRole = payload["custom:role"] || payload.role || 'employee';
+
+      // If token claims admin but email domain is wrong → treat as no role (force re-login)
+      const effectiveRole = isAdminDomain
+        ? 'admin'
+        : (claimedRole === 'admin' ? 'employee' : claimedRole);
+
+      const orgType =
+        payload["custom:orgType"] ||
+        localStorage.getItem('nexum_org_type') ||
+        sessionStorage.getItem('nexum_org_type') ||
+        'facility';
 
       return {
         sub: payload.sub,
         email: payload.email,
         name: payload.name || payload.email,
-        role: isAdminDomain ? 'admin' : (payload["custom:role"] || payload.role || "employee"),
+        role: effectiveRole,
         department: payload["custom:department"] || "Operations",
+        orgType,
         facilityId: payload["custom:facilityId"] || "facility-001",
         orgId: payload["custom:orgId"] || "org-001",
+        tier: payload["custom:tier"] || payload["custom:subscription"],
         ...payload,
-        // Ensure admin domain always wins, even if spread overwrites role above
-        ...(isAdminDomain ? { role: 'admin' } : {}),
+        // These always win over whatever ...payload spread set
+        role: effectiveRole,
+        orgType,
+        department: payload["custom:department"] || "Operations",
       };
     } catch {
       return null;
@@ -128,6 +174,7 @@ export const useAuth = () => {
     isAuthenticated: authState.isAuthenticated,
     loading: authState.isLoading,
     authEvents,
+    authError,
     login,
     logout,
     user,
