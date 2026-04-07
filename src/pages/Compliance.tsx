@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -14,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertTriangle, ClipboardCheck, Eye, FileText, Building2, Cpu, User,
-  Scale, ShieldAlert, Award, Upload, BookOpen, CheckCircle2, XCircle,
+  Scale, ShieldAlert, Shield, Award, Upload, BookOpen, CheckCircle2, XCircle,
   AlertCircle, Download, RefreshCw, Calendar, ExternalLink,
   TrendingUp, ChevronDown, ChevronUp, Sparkles
 } from 'lucide-react';
@@ -741,14 +742,19 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 export default function Compliance() {
+  const [searchParams] = useSearchParams();
+  // When navigated from Custodian "Log Maintenance" button, restrict to low/medium severity only
+  const isCustodianMode = searchParams.get('role') === 'custodian';
+  const custodianSeverityOptions = SEVERITY_OPTIONS.filter(s => s.value === 'low' || s.value === 'medium');
+
   const orgType = localStorage.getItem('nexum_org_type') || 'facility';
-  const pageTitle = PAGE_TITLES[orgType] ?? PAGE_TITLES.facility;
+  const pageTitle = isCustodianMode ? 'Log Maintenance Issue' : (PAGE_TITLES[orgType] ?? PAGE_TITLES.facility);
 
   const [activeTab, setActiveTab] = useState('violation');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastVirtuousScore, setLastVirtuousScore] = useState<number | null>(null);
 
-  const violationForm = useForm({ defaultValues: { operatorId: '', severity: 'medium' } });
+  const violationForm = useForm({ defaultValues: { operatorId: '', severity: isCustodianMode ? 'low' : 'medium' } });
   const pmForm = useForm({ defaultValues: { operatorId: '' } });
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
 
@@ -951,10 +957,19 @@ export default function Compliance() {
                       {/* Severity */}
                       <div className="space-y-2">
                         <Label>Severity *</Label>
-                        <Select defaultValue="medium" onValueChange={(v) => violationForm.setValue('severity', v)}>
+                        {isCustodianMode && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400">
+                            <Shield className="w-3.5 h-3.5 shrink-0" />
+                            Maintenance reports are capped at <strong>Low or Medium</strong>. For emergencies, contact your supervisor directly.
+                          </div>
+                        )}
+                        <Select
+                          defaultValue={isCustodianMode ? 'low' : 'medium'}
+                          onValueChange={(v) => violationForm.setValue('severity', v)}
+                        >
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent className="bg-popover border-border">
-                            {SEVERITY_OPTIONS.map(({ value, label }) => (
+                            {(isCustodianMode ? custodianSeverityOptions : SEVERITY_OPTIONS).map(({ value, label }) => (
                               <SelectItem key={value} value={value}>
                                 <span className={SEVERITY_COLORS[value]}>{label}</span>
                               </SelectItem>

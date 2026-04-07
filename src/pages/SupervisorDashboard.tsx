@@ -33,7 +33,9 @@ import {
   Activity,
   Shield,
   Target,
-  Award
+  Award,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,12 +61,30 @@ function safeString(value: any, fallback: string = 'Unknown'): string {
   return String(value);
 }
 
+const SUPERVISOR_TITLES = [
+  'Maintenance Supervisor',
+  'Head Custodian',
+  'Lead Engineer',
+  'Facilities Supervisor',
+  'Chief Engineer',
+  'Plant Supervisor',
+  'Operations Supervisor',
+  'Shift Supervisor',
+  'Lead Technician',
+  'Senior Maintenance Lead',
+  'Facilities Manager',
+  'Building Supervisor',
+];
+
 export default function SupervisorDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
-  console.log("🔵 SupervisorDashboard auth:", { isAuthenticated, loading });
 
   const userDept = user?.department || 'Operations';
   const [selectedDept, setSelectedDept] = useState<string>(userDept);
+  const [supervisorTitle, setSupervisorTitle] = useState<string>(
+    localStorage.getItem('nexum_supervisor_title') || 'Maintenance Supervisor'
+  );
+  const [editingTitle, setEditingTitle] = useState(false);
   const [stats, setStats] = useState<SupervisorStats | null>(null);
   const [violationsSummary, setViolationsSummary] = useState<ViolationSummary[]>([]);
   const [departmentMetrics, setDepartmentMetrics] = useState<VirtuousMetrics[]>([]);
@@ -233,7 +253,48 @@ export default function SupervisorDashboard() {
       <NexumBranding />
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-end">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Title identity */}
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/30">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              {editingTitle ? (
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={supervisorTitle}
+                    onValueChange={(v) => {
+                      setSupervisorTitle(v);
+                      localStorage.setItem('nexum_supervisor_title', v);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPERVISOR_TITLES.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingTitle(false)}>
+                    <Check className="w-4 h-4 text-green-400" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold leading-tight">{supervisorTitle}</h1>
+                  <button onClick={() => setEditingTitle(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {user?.name || user?.email} · {selectedDept} Dept
+              </p>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 

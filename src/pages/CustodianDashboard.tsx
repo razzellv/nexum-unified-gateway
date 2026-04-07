@@ -162,7 +162,9 @@ export default function CustodianDashboard() {
         <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
           <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
           <CardContent className="flex gap-2 flex-wrap">
-            <Button onClick={() => window.location.href = '/data-source'}><ClipboardList className="w-4 h-4 mr-2" />Log Maintenance</Button>
+            <Button onClick={() => window.location.href = '/compliance-logger?role=custodian'}>
+              <ClipboardList className="w-4 h-4 mr-2" />Log Maintenance
+            </Button>
             <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}><Shield className="w-4 h-4 mr-2" />Safety Checks</Button>
             <Button variant="outline" onClick={() => window.location.href = '/messages'}>My Messages</Button>
           </CardContent>
