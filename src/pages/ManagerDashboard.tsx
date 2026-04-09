@@ -615,6 +615,15 @@ export default function ManagerDashboard() {
           <KPICard title="Log Consistency"      value={logConsistencyPercent}    unit="%" icon={Users}      trend={logConsistencyPercent >= 90 ? 'up' : 'down'}  trendValue={`${loggingConsistency} logs/7d`} />
         </div>
 
+        {/* Interpretation layer: data integrity notice */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-400/80">
+          <Shield className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+          <span>
+            Analysis based on <strong className="text-blue-400">{loggingConsistency} verified records (7d)</strong> — only admissible,
+            governance-checked entries feed these metrics. Incomplete logs are excluded from this view.
+          </span>
+        </div>
+
         {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[

@@ -17,7 +17,7 @@ import {
   Activity, AlertTriangle, CheckCircle, RefreshCw, Calendar,
   Wrench, Shield, Users, Gauge, Flame, Snowflake, Wind,
   Droplets, Waves, ClipboardList, TrendingUp, Clock, BarChart3,
-  Building2, Radio, Zap, HardHat, UserCog, GitBranch, Eye,
+  Building2, Radio, Zap, HardHat, UserCog, GitBranch, Eye, Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -236,6 +236,20 @@ export default function OperationCenter() {
     </MainLayout>
   );
 
+  // ── Governance: log completeness check (Record layer) ─────────────────────
+  function logGovernanceStatus(log: any): { label: string; color: string; borderClass: string; score: number } {
+    const checks = [
+      !!log.timestamp,
+      !!(log.equipmentType || log.systemType),
+      !!(log.operatorName || log.operatorId),
+      !!(log.summary || log.notes || log.description),
+    ];
+    const score = checks.filter(Boolean).length;
+    if (score === 4) return { label: 'Admissible', color: 'text-green-400', borderClass: 'border-green-500/20', score };
+    if (score === 3) return { label: 'Incomplete', color: 'text-yellow-400', borderClass: 'border-yellow-500/30', score };
+    return { label: 'Invalid', color: 'text-red-400', borderClass: 'border-red-500/30', score };
+  }
+
   const filterByDateRange = (items: any[], field = 'timestamp') => {
     if (dateRange === 'all') return items;
     const now = Date.now();
@@ -378,21 +392,28 @@ export default function OperationCenter() {
                       <p className="text-center text-muted-foreground text-sm py-6">No recent logs</p>
                     ) : (
                       <div className="space-y-2">
-                        {filterByDateRange(data.recentLogsFeed || []).map((log, i) => (
-                          <div key={log.logId || i} className={cn('flex items-start gap-3 p-3 rounded-lg border transition-all',
-                            log.flagged ? 'border-orange-500/40 bg-orange-500/5' : 'border-border/30 bg-muted/20 hover:border-primary/20')}>
-                            <div className="mt-0.5"><EquipmentTypeIcon type={log.equipmentType} /></div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium">{log.equipmentId}</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{log.equipmentType?.replace('_', ' ')}</Badge>
-                                {log.flagged && <Badge className="text-[10px] px-1.5 py-0 bg-orange-500/20 text-orange-400 border-orange-500/30">Flagged</Badge>}
+                        {filterByDateRange(data.recentLogsFeed || []).map((log, i) => {
+                          const gov = logGovernanceStatus(log);
+                          return (
+                            <div key={log.logId || i} className={cn('flex items-start gap-3 p-3 rounded-lg border transition-all',
+                              log.flagged ? 'border-orange-500/40 bg-orange-500/5' : `${gov.borderClass} bg-muted/20 hover:border-primary/20`)}>
+                              <div className="mt-0.5"><EquipmentTypeIcon type={log.equipmentType} /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium">{log.equipmentId}</span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{log.equipmentType?.replace('_', ' ')}</Badge>
+                                  {log.flagged && <Badge className="text-[10px] px-1.5 py-0 bg-orange-500/20 text-orange-400 border-orange-500/30">Flagged</Badge>}
+                                  <span className={cn('ml-auto flex items-center gap-1 text-[10px] font-semibold', gov.color)}>
+                                    {gov.score === 4 ? <Lock className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                                    {gov.label}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{log.operatorName} • {new Date(log.timestamp).toLocaleString()}</p>
+                                {log.summary && <p className="text-xs text-muted-foreground/70 mt-1 truncate">{log.summary}</p>}
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5">{log.operatorName} • {new Date(log.timestamp).toLocaleString()}</p>
-                              {log.summary && <p className="text-xs text-muted-foreground/70 mt-1 truncate">{log.summary}</p>}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Send, Save, AlertCircle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Send, Save, AlertCircle, ShieldAlert, Lock, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GlobalFields } from '@/components/forms/GlobalFields';
@@ -275,6 +275,10 @@ export function LogEntryForm({
                 {isEnergyLog ? 'Building-level Log' : system?.assetTag}
               </p>
             </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-semibold uppercase tracking-wider">
+              <Lock className="w-3 h-3" />
+              Append-Only Record
+            </div>
           </div>
         </div>
       </div>
@@ -340,21 +344,33 @@ export function LogEntryForm({
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Submission</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to submit a log entry for{' '}
-              <strong>{isEnergyLog ? 'Energy & Utilities' : system?.name}</strong>.
-              {measurementType === 'estimated' && (
-                <span className="block mt-2 text-warning font-medium">
-                  ⚠️ This entry is tagged as ESTIMATED data.
-                </span>
-              )}
-              {abnormalCondition && (
-                <span className="block mt-2 text-destructive font-medium">
-                  ⚠️ This entry is flagged as having an abnormal condition.
-                </span>
-              )}
-              <span className="block mt-2">Once submitted, this entry cannot be edited.</span>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-blue-400" />
+              Confirm Record Submission
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>You are about to submit a log entry for{' '}
+                  <strong className="text-foreground">{isEnergyLog ? 'Energy & Utilities' : system?.name}</strong>.
+                </p>
+                {measurementType === 'estimated' && (
+                  <p className="text-yellow-500 font-medium">
+                    ⚠️ This entry is tagged as ESTIMATED data.
+                  </p>
+                )}
+                {abnormalCondition && (
+                  <p className="text-destructive font-medium">
+                    ⚠️ This entry is flagged as having an abnormal condition.
+                  </p>
+                )}
+                <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-start gap-2">
+                  <Lock className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                  <p className="text-blue-400 text-xs font-medium">
+                    This record will be sealed and immutable. No edits are permitted after submission.
+                    It becomes part of the append-only operational log.
+                  </p>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

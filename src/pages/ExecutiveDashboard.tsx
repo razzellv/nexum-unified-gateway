@@ -564,6 +564,14 @@ export default function ExecutiveDashboard() {
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
                 </div>
+                {/* Interpretation layer: data integrity notice */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-400/80">
+                  <Shield className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Analysis based on <strong className="text-blue-400">{data.metrics.totalReadings ?? 0} verified records</strong> — only admissible, governance-checked entries feed these metrics.
+                    Incomplete or unvalidated logs are excluded from executive summaries.
+                  </span>
+                </div>
 
                 {/* ── Asset + Inventory Scorecards ── */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -4,7 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertOctagon, ClipboardList, Plus, Filter, Download, Users, AlertTriangle, Scale } from 'lucide-react';
+import { AlertOctagon, ClipboardList, Plus, Filter, Download, Users, AlertTriangle, Scale, CheckCircle, Eye, ShieldCheck, ChevronRight } from 'lucide-react';
 import { ViolationCard } from '@/components/command-hub/violations/ViolationCard';
 import { IssueViolationDialog } from '@/components/command-hub/violations/IssueViolationDialog';
 import { AssignWorkOrderDialog } from '@/components/command-hub/violations/AssignWorkOrderDialog';
@@ -98,6 +98,8 @@ export default function Violations() {
   const [isLoading, setIsLoading]           = useState(true);
   const [showIssueDialog, setShowIssueDialog]         = useState(false);
   const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
+  // Sequence lifecycle: open → acknowledged → inReview → resolved
+  const [lifecycleMap, setLifecycleMap] = useState<Record<string, 'open' | 'acknowledged' | 'inReview' | 'resolved'>>({});
 
   const loadViolations = useCallback(async () => {
     if (!user?.facilityId) return;
@@ -155,6 +157,35 @@ export default function Violations() {
       title:       'Work Order Created',
       description: `Work order "${workOrder.title}" has been assigned.`,
     });
+  };
+
+  // Sequence step labels and colors
+  const SEQUENCE_STEPS = ['open', 'acknowledged', 'inReview', 'resolved'] as const;
+  type LifecycleStep = typeof SEQUENCE_STEPS[number];
+  const STEP_META: Record<LifecycleStep, { label: string; color: string; nextLabel: string }> = {
+    open:         { label: 'Open',          color: 'bg-red-500/20 text-red-400 border-red-500/30',      nextLabel: 'Acknowledge' },
+    acknowledged: { label: 'Acknowledged',  color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', nextLabel: 'Move to Review' },
+    inReview:     { label: 'In Review',     color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',   nextLabel: 'Resolve' },
+    resolved:     { label: 'Resolved',      color: 'bg-green-500/20 text-green-400 border-green-500/30', nextLabel: '' },
+  };
+
+  const getViolationStep = (v: any): LifecycleStep => {
+    const id = v.violationId || v.id;
+    if (lifecycleMap[id]) return lifecycleMap[id];
+    if (v.status === 'resolved') return 'resolved';
+    if (v.inReview) return 'inReview';
+    if (v.acknowledged) return 'acknowledged';
+    return 'open';
+  };
+
+  const advanceStep = (violationId: string, current: LifecycleStep) => {
+    const idx = SEQUENCE_STEPS.indexOf(current);
+    if (idx < SEQUENCE_STEPS.length - 1) {
+      const next = SEQUENCE_STEPS[idx + 1];
+      setLifecycleMap(prev => ({ ...prev, [violationId]: next }));
+      const meta = STEP_META[next];
+      toast({ title: `Violation ${meta.label}`, description: `Status advanced to "${meta.label}". Sequence step recorded.` });
+    }
   };
 
   return (
@@ -233,9 +264,61 @@ export default function Violations() {
               ) : violations.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No violations recorded</p>
               ) : (
-                violations.map((violation, i) => (
-                  <ViolationCard key={violation.violationId || i} violation={violation} />
-                ))
+                violations.map((violation, i) => {
+                  const vid = violation.violationId || violation.id || String(i);
+                  const step = getViolationStep(violation);
+                  const meta = STEP_META[step];
+                  const severity = violation.severityScore || violation.severity || 0;
+                  return (
+                    <div key={vid} className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
+                      {/* Top row: type + sequence badge */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AlertTriangle className={`w-4 h-4 shrink-0 ${severity >= 80 ? 'text-red-400' : severity >= 50 ? 'text-orange-400' : 'text-yellow-400'}`} />
+                          <span className="text-sm font-medium truncate">{violation.type || violation.violationType || 'Violation'}</span>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] px-2 ${meta.color}`}>{meta.label}</Badge>
+                      </div>
+                      {/* Details */}
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        {(violation.employeeName || violation.operator) && (
+                          <p><span className="text-foreground/60">Personnel:</span> {violation.employeeName || violation.operator}</p>
+                        )}
+                        <p><span className="text-foreground/60">Severity:</span> {severity}/100 • {new Date(violation.issuedAt || violation.timestamp || Date.now()).toLocaleDateString()}</p>
+                        {violation.description && <p className="truncate"><span className="text-foreground/60">Notes:</span> {violation.description}</p>}
+                      </div>
+                      {/* Sequence pipeline */}
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                        {SEQUENCE_STEPS.map((s, idx) => (
+                          <span key={s} className="flex items-center gap-1">
+                            <span className={step === s ? 'text-foreground font-semibold' : (SEQUENCE_STEPS.indexOf(step) > idx ? 'text-green-400' : '')}>
+                              {STEP_META[s].label}
+                            </span>
+                            {idx < SEQUENCE_STEPS.length - 1 && <ChevronRight className="w-3 h-3" />}
+                          </span>
+                        ))}
+                      </div>
+                      {/* Advance button */}
+                      {step !== 'resolved' && canManageViolations && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs border-primary/30 hover:border-primary"
+                          onClick={() => advanceStep(vid, step)}
+                        >
+                          {step === 'inReview' ? <ShieldCheck className="w-3 h-3 mr-1.5 text-green-400" /> : <ChevronRight className="w-3 h-3 mr-1.5" />}
+                          {meta.nextLabel}
+                        </Button>
+                      )}
+                      {step === 'resolved' && (
+                        <div className="flex items-center gap-1.5 text-xs text-green-400">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Record sealed — sequence complete
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { WorkOrderStats } from '@/components/command-hub/workorders/WorkOrderStats';
@@ -12,7 +12,7 @@ import { WorkOrderDetail } from '@/components/command-hub/workorders/WorkOrderDe
 import { getWorkOrderStats } from '@/data/command-hub/workOrderData';
 import { WorkOrder, WorkOrderFilters as FilterType, WorkOrderStatus } from '@/types/command-hub/workOrder';
 import { useToast } from '@/hooks/use-toast';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,6 +22,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -48,6 +51,12 @@ export default function WorkOrders() {
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
   const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null);
   const [deletingWorkOrder, setDeletingWorkOrder] = useState<WorkOrder | null>(null);
+
+  // Execution Gate — governance check before completing a WO
+  const [showResolutionGate, setShowResolutionGate] = useState(false);
+  const [pendingCompleteId, setPendingCompleteId] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [closingTechnician, setClosingTechnician] = useState('');
 
   const loadWorkOrders = useCallback(async () => {
 
@@ -251,29 +260,55 @@ const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
   };
 
   const handleStatusChange = (workOrderId: string, status: WorkOrderStatus) => {
-    setWorkOrders(workOrders.map(wo => 
-      wo.workOrderId === workOrderId 
-        ? { 
-            ...wo, 
+    // EXECUTION GATE: governance check before marking complete
+    if (status === 'completed') {
+      setPendingCompleteId(workOrderId);
+      setResolutionNotes('');
+      setClosingTechnician('');
+      setShowResolutionGate(true);
+      return;
+    }
+    applyStatusChange(workOrderId, status);
+  };
+
+  const applyStatusChange = (workOrderId: string, status: WorkOrderStatus, extra?: { resolutionNotes?: string; closingTechnician?: string }) => {
+    setWorkOrders(workOrders.map(wo =>
+      wo.workOrderId === workOrderId
+        ? {
+            ...wo,
             status,
-            completedAt: status === 'completed' ? new Date().toISOString() : wo.completedAt 
-          } 
+            completedAt: status === 'completed' ? new Date().toISOString() : wo.completedAt,
+            ...(extra ?? {}),
+          }
         : wo
     ));
-    
-    // Update viewing work order if it's the one being changed
+
     if (viewingWorkOrder?.workOrderId === workOrderId) {
       setViewingWorkOrder({
         ...viewingWorkOrder,
         status,
-        completedAt: status === 'completed' ? new Date().toISOString() : viewingWorkOrder.completedAt
+        completedAt: status === 'completed' ? new Date().toISOString() : viewingWorkOrder.completedAt,
+        ...(extra ?? {}),
       });
     }
 
     toast({
-      title: 'Status Updated',
-      description: `Work order status changed to ${status.replace('_', ' ')}.`,
+      title: status === 'completed' ? 'Work Order Completed — Record Sealed' : 'Status Updated',
+      description: status === 'completed'
+        ? `${workOrderId.toUpperCase()} closed and locked. Resolution logged.`
+        : `Work order status changed to ${status.replace('_', ' ')}.`,
     });
+  };
+
+  const handleConfirmCompletion = () => {
+    if (!pendingCompleteId) return;
+    if (!resolutionNotes.trim() || !closingTechnician.trim()) {
+      toast({ title: 'Governance Check Failed', description: 'Resolution notes and closing technician are required to complete this work order.', variant: 'destructive' });
+      return;
+    }
+    applyStatusChange(pendingCompleteId, 'completed', { resolutionNotes, closingTechnician });
+    setShowResolutionGate(false);
+    setPendingCompleteId(null);
   };
 
   const handleAddNote = (workOrderId: string, content: string) => {
@@ -443,17 +478,72 @@ const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Work Order</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete work order {deletingWorkOrder?.workOrderId.toUpperCase()}? 
+                Are you sure you want to delete work order {deletingWorkOrder?.workOrderId.toUpperCase()}?
                 This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleDeleteWorkOrder}
                 className="bg-critical text-critical-foreground hover:bg-critical/90"
               >
                 Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Execution Gate — Governance check before completion */}
+        <AlertDialog open={showResolutionGate} onOpenChange={(open) => { if (!open) { setShowResolutionGate(false); setPendingCompleteId(null); } }}>
+          <AlertDialogContent className="bg-card border-border max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                Governance Check — Complete Work Order
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4 text-sm text-muted-foreground">
+                  <p>Before this work order can be sealed as <strong className="text-foreground">Completed</strong>, the following must be provided. These fields are required for admissibility.</p>
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-foreground text-xs font-semibold uppercase tracking-wide">Resolution Notes <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        placeholder="Describe what was done, how the issue was resolved, and any follow-up required..."
+                        rows={3}
+                        value={resolutionNotes}
+                        onChange={e => setResolutionNotes(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-foreground text-xs font-semibold uppercase tracking-wide">Closing Technician <span className="text-destructive">*</span></Label>
+                      <Input
+                        placeholder="Full name of technician confirming completion"
+                        value={closingTechnician}
+                        onChange={e => setClosingTechnician(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  {(!resolutionNotes.trim() || !closingTechnician.trim()) && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                      <XCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      Both fields required — execution is blocked until governance check passes.
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmCompletion}
+                disabled={!resolutionNotes.trim() || !closingTechnician.trim()}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-40"
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                Confirm & Seal Record
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
