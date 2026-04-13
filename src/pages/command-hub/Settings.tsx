@@ -13,6 +13,8 @@ import {
   DollarSign, Flame, Lock, Eye, Plus, Trash2, RefreshCw,
   FileText, Upload, Download, Search, X, FolderOpen, Calendar,
   CreditCard, ExternalLink, AlertTriangle, CheckCircle, ArrowUpCircle,
+  Building2, Package, MapPin, UserPlus, Key, Link2, Wifi, WifiOff,
+  ShoppingCart, Copy, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +40,7 @@ const ALL_TABS = [
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
   { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard, access: EXECUTIVE_ROLES },
+  { id: 'addons',        label: 'Locations & Modules', icon: Package, access: EXECUTIVE_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];
@@ -127,6 +130,566 @@ const CANCELLATION_POLICY = [
   'All facility data is retained for 90 days after cancellation and can be exported before deletion.',
   'To reactivate, simply choose a new plan — your historical data will be restored if within the retention window.',
 ];
+
+// ── BMS / CMMS platform catalogue ────────────────────────────────────────────
+const BMS_PLATFORMS = [
+  { id: 'honeywell',   name: 'Honeywell Connected Controls', color: 'text-red-400',    border: 'border-red-500/30',    bg: 'bg-red-500/10',    category: 'BMS', desc: 'Connect ECC, Niagara N4, or Forge BMS data to the FI Platform via webhook.' },
+  { id: 'siemens',     name: 'Siemens Building Technologies',color: 'text-cyan-400',   border: 'border-cyan-500/30',   bg: 'bg-cyan-500/10',   category: 'BMS', desc: 'Push Desigo CC, Apogee, or Synco device data directly into Equipment Intelligence.' },
+  { id: 'jci',         name: 'Johnson Controls OpenBlue',   color: 'text-blue-400',   border: 'border-blue-500/30',   bg: 'bg-blue-500/10',   category: 'BMS', desc: 'Sync Metasys, FX, or OpenBlue platform alarms, trends, and equipment states.' },
+  { id: 'schneider',   name: 'Schneider Electric EcoStruxure',color:'text-green-400',  border: 'border-green-500/30',  bg: 'bg-green-500/10',  category: 'BMS', desc: 'Bridge EcoStruxure Building Operation or Power Monitoring Expert readings.' },
+  { id: 'tridium',     name: 'Tridium / Niagara Framework', color: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10', category: 'BMS', desc: 'Use Niagara N4 REST API or BACnet proxy to forward points to FI Platform.' },
+  { id: 'maximo',      name: 'IBM Maximo',                  color: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10', category: 'CMMS', desc: 'Sync work orders, asset records, and PM schedules from Maximo into FI Platform.' },
+  { id: 'servicenow',  name: 'ServiceNow Facilities',       color: 'text-violet-400', border: 'border-violet-500/30', bg: 'bg-violet-500/10', category: 'CMMS', desc: 'Bridge ServiceNow WO and asset records to FI Platform for unified compliance logging.' },
+  { id: 'upkeep',      name: 'UpKeep CMMS',                 color: 'text-yellow-400', border: 'border-yellow-500/30', bg: 'bg-yellow-500/10', category: 'CMMS', desc: 'Sync UpKeep assets and work orders via webhook to keep FI Platform aligned.' },
+  { id: 'fiix',        name: 'Fiix CMMS',                   color: 'text-emerald-400',border: 'border-emerald-500/30',bg: 'bg-emerald-500/10',category: 'CMMS', desc: 'Forward Fiix maintenance tasks, asset health scores, and parts inventory.' },
+];
+
+function IntegrationsTab({ user }: { user: any }) {
+  const { toast } = useToast();
+  const facilityId = localStorage.getItem('nexum_facility_id') || user?.facilityId || 'YOUR_FACILITY_ID';
+  const apiKey     = localStorage.getItem('nexum_api_key')     || `nxm_${facilityId.slice(0, 8)}_live`;
+  const webhookBase = `${import.meta.env.VITE_API_BASE_URL || 'https://api.nexumsuum.com'}/v1/inbound/${facilityId}`;
+
+  const [connected, setConnected] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_bms_connections') || '[]'); } catch { return []; }
+  });
+  const [configOpen, setConfigOpen] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+    toast({ title: `${label} copied` });
+  };
+
+  const toggleConnect = (id: string) => {
+    const next = connected.includes(id) ? connected.filter(x => x !== id) : [...connected, id];
+    setConnected(next);
+    localStorage.setItem('nexum_bms_connections', JSON.stringify(next));
+    toast({
+      title: connected.includes(id) ? 'Disconnected' : 'Connection saved',
+      description: connected.includes(id)
+        ? 'Remove the webhook URL from your BMS system to stop data flow.'
+        : 'Paste your Nexum webhook URL into the BMS integration settings to activate.',
+    });
+  };
+
+  const byCategory = (cat: string) => BMS_PLATFORMS.filter(p => p.category === cat);
+
+  return (
+    <div className="space-y-8">
+
+      {/* ── Platform (Nexum internal) integrations ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-3">Platform Services</h2>
+        <div className="space-y-2">
+          {[
+            { name: 'Stripe Billing',   desc: 'Payment processing and subscription management',          status: 'connected' },
+            { name: 'AWS Cognito',       desc: 'Authentication and user management',                      status: 'connected' },
+            { name: 'Claude AI',         desc: 'VVFI Instructor, compliance narratives, photo analysis',  status: 'connected' },
+            { name: 'S3 Storage',        desc: 'Audit report and document storage',                       status: 'connected' },
+          ].map((int) => (
+            <div key={int.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div><p className="font-medium text-sm">{int.name}</p><p className="text-xs text-muted-foreground">{int.desc}</p></div>
+              <Badge className="bg-green-500/20 text-green-400">connected</Badge>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── How BMS/CMMS connection works ── */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-primary" />
+          <p className="text-sm font-semibold">How BMS / CMMS Connection Works</p>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          No native app is required. Each BMS or CMMS platform supports outbound webhooks or REST callbacks.
+          Copy your <strong>Nexum Inbound Webhook URL</strong> and <strong>API Key</strong> below, paste them
+          into your BMS integration settings (under "Outbound Webhooks" or "REST Callback URL"),
+          and the system will automatically push equipment states, alarms, work orders, and energy data to the FI Platform.
+          Data appears in Equipment Intelligence within seconds of each push.
+        </p>
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-3 py-2 truncate text-muted-foreground">
+              {webhookBase}/data
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => copyText(`${webhookBase}/data`, 'Webhook URL')}>
+              <Copy className="w-3.5 h-3.5" />{copied === 'Webhook URL' ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-3 py-2 truncate text-muted-foreground">
+              {apiKey}
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => copyText(apiKey, 'API Key')}>
+              <Key className="w-3.5 h-3.5" />{copied === 'API Key' ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground pt-1">
+          Supported data types pushed by BMS: <span className="text-foreground">equipment_status · alarm · work_order · energy_reading · asset_health</span>
+        </p>
+      </div>
+
+      {/* ── BMS Platforms ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-3 flex items-center gap-2"><Building2 className="w-4 h-4 text-primary" />BMS Platforms</h2>
+        <div className="space-y-3">
+          {byCategory('BMS').map(p => {
+            const isConnected = connected.includes(p.id);
+            const isOpen      = configOpen === p.id;
+            return (
+              <div key={p.id} className={cn('rounded-xl border transition-all', isConnected ? `${p.border} ${p.bg}` : 'border-border/30 bg-muted/10')}>
+                <div className="flex items-start justify-between gap-4 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={cn('p-2 rounded-lg shrink-0', p.bg, 'border', p.border)}>
+                      {isConnected ? <Wifi className={cn('w-4 h-4', p.color)} /> : <WifiOff className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{p.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.desc}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setConfigOpen(isOpen ? null : p.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded px-2 py-1 transition-colors"
+                    >
+                      {isOpen ? 'Close' : 'Configure'}
+                    </button>
+                    <button
+                      onClick={() => toggleConnect(p.id)}
+                      className={cn('text-xs px-3 py-1 rounded border transition-colors',
+                        isConnected
+                          ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                          : `${p.border} ${p.color} hover:${p.bg}`
+                      )}
+                    >
+                      {isConnected ? 'Disconnect' : 'Connect'}
+                    </button>
+                  </div>
+                </div>
+                {isOpen && (
+                  <div className="px-4 pb-4 pt-0 space-y-2 border-t border-border/20">
+                    <p className="text-xs text-muted-foreground pt-3">
+                      Paste these credentials into <strong>{p.name}</strong> → Integrations → Outbound Webhook / REST Callback:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">Webhook URL</span>
+                      <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-2 py-1.5 truncate">{webhookBase}/data</div>
+                      <Button size="sm" variant="ghost" className="shrink-0 h-7 px-2" onClick={() => copyText(`${webhookBase}/data`, p.id + '_url')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">API Key</span>
+                      <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-2 py-1.5 truncate">{apiKey}</div>
+                      <Button size="sm" variant="ghost" className="shrink-0 h-7 px-2" onClick={() => copyText(apiKey, p.id + '_key')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── CMMS Platforms ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-3 flex items-center gap-2"><Zap className="w-4 h-4 text-primary" />CMMS Platforms</h2>
+        <div className="space-y-3">
+          {byCategory('CMMS').map(p => {
+            const isConnected = connected.includes(p.id);
+            const isOpen      = configOpen === p.id;
+            return (
+              <div key={p.id} className={cn('rounded-xl border transition-all', isConnected ? `${p.border} ${p.bg}` : 'border-border/30 bg-muted/10')}>
+                <div className="flex items-start justify-between gap-4 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={cn('p-2 rounded-lg shrink-0', p.bg, 'border', p.border)}>
+                      {isConnected ? <Wifi className={cn('w-4 h-4', p.color)} /> : <WifiOff className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{p.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.desc}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setConfigOpen(isOpen ? null : p.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground border border-border/40 rounded px-2 py-1 transition-colors"
+                    >
+                      {isOpen ? 'Close' : 'Configure'}
+                    </button>
+                    <button
+                      onClick={() => toggleConnect(p.id)}
+                      className={cn('text-xs px-3 py-1 rounded border transition-colors',
+                        isConnected
+                          ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
+                          : `${p.border} ${p.color} hover:${p.bg}`
+                      )}
+                    >
+                      {isConnected ? 'Disconnect' : 'Connect'}
+                    </button>
+                  </div>
+                </div>
+                {isOpen && (
+                  <div className="px-4 pb-4 pt-0 space-y-2 border-t border-border/20">
+                    <p className="text-xs text-muted-foreground pt-3">
+                      In <strong>{p.name}</strong>, go to Settings → Integrations → Webhook / Outbound REST and enter:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">Webhook URL</span>
+                      <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-2 py-1.5 truncate">{webhookBase}/data</div>
+                      <Button size="sm" variant="ghost" className="shrink-0 h-7 px-2" onClick={() => copyText(`${webhookBase}/data`, p.id + '_url')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">API Key</span>
+                      <div className="flex-1 font-mono text-xs bg-muted/50 border border-border/40 rounded px-2 py-1.5 truncate">{apiKey}</div>
+                      <Button size="sm" variant="ghost" className="shrink-0 h-7 px-2" onClick={() => copyText(apiKey, p.id + '_key')}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ── Purchased add-on module metadata ─────────────────────────────────────────
+const MODULE_META: Record<string, { name: string; icon: any; color: string; bg: string; border: string; path: string; desc: string }> = {
+  addon_retail: {
+    name: 'Retail Module',
+    icon: ShoppingCart,
+    color: 'text-green-400',
+    bg: 'bg-green-500/10',
+    border: 'border-green-500/30',
+    path: '/retail-dashboard',
+    desc: 'Retail Dashboard, inventory tracking, temperature compliance, shelf-life alerts.',
+  },
+  addon_govt: {
+    name: 'Government Module',
+    icon: Shield,
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/30',
+    path: '/government-dashboard',
+    desc: 'Government Dashboard, apparatus tracking, chain of custody, personnel certifications.',
+  },
+};
+
+const PURCHASED_ADDONS_KEY = 'nexum_purchased_addons';   // e.g. ['addon_retail']
+const ACTIVE_MODULES_KEY   = 'nexum_active_modules';      // controls sidebar visibility
+
+function LocationsAddonsTab({ user }: { user: any }) {
+  const { toast } = useToast();
+
+  // ── Purchased modules (set by Stripe webhook / welcome page) ──
+  const [purchased] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PURCHASED_ADDONS_KEY) || '[]'); } catch { return []; }
+  });
+  const [activeModules, setActiveModules] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ACTIVE_MODULES_KEY) || JSON.stringify(purchased)); } catch { return purchased; }
+  });
+
+  const toggleModule = (id: string) => {
+    const next = activeModules.includes(id) ? activeModules.filter(x => x !== id) : [...activeModules, id];
+    setActiveModules(next);
+    localStorage.setItem(ACTIVE_MODULES_KEY, JSON.stringify(next));
+    toast({ title: 'Module updated', description: 'Sidebar will reflect the change on next navigation.' });
+  };
+
+  // ── Locations ──
+  const [locations, setLocations] = useState<{ id: string; name: string; address: string; type: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_locations') || '[]'); } catch { return []; }
+  });
+  const [locForm, setLocForm] = useState({ name: '', address: '', type: 'Facility' });
+  const LOC_TYPES = ['Facility', 'Warehouse', 'Retail Site', 'Government Site', 'Data Center', 'Other'];
+
+  const addLocation = () => {
+    if (!locForm.name.trim()) return;
+    const next = [...locations, { id: Date.now().toString(), ...locForm }];
+    setLocations(next);
+    localStorage.setItem('nexum_locations', JSON.stringify(next));
+    setLocForm({ name: '', address: '', type: 'Facility' });
+    toast({ title: 'Location added', description: locForm.name });
+  };
+
+  const removeLocation = (id: string) => {
+    const next = locations.filter(l => l.id !== id);
+    setLocations(next);
+    localStorage.setItem('nexum_locations', JSON.stringify(next));
+  };
+
+  // ── Staff ──
+  const [staff, setStaff] = useState<{ id: string; name: string; email: string; role: string; location: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_staff_roster') || '[]'); } catch { return []; }
+  });
+  const [staffForm, setStaffForm] = useState({ name: '', email: '', role: 'employee', location: '' });
+  const STAFF_ROLES = ['admin', 'executive', 'manager', 'supervisor', 'engineer', 'operator', 'technician', 'custodian', 'employee'];
+
+  const addStaff = () => {
+    if (!staffForm.name.trim() || !staffForm.email.trim()) return;
+    const next = [...staff, { id: Date.now().toString(), ...staffForm }];
+    setStaff(next);
+    localStorage.setItem('nexum_staff_roster', JSON.stringify(next));
+    setStaffForm({ name: '', email: '', role: 'employee', location: '' });
+    toast({ title: 'Staff member added', description: staffForm.name });
+  };
+
+  const removeStaff = (id: string) => {
+    const next = staff.filter(s => s.id !== id);
+    setStaff(next);
+    localStorage.setItem('nexum_staff_roster', JSON.stringify(next));
+  };
+
+  // ── Asset / Inventory import ──
+  const [importPreview, setImportPreview] = useState<string[][]>([]);
+  const [importType, setImportType] = useState<'inventory' | 'assets'>('assets');
+  const fileRef = useState<HTMLInputElement | null>(null);
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const rows = text.trim().split('\n').map(r => r.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
+      setImportPreview(rows.slice(0, 6)); // show header + first 5 rows
+      toast({ title: 'CSV loaded', description: `${rows.length - 1} records ready to import.` });
+    };
+    reader.readAsText(file);
+  };
+
+  const confirmImport = () => {
+    if (!importPreview.length) return;
+    const key = importType === 'assets' ? 'nexum_imported_assets' : 'nexum_imported_inventory';
+    localStorage.setItem(key, JSON.stringify(importPreview));
+    toast({ title: 'Import saved', description: `${importPreview.length - 1} records stored locally. Sync will push to your facility on next connection.` });
+    setImportPreview([]);
+  };
+
+  return (
+    <div className="space-y-8">
+
+      {/* ── Add-on Modules ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-1">Add-on Modules</h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Modules purchased with your Standard plan remain active as you upgrade tiers. Toggle sidebar visibility here.
+        </p>
+        {Object.entries(MODULE_META).map(([id, meta]) => {
+          const ModIcon = meta.icon;
+          const isPurchased = purchased.includes(id);
+          const isActive    = activeModules.includes(id);
+          return (
+            <div
+              key={id}
+              className={cn(
+                'flex items-start justify-between gap-4 p-4 rounded-xl border mb-3 transition-all',
+                isPurchased ? `${meta.border} ${meta.bg}` : 'border-border/30 bg-muted/10 opacity-50'
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div className={cn('p-2 rounded-lg', meta.bg, 'border', meta.border)}>
+                  <ModIcon className={cn('w-4 h-4', meta.color)} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{meta.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{meta.desc}</p>
+                  {!isPurchased && (
+                    <p className="text-xs text-yellow-400 mt-1">Not purchased — available as a Standard tier add-on.</p>
+                  )}
+                </div>
+              </div>
+              {isPurchased && (
+                <button
+                  onClick={() => toggleModule(id)}
+                  className="shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isActive
+                    ? <ToggleRight className="w-5 h-5 text-green-400" />
+                    : <ToggleLeft className="w-5 h-5" />}
+                  {isActive ? 'Active' : 'Hidden'}
+                </button>
+              )}
+              {!isPurchased && (
+                <button
+                  onClick={() => window.location.href = '/pricing'}
+                  className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+                >
+                  Add +$2,500–4,000/yr
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Locations ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-4 flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" />Locations</h2>
+        <div className="grid gap-3 sm:grid-cols-2 mb-4">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Location Name *</label>
+            <Input placeholder="e.g. Main Facility — Newark" value={locForm.name} onChange={e => setLocForm(p => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Type</label>
+            <Select value={locForm.type} onValueChange={v => setLocForm(p => ({ ...p, type: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{LOC_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-xs text-muted-foreground">Address</label>
+            <Input placeholder="123 Main St, Newark, NJ 07101" value={locForm.address} onChange={e => setLocForm(p => ({ ...p, address: e.target.value }))} />
+          </div>
+        </div>
+        <Button size="sm" onClick={addLocation} className="gap-2 mb-4">
+          <Plus className="w-4 h-4" />Add Location
+        </Button>
+        {locations.length > 0 && (
+          <div className="space-y-2">
+            {locations.map(loc => (
+              <div key={loc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+                <div>
+                  <p className="text-sm font-medium">{loc.name}</p>
+                  <p className="text-xs text-muted-foreground">{loc.type}{loc.address ? ` · ${loc.address}` : ''}</p>
+                </div>
+                <button onClick={() => removeLocation(loc.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Staff ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-4 flex items-center gap-2"><UserPlus className="w-4 h-4 text-primary" />Add Staff</h2>
+        <div className="grid gap-3 sm:grid-cols-2 mb-4">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Full Name *</label>
+            <Input placeholder="Jane Smith" value={staffForm.name} onChange={e => setStaffForm(p => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Email *</label>
+            <Input type="email" placeholder="jane@facility.com" value={staffForm.email} onChange={e => setStaffForm(p => ({ ...p, email: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Role</label>
+            <Select value={staffForm.role} onValueChange={v => setStaffForm(p => ({ ...p, role: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{STAFF_ROLES.map(r => <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Location</label>
+            <Select value={staffForm.location} onValueChange={v => setStaffForm(p => ({ ...p, location: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Unassigned</SelectItem>
+                {locations.map(l => <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button size="sm" onClick={addStaff} className="gap-2 mb-4">
+          <UserPlus className="w-4 h-4" />Add Staff Member
+        </Button>
+        {staff.length > 0 && (
+          <div className="space-y-2">
+            {staff.map(s => (
+              <div key={s.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+                <div>
+                  <p className="text-sm font-medium">{s.name} <span className="text-xs text-muted-foreground capitalize">· {s.role}</span></p>
+                  <p className="text-xs text-muted-foreground">{s.email}{s.location ? ` · ${s.location}` : ''}</p>
+                </div>
+                <button onClick={() => removeStaff(s.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Import Assets / Inventory ── */}
+      <div>
+        <h2 className="text-base font-semibold mb-4 flex items-center gap-2"><Upload className="w-4 h-4 text-primary" />Import Assets or Inventory</h2>
+        <div className="flex gap-3 mb-4">
+          {(['assets', 'inventory'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setImportType(t)}
+              className={cn(
+                'px-4 py-1.5 rounded-md text-sm font-medium border transition-all capitalize',
+                importType === t ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {t === 'assets' ? 'Equipment / Assets' : 'Inventory Items'}
+            </button>
+          ))}
+        </div>
+        <div className="p-4 rounded-xl border border-dashed border-border/60 bg-muted/10 text-center space-y-3">
+          <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Upload CSV file</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {importType === 'assets'
+                ? 'Columns: name, type, model, serial, location, install_date, design_life_hours'
+                : 'Columns: name, sku, category, quantity, unit, location, reorder_point'}
+            </p>
+          </div>
+          <label className="inline-flex cursor-pointer items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border border-primary/30 text-primary text-sm hover:bg-primary/20 transition-colors">
+            <FolderOpen className="w-4 h-4" />
+            Choose File
+            <input type="file" accept=".csv" className="sr-only" onChange={handleImportCSV} />
+          </label>
+        </div>
+        {importPreview.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-muted-foreground font-medium">Preview ({importPreview.length - 1} records):</p>
+            <div className="overflow-x-auto rounded-lg border border-border/30">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/30">
+                    {importPreview[0]?.map((h, i) => <th key={i} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {importPreview.slice(1).map((row, ri) => (
+                    <tr key={ri} className="border-t border-border/20">
+                      {row.map((cell, ci) => <td key={ci} className="px-3 py-2 whitespace-nowrap">{cell}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Button size="sm" onClick={confirmImport} className="gap-2">
+              <CheckCircle className="w-4 h-4" />Confirm Import
+            </Button>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
 
 function BillingTab({ user }: { user: any }) {
   const { toast } = useToast();
@@ -977,26 +1540,10 @@ const Settings = () => {
 
             {/* ── Plan & Billing ── */}
             {activeTab === 'billing' && <BillingTab user={user} />}
+            {activeTab === 'addons'  && <LocationsAddonsTab user={user} />}
 
             {/* ── Integrations ── */}
-            {activeTab === 'integration' && (
-              <div className="space-y-6">
-                <h2 className="text-base md:text-lg font-semibold">Integrations</h2>
-                <div className="space-y-3">
-                  {[
-                    { name: 'Stripe Billing',  desc: 'Payment processing and subscription management',       status: 'connected' },
-                    { name: 'AWS Cognito',      desc: 'Authentication and user management',                   status: 'connected' },
-                    { name: 'Claude AI',        desc: 'VVFI Instructor, compliance narratives, photo analysis', status: 'connected' },
-                    { name: 'S3 Storage',       desc: 'Audit report and document storage',                   status: 'connected' },
-                  ].map((int) => (
-                    <div key={int.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                      <div><p className="font-medium text-sm">{int.name}</p><p className="text-xs text-muted-foreground">{int.desc}</p></div>
-                      <Badge className={int.status === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>{int.status}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {activeTab === 'integration' && <IntegrationsTab user={user} />}
 
             {/* ── Data & Backup ── */}
             {activeTab === 'data' && (

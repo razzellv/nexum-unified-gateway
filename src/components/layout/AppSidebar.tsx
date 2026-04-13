@@ -122,13 +122,23 @@ function getVisibleItems(
   const isGovtStaff      = orgType === 'government'  && GOVT_STAFF.includes(role);
   const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
+  // Active purchased add-on modules (persist across tier upgrades)
+  let activeModules: string[] = [];
+  try { activeModules = JSON.parse(localStorage.getItem('nexum_active_modules') || '[]'); } catch { /* ignore */ }
+  const hasRetailModule = activeModules.includes('addon_retail');
+  const hasGovtModule   = activeModules.includes('addon_govt');
+
   return allNavItems.filter(item => {
     // Admin-only items (e.g. FIAS) — never shown to non-admins
     if (item.access === 'admin_only') return isAdmin;
 
     // Org-type filter — admin sees all org dashboards; others only see their own
+    // Exception: if user purchased the Retail/Govt add-on module, show those dashboards regardless of org type
     if (item.orgTypes && item.orgTypes.length > 0) {
-      if (!isAdmin && !item.orgTypes.includes(orgType)) return false;
+      if (isAdmin) { /* admin always sees all */ }
+      else if (item.orgTypes.includes('retail')     && hasRetailModule) { /* add-on purchased */ }
+      else if (item.orgTypes.includes('government') && hasGovtModule)   { /* add-on purchased */ }
+      else if (!item.orgTypes.includes(orgType)) return false;
     }
 
     if (item.type === 'separator') {
