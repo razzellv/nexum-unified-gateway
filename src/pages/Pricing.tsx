@@ -281,8 +281,8 @@ const STANDARD_MODULE_ADDONS = [
   {
     id: 'addon_retail',
     name: 'Retail Module',
-    priceId: 'price_standard_addon_retail',
-    annualCost: 4999,
+    priceId: 'price_1TLs9PDfw4bOR2dfka4QxilT',
+    annualCost: 2500,
     icon: ShoppingCart,
     color: 'text-green-400',
     border: 'border-green-500/30',
@@ -299,8 +299,8 @@ const STANDARD_MODULE_ADDONS = [
   {
     id: 'addon_govt',
     name: 'Government Module',
-    priceId: 'price_standard_addon_govt',
-    annualCost: 4999,
+    priceId: 'price_1TLs9wDfw4bOR2dfpXlMi0iw',
+    annualCost: 4000,
     icon: Shield,
     color: 'text-blue-400',
     border: 'border-blue-500/30',
