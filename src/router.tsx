@@ -51,6 +51,7 @@ import Workload from "./pages/command-hub/Workload";
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Courses from "./pages/Courses";
+import FIAS from "./pages/FIAS";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -251,6 +252,10 @@ export const router = createBrowserRouter([
           {
             path: "optimize-learn",
             element: <Courses />,
+          },
+          {
+            path: "fias",
+            element: <FIAS />,
           },
         ],
       },

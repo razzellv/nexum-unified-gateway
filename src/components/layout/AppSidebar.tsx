@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -102,6 +102,10 @@ const allNavItems: NavItem[] = [
   { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
+
+  // Nexum Suum internal tools — admin only
+  { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
+  { name: 'FIAS', href: '/fias', icon: ClipboardCheck, access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────
@@ -117,6 +121,9 @@ function getVisibleItems(
   const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
   return allNavItems.filter(item => {
+    // Admin-only items (e.g. FIAS) — never shown to non-admins
+    if (item.access === 'admin_only') return isAdmin;
+
     // Org-type filter — admin sees all org dashboards; others only see their own
     if (item.orgTypes && item.orgTypes.length > 0) {
       if (!isAdmin && !item.orgTypes.includes(orgType)) return false;
