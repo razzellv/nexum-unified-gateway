@@ -156,6 +156,7 @@ interface GovItem {
   condition?: 'Good' | 'Fair' | 'Poor' | 'Inspect';
   quantity?: number;
   unit?: string;
+  unitCost?: number;
   notes?: string;
   createdAt: string;
 }
@@ -163,11 +164,11 @@ interface GovItem {
 type AddItemType = 'parts' | 'food' | 'apparel' | 'retail' | 'pharmacy';
 
 const EMPTY_PARTS_FORM = { name: '', partNumber: '', category: '', quantity: '', minQuantity: '', location: '', supplier: '', unitCost: '', compatibleEquipment: '' };
-const EMPTY_FOOD_FORM = { name: '', quantity: '', unit: 'each', batchNumber: '', expirationDate: '', storageTemp: '', fifoOrder: '', allergens: '', supplier: '' };
-const EMPTY_APPAREL_FORM = { name: '', sku: '', size: '', color: '', season: '', quantity: '', reorderPoint: '', department: '' };
+const EMPTY_FOOD_FORM = { name: '', quantity: '', unit: 'each', batchNumber: '', expirationDate: '', storageTemp: '', fifoOrder: '', allergens: '', supplier: '', unitCost: '' };
+const EMPTY_APPAREL_FORM = { name: '', sku: '', size: '', color: '', season: '', quantity: '', reorderPoint: '', department: '', unitCost: '' };
 const EMPTY_RETAIL_FORM = { name: '', sku: '', quantity: '', reorderPoint: '', supplier: '', unitCost: '' };
-const EMPTY_PHARMACY_FORM = { name: '', ndc: '', expirationDate: '', quantity: '', storageTemp: '', controlled: 'no' };
-const EMPTY_GOV_FORM = { name: '', govCategory: 'apparatus' as GovCategory, serialNumber: '', status: 'available' as GovItem['status'], mileage: '', lastService: '', nextService: '', assignedTo: '', lastInspection: '', size: '', condition: 'Good' as GovItem['condition'], quantity: '1', unit: 'each', notes: '' };
+const EMPTY_PHARMACY_FORM = { name: '', ndc: '', expirationDate: '', quantity: '', storageTemp: '', controlled: 'no', unitCost: '' };
+const EMPTY_GOV_FORM = { name: '', govCategory: 'apparatus' as GovCategory, serialNumber: '', status: 'available' as GovItem['status'], mileage: '', lastService: '', nextService: '', assignedTo: '', lastInspection: '', size: '', condition: 'Good' as GovItem['condition'], quantity: '1', unit: 'each', notes: '', unitCost: '' };
 
 // ── Mock gov data ─────────────────────────────────────────────────────────────
 const MOCK_GOV_ITEMS: GovItem[] = [
@@ -374,16 +375,16 @@ export default function InventoryLibrary() {
         newItem = { partId, itemType: 'part', ...partsForm, quantity: parseInt(partsForm.quantity) || 0, minQuantity: parseInt(partsForm.minQuantity) || 0, unitCost: parseFloat(partsForm.unitCost) || 0, compatibleEquipment: partsForm.compatibleEquipment ? partsForm.compatibleEquipment.split(',').map(s => s.trim()) : [], createdAt };
       } else if (addItemType === 'food') {
         if (!foodForm.name) { toast({ title: 'Name required', variant: 'destructive' }); return; }
-        newItem = { partId, itemType: 'food', category: 'FOOD', ...foodForm, quantity: parseInt(foodForm.quantity) || 0, minQuantity: 0, fifoOrder: parseInt(foodForm.fifoOrder) || 0, allergens: foodForm.allergens ? foodForm.allergens.split(',').map(s => s.trim()).filter(Boolean) : [], createdAt };
+        newItem = { partId, itemType: 'food', category: 'FOOD', ...foodForm, quantity: parseInt(foodForm.quantity) || 0, minQuantity: 0, fifoOrder: parseInt(foodForm.fifoOrder) || 0, unitCost: parseFloat(foodForm.unitCost) || 0, allergens: foodForm.allergens ? foodForm.allergens.split(',').map(s => s.trim()).filter(Boolean) : [], createdAt };
       } else if (addItemType === 'apparel') {
         if (!apparelForm.name) { toast({ title: 'Name required', variant: 'destructive' }); return; }
-        newItem = { partId, itemType: 'supply', category: 'APPAREL', partNumber: apparelForm.sku, ...apparelForm, quantity: parseInt(apparelForm.quantity) || 0, minQuantity: parseInt(apparelForm.reorderPoint) || 0, createdAt };
+        newItem = { partId, itemType: 'supply', category: 'APPAREL', partNumber: apparelForm.sku, ...apparelForm, quantity: parseInt(apparelForm.quantity) || 0, minQuantity: parseInt(apparelForm.reorderPoint) || 0, unitCost: parseFloat(apparelForm.unitCost) || 0, createdAt };
       } else if (addItemType === 'retail') {
         if (!retailForm.name) { toast({ title: 'Name required', variant: 'destructive' }); return; }
         newItem = { partId, itemType: 'retail', category: 'RETAIL', partNumber: retailForm.sku, ...retailForm, quantity: parseInt(retailForm.quantity) || 0, minQuantity: parseInt(retailForm.reorderPoint) || 0, unitCost: parseFloat(retailForm.unitCost) || 0, createdAt };
       } else if (addItemType === 'pharmacy') {
         if (!pharmacyForm.name || !pharmacyForm.expirationDate) { toast({ title: 'Name and expiry date required', variant: 'destructive' }); return; }
-        newItem = { partId, itemType: 'chemical', category: 'PHARMACY', partNumber: pharmacyForm.ndc, ...pharmacyForm, quantity: parseInt(pharmacyForm.quantity) || 0, minQuantity: 0, createdAt };
+        newItem = { partId, itemType: 'chemical', category: 'PHARMACY', partNumber: pharmacyForm.ndc, ...pharmacyForm, quantity: parseInt(pharmacyForm.quantity) || 0, minQuantity: 0, unitCost: parseFloat(pharmacyForm.unitCost) || 0, createdAt };
       }
 
       // Save to localStorage
@@ -434,6 +435,7 @@ export default function InventoryLibrary() {
         condition: govForm.condition,
         quantity: parseInt(govForm.quantity) || 1,
         unit: govForm.unit || 'each',
+        unitCost: parseFloat(govForm.unitCost) || undefined,
         notes: govForm.notes || undefined,
         createdAt: new Date().toISOString(),
       };
@@ -463,6 +465,7 @@ export default function InventoryLibrary() {
   const lowStockCount = inventory.filter(i => i.quantity <= i.minQuantity && i.quantity > 0).length;
   const outOfStockCount = inventory.filter(i => i.quantity === 0).length;
   const totalValue = inventory.reduce((sum, i) => sum + (i.quantity * (i.unitCost || 0)), 0);
+  const govTotalValue = govItems.reduce((sum, i) => sum + ((i.quantity || 1) * (i.unitCost || 0)), 0);
   const subCategoryOptions = activeGroupFilter === 'all' ? ALL_CATEGORY_OPTIONS : CATEGORY_GROUPS.find(g => g.value === activeGroupFilter)?.items || [];
 
   // Gov stats
@@ -679,12 +682,13 @@ export default function InventoryLibrary() {
             </div>
 
             {/* KPI row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
                 { label: 'Compliance %', value: `${govCompliance}%`, icon: CheckCircle, color: govCompliance >= 90 ? 'text-green-400' : govCompliance >= 70 ? 'text-yellow-400' : 'text-red-400' },
                 { label: 'Available Units', value: govAvailable, icon: Truck, color: 'text-green-400' },
                 { label: 'In Maintenance', value: govMaintenance, icon: AlertTriangle, color: govMaintenance > 0 ? 'text-yellow-400' : 'text-muted-foreground' },
                 { label: 'Need Inspection', value: govInspectNeeded, icon: AlertOctagon, color: govInspectNeeded > 0 ? 'text-orange-400' : 'text-muted-foreground' },
+                { label: 'Asset Value', value: govTotalValue > 0 ? `$${govTotalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—', icon: TrendingUp, color: 'text-primary' },
               ].map(({ label, value, icon: Icon, color }) => (
                 <Card key={label} className="neon-border">
                   <CardContent className="p-3">
@@ -927,7 +931,8 @@ export default function InventoryLibrary() {
                 <div className="space-y-1.5"><Label className="text-xs">Storage Temp</Label><Input value={foodForm.storageTemp} onChange={e => setFoodForm(p => ({...p, storageTemp: e.target.value}))} placeholder="35-38°F" className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">FIFO Order</Label><Input type="number" min={1} value={foodForm.fifoOrder} onChange={e => setFoodForm(p => ({...p, fifoOrder: e.target.value}))} placeholder="1" className="h-9 text-sm" /></div>
                 <div className="col-span-2 space-y-1.5"><Label className="text-xs">Allergens (comma-separated)</Label><Input value={foodForm.allergens} onChange={e => setFoodForm(p => ({...p, allergens: e.target.value}))} placeholder="Gluten, Dairy, Nuts" className="h-9 text-sm" /></div>
-                <div className="col-span-2 space-y-1.5"><Label className="text-xs">Supplier</Label><Input value={foodForm.supplier} onChange={e => setFoodForm(p => ({...p, supplier: e.target.value}))} className="h-9 text-sm" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Supplier</Label><Input value={foodForm.supplier} onChange={e => setFoodForm(p => ({...p, supplier: e.target.value}))} className="h-9 text-sm" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Unit Cost ($)</Label><Input type="number" min={0} step={0.01} value={foodForm.unitCost} onChange={e => setFoodForm(p => ({...p, unitCost: e.target.value}))} placeholder="0.00" className="h-9 text-sm" /></div>
               </div>
             </div>}
 
@@ -941,7 +946,8 @@ export default function InventoryLibrary() {
                 <div className="space-y-1.5"><Label className="text-xs">Season</Label><Input value={apparelForm.season} onChange={e => setApparelForm(p => ({...p, season: e.target.value}))} placeholder="All Season, Winter" className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Quantity</Label><Input type="number" min={0} value={apparelForm.quantity} onChange={e => setApparelForm(p => ({...p, quantity: e.target.value}))} className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Reorder Point</Label><Input type="number" min={0} value={apparelForm.reorderPoint} onChange={e => setApparelForm(p => ({...p, reorderPoint: e.target.value}))} className="h-9 text-sm" /></div>
-                <div className="col-span-2 space-y-1.5"><Label className="text-xs">Department</Label><Input value={apparelForm.department} onChange={e => setApparelForm(p => ({...p, department: e.target.value}))} placeholder="Front of House, Kitchen" className="h-9 text-sm" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Unit Cost ($)</Label><Input type="number" min={0} step={0.01} value={apparelForm.unitCost} onChange={e => setApparelForm(p => ({...p, unitCost: e.target.value}))} placeholder="0.00" className="h-9 text-sm" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Department</Label><Input value={apparelForm.department} onChange={e => setApparelForm(p => ({...p, department: e.target.value}))} placeholder="Front of House, Kitchen" className="h-9 text-sm" /></div>
               </div>
             </div>}
 
@@ -964,6 +970,7 @@ export default function InventoryLibrary() {
                 <div className="space-y-1.5"><Label className="text-xs">NDC</Label><Input value={pharmacyForm.ndc} onChange={e => setPharmacyForm(p => ({...p, ndc: e.target.value}))} placeholder="XXXXX-XXXX-XX" className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Expiry Date *</Label><Input type="date" value={pharmacyForm.expirationDate} onChange={e => setPharmacyForm(p => ({...p, expirationDate: e.target.value}))} className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Quantity</Label><Input type="number" min={0} value={pharmacyForm.quantity} onChange={e => setPharmacyForm(p => ({...p, quantity: e.target.value}))} className="h-9 text-sm" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Unit Cost ($)</Label><Input type="number" min={0} step={0.01} value={pharmacyForm.unitCost} onChange={e => setPharmacyForm(p => ({...p, unitCost: e.target.value}))} placeholder="0.00" className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Storage Temp</Label><Input value={pharmacyForm.storageTemp} onChange={e => setPharmacyForm(p => ({...p, storageTemp: e.target.value}))} placeholder="36-46°F" className="h-9 text-sm" /></div>
                 <div className="col-span-2 space-y-1.5"><Label className="text-xs">Controlled Substance</Label>
                   <div className="flex gap-2">
@@ -1056,6 +1063,7 @@ export default function InventoryLibrary() {
                 <div className="space-y-1.5"><Label className="text-xs">Quantity</Label><Input type="number" min={1} value={govForm.quantity} onChange={e => setGovForm(p => ({...p, quantity: e.target.value}))} className="h-9 text-sm" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Unit</Label><Input value={govForm.unit} onChange={e => setGovForm(p => ({...p, unit: e.target.value}))} placeholder="each, box, set" className="h-9 text-sm" /></div>
               </>}
+              <div className="space-y-1.5"><Label className="text-xs">Unit Cost ($)</Label><Input type="number" min={0} step={0.01} value={govForm.unitCost} onChange={e => setGovForm(p => ({...p, unitCost: e.target.value}))} placeholder="0.00" className="h-9 text-sm" /></div>
               <div className="col-span-2 space-y-1.5"><Label className="text-xs">Notes</Label><Textarea value={govForm.notes} onChange={e => setGovForm(p => ({...p, notes: e.target.value}))} placeholder="Additional details..." className="min-h-[60px] text-sm resize-none" /></div>
             </div>
 
