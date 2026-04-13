@@ -25,6 +25,7 @@ interface Equipment {
   serialNumber?: string;
   location?: string;
   installDate?: string;
+  manufactureDate?: string;
   status?: string;
   buildingId?: string;
   baseline?: any;
@@ -33,6 +34,25 @@ interface Equipment {
   purchasePrice?: number;
   replacementCost?: number;
   warrantyExpiry?: string;
+  // Runtime / health fields
+  currentRuntimeHours?: number;
+  designLifeHours?: number;
+  lastInspectionDate?: string;
+  certificationExpiry?: string;
+  lastPMDate?: string;
+  dataPlateNotes?: string;
+}
+
+function assetHealthPct(eq: Equipment): number | null {
+  if (!eq.designLifeHours || !eq.currentRuntimeHours) return null;
+  return Math.max(0, Math.round((1 - eq.currentRuntimeHours / eq.designLifeHours) * 100));
+}
+
+function healthColor(pct: number) {
+  if (pct >= 70) return 'text-green-400';
+  if (pct >= 40) return 'text-yellow-400';
+  if (pct >= 20) return 'text-orange-400';
+  return 'text-red-400';
 }
 
 const cleanText = (text: string) => {
@@ -50,6 +70,11 @@ const FACILITY_TYPE_GROUPS = [
   { label: 'Pumping', types: ['pump', 'compressor'] },
   { label: 'Electrical & Power', types: ['generator', 'mpcc', 'ups', 'transformer', 'ats'] },
   { label: 'Production', types: ['conveyor', 'spiral_freezer', 'mixer', 'press', 'packaging_line'] },
+  { label: 'Furniture', types: ['desk', 'chair', 'table', 'sofa', 'filing_cabinet', 'locker', 'shelving', 'cubicle_panel'] },
+  { label: 'Appliances', types: ['refrigerator', 'microwave', 'dishwasher', 'washer', 'dryer', 'coffee_machine', 'water_cooler', 'vending_machine'] },
+  { label: 'IT Equipment', types: ['desktop_computer', 'laptop', 'server', 'network_switch', 'printer', 'copier', 'projector', 'monitor', 'ups_it'] },
+  { label: 'Kitchen Equipment', types: ['commercial_oven', 'commercial_fridge', 'hood_vent', 'prep_table', 'warming_drawer', 'dishwasher_commercial'] },
+  { label: 'Janitorial / Maintenance', types: ['floor_scrubber', 'carpet_cleaner', 'pressure_washer', 'vacuum_commercial', 'ladder', 'scaffold'] },
   { label: 'Other', types: ['other'] },
 ];
 
@@ -147,9 +172,11 @@ export default function EquipmentLibrary() {
 
   const [formData, setFormData] = useState({
     equipmentType: '', manufacturer: '', model: '', serialNumber: '',
-    location: '', installDate: '', buildingId: '', status: 'active',
+    location: '', installDate: '', manufactureDate: '', buildingId: '', status: 'active',
     equipmentName: '', count: '1',
     purchasePrice: '', replacementCost: '', warrantyExpiry: '',
+    currentRuntimeHours: '', designLifeHours: '',
+    lastInspectionDate: '', certificationExpiry: '', lastPMDate: '', dataPlateNotes: '',
   });
   const [requestReason, setRequestReason] = useState('');
 
@@ -215,6 +242,12 @@ export default function EquipmentLibrary() {
         count: parseInt(formData.count) || 1,
         purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
         replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
+        currentRuntimeHours: formData.currentRuntimeHours ? parseFloat(formData.currentRuntimeHours) : undefined,
+        designLifeHours: formData.designLifeHours ? parseFloat(formData.designLifeHours) : undefined,
+        assetHealthPct: (formData.designLifeHours && formData.currentRuntimeHours)
+          ? Math.max(0, Math.round((1 - parseFloat(formData.currentRuntimeHours) / parseFloat(formData.designLifeHours)) * 100))
+          : undefined,
+        dataType: 'asset_health',
       }) });
       toast({ title: 'Success', description: 'Equipment added successfully' });
       setAddDialogOpen(false);
@@ -314,7 +347,7 @@ export default function EquipmentLibrary() {
 
   const openEditDialog = (eq: Equipment) => {
     setSelectedEquipment(eq);
-    setFormData({ equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model, serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active', equipmentName: eq.equipmentName || '', count: String(eq.count || 1), purchasePrice: eq.purchasePrice ? String(eq.purchasePrice) : '', replacementCost: eq.replacementCost ? String(eq.replacementCost) : '', warrantyExpiry: eq.warrantyExpiry || '' });
+    setFormData({ equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model, serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '', manufactureDate: eq.manufactureDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active', equipmentName: eq.equipmentName || '', count: String(eq.count || 1), purchasePrice: eq.purchasePrice ? String(eq.purchasePrice) : '', replacementCost: eq.replacementCost ? String(eq.replacementCost) : '', warrantyExpiry: eq.warrantyExpiry || '', currentRuntimeHours: eq.currentRuntimeHours ? String(eq.currentRuntimeHours) : '', designLifeHours: eq.designLifeHours ? String(eq.designLifeHours) : '', lastInspectionDate: eq.lastInspectionDate || '', certificationExpiry: eq.certificationExpiry || '', lastPMDate: eq.lastPMDate || '', dataPlateNotes: eq.dataPlateNotes || '' });
     setEditDialogOpen(true);
   };
 
@@ -326,7 +359,7 @@ export default function EquipmentLibrary() {
     setBaselineDialogOpen(true);
   };
 
-  const resetForm = () => setFormData({ equipmentType: '', manufacturer: '', model: '', serialNumber: '', location: '', installDate: '', buildingId: '', status: 'active', equipmentName: '', count: '1', purchasePrice: '', replacementCost: '', warrantyExpiry: '' });
+  const resetForm = () => setFormData({ equipmentType: '', manufacturer: '', model: '', serialNumber: '', location: '', installDate: '', manufactureDate: '', buildingId: '', status: 'active', equipmentName: '', count: '1', purchasePrice: '', replacementCost: '', warrantyExpiry: '', currentRuntimeHours: '', designLifeHours: '', lastInspectionDate: '', certificationExpiry: '', lastPMDate: '', dataPlateNotes: '' });
 
   const filteredEquipment = equipment.filter(eq =>
     eq.equipmentId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -394,6 +427,50 @@ export default function EquipmentLibrary() {
         <div className="space-y-2"><Label>Purchase Price ($)</Label><Input type="number" value={formData.purchasePrice} onChange={e => setFormData(f => ({ ...f, purchasePrice: e.target.value }))} placeholder="125000" /></div>
         <div className="space-y-2"><Label>Replacement Cost ($)</Label><Input type="number" value={formData.replacementCost} onChange={e => setFormData(f => ({ ...f, replacementCost: e.target.value }))} placeholder="180000" /></div>
         <div className="space-y-2"><Label>Warranty Expiry</Label><Input type="date" value={formData.warrantyExpiry} onChange={e => setFormData(f => ({ ...f, warrantyExpiry: e.target.value }))} /></div>
+      </div>
+
+      {/* Asset Health / Runtime */}
+      <div className="pt-2 border-t border-border/30">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Asset Health & Runtime</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Current Runtime Hours</Label>
+            <Input type="number" value={formData.currentRuntimeHours} onChange={e => setFormData(f => ({ ...f, currentRuntimeHours: e.target.value }))} placeholder="e.g., 12500" />
+          </div>
+          <div className="space-y-2">
+            <Label>Design Life (Hours) — Data Plate</Label>
+            <Input type="number" value={formData.designLifeHours} onChange={e => setFormData(f => ({ ...f, designLifeHours: e.target.value }))} placeholder="e.g., 50000" />
+          </div>
+          <div className="space-y-2">
+            <Label>Manufacture Date</Label>
+            <Input type="date" value={formData.manufactureDate} onChange={e => setFormData(f => ({ ...f, manufactureDate: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Last PM Date</Label>
+            <Input type="date" value={formData.lastPMDate} onChange={e => setFormData(f => ({ ...f, lastPMDate: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Last Inspection Date</Label>
+            <Input type="date" value={formData.lastInspectionDate} onChange={e => setFormData(f => ({ ...f, lastInspectionDate: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Certification / Inspection Expiry</Label>
+            <Input type="date" value={formData.certificationExpiry} onChange={e => setFormData(f => ({ ...f, certificationExpiry: e.target.value }))} />
+          </div>
+        </div>
+        <div className="space-y-2 mt-3">
+          <Label>Data Plate Notes</Label>
+          <Input value={formData.dataPlateNotes} onChange={e => setFormData(f => ({ ...f, dataPlateNotes: e.target.value }))} placeholder="e.g., MAWP 150 PSI, 460V 3Ph, SN stamped on right panel" />
+        </div>
+        {formData.currentRuntimeHours && formData.designLifeHours && (
+          <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs flex items-center gap-3">
+            <span className="text-muted-foreground">Estimated Asset Health:</span>
+            <span className={`text-lg font-bold ${healthColor(Math.max(0, Math.round((1 - parseFloat(formData.currentRuntimeHours) / parseFloat(formData.designLifeHours)) * 100)))}`}>
+              {Math.max(0, Math.round((1 - parseFloat(formData.currentRuntimeHours) / parseFloat(formData.designLifeHours)) * 100))}%
+            </span>
+            <span className="text-muted-foreground">({formData.currentRuntimeHours} hrs used of {formData.designLifeHours} hr design life)</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -603,7 +680,26 @@ export default function EquipmentLibrary() {
                           ) : eq.purchasePrice ? (
                             <p><strong>Purchase Price:</strong> ${eq.purchasePrice.toLocaleString()}</p>
                           ) : null}
+                          {eq.lastInspectionDate && <p><strong>Last Inspection:</strong> {eq.lastInspectionDate}</p>}
+                          {eq.certificationExpiry && <p><strong>Cert Expiry:</strong> {eq.certificationExpiry}</p>}
                         </div>
+                        {/* Asset Health Bar */}
+                        {(() => {
+                          const hp = assetHealthPct(eq);
+                          if (hp === null) return null;
+                          return (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Asset Health</span>
+                                <span className={`font-bold ${healthColor(hp)}`}>{hp}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${hp >= 70 ? 'bg-green-500' : hp >= 40 ? 'bg-yellow-500' : hp >= 20 ? 'bg-orange-500' : 'bg-red-500'}`} style={{ width: `${hp}%` }} />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">{eq.currentRuntimeHours?.toLocaleString()} hrs / {eq.designLifeHours?.toLocaleString()} hr design life</p>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex flex-col items-end gap-3 shrink-0">

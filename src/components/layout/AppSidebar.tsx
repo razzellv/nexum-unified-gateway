@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -105,7 +105,9 @@ const allNavItems: NavItem[] = [
 
   // Nexum Suum internal tools — admin only
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
-  { name: 'FIAS', href: '/fias', icon: ClipboardCheck, access: 'admin_only' },
+  { name: 'FIAS',            href: '/fias',          icon: ClipboardCheck, access: 'admin_only' },
+  { name: 'Policy Guide',    href: '/policy-guide',  icon: BookOpen,       access: 'admin_only' },
+  { name: 'Workspace',       href: '/workspace',     icon: Briefcase,      access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────

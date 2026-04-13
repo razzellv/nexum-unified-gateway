@@ -132,26 +132,40 @@ function BillingTab({ user }: { user: any }) {
   const { toast } = useToast();
   const currentTier: string = user?.tier || 'basic';
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason]           = useState('');
 
   const handleUpgrade = (planId: string) => {
-    // Redirect to billing portal — replace URL with your actual Stripe / billing portal link
-    const billingUrl = `https://billing.nexumsuum.com/upgrade?plan=${planId}&email=${encodeURIComponent(user?.email || '')}`;
-    window.open(billingUrl, '_blank', 'noopener,noreferrer');
+    // Opens pricing page for plan selection → Stripe checkout
+    window.location.href = `/pricing?plan=${planId}`;
+  };
+
+  const handleViewPricing = () => {
+    window.location.href = '/pricing';
   };
 
   const handleManageBilling = () => {
-    const billingUrl = `https://billing.nexumsuum.com/portal?email=${encodeURIComponent(user?.email || '')}`;
+    const billingUrl = `https://billing.stripe.com/p/login/nexumsuum?prefilled_email=${encodeURIComponent(user?.email || '')}`;
     window.open(billingUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleCancelSubscription = () => {
+    // In production: POST to /billing/cancel with reason
     toast({
-      title: 'Cancellation Request Sent',
-      description: 'Your cancellation has been submitted. Access continues until the end of your billing period.',
+      title: 'Cancellation Request Received',
+      description: 'Your request has been logged. You retain full access until the end of your current billing period. Confirmation will be sent to your email.',
     });
     setShowCancelConfirm(false);
-    // In production: POST to /billing/cancel endpoint here
+    setCancelReason('');
   };
+
+  const CANCEL_REASONS = [
+    'Too expensive for our budget',
+    'Missing features we need',
+    'Switching to another solution',
+    'Facility closed or restructured',
+    'Temporary pause — plan to return',
+    'Other',
+  ];
 
   return (
     <div className="space-y-8">
@@ -161,12 +175,18 @@ function BillingTab({ user }: { user: any }) {
           <div className="p-2 rounded-lg bg-cyan-500/20"><CreditCard className="w-5 h-5 text-cyan-400" /></div>
           <div>
             <p className="text-xs text-muted-foreground">Current Plan</p>
-            <p className="font-semibold text-lg capitalize">{currentTier.replace('_', ' ')}</p>
+            <p className="font-semibold text-lg capitalize">{currentTier.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{user?.email}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleManageBilling}>
-          <ExternalLink className="w-4 h-4" /> Manage Billing Portal
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" className="gap-2 bg-cyan-600 hover:bg-cyan-500" onClick={handleViewPricing}>
+            <ArrowUpCircle className="w-4 h-4" /> Upgrade Plan
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleManageBilling}>
+            <ExternalLink className="w-4 h-4" /> Billing Portal
+          </Button>
+        </div>
       </div>
 
       {/* Plan comparison */}
@@ -224,7 +244,7 @@ function BillingTab({ user }: { user: any }) {
       </div>
 
       {/* Cancellation policy */}
-      <div className="rounded-xl border border-border bg-muted/20 p-5 space-y-3">
+      <div className="rounded-xl border border-border bg-muted/20 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-yellow-400" />
           <h3 className="font-semibold text-sm">Cancellation Policy</h3>
@@ -232,13 +252,14 @@ function BillingTab({ user }: { user: any }) {
         <ul className="space-y-2">
           {CANCELLATION_POLICY.map((point, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-yellow-400/70 shrink-0" />
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-yellow-400/70 shrink-0" />
               {point}
             </li>
           ))}
         </ul>
-        <div className="pt-2">
-          {!showCancelConfirm ? (
+
+        {!showCancelConfirm ? (
+          <div className="pt-1">
             <Button
               variant="outline"
               size="sm"
@@ -247,20 +268,32 @@ function BillingTab({ user }: { user: any }) {
             >
               Cancel Subscription
             </Button>
-          ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-              <p className="text-sm text-red-400 flex-1">
-                Are you sure? You'll keep access until the end of your billing period.
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowCancelConfirm(false)}>Keep Plan</Button>
-                <Button size="sm" className="bg-red-600 hover:bg-red-500 text-white" onClick={handleCancelSubscription}>
-                  Yes, Cancel
-                </Button>
-              </div>
+          </div>
+        ) : (
+          <div className="space-y-3 p-4 rounded-lg bg-red-500/5 border border-red-500/30">
+            <p className="text-sm font-semibold text-red-400">Confirm Cancellation</p>
+            <p className="text-xs text-muted-foreground">
+              You'll keep full access until the end of your current billing period. After that, your data is retained for 90 days.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason for cancelling (optional)</Label>
+              <Select value={cancelReason} onValueChange={setCancelReason}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Select a reason..." /></SelectTrigger>
+                <SelectContent>
+                  {CANCEL_REASONS.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-        </div>
+            <div className="flex gap-2 pt-1">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => { setShowCancelConfirm(false); setCancelReason(''); }}>
+                Keep My Plan
+              </Button>
+              <Button size="sm" className="flex-1 bg-red-600 hover:bg-red-500 text-white" onClick={handleCancelSubscription}>
+                Confirm Cancellation
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

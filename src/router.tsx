@@ -52,6 +52,8 @@ import Workload from "./pages/command-hub/Workload";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Courses from "./pages/Courses";
 import FIAS from "./pages/FIAS";
+import PolicyGuide from "./pages/PolicyGuide";
+import NexumWorkspace from "./pages/NexumWorkspace";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -256,6 +258,14 @@ export const router = createBrowserRouter([
           {
             path: "fias",
             element: <FIAS />,
+          },
+          {
+            path: "policy-guide",
+            element: <PolicyGuide />,
+          },
+          {
+            path: "workspace",
+            element: <NexumWorkspace />,
           },
         ],
       },

@@ -9,7 +9,7 @@ import { apiRequest } from '@/lib/api';
 import {
   BookOpen, CheckCircle, Clock, Flame, Snowflake, Wind,
   Zap, Shield, AlertTriangle, Wrench, RefreshCw, GraduationCap,
-  PlayCircle, Lock,
+  PlayCircle, Lock, ClipboardCheck, BarChart3, Users, Brain, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -166,6 +166,105 @@ const FALLBACK_COURSES: Course[] = [
       { id: 'nes-5', title: 'Troubleshooting & Diagnostics',            durationMin: 35 },
       { id: 'nes-6', title: 'Safety & Compliance Standards',            durationMin: 20 },
       { id: 'nes-7', title: 'Documentation & Reporting',                durationMin: 15 },
+    ],
+  },
+
+  // ── Facility Intelligence Officer Track ──────────────────────────────────────
+  {
+    courseId: 'fio-role-and-responsibilities',
+    title: 'Facility Intelligence Officer: Role & Responsibilities',
+    description:
+      'Master the FIO position — scope of authority, 4-layer governance model, client relationship management, and how FIAS assessments drive platform intelligence.',
+    category: 'FI Officer',
+    icon: Brain,
+    iconColor: 'text-purple-400',
+    level: 'Beginner',
+    isNew: true,
+    modules: [
+      { id: 'fio-1', title: 'The FIO Role: Scope & Authority',                    durationMin: 20 },
+      { id: 'fio-2', title: '4-Layer Governance: Record → Validate → Interpret → Execute', durationMin: 25 },
+      { id: 'fio-3', title: 'Pre-Onboarding Protocol: Initial Facility Baseline', durationMin: 30 },
+      { id: 'fio-4', title: 'Ongoing Audit Cycles & Periodic Assessment',         durationMin: 20 },
+      { id: 'fio-5', title: 'Escalation Pathways & Stakeholder Communication',    durationMin: 25 },
+      { id: 'fio-6', title: 'Ethics, Confidentiality & Data Handling',            durationMin: 15 },
+    ],
+  },
+  {
+    courseId: 'fias-assessment-methodology',
+    title: 'FIAS Assessment Methodology',
+    description:
+      'Deep dive into the Facility Intelligence Assessment System — scoring formulas, condition question protocols, risk classification, findings documentation, and platform push workflow.',
+    category: 'FI Officer',
+    icon: ClipboardCheck,
+    iconColor: 'text-cyan-400',
+    level: 'Intermediate',
+    isNew: true,
+    modules: [
+      { id: 'fias-1', title: 'FIAS Overview: Purpose & Architecture',             durationMin: 20 },
+      { id: 'fias-2', title: 'Section 1–2: Identity & Condition Assessment',      durationMin: 30 },
+      { id: 'fias-3', title: 'Section 3–4: Performance Review & Risk Classification', durationMin: 30 },
+      { id: 'fias-4', title: 'FIAS Score Formula & Risk Band Interpretation',     durationMin: 25 },
+      { id: 'fias-5', title: 'Findings Documentation & Work Order Generation',    durationMin: 25 },
+      { id: 'fias-6', title: 'Sealing Records & Pushing to FI Platform',          durationMin: 20 },
+      { id: 'fias-7', title: 'Evidence Standards & Field Photography',            durationMin: 15 },
+    ],
+  },
+  {
+    courseId: 'data-driven-facility-intelligence',
+    title: 'Data-Driven Facility Intelligence',
+    description:
+      'Transform raw facility data into actionable intelligence — log governance, admissibility scoring, dashboard interpretation, and KPI-driven decision making.',
+    category: 'FI Officer',
+    icon: BarChart3,
+    iconColor: 'text-blue-400',
+    level: 'Intermediate',
+    isNew: true,
+    modules: [
+      { id: 'ddfi-1', title: 'Log Governance: Admissible vs. Incomplete vs. Invalid', durationMin: 25 },
+      { id: 'ddfi-2', title: 'Reading Executive & Manager Dashboards',            durationMin: 20 },
+      { id: 'ddfi-3', title: 'KPI Interpretation: MTBF, Compliance Rate, Uptime', durationMin: 25 },
+      { id: 'ddfi-4', title: 'Trend Analysis & Predictive Indicators',            durationMin: 30 },
+      { id: 'ddfi-5', title: 'Data Conditioning: Flagging & Re-entry Protocols',  durationMin: 20 },
+      { id: 'ddfi-6', title: 'Intelligence Reports: Structure & Delivery',        durationMin: 25 },
+    ],
+  },
+  {
+    courseId: 'client-onboarding-and-success',
+    title: 'Client Onboarding & Platform Success',
+    description:
+      'Guide facility clients from first contact through FIAS baseline, platform activation, team setup, and ongoing engagement — with communication templates and escalation frameworks.',
+    category: 'FI Officer',
+    icon: Users,
+    iconColor: 'text-green-400',
+    level: 'Beginner',
+    isNew: true,
+    modules: [
+      { id: 'cos-1', title: 'Pre-Onboarding Checklist & Site Visit Preparation', durationMin: 20 },
+      { id: 'cos-2', title: 'Conducting the Initial FIAS Assessment',            durationMin: 25 },
+      { id: 'cos-3', title: 'Platform Activation & User Role Configuration',     durationMin: 20 },
+      { id: 'cos-4', title: 'Training Facility Teams on the FI Platform',        durationMin: 30 },
+      { id: 'cos-5', title: 'Ongoing Client Communication Cadence',              durationMin: 20 },
+      { id: 'cos-6', title: 'Escalation, Churn Signals & Retention Strategies', durationMin: 25 },
+    ],
+  },
+  {
+    courseId: 'fi-platform-advanced-operations',
+    title: 'FI Platform: Advanced Operations',
+    description:
+      'Advanced module for FIOs covering Operation Center governance, work order execution gates, violation lifecycle enforcement, compliance analyzer, and platform integration architecture.',
+    category: 'FI Officer',
+    icon: TrendingUp,
+    iconColor: 'text-orange-400',
+    level: 'Advanced',
+    isNew: true,
+    modules: [
+      { id: 'fpao-1', title: 'Operation Center: Log Governance & Admissibility',  durationMin: 25 },
+      { id: 'fpao-2', title: 'Work Order Execution Gates & Resolution Sealing',   durationMin: 20 },
+      { id: 'fpao-3', title: 'Violation Lifecycle: Sequence Enforcement',         durationMin: 20 },
+      { id: 'fpao-4', title: 'Compliance Analyzer: Pattern Recognition',          durationMin: 25 },
+      { id: 'fpao-5', title: 'FIAS → Dashboard Data Flow & Auto-WO Generation',  durationMin: 30 },
+      { id: 'fpao-6', title: 'Multi-Facility Management & Portfolio Views',       durationMin: 25 },
+      { id: 'fpao-7', title: 'Platform Troubleshooting & Client Support',         durationMin: 20 },
     ],
   },
 ];

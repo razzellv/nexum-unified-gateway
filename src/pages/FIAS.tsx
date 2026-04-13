@@ -16,7 +16,7 @@ import {
   ClipboardCheck, ChevronRight, ChevronLeft, Lock, AlertTriangle,
   CheckCircle, Shield, Building2, User, Wrench, FileText,
   TrendingDown, TrendingUp, BarChart3, Zap, AlertOctagon,
-  Download, Plus, Trash2, ArrowRight,
+  Download, Plus, Trash2, ArrowRight, Mail, Send,
 } from 'lucide-react';
 import {
   SystemType, AssessmentType, FIASFinding, RiskBand,
@@ -838,6 +838,19 @@ function StepsThreeToSeven({
           )}
         </div>
 
+        {/* Email Section */}
+        {/* email rendered as separate component defined below */}
+        <EmailSectionWidget
+          facilityName={facilityName}
+          systemType={systemType}
+          fiasScore={fiasScore}
+          riskBand={riskBand}
+          bandMeta={bandMeta}
+          findings={findings}
+          assessorName={assessorName}
+          conductedAt={conductedAt}
+        />
+
         {/* Seal / Push */}
         {!sealed ? (
           <div className="space-y-3">
@@ -872,5 +885,123 @@ function StepsThreeToSeven({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Email Section Widget ───────────────────────────────────────────────────────
+const RECIPIENTS = [
+  { label: 'razzellv@nexumsuum.com',                        value: 'razzellv@nexumsuum.com' },
+  { label: 'info@nexumsuum-facilityintelligence.com',       value: 'info@nexumsuum-facilityintelligence.com' },
+  { label: 'Custom address',                                 value: 'custom' },
+];
+
+function EmailSectionWidget({ facilityName, systemType, fiasScore, riskBand, bandMeta, findings, assessorName, conductedAt }: any) {
+  const { toast } = useToast();
+  const [recipient, setRecipient]     = useState('razzellv@nexumsuum.com');
+  const [customEmail, setCustomEmail] = useState('');
+  const [template, setTemplate]       = useState<'summary' | 'action' | 'ready' | 'custom'>('summary');
+  const [customBody, setCustomBody]   = useState('');
+  const [showCompose, setShowCompose] = useState(false);
+
+  const date = new Date(conductedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const woCount = findings.filter((f: any) => f.generateWorkOrder).length;
+
+  const TEMPLATES: Record<string, { subject: string; body: string }> = {
+    summary: {
+      subject: `FIAS Assessment Summary — ${facilityName || 'Facility'} | Score: ${fiasScore}`,
+      body: `Hello,\n\nPlease find below the FIAS assessment summary for ${facilityName || 'the facility'} conducted on ${date}.\n\nSystem Assessed: ${systemType?.replace(/_/g, ' ').toUpperCase()}\nFIAS Score: ${fiasScore} / 100\nRisk Band: ${bandMeta?.label}\n\nFindings Documented: ${findings.length}\nWork Orders to be Generated: ${woCount}\n\n${bandMeta?.action ? `Recommended Next Step: ${bandMeta.action}` : ''}\n\nPlease review the full assessment record on the FI Platform dashboard.\n\nRegards,\n${assessorName || 'Nexum Suum FIO'}\nFacility Intelligence Officer\nNexum Suum`,
+    },
+    action: {
+      subject: `Action Required — FIAS Finding at ${facilityName || 'Facility'} | ${bandMeta?.label}`,
+      body: `Hello,\n\nA FIAS assessment conducted on ${date} has identified items requiring your attention at ${facilityName || 'your facility'}.\n\nFIAS Score: ${fiasScore} — ${bandMeta?.label}\n\nCritical Findings (${findings.filter((f: any) => f.priority === 'critical').length}):\n${findings.filter((f: any) => f.priority === 'critical').map((f: any) => `• ${f.systemArea}: ${f.observedCondition}`).join('\n') || 'None'}\n\nHigh Priority Findings (${findings.filter((f: any) => f.priority === 'high').length}):\n${findings.filter((f: any) => f.priority === 'high').map((f: any) => `• ${f.systemArea}: ${f.observedCondition}`).join('\n') || 'None'}\n\nPlease acknowledge receipt and confirm the corrective action timeline.\n\nRegards,\n${assessorName || 'Nexum Suum FIO'}\nFacility Intelligence Officer\nNexum Suum`,
+    },
+    ready: {
+      subject: `Platform Update — ${facilityName || 'Facility'} Assessment Published`,
+      body: `Hello,\n\nThe FIAS assessment for ${facilityName || 'your facility'} conducted on ${date} has been sealed and published to the FI Platform.\n\nYour current FIAS Score: ${fiasScore} (${bandMeta?.label})\n\n${woCount > 0 ? `${woCount} work order(s) have been auto-generated on your dashboard. Please review and assign to the appropriate technicians.` : 'No work orders were generated from this assessment.'}\n\nYou can view the full report on your Executive Dashboard.\n\nRegards,\n${assessorName || 'Nexum Suum FIO'}\nFacility Intelligence Officer\nNexum Suum`,
+    },
+    custom: {
+      subject: `FIAS Note — ${facilityName || 'Facility'}`,
+      body: '',
+    },
+  };
+
+  const selectedTemplate = TEMPLATES[template];
+  const finalRecipient = recipient === 'custom' ? customEmail : recipient;
+  const finalBody = template === 'custom' ? customBody : selectedTemplate.body;
+
+  const handleOpenMailto = () => {
+    if (!finalRecipient || (recipient === 'custom' && !customEmail)) {
+      toast({ title: 'Recipient required', variant: 'destructive' }); return;
+    }
+    const mailto = `mailto:${finalRecipient}?subject=${encodeURIComponent(selectedTemplate.subject)}&body=${encodeURIComponent(finalBody)}`;
+    window.open(mailto, '_blank');
+    toast({ title: 'Email client opened', description: `Draft prepared for ${finalRecipient}` });
+  };
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-primary/5 space-y-3 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <Mail className="w-4 h-4" />Email Assessment
+        </div>
+        <button onClick={() => setShowCompose(v => !v)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          {showCompose ? 'Collapse' : 'Compose'}
+        </button>
+      </div>
+
+      {showCompose && (
+        <div className="space-y-3">
+          {/* Recipient */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Send To</Label>
+            <Select value={recipient} onValueChange={setRecipient}>
+              <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {RECIPIENTS.map(r => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {recipient === 'custom' && (
+              <Input value={customEmail} onChange={e => setCustomEmail(e.target.value)} placeholder="Enter email address" className="text-xs mt-1" />
+            )}
+          </div>
+
+          {/* Template */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Template</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { key: 'summary', label: 'Assessment Summary' },
+                { key: 'action',  label: 'Action Required' },
+                { key: 'ready',   label: 'Platform Ready' },
+                { key: 'custom',  label: 'Custom Message' },
+              ] as const).map(t => (
+                <button key={t.key} onClick={() => setTemplate(t.key)}
+                  className={cn('px-2 py-1.5 rounded-lg text-[11px] border transition-all text-left',
+                    template === t.key ? 'bg-primary/20 border-primary/50 text-primary' : 'border-border/30 text-muted-foreground hover:text-foreground')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preview / Custom body */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">{template === 'custom' ? 'Message' : 'Preview'}</Label>
+            <Textarea
+              value={template === 'custom' ? customBody : finalBody}
+              onChange={e => template === 'custom' && setCustomBody(e.target.value)}
+              readOnly={template !== 'custom'}
+              rows={6}
+              className="text-xs resize-none font-mono bg-muted/20"
+            />
+          </div>
+
+          <Button size="sm" className="w-full" onClick={handleOpenMailto}>
+            <Send className="w-3.5 h-3.5 mr-2" />Open in Email Client
+          </Button>
+          <p className="text-[10px] text-muted-foreground text-center">Opens your default email app with the draft pre-filled.</p>
+        </div>
+      )}
+    </div>
   );
 }
