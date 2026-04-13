@@ -276,6 +276,46 @@ const ADDONS = [
   { name: 'Training — Operations (26–50)', price: 6500, priceId: 'price_1TAbXhDfw4bOR2dfXVyOvlJe', desc: 'Operations training package', billing: 'one-time' },
 ];
 
+// ── Standard-tier module add-ons (Retail + Government) ───────────────────────
+const STANDARD_MODULE_ADDONS = [
+  {
+    id: 'addon_retail',
+    name: 'Retail Module',
+    priceId: 'price_standard_addon_retail',
+    annualCost: 4999,
+    icon: ShoppingCart,
+    color: 'text-green-400',
+    border: 'border-green-500/30',
+    bg: 'bg-green-500/10',
+    description: 'Add retail & food service tools to your Standard facility plan.',
+    features: [
+      'Retail Dashboard',
+      'Inventory tracking (food/apparel)',
+      'Temperature compliance logs',
+      'Shelf-life & FIFO alerts',
+      'Health inspection readiness',
+    ],
+  },
+  {
+    id: 'addon_govt',
+    name: 'Government Module',
+    priceId: 'price_standard_addon_govt',
+    annualCost: 4999,
+    icon: Shield,
+    color: 'text-blue-400',
+    border: 'border-blue-500/30',
+    bg: 'bg-blue-500/10',
+    description: 'Add public safety & government tools to your Standard facility plan.',
+    features: [
+      'Government Dashboard',
+      'Apparatus / fleet tracking',
+      'Chain of custody logging',
+      'Personnel certification tracking',
+      'Response metrics (NFPA 1710)',
+    ],
+  },
+];
+
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
@@ -294,6 +334,15 @@ export default function Pricing() {
   });
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
+  // Standard module add-ons
+  const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
+
+  const toggleStandardAddon = (id: string) =>
+    setStandardModuleAddons(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const standardAddonTotal = STANDARD_MODULE_ADDONS
+    .filter(a => standardModuleAddons.includes(a.id))
+    .reduce((s, a) => s + a.annualCost, 0);
 
   const activePlans =
     sector === 'facility' ? FACILITY_PLANS :
@@ -311,8 +360,16 @@ export default function Pricing() {
     if (!priceId) return;
     setLoadingPlan(plan.name);
     try {
+      const standardAddonItems =
+        plan.name === 'Standard' && sector === 'facility'
+          ? standardModuleAddons
+              .map(id => STANDARD_MODULE_ADDONS.find(a => a.id === id))
+              .filter(Boolean)
+              .map(a => ({ price: a!.priceId, quantity: 1 }))
+          : [];
       const lineItems = [
         { price: priceId, quantity: 1 },
+        ...standardAddonItems,
         ...selectedAddons.map(id => ({ price: id, quantity: 1 })),
       ];
       const token = localStorage.getItem('nexum_access_token');
@@ -560,6 +617,58 @@ export default function Pricing() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Standard facility add-ons */}
+                  {plan.name === 'Standard' && sector === 'facility' && (
+                    <div className="space-y-3 pt-3 border-t border-border/30">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Optional Module Add-ons
+                      </p>
+                      {STANDARD_MODULE_ADDONS.map(addon => {
+                        const AddonIcon = addon.icon;
+                        const selected = standardModuleAddons.includes(addon.id);
+                        return (
+                          <button
+                            key={addon.id}
+                            onClick={() => toggleStandardAddon(addon.id)}
+                            className={cn(
+                              'w-full text-left rounded-lg border p-3 transition-all',
+                              selected
+                                ? `${addon.border} ${addon.bg}`
+                                : 'border-border/40 hover:border-border bg-transparent'
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <AddonIcon className={`w-4 h-4 shrink-0 ${addon.color}`} />
+                                <span className="text-sm font-medium">{addon.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-xs font-semibold ${addon.color}`}>
+                                  +${addon.annualCost.toLocaleString()}/yr
+                                </span>
+                                <div className={cn(
+                                  'w-4 h-4 rounded border flex items-center justify-center transition-colors',
+                                  selected ? `${addon.bg} ${addon.border}` : 'border-border/50'
+                                )}>
+                                  {selected && <Check className={`w-3 h-3 ${addon.color}`} />}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">{addon.description}</p>
+                          </button>
+                        );
+                      })}
+                      {standardAddonTotal > 0 && (
+                        <div className="flex items-center justify-between pt-1 px-1">
+                          <span className="text-xs text-muted-foreground">Updated total</span>
+                          <span className="text-sm font-bold text-cyan-400">
+                            ${(plan.price! + standardAddonTotal).toLocaleString()}/yr
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {plan.isEnterprise ? (
                     <Button

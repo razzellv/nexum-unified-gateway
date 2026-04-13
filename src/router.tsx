@@ -54,6 +54,7 @@ import Courses from "./pages/Courses";
 import FIAS from "./pages/FIAS";
 import PolicyGuide from "./pages/PolicyGuide";
 import NexumWorkspace from "./pages/NexumWorkspace";
+import PlatformGuide from "./pages/PlatformGuide";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -266,6 +267,10 @@ export const router = createBrowserRouter([
           {
             path: "workspace",
             element: <NexumWorkspace />,
+          },
+          {
+            path: "platform-guide",
+            element: <PlatformGuide />,
           },
         ],
       },

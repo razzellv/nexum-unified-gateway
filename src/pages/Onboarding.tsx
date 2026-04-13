@@ -322,13 +322,11 @@ export default function Onboarding() {
       sessionStorage.removeItem('nexum_onboarding_session');
 
       toast({ title: 'Setup complete!', description: 'Your facility is ready. Welcome to Nexum Suum.' });
-      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
-      navigate(destination);
+      navigate('/platform-guide');
     } catch (error) {
       console.error('Onboarding error:', error);
       toast({ title: 'Setup saved', description: 'Some steps may need completion. You can update settings anytime.', variant: 'destructive' });
-      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
-      navigate(destination);
+      navigate('/platform-guide');
     } finally {
       setSubmitting(false);
     }
