@@ -731,12 +731,229 @@ function LicensingGuideModal({ open, onClose, activeSector }: {
   );
 }
 
+// ── Pilot Program Modal ───────────────────────────────────────────────────────
+const PILOT_SPOTS_TOTAL = 10;
+
+function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [stage, setStage] = useState<'apply' | 'submitted' | 'verify'>('apply');
+  const [applying, setApplying] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [form, setForm] = useState({
+    name: '', company: '', email: '', role: '', facilities: '', useCase: '',
+  });
+  const [code, setCode] = useState('');
+  const [codeEmail, setCodeEmail] = useState('');
+
+  const spotsLeft = (() => {
+    try { return PILOT_SPOTS_TOTAL - parseInt(localStorage.getItem('nexum_pilot_apps') || '0'); }
+    catch { return PILOT_SPOTS_TOTAL; }
+  })();
+
+  const handleApply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setApplying(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/pilot-application`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ...form, tier: 'Business', promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1' }),
+      });
+      // Optimistically increment local count
+      const cur = parseInt(localStorage.getItem('nexum_pilot_apps') || '0');
+      localStorage.setItem('nexum_pilot_apps', String(cur + 1));
+    } catch { /* show submitted regardless */ }
+    finally {
+      setApplying(false);
+      setStage('submitted');
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifying(true);
+    setVerifyError('');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pilot-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim().toUpperCase(), email: codeEmail.trim() }),
+      });
+      const data = await response.json();
+      if (data.valid) {
+        localStorage.setItem('nexum_pilot_approved', 'true');
+        localStorage.setItem('nexum_pilot_code', code.trim().toUpperCase());
+        onClose();
+        navigate('/onboarding?pilot=true');
+      } else {
+        setVerifyError(data.message || 'Invalid code or email. Please check your approval email and try again.');
+      }
+    } catch {
+      setVerifyError('Unable to verify — please check your connection and try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleClose = () => {
+    setStage('apply');
+    setForm({ name: '', company: '', email: '', role: '', facilities: '', useCase: '' });
+    setCode(''); setCodeEmail(''); setVerifyError('');
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg bg-background border-border">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+            <span className="text-xl">🚀</span> Nexum Suum Business Pilot Program
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {spotsLeft > 0
+              ? <><span className="font-semibold text-orange-400">{spotsLeft} of {PILOT_SPOTS_TOTAL} spots remaining</span> — 100% free for approved pilot partners.</>
+              : 'Applications are under review. Check back soon.'}
+          </p>
+        </DialogHeader>
+
+        {/* Spots bar */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>Spots filled</span>
+            <span>{PILOT_SPOTS_TOTAL - spotsLeft}/{PILOT_SPOTS_TOTAL}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-orange-500 rounded-full transition-all"
+              style={{ width: `${((PILOT_SPOTS_TOTAL - spotsLeft) / PILOT_SPOTS_TOTAL) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {stage === 'apply' && (
+          <form onSubmit={handleApply} className="space-y-3 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Full Name *</label>
+                <Input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Jane Smith" className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Company *</label>
+                <Input required value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} placeholder="Acme Facilities" className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Email *</label>
+                <Input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@company.com" className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Your Role *</label>
+                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="facility_manager">Facility Manager</SelectItem>
+                    <SelectItem value="operations_director">Operations Director</SelectItem>
+                    <SelectItem value="property_owner">Property Owner</SelectItem>
+                    <SelectItem value="retail_owner">Retail Owner/Operator</SelectItem>
+                    <SelectItem value="it_admin">IT / Systems Admin</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">No. of Facilities</label>
+                <Input value={form.facilities} onChange={e => setForm(f => ({ ...f, facilities: e.target.value }))} placeholder="e.g. 3" className="h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">What are you hoping to solve? *</label>
+              <Textarea required value={form.useCase} onChange={e => setForm(f => ({ ...f, useCase: e.target.value }))} placeholder="Describe your current challenge — equipment tracking, compliance, multi-site visibility..." rows={3} className="text-sm resize-none" />
+            </div>
+
+            <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-muted-foreground">
+              <strong className="text-orange-400">What happens next:</strong> Your application is reviewed within 1–2 business days.
+              If approved, you'll receive an email with an access code to activate your free Business account and begin onboarding.
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={applying || spotsLeft <= 0}>
+                {applying ? 'Submitting...' : 'Apply for Pilot Access'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+
+            <button type="button" onClick={() => setStage('verify')} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors text-center pt-1">
+              Already have an approval code? Activate here →
+            </button>
+          </form>
+        )}
+
+        {stage === 'submitted' && (
+          <div className="text-center space-y-4 py-4">
+            <div className="w-16 h-16 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+              <Check className="w-8 h-8 text-green-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Application Submitted</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                We'll review your application and email you within <strong>1–2 business days</strong>.
+                If approved, you'll receive an access code to activate your free Business account.
+              </p>
+            </div>
+            <button onClick={() => setStage('verify')} className="text-xs text-primary hover:underline">
+              Already received your code? Activate here →
+            </button>
+            <Button variant="outline" className="w-full" onClick={handleClose}>Close</Button>
+          </div>
+        )}
+
+        {stage === 'verify' && (
+          <form onSubmit={handleVerify} className="space-y-3 mt-1">
+            <p className="text-sm text-muted-foreground">
+              Enter the approval code from your email to activate your free Business account and begin onboarding.
+            </p>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Email address used to apply *</label>
+              <Input required type="email" value={codeEmail} onChange={e => setCodeEmail(e.target.value)} placeholder="jane@company.com" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Approval Code *</label>
+              <Input
+                required value={code}
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                placeholder="e.g. PILOT-XXXX-XXXX"
+                className="h-9 text-sm font-mono tracking-widest"
+                maxLength={20}
+              />
+            </div>
+            {verifyError && (
+              <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{verifyError}</p>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setStage('apply')}>← Back</Button>
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={verifying}>
+                {verifying ? 'Verifying...' : 'Activate Account'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
   const [retailBilling, setRetailBilling] = useState<'monthly' | 'annual'>('monthly');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [showLicensingGuide, setShowLicensingGuide] = useState(false);
+  const [showPilot, setShowPilot] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState({
     companyName: '',
@@ -863,6 +1080,7 @@ export default function Pricing() {
         body: JSON.stringify({
           lineItems,
           tier: plan.name,
+          allowPromotionCodes: true,
           successUrl: `${window.location.origin}/welcome?tier=${plan.name}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/pricing`,
         }),
@@ -946,6 +1164,9 @@ export default function Pricing() {
           onClose={() => setShowLicensingGuide(false)}
           activeSector={sector}
         />
+
+        {/* Pilot Program Modal */}
+        <PilotModal open={showPilot} onClose={() => setShowPilot(false)} />
 
         {/* Sector tabs */}
         <div className="flex flex-col items-center gap-3">
@@ -1224,14 +1445,24 @@ export default function Pricing() {
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button
-                      className={`mt-auto w-full ${ctaBg(plan)}`}
-                      onClick={() => handleCheckout(plan, effectivePriceId || undefined)}
-                      disabled={loadingPlan === plan.name}
-                    >
-                      {loadingPlan === plan.name ? 'Redirecting...' : `Get ${plan.name}`}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
+                    <div className="mt-auto space-y-2">
+                      <Button
+                        className={`w-full ${ctaBg(plan)}`}
+                        onClick={() => handleCheckout(plan, effectivePriceId || undefined)}
+                        disabled={loadingPlan === plan.name}
+                      >
+                        {loadingPlan === plan.name ? 'Redirecting...' : `Get ${plan.name}`}
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                      {plan.name === 'Business' && (
+                        <button
+                          onClick={() => setShowPilot(true)}
+                          className="w-full text-xs text-muted-foreground hover:text-orange-400 transition-colors text-center py-1"
+                        >
+                          🚀 Apply for Pilot access (10 spots)
+                        </button>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
