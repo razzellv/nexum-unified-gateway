@@ -276,10 +276,10 @@ const GOVERNMENT_PLANS: Plan[] = [
 const PROPERTY_PLANS: Plan[] = [
   {
     name: 'PM Starter',
-    priceId: 'price_pm_starter_mo',
+    priceId: 'price_1TLy9hDfw4bOR2dfKDfJqMi5',
     price: 197,
     billingLabel: '/mo',
-    annualPriceId: 'price_pm_starter_yr',
+    annualPriceId: 'price_1TLyB6Dfw4bOR2dfJmP2VMZQ',
     annualPrice: 1970,
     icon: Building2,
     color: 'text-teal-400',
@@ -300,10 +300,10 @@ const PROPERTY_PLANS: Plan[] = [
   },
   {
     name: 'PM Professional',
-    priceId: 'price_pm_pro_mo',
+    priceId: 'price_1TLyAVDfw4bOR2dfn8EsqhfC',
     price: 397,
     billingLabel: '/mo',
-    annualPriceId: 'price_pm_pro_yr',
+    annualPriceId: 'price_1TLyBlDfw4bOR2dfzqiQ3nzY',
     annualPrice: 3970,
     icon: Crown,
     color: 'text-teal-300',
@@ -333,10 +333,10 @@ const PROPERTY_PLANS: Plan[] = [
 const ENTREPRENEUR_PLANS: Plan[] = [
   {
     name: 'Entrepreneur',
-    priceId: 'price_ent_mo',
+    priceId: 'price_1TLyEEDfw4bOR2dfEaLVfg4j',
     price: 600,
     billingLabel: '/mo',
-    annualPriceId: 'price_ent_yr',
+    annualPriceId: 'price_1TLyFDDfw4bOR2df6Uzj2mRA',
     annualPrice: 6000,
     icon: Flame,
     color: 'text-amber-400',
@@ -357,10 +357,10 @@ const ENTREPRENEUR_PLANS: Plan[] = [
   },
   {
     name: 'Entrepreneur Pro',
-    priceId: 'price_ent_pro_mo',
+    priceId: 'price_1TLyG8Dfw4bOR2df6w0och3C',
     price: 849,
     billingLabel: '/mo',
-    annualPriceId: 'price_ent_pro_yr',
+    annualPriceId: 'price_1TLyH2Dfw4bOR2dfGhLRooKE',
     annualPrice: 8490,
     icon: Crown,
     color: 'text-amber-300',
@@ -390,7 +390,7 @@ const EXPANSION_ADDONS = [
   {
     id: 'expand_property',
     name: 'Additional Property',
-    priceId: 'price_expand_property',
+    priceId: 'price_1TLyIRDfw4bOR2dfwJAxycnZ',
     monthlyCost: 49,
     unit: 'property',
     icon: Building2,
@@ -403,7 +403,7 @@ const EXPANSION_ADDONS = [
   {
     id: 'expand_fleet',
     name: 'Additional Fleet Vehicles',
-    priceId: 'price_expand_fleet',
+    priceId: 'price_1TLyJvDfw4bOR2dfcpIZTt2Y',
     monthlyCost: 19,
     unit: 'vehicle',
     icon: Zap,
@@ -416,7 +416,7 @@ const EXPANSION_ADDONS = [
   {
     id: 'expand_location',
     name: 'Additional Retail Location',
-    priceId: 'price_expand_location',
+    priceId: 'price_1TLyKrDfw4bOR2df79hMyIto',
     monthlyCost: 99,
     unit: 'location',
     icon: ShoppingCart,
