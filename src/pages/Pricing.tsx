@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -816,18 +816,19 @@ export default function Pricing() {
         {/* Plan cards */}
         <div className={cn(
           'grid gap-6',
-          sector === 'retail'
+          (sector === 'retail' || sector === 'property' || sector === 'entrepreneur')
             ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto w-full'
             : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
         )}>
           {activePlans.map((plan) => {
             const Icon = plan.icon;
             const isRetail = sector === 'retail';
-            const useAnnual = isRetail && retailBilling === 'annual';
+            const isMonthlySector = sector === 'retail' || sector === 'property' || sector === 'entrepreneur';
+            const useAnnual = isMonthlySector && retailBilling === 'annual';
             const effectivePrice   = useAnnual && plan.annualPrice   ? plan.annualPrice   : plan.price;
             const effectivePriceId = useAnnual && plan.annualPriceId ? plan.annualPriceId : plan.priceId;
             const effectiveLabel   = useAnnual ? '/yr' : plan.billingLabel;
-            const annualSavings    = isRetail && plan.price ? plan.price * 2 : 0;
+            const annualSavings    = isMonthlySector && plan.price ? plan.price * 2 : 0;
 
             return (
               <Card
@@ -882,7 +883,7 @@ export default function Pricing() {
                             </Badge>
                           </div>
                         )}
-                        {!useAnnual && isRetail && annualSavings > 0 && (
+                        {!useAnnual && isMonthlySector && annualSavings > 0 && (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Annual: save ${annualSavings.toLocaleString()} (2 months free)
                           </p>
@@ -1194,7 +1195,7 @@ export default function Pricing() {
                     <CardTitle className="text-sm font-semibold">Contact Information</CardTitle>
                   </CardHeader>
                   <CardContent className="px-5 pb-5">
-                    <form onSubmit={handleQuoteSubmit} className="space-y-3">
+                    <form id="ent-contact-form" onSubmit={handleQuoteSubmit} className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1"><label className="text-xs text-muted-foreground">Company Name *</label>
                           <Input required value={quoteForm.companyName} onChange={e => setQuoteForm(f => ({ ...f, companyName: e.target.value }))} placeholder="Acme Facilities" /></div>
