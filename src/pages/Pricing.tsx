@@ -736,10 +736,12 @@ const PILOT_SPOTS_TOTAL = 10;
 
 function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
-  const [stage, setStage] = useState<'apply' | 'submitted' | 'verify'>('apply');
+  const [stage, setStage] = useState<'overview' | 'apply' | 'submitted' | 'verify'>('overview');
   const [applying, setApplying] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [supportAddon, setSupportAddon] = useState<'' | 'priority' | 'enterprise'>('');
   const [form, setForm] = useState({
     name: '', company: '', email: '', role: '', facilities: '', useCase: '',
   });
@@ -762,9 +764,14 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ ...form, tier: 'Business', promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1' }),
+        body: JSON.stringify({
+          ...form,
+          tier: 'Business',
+          promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1',
+          supportAddon: supportAddon || null,
+          agreedToResponsibilities: true,
+        }),
       });
-      // Optimistically increment local count
       const cur = parseInt(localStorage.getItem('nexum_pilot_apps') || '0');
       localStorage.setItem('nexum_pilot_apps', String(cur + 1));
     } catch { /* show submitted regardless */ }
@@ -801,22 +808,30 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   };
 
   const handleClose = () => {
-    setStage('apply');
+    setStage('overview');
     setForm({ name: '', company: '', email: '', role: '', facilities: '', useCase: '' });
     setCode(''); setCodeEmail(''); setVerifyError('');
+    setAgreed(false); setSupportAddon('');
     onClose();
   };
 
+  const PILOT_RESPONSIBILITIES = [
+    { icon: '🔁', label: 'Monthly feedback check-in', desc: 'Short structured update on what\'s working and what isn\'t — via email or a 15-min call.' },
+    { icon: '🐛', label: 'Bug & error reporting', desc: 'Report issues as they occur with enough detail to reproduce. We\'ll respond within 1 business day.' },
+    { icon: '💡', label: 'Feature input', desc: 'Participate in improvement cycles — vote on roadmap priorities and test new features before general release.' },
+    { icon: '📋', label: 'Use case documentation', desc: 'Help us document your real-world setup as an anonymized case study (with your approval).' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg bg-background border-border">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-background border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <span className="text-xl">🚀</span> Nexum Suum Business Pilot Program
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {spotsLeft > 0
-              ? <><span className="font-semibold text-orange-400">{spotsLeft} of {PILOT_SPOTS_TOTAL} spots remaining</span> — 100% free for approved pilot partners.</>
+              ? <><span className="font-semibold text-orange-400">{spotsLeft} of {PILOT_SPOTS_TOTAL} spots remaining</span> — full Business access, free for approved partners.</>
               : 'Applications are under review. Check back soon.'}
           </p>
         </DialogHeader>
@@ -824,17 +839,93 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         {/* Spots bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>Spots filled</span>
-            <span>{PILOT_SPOTS_TOTAL - spotsLeft}/{PILOT_SPOTS_TOTAL}</span>
+            <span>Spots filled</span><span>{PILOT_SPOTS_TOTAL - spotsLeft}/{PILOT_SPOTS_TOTAL}</span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-orange-500 rounded-full transition-all"
-              style={{ width: `${((PILOT_SPOTS_TOTAL - spotsLeft) / PILOT_SPOTS_TOTAL) * 100}%` }}
-            />
+            <div className="h-full bg-orange-500 rounded-full transition-all"
+              style={{ width: `${((PILOT_SPOTS_TOTAL - spotsLeft) / PILOT_SPOTS_TOTAL) * 100}%` }} />
           </div>
         </div>
 
+        {/* ── Stage: Overview ── */}
+        {stage === 'overview' && (
+          <div className="space-y-4 mt-1">
+            {/* What you get */}
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 space-y-2">
+              <p className="text-sm font-semibold text-orange-400">What pilot partners receive</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {['Full Business tier access', 'Up to 15 facilities', 'Executive Dashboard', 'Compliance Analyzer AI', 'Multi-facility analytics', 'Command Hub (full)', 'Staff Performance Compass', 'All future Business features'].map(f => (
+                  <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Check className="w-3 h-3 text-orange-400 shrink-0" />{f}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Responsibilities */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Pilot Partner Responsibilities</p>
+              <p className="text-xs text-muted-foreground">This is a working partnership. In exchange for free access, pilot partners commit to:</p>
+              <div className="space-y-2">
+                {PILOT_RESPONSIBILITIES.map(r => (
+                  <div key={r.label} className="flex items-start gap-3 p-3 rounded-lg border border-border/30 bg-muted/5">
+                    <span className="text-base shrink-0">{r.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold">{r.label}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{r.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Support add-on notice */}
+            <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-300">Support is not included</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    The pilot covers full platform access. Dedicated support remains an optional add-on —
+                    community channels and bug reporting are always available at no cost.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Add support to your pilot (optional)</p>
+                {[
+                  { id: 'priority' as const, label: 'Priority Support', price: '$3,000/yr', desc: 'Priority response SLA — issues addressed within 4 business hours.' },
+                  { id: 'enterprise' as const, label: 'Enterprise Support', price: '$10,000/yr', desc: 'Dedicated support contact + same-day response + quarterly account review.' },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => setSupportAddon(s => s === opt.id ? '' : opt.id)}
+                    className={cn('w-full text-left rounded-lg border p-3 text-xs transition-all',
+                      supportAddon === opt.id ? 'border-yellow-400/50 bg-yellow-400/10' : 'border-border/30 hover:border-border bg-transparent')}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{opt.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-yellow-400 font-semibold">{opt.price}</span>
+                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center',
+                          supportAddon === opt.id ? 'border-yellow-400 bg-yellow-400/20' : 'border-border/50')}>
+                          {supportAddon === opt.id && <Check className="w-2.5 h-2.5 text-yellow-400" />}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground mt-0.5">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button className="w-full bg-orange-500 hover:bg-orange-400 text-white" onClick={() => setStage('apply')} disabled={spotsLeft <= 0}>
+              Continue to Application <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+            <button onClick={() => setStage('verify')} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors text-center">
+              Already have an approval code? Activate here →
+            </button>
+          </div>
+        )}
+
+        {/* ── Stage: Apply ── */}
         {stage === 'apply' && (
           <form onSubmit={handleApply} className="space-y-3 mt-1">
             <div className="grid grid-cols-2 gap-3">
@@ -864,31 +955,53 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
                 <label className="text-xs text-muted-foreground">No. of Facilities</label>
                 <Input value={form.facilities} onChange={e => setForm(f => ({ ...f, facilities: e.target.value }))} placeholder="e.g. 3" className="h-8 text-sm" />
               </div>
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">What are you hoping to solve? *</label>
-              <Textarea required value={form.useCase} onChange={e => setForm(f => ({ ...f, useCase: e.target.value }))} placeholder="Describe your current challenge — equipment tracking, compliance, multi-site visibility..." rows={3} className="text-sm resize-none" />
+              <Textarea required value={form.useCase} onChange={e => setForm(f => ({ ...f, useCase: e.target.value }))}
+                placeholder="Describe your current challenge — equipment tracking, compliance, multi-site visibility..." rows={3} className="text-sm resize-none" />
             </div>
+
+            {/* Responsibility acknowledgment */}
+            <button type="button" onClick={() => setAgreed(a => !a)}
+              className={cn('w-full text-left flex items-start gap-3 rounded-lg border p-3 text-xs transition-all',
+                agreed ? 'border-orange-400/40 bg-orange-400/5' : 'border-border/40 hover:border-border')}>
+              <div className={cn('shrink-0 w-4 h-4 mt-0.5 rounded border flex items-center justify-center transition-colors',
+                agreed ? 'border-orange-400 bg-orange-400/20' : 'border-border/50')}>
+                {agreed && <Check className="w-2.5 h-2.5 text-orange-400" />}
+              </div>
+              <span className="text-muted-foreground">
+                I understand that pilot access comes with responsibilities — monthly feedback check-ins, bug reporting,
+                and feature input — and that <strong className="text-foreground">support is not included</strong> unless separately added.
+              </span>
+            </button>
+
+            {supportAddon && (
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="text-muted-foreground">Support add-on selected:</span>
+                <span className="font-semibold text-yellow-400">
+                  {supportAddon === 'priority' ? 'Priority Support +$3,000/yr' : 'Enterprise Support +$10,000/yr'}
+                </span>
+              </div>
+            )}
 
             <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-muted-foreground">
               <strong className="text-orange-400">What happens next:</strong> Your application is reviewed within 1–2 business days.
-              If approved, you'll receive an email with an access code to activate your free Business account and begin onboarding.
+              If approved, you'll receive an email with an access code to activate your Business account and begin onboarding.
+              {supportAddon && ' A separate invoice will be sent for your selected support tier.'}
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={applying || spotsLeft <= 0}>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setStage('overview')}>← Back</Button>
+              <Button type="submit" className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={applying || !agreed || spotsLeft <= 0}>
                 {applying ? 'Submitting...' : 'Apply for Pilot Access'}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
-
-            <button type="button" onClick={() => setStage('verify')} className="w-full text-xs text-muted-foreground hover:text-primary transition-colors text-center pt-1">
-              Already have an approval code? Activate here →
-            </button>
           </form>
         )}
 
@@ -901,7 +1014,8 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
               <h3 className="font-bold text-lg">Application Submitted</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 We'll review your application and email you within <strong>1–2 business days</strong>.
-                If approved, you'll receive an access code to activate your free Business account.
+                If approved, you'll receive an access code to activate your Business account.
+                {supportAddon && <><br /><span className="text-yellow-400">A support invoice will follow separately.</span></>}
               </p>
             </div>
             <button onClick={() => setStage('verify')} className="text-xs text-primary hover:underline">

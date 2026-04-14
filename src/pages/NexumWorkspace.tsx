@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import {
   TrendingUp, Users, DollarSign, Plus, Trash2, Edit2,
   CheckCircle, Clock, XCircle, Lock, BarChart3, RefreshCw,
   Building2, Mail, Phone, Calendar, ChevronDown, ChevronUp,
+  Rocket, AlertTriangle, Check, FileText,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -43,13 +44,41 @@ const PIPELINE_META: Record<Pipeline, { label: string; color: string; bg: string
   closed_lost: { label: 'Closed Lost', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
 };
 
-const STORAGE_KEY = 'nexum_workspace_clients';
+const STORAGE_KEY      = 'nexum_workspace_clients';
+const PILOT_STORAGE_KEY = 'nexum_pilot_applications';
 
 function loadClients(): CRMClient[] {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
 }
 function saveClients(clients: CRMClient[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
+}
+
+// ── Pilot Program Types ───────────────────────────────────────────────────────
+type PilotStatus = 'pending' | 'approved' | 'declined' | 'active';
+
+interface PilotApplication {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  role: string;
+  facilities: string;
+  useCase: string;              // what they want to achieve
+  supportAddon: string | null;
+  status: PilotStatus;
+  submittedAt: string;
+  approvedAt?: string;
+  approvalCode?: string;
+  declineReason?: string;
+  notes?: string;               // admin notes
+}
+
+function loadPilotApps(): PilotApplication[] {
+  try { return JSON.parse(localStorage.getItem(PILOT_STORAGE_KEY) || '[]'); } catch { return []; }
+}
+function savePilotApps(apps: PilotApplication[]) {
+  localStorage.setItem(PILOT_STORAGE_KEY, JSON.stringify(apps));
 }
 
 const EMPTY_FORM: Omit<CRMClient, 'id' | 'createdAt'> = {
@@ -64,6 +93,7 @@ export default function NexumWorkspace() {
   const { toast } = useToast();
   const isAdmin = userRole === 'admin';
 
+  const [workspaceTab, setWorkspaceTab] = useState<'crm' | 'pilot'>('crm');
   const [clients, setClients]           = useState<CRMClient[]>(loadClients);
   const [showForm, setShowForm]         = useState(false);
   const [editingId, setEditingId]       = useState<string | null>(null);
@@ -71,6 +101,66 @@ export default function NexumWorkspace() {
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [filterPipeline, setFilter]     = useState<Pipeline | 'all'>('all');
   const [search, setSearch]             = useState('');
+
+  // ── Pilot state ──────────────────────────────────────────────────────────────
+  const [pilotApps, setPilotApps]         = useState<PilotApplication[]>(loadPilotApps);
+  const [pilotSubTab, setPilotSubTab]     = useState<'pending' | 'approved' | 'declined'>('pending');
+  const [expandedPilot, setExpandedPilot] = useState<string | null>(null);
+  const [pilotNotes, setPilotNotes]       = useState<Record<string, string>>({});
+  const [pilotLoading, setPilotLoading]   = useState<string | null>(null);
+
+  // Poll for new pilot applications from backend
+  useEffect(() => {
+    const fetchPilot = async () => {
+      try {
+        const token = localStorage.getItem('nexum_access_token');
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pilot-applications`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const apps: PilotApplication[] = data.applications || data || [];
+          if (apps.length > 0) { setPilotApps(apps); savePilotApps(apps); }
+        }
+      } catch { /* use localStorage fallback */ }
+    };
+    if (isAdmin && workspaceTab === 'pilot') fetchPilot();
+  }, [isAdmin, workspaceTab]);
+
+  const handlePilotAction = async (app: PilotApplication, action: 'approve' | 'decline', reason?: string) => {
+    setPilotLoading(app.id);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pilot-applications/${app.id}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          notes: pilotNotes[app.id] || '',
+          ...(action === 'decline' ? { reason } : {}),
+          promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1',
+        }),
+      });
+      const data = res.ok ? await res.json() : {};
+      const updated = pilotApps.map(a => a.id === app.id
+        ? { ...a, status: action === 'approve' ? 'approved' as PilotStatus : 'declined' as PilotStatus,
+            approvedAt: action === 'approve' ? new Date().toISOString() : undefined,
+            approvalCode: data.approvalCode,
+            declineReason: reason,
+            notes: pilotNotes[app.id] || a.notes }
+        : a);
+      setPilotApps(updated); savePilotApps(updated);
+      toast({ title: action === 'approve' ? `Approved — email sent to ${app.email}` : 'Application declined' });
+    } catch {
+      // Optimistic local update if API fails
+      const updated = pilotApps.map(a => a.id === app.id
+        ? { ...a, status: action === 'approve' ? 'approved' as PilotStatus : 'declined' as PilotStatus,
+            approvedAt: action === 'approve' ? new Date().toISOString() : undefined,
+            notes: pilotNotes[app.id] || a.notes }
+        : a);
+      setPilotApps(updated); savePilotApps(updated);
+      toast({ title: action === 'approve' ? 'Approved (offline — sync when connected)' : 'Declined (offline)', variant: 'destructive' });
+    } finally { setPilotLoading(null); }
+  };
 
   // Revenue metrics
   const activeClients = useMemo(() => clients.filter(c => c.pipeline === 'closed_won'), [clients]);
@@ -132,6 +222,20 @@ export default function NexumWorkspace() {
     );
   }
 
+  const pendingPilots  = pilotApps.filter(a => a.status === 'pending');
+  const approvedPilots = pilotApps.filter(a => a.status === 'approved' || a.status === 'active');
+  const declinedPilots = pilotApps.filter(a => a.status === 'declined');
+
+  const PILOT_STATUS_META: Record<PilotStatus, { label: string; color: string; bg: string }> = {
+    pending:  { label: 'Pending Review', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
+    approved: { label: 'Approved',       color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
+    declined: { label: 'Declined',       color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
+    active:   { label: 'Active',         color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20' },
+  };
+
+  const displayedPilots = pilotSubTab === 'pending' ? pendingPilots
+    : pilotSubTab === 'approved' ? approvedPilots : declinedPilots;
+
   return (
     <MainLayout>
       <div className="max-w-6xl mx-auto space-y-6 pb-16">
@@ -144,13 +248,173 @@ export default function NexumWorkspace() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Nexum Workspace</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Internal CRM · Revenue Tracking · Admin Only</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Internal CRM · Revenue Tracking · Pilot Program · Admin Only</p>
             </div>
           </div>
-          <Button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setShowForm(v => !v); }}>
-            <Plus className="w-4 h-4 mr-2" />{showForm ? 'Cancel' : 'Add Client'}
-          </Button>
+          {workspaceTab === 'crm' && (
+            <Button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setShowForm(v => !v); }}>
+              <Plus className="w-4 h-4 mr-2" />{showForm ? 'Cancel' : 'Add Client'}
+            </Button>
+          )}
         </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 rounded-lg border border-border bg-card/50 w-fit">
+          {([
+            { id: 'crm'   as const, label: 'CRM',            icon: BarChart3 },
+            { id: 'pilot' as const, label: `Pilot Program${pendingPilots.length > 0 ? ` (${pendingPilots.length})` : ''}`, icon: Rocket },
+          ]).map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setWorkspaceTab(id)}
+              className={cn('flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
+                workspaceTab === id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <Icon className="w-4 h-4" />{label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── PILOT TAB ── */}
+        {workspaceTab === 'pilot' && (
+          <div className="space-y-5">
+            {/* KPIs */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: 'Pending Review', value: pendingPilots.length, color: 'text-yellow-400', icon: Clock },
+                { label: 'Approved',       value: approvedPilots.length, color: 'text-green-400', icon: CheckCircle },
+                { label: 'Declined',       value: declinedPilots.length, color: 'text-red-400',   icon: XCircle },
+              ].map(({ label, value, color, icon: Icon }) => (
+                <Card key={label} className="neon-border">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+                      <p className={cn('text-3xl font-bold mt-0.5', color)}>{value}</p>
+                    </div>
+                    <Icon className={cn('w-6 h-6 opacity-40', color)} />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Sub-tab filter */}
+            <div className="flex gap-2">
+              {(['pending', 'approved', 'declined'] as const).map(s => (
+                <button key={s} onClick={() => setPilotSubTab(s)}
+                  className={cn('px-4 py-1.5 rounded-full text-xs font-medium border transition-all',
+                    pilotSubTab === s ? PILOT_STATUS_META[s].bg + ' ' + PILOT_STATUS_META[s].color
+                      : 'border-border/30 text-muted-foreground hover:text-foreground')}>
+                  {s === 'pending' ? 'Pending Review' : s === 'approved' ? 'Approved' : 'Declined'}
+                  <span className="ml-1.5 opacity-70">
+                    ({s === 'pending' ? pendingPilots.length : s === 'approved' ? approvedPilots.length : declinedPilots.length})
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Applications list */}
+            {displayedPilots.length === 0 ? (
+              <Card className="neon-border">
+                <CardContent className="p-12 text-center text-muted-foreground text-sm">
+                  <Rocket className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  No {pilotSubTab} applications yet.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {displayedPilots.map(app => {
+                  const meta = PILOT_STATUS_META[app.status];
+                  const expanded = expandedPilot === app.id;
+                  return (
+                    <Card key={app.id} className={cn('neon-border border-2', meta.bg)}>
+                      <CardContent className="p-4 space-y-3">
+                        {/* Top row */}
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-sm">{app.name}</p>
+                              <Badge className={cn('text-[10px] border', meta.bg, meta.color)}>{meta.label}</Badge>
+                              {app.supportAddon && (
+                                <Badge variant="outline" className="text-[10px] text-yellow-400 border-yellow-400/30">
+                                  {app.supportAddon === 'priority' ? 'Priority Support' : 'Enterprise Support'}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{app.company}</span>
+                              <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{app.email}</span>
+                              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{app.role.replace(/_/g, ' ')}</span>
+                              {app.facilities && <span className="flex items-center gap-1"><FileText className="w-3 h-3" />{app.facilities} facilities</span>}
+                              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(app.submittedAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => setExpandedPilot(expanded ? null : app.id)}
+                            className="p-1.5 rounded hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors">
+                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </div>
+
+                        {/* Use case / goal — always visible */}
+                        <div className="rounded-lg bg-muted/20 border border-border/30 p-3">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">What they're looking to achieve</p>
+                          <p className="text-xs text-foreground leading-relaxed">{app.useCase || '—'}</p>
+                        </div>
+
+                        {/* Expanded: admin notes + actions */}
+                        {expanded && (
+                          <div className="space-y-3 pt-1">
+                            {app.approvalCode && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground">Approval code:</span>
+                                <code className="font-mono bg-muted/30 px-2 py-0.5 rounded border border-border/40 text-green-400">{app.approvalCode}</code>
+                              </div>
+                            )}
+                            {app.declineReason && (
+                              <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg p-2">Reason: {app.declineReason}</p>
+                            )}
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Admin Notes</label>
+                              <Textarea
+                                value={pilotNotes[app.id] ?? (app.notes || '')}
+                                onChange={e => setPilotNotes(p => ({ ...p, [app.id]: e.target.value }))}
+                                placeholder="Internal notes about this applicant..."
+                                rows={2} className="text-xs resize-none"
+                              />
+                            </div>
+
+                            {app.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-500 text-white"
+                                  disabled={pilotLoading === app.id}
+                                  onClick={() => handlePilotAction(app, 'approve')}>
+                                  <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                                  {pilotLoading === app.id ? 'Approving...' : 'Approve & Send Code'}
+                                </Button>
+                                <Button size="sm" variant="outline" className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                  disabled={pilotLoading === app.id}
+                                  onClick={() => handlePilotAction(app, 'decline', pilotNotes[app.id] || 'Application not selected for current cohort.')}>
+                                  <XCircle className="w-3.5 h-3.5 mr-1.5" />Decline
+                                </Button>
+                              </div>
+                            )}
+                            {(app.status === 'approved' || app.status === 'active') && (
+                              <div className="flex items-center gap-2 text-xs text-green-400">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Approved {app.approvedAt ? `on ${new Date(app.approvedAt).toLocaleDateString()}` : ''}
+                                {app.supportAddon && <span className="text-yellow-400 ml-2">· Support invoice pending</span>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CRM TAB ── */}
+        {workspaceTab === 'crm' && (<>
 
         {/* Revenue KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -325,6 +589,7 @@ export default function NexumWorkspace() {
             </div>
           )}
         </div>
+        </>)}
       </div>
     </MainLayout>
   );

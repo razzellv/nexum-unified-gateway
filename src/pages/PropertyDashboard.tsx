@@ -99,6 +99,40 @@ interface FleetVehicle {
   notes?: string;
 }
 
+type SpaceType = 'office' | 'storage' | 'apartment' | 'single_family' | 'commercial' | 'retail_space' | 'studio' | 'condo' | 'warehouse' | 'other';
+type LeaseType = 'month_to_month' | '6_month' | 'annual' | '2_year' | 'custom';
+type RentPeriod = 'weekly' | 'monthly' | 'quarterly';
+type TenantStatus = 'active' | 'expiring_soon' | 'overdue' | 'past' | 'pending';
+
+interface TenantIssue {
+  id: string;
+  date: string;
+  description: string;
+  photos: string[];
+  resolvedAt?: string;
+  vendorRef?: string;
+}
+
+interface Tenant {
+  id: string;
+  propertyId: string;
+  unitRef?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  spaceType: SpaceType;
+  leaseType: LeaseType;
+  leaseStart: string;
+  leaseEnd?: string;
+  rent: number;
+  deposit?: number;
+  period: RentPeriod;
+  status: TenantStatus;
+  notes?: string;
+  issues: TenantIssue[];
+  addedAt: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,10 +165,33 @@ const ASSET_TYPES = [
   'Boiler', 'Cooling Tower', 'Fire Panel', 'Sprinkler System', 'Other',
 ];
 
+const SPACE_TYPE_LABELS: Record<SpaceType, string> = {
+  office: 'Office', storage: 'Storage', apartment: 'Apartment', single_family: 'Single Family',
+  commercial: 'Commercial', retail_space: 'Retail Space', studio: 'Studio', condo: 'Condo',
+  warehouse: 'Warehouse', other: 'Other',
+};
+
+const LEASE_TYPE_LABELS: Record<LeaseType, string> = {
+  month_to_month: 'Month-to-Month', '6_month': '6 Month', annual: 'Annual', '2_year': '2 Year', custom: 'Custom',
+};
+
+const RENT_PERIOD_LABELS: Record<RentPeriod, string> = {
+  weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly',
+};
+
+const TENANT_STATUS_META: Record<TenantStatus, { label: string; color: string; bg: string }> = {
+  active:        { label: 'Active',        color: 'text-green-400',  bg: 'bg-green-500/10'  },
+  expiring_soon: { label: 'Expiring Soon', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  overdue:       { label: 'Overdue',       color: 'text-red-400',    bg: 'bg-red-500/10'    },
+  past:          { label: 'Past',          color: 'text-muted-foreground', bg: 'bg-muted/20' },
+  pending:       { label: 'Pending',       color: 'text-blue-400',   bg: 'bg-blue-500/10'   },
+};
+
 const STORAGE_KEYS = {
   properties:  'nexum_properties',
   fleet:       'nexum_fleet',
   maintenance: 'nexum_prop_maintenance',
+  tenants:     'nexum_tenants',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +259,17 @@ const emptyLog = (propertyId = ''): Omit<MaintenanceLog, 'id'> => ({
   cost: undefined, performedBy: '', propertyId, status: 'open',
 });
 
+const emptyTenant = (propertyId = ''): Omit<Tenant, 'id' | 'addedAt' | 'issues'> => ({
+  propertyId, unitRef: '', name: '', email: '', phone: '',
+  spaceType: 'apartment', leaseType: 'annual',
+  leaseStart: new Date().toISOString().split('T')[0], leaseEnd: '',
+  rent: 0, deposit: undefined, period: 'monthly', status: 'active', notes: '',
+});
+
+const emptyIssue = (): Omit<TenantIssue, 'id'> => ({
+  date: new Date().toISOString().split('T')[0], description: '', photos: [], vendorRef: '',
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -214,10 +282,19 @@ export default function PropertyDashboard() {
   const [fleet,       setFleet]        = useState<FleetVehicle[]>(() => load(STORAGE_KEYS.fleet, []));
   const [maintenance, setMaintenance]  = useState<MaintenanceLog[]>(() => load(STORAGE_KEYS.maintenance, []));
 
-  const [activeTab, setActiveTab]      = useState<'overview' | 'properties' | 'fleet' | 'maintenance' | 'financials'>('overview');
+  const [activeTab, setActiveTab]      = useState<'overview' | 'properties' | 'fleet' | 'maintenance' | 'financials' | 'tenants'>('overview');
   const [expandedProp, setExpandedProp]= useState<string | null>(null);
 
   // Modals / forms
+  const [tenants,      setTenants]      = useState<Tenant[]>(() => load(STORAGE_KEYS.tenants, []));
+  const [tenantFilter, setTenantFilter] = useState<'all' | TenantStatus>('all');
+  const [expandedTenant, setExpandedTenant] = useState<string | null>(null);
+  const [showAddTenant, setShowAddTenant] = useState(false);
+  const [tenantForm,   setTenantForm]   = useState(emptyTenant());
+  const [showIssueModal, setShowIssueModal] = useState<string | null>(null); // tenantId
+  const [issueForm,    setIssueForm]    = useState(emptyIssue());
+  const issuePhotoRef = useRef<HTMLInputElement>(null);
+
   const [showAddProp,  setShowAddProp]  = useState(false);
   const [showAddUnit,  setShowAddUnit]  = useState<string | null>(null);   // propertyId
   const [showAddAsset, setShowAddAsset] = useState<string | null>(null);   // propertyId
@@ -247,10 +324,26 @@ export default function PropertyDashboard() {
   const portfolioValue   = properties.reduce((s, p) => s + (p.currentValue || 0), 0);
   const lotInventoryValue= fleet.filter(v => v.status === 'for_sale').reduce((s, v) => s + (v.forSalePrice || 0), 0);
 
+  // Tenant KPIs
+  function computeTenantStatus(t: Tenant): TenantStatus {
+    if (!t.leaseEnd) return t.status;
+    const now = Date.now();
+    const end = new Date(t.leaseEnd).getTime();
+    if (end < now) return 'past';
+    if (end - now < 30 * 86400000) return 'expiring_soon';
+    return t.status === 'overdue' ? 'overdue' : 'active';
+  }
+  const tenantsWithStatus = tenants.map(t => ({ ...t, status: computeTenantStatus(t) }));
+  const activeTenants  = tenantsWithStatus.filter(t => t.status === 'active').length;
+  const expiringSoon   = tenantsWithStatus.filter(t => t.status === 'expiring_soon').length;
+  const overdueTenants = tenantsWithStatus.filter(t => t.status === 'overdue').length;
+  const rentRoll       = tenants.reduce((s, t) => s + (t.rent || 0), 0);
+
   // ── Persist helpers ──
   function saveProperties(next: Property[])     { setProperties(next);  save(STORAGE_KEYS.properties, next); }
   function saveFleet(next: FleetVehicle[])       { setFleet(next);       save(STORAGE_KEYS.fleet, next); }
   function saveMaintenance(next: MaintenanceLog[]){ setMaintenance(next); save(STORAGE_KEYS.maintenance, next); }
+  function saveTenants(next: Tenant[])           { setTenants(next);     save(STORAGE_KEYS.tenants, next); }
 
   // ── Add handlers ──
   const handleAddProperty = () => {
@@ -310,6 +403,55 @@ export default function PropertyDashboard() {
     toast({ title: 'Vehicle removed' });
   };
 
+  const handleAddTenant = () => {
+    if (!tenantForm.name || !tenantForm.rent) return;
+    const t: Tenant = { ...tenantForm, id: Date.now().toString(), issues: [], addedAt: new Date().toISOString() };
+    saveTenants([...tenants, t]);
+    setTenantForm(emptyTenant());
+    setShowAddTenant(false);
+    toast({ title: 'Tenant added', description: tenantForm.name });
+  };
+
+  const handleDeleteTenant = (id: string) => {
+    saveTenants(tenants.filter(t => t.id !== id));
+    toast({ title: 'Tenant removed' });
+  };
+
+  const handleAddIssue = (tenantId: string) => {
+    if (!issueForm.description) return;
+    const issue: TenantIssue = { ...issueForm, id: Date.now().toString() };
+    const next = tenants.map(t => t.id === tenantId ? { ...t, issues: [...t.issues, issue] } : t);
+    saveTenants(next);
+    setIssueForm(emptyIssue());
+    setShowIssueModal(null);
+    toast({ title: 'Issue logged' });
+  };
+
+  const handleResolveIssue = (tenantId: string, issueId: string) => {
+    const next = tenants.map(t => t.id === tenantId
+      ? { ...t, issues: t.issues.map(i => i.id === issueId ? { ...i, resolvedAt: new Date().toISOString() } : i) }
+      : t);
+    saveTenants(next);
+  };
+
+  const handleIssuePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const dataUrl = ev.target?.result as string;
+        setIssueForm(f => ({ ...f, photos: [...f.photos, dataUrl] }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleMarkOverdue = (tenantId: string) => {
+    const next = tenants.map(t => t.id === tenantId ? { ...t, status: 'overdue' as TenantStatus } : t);
+    saveTenants(next);
+  };
+
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -343,6 +485,7 @@ export default function PropertyDashboard() {
   const TABS = [
     { id: 'overview'    as const, label: 'Overview',     icon: BarChart3 },
     { id: 'properties'  as const, label: 'Properties',   icon: Building2 },
+    { id: 'tenants'     as const, label: 'Tenants',      icon: Users },
     { id: 'fleet'       as const, label: 'Fleet',        icon: Car },
     { id: 'maintenance' as const, label: 'Maintenance',  icon: Wrench },
     { id: 'financials'  as const, label: 'Financials',   icon: DollarSign },
@@ -845,6 +988,200 @@ export default function PropertyDashboard() {
           </div>
         )}
 
+        {/* ── TENANTS TAB ── */}
+        {activeTab === 'tenants' && (
+          <div className="space-y-5">
+            {/* KPI Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Rent Roll/mo',   value: `$${rentRoll.toLocaleString()}`,  color: 'text-green-400'  },
+                { label: 'Active',         value: activeTenants,                     color: 'text-teal-400'   },
+                { label: 'Expiring <30d',  value: expiringSoon,                      color: expiringSoon > 0 ? 'text-yellow-400' : 'text-muted-foreground' },
+                { label: 'Overdue',        value: overdueTenants,                    color: overdueTenants > 0 ? 'text-red-400' : 'text-muted-foreground' },
+              ].map(k => (
+                <Card key={k.label} className="border-border/30 bg-muted/10">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-muted-foreground">{k.label}</p>
+                    <p className={cn('text-lg font-bold', k.color)}>{k.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Header row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex gap-1 flex-wrap">
+                {(['all', 'active', 'expiring_soon', 'overdue', 'past', 'pending'] as const).map(f => (
+                  <button key={f} onClick={() => setTenantFilter(f)}
+                    className={cn('text-xs px-3 py-1 rounded-full border transition-colors', tenantFilter === f
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border/40 text-muted-foreground hover:text-foreground')}>
+                    {f === 'all' ? 'All' : TENANT_STATUS_META[f as TenantStatus].label}
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" className="gap-2 bg-teal-600 hover:bg-teal-500" onClick={() => { setTenantForm(emptyTenant()); setShowAddTenant(true); }}>
+                <Plus className="w-4 h-4" /> Add Tenant
+              </Button>
+            </div>
+
+            {tenantsWithStatus.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No tenants yet — add your first above.</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {tenantsWithStatus
+                .filter(t => tenantFilter === 'all' || t.status === tenantFilter)
+                .map(t => {
+                  const prop = properties.find(p => p.id === t.propertyId);
+                  const openIssues = t.issues.filter(i => !i.resolvedAt).length;
+                  const isExpanded = expandedTenant === t.id;
+                  return (
+                    <Card key={t.id} className={cn('border transition-all', t.status === 'overdue' ? 'border-red-500/30' : t.status === 'expiring_soon' ? 'border-yellow-500/30' : 'border-border/30')}>
+                      {/* Tenant header */}
+                      <div className="flex items-start justify-between gap-3 p-4 cursor-pointer" onClick={() => setExpandedTenant(isExpanded ? null : t.id)}>
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 shrink-0">
+                            <Users className="w-4 h-4 text-teal-400" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold">{t.name}</p>
+                              <Badge className={cn('text-[10px]', TENANT_STATUS_META[t.status].color, TENANT_STATUS_META[t.status].bg)}>
+                                {TENANT_STATUS_META[t.status].label}
+                              </Badge>
+                              {openIssues > 0 && (
+                                <Badge className="text-[10px] bg-orange-500/10 text-orange-400">{openIssues} open issue{openIssues > 1 ? 's' : ''}</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {prop?.name || 'No property'}{t.unitRef ? ` · Unit ${t.unitRef}` : ''} · {SPACE_TYPE_LABELS[t.spaceType]}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap text-xs">
+                              <span className="text-green-400 font-semibold">${t.rent.toLocaleString()}/{RENT_PERIOD_LABELS[t.period].toLowerCase()}</span>
+                              <span className="text-muted-foreground">{LEASE_TYPE_LABELS[t.leaseType]}</span>
+                              {t.leaseEnd && (
+                                <span className={cn(t.status === 'expiring_soon' ? 'text-yellow-400' : t.status === 'past' ? 'text-muted-foreground' : 'text-muted-foreground')}>
+                                  Ends {new Date(t.leaseEnd).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button onClick={e => { e.stopPropagation(); handleDeleteTenant(t.id); }}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                        </div>
+                      </div>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="border-t border-border/20 p-4 space-y-4">
+                          {/* Contact + lease info grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            {t.email && <div><p className="text-muted-foreground">Email</p><p className="font-medium truncate">{t.email}</p></div>}
+                            {t.phone && <div><p className="text-muted-foreground">Phone</p><p className="font-medium">{t.phone}</p></div>}
+                            <div><p className="text-muted-foreground">Lease Start</p><p className="font-medium">{new Date(t.leaseStart).toLocaleDateString()}</p></div>
+                            {t.deposit && <div><p className="text-muted-foreground">Deposit</p><p className="font-medium text-green-400">${t.deposit.toLocaleString()}</p></div>}
+                          </div>
+
+                          {t.notes && (
+                            <div className="p-3 rounded-lg bg-muted/20 text-xs text-muted-foreground">{t.notes}</div>
+                          )}
+
+                          {/* Action buttons */}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => { setIssueForm(emptyIssue()); setShowIssueModal(t.id); }}
+                              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-colors">
+                              <AlertTriangle className="w-3 h-3" /> Log Issue / Upload Photos
+                            </button>
+                            {t.status !== 'overdue' && (
+                              <button
+                                onClick={() => handleMarkOverdue(t.id)}
+                                className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                                Mark Overdue
+                              </button>
+                            )}
+                            <button
+                              onClick={() => window.location.href = '/vendor-hub'}
+                              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded border border-border/40 text-muted-foreground hover:text-foreground hover:border-border transition-colors">
+                              <Shield className="w-3 h-3" /> Vendor Hub
+                            </button>
+                            <button
+                              onClick={() => window.location.href = '/compliance'}
+                              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded border border-border/40 text-muted-foreground hover:text-foreground hover:border-border transition-colors">
+                              <FolderOpen className="w-3 h-3" /> Compliance Docs
+                            </button>
+                          </div>
+
+                          {/* Issues list */}
+                          {t.issues.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Issues & Maintenance</p>
+                              <div className="space-y-2">
+                                {t.issues.map(issue => (
+                                  <div key={issue.id} className={cn('rounded-lg border p-3 text-xs', issue.resolvedAt ? 'border-border/20 opacity-60' : 'border-orange-500/20 bg-orange-500/5')}>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1">
+                                        <p className="font-medium">{issue.description}</p>
+                                        <p className="text-muted-foreground mt-0.5">{issue.date}{issue.vendorRef ? ` · Vendor: ${issue.vendorRef}` : ''}</p>
+                                        {issue.photos.length > 0 && (
+                                          <div className="flex gap-1 mt-2 flex-wrap">
+                                            {issue.photos.map((ph, i) => (
+                                              <img key={i} src={ph} alt={`Issue photo ${i + 1}`}
+                                                className="w-16 h-16 object-cover rounded border border-border/30 cursor-pointer hover:opacity-90"
+                                                onClick={() => window.open(ph, '_blank')} />
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      {!issue.resolvedAt && (
+                                        <button onClick={() => handleResolveIssue(t.id, issue.id)}
+                                          className="text-green-400 hover:text-green-300 border border-green-500/30 rounded px-2 py-0.5 whitespace-nowrap transition-colors">
+                                          Resolve
+                                        </button>
+                                      )}
+                                      {issue.resolvedAt && (
+                                        <span className="text-green-400 text-[10px]">Resolved</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+            </div>
+
+            {/* Vacancy cost nudge */}
+            {totalUnits - occupiedUnits > 0 && (
+              <Card className="border-amber-500/20 bg-amber-500/5">
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-300">Vacancy Cost Alert</p>
+                    <p className="text-xs text-muted-foreground">
+                      {totalUnits - occupiedUnits} unit{totalUnits - occupiedUnits > 1 ? 's' : ''} vacant —
+                      estimated ${((monthlyRent / (occupiedUnits || 1)) * (totalUnits - occupiedUnits)).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo in lost revenue.
+                    </p>
+                  </div>
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
         {/* ── MODALS ── */}
 
         {/* Add Property */}
@@ -999,6 +1336,101 @@ export default function PropertyDashboard() {
                     <Input type="number" placeholder="Lot listing price" value={fleetForm.forSalePrice || ''} onChange={e => setFleetForm(f => ({ ...f, forSalePrice: parseFloat(e.target.value) || undefined }))} /></div>
                 </div>
                 <Button className="w-full bg-amber-600 hover:bg-amber-500" onClick={handleAddVehicle}>Add Vehicle</Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Add Tenant */}
+        {showAddTenant && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowAddTenant(false)}>
+            <Card className="w-full max-w-lg border-teal-500/30 my-4" onClick={e => e.stopPropagation()}>
+              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Add Tenant</CardTitle>
+                <button onClick={() => setShowAddTenant(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Tenant Name *</label>
+                    <Input placeholder="Jane Smith" value={tenantForm.name} onChange={e => setTenantForm(f => ({ ...f, name: e.target.value }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Email</label>
+                    <Input type="email" placeholder="jane@email.com" value={tenantForm.email || ''} onChange={e => setTenantForm(f => ({ ...f, email: e.target.value }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Phone</label>
+                    <Input placeholder="(555) 000-0000" value={tenantForm.phone || ''} onChange={e => setTenantForm(f => ({ ...f, phone: e.target.value }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Property</label>
+                    <Select value={tenantForm.propertyId} onValueChange={v => setTenantForm(f => ({ ...f, propertyId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Unit / Space Ref</label>
+                    <Input placeholder="1A / Suite 200" value={tenantForm.unitRef || ''} onChange={e => setTenantForm(f => ({ ...f, unitRef: e.target.value }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Space Type</label>
+                    <Select value={tenantForm.spaceType} onValueChange={v => setTenantForm(f => ({ ...f, spaceType: v as SpaceType }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(SPACE_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Lease Type</label>
+                    <Select value={tenantForm.leaseType} onValueChange={v => setTenantForm(f => ({ ...f, leaseType: v as LeaseType }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(LEASE_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Rent Amount ($) *</label>
+                    <Input type="number" placeholder="1500" value={tenantForm.rent || ''} onChange={e => setTenantForm(f => ({ ...f, rent: parseFloat(e.target.value) || 0 }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Rent Period</label>
+                    <Select value={tenantForm.period} onValueChange={v => setTenantForm(f => ({ ...f, period: v as RentPeriod }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(RENT_PERIOD_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Security Deposit ($)</label>
+                    <Input type="number" placeholder="3000" value={tenantForm.deposit || ''} onChange={e => setTenantForm(f => ({ ...f, deposit: parseFloat(e.target.value) || undefined }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Lease Start</label>
+                    <Input type="date" value={tenantForm.leaseStart} onChange={e => setTenantForm(f => ({ ...f, leaseStart: e.target.value }))} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Lease End</label>
+                    <Input type="date" value={tenantForm.leaseEnd || ''} onChange={e => setTenantForm(f => ({ ...f, leaseEnd: e.target.value }))} /></div>
+                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label>
+                    <Textarea rows={2} placeholder="Pet policy, parking spot, special terms..." value={tenantForm.notes || ''} onChange={e => setTenantForm(f => ({ ...f, notes: e.target.value }))} /></div>
+                </div>
+                <Button className="w-full bg-teal-600 hover:bg-teal-500" onClick={handleAddTenant}>Add Tenant</Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Log Issue / Upload Photos */}
+        {showIssueModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowIssueModal(null)}>
+            <Card className="w-full max-w-md border-orange-500/30" onClick={e => e.stopPropagation()}>
+              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-400" /> Log Issue
+                </CardTitle>
+                <button onClick={() => setShowIssueModal(null)}><X className="w-4 h-4 text-muted-foreground" /></button>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 space-y-3">
+                <div className="space-y-1"><label className="text-xs text-muted-foreground">Issue Date</label>
+                  <Input type="date" value={issueForm.date} onChange={e => setIssueForm(f => ({ ...f, date: e.target.value }))} /></div>
+                <div className="space-y-1"><label className="text-xs text-muted-foreground">Description *</label>
+                  <Textarea rows={3} placeholder="Describe the issue in detail..." value={issueForm.description} onChange={e => setIssueForm(f => ({ ...f, description: e.target.value }))} /></div>
+                <div className="space-y-1"><label className="text-xs text-muted-foreground">Assigned Vendor (optional)</label>
+                  <Input placeholder="ABC Plumbing / vendor name" value={issueForm.vendorRef || ''} onChange={e => setIssueForm(f => ({ ...f, vendorRef: e.target.value }))} /></div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Photos</label>
+                  <div className="flex flex-wrap gap-2">
+                    {issueForm.photos.map((ph, i) => (
+                      <div key={i} className="relative">
+                        <img src={ph} alt="" className="w-16 h-16 object-cover rounded border border-border/30" />
+                        <button onClick={() => setIssueForm(f => ({ ...f, photos: f.photos.filter((_, j) => j !== i) }))}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">×</button>
+                      </div>
+                    ))}
+                    <label className="w-16 h-16 border-2 border-dashed border-border/40 rounded cursor-pointer flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                      <Plus className="w-5 h-5" />
+                      <input type="file" accept="image/*" multiple className="sr-only" ref={issuePhotoRef} onChange={handleIssuePhoto} />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Photos are stored locally and linked to compliance records.</p>
+                </div>
+                <Button className="w-full bg-orange-600 hover:bg-orange-500" onClick={() => handleAddIssue(showIssueModal!)}>Save Issue</Button>
               </CardContent>
             </Card>
           </div>
