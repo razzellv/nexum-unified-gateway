@@ -722,8 +722,8 @@ function LicensingGuideModal({ open, onClose, activeSector }: {
           <Button className="flex-1" onClick={onClose}>
             Choose a Plan <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
-          <Button variant="outline" className="flex-1" onClick={() => window.open('https://www.nexumsuum.com/book-a-call', '_blank')}>
-            Book a 15-min Call
+          <Button variant="outline" className="flex-1" onClick={() => window.open('https://www.nexumsuum.com', '_blank', 'noopener,noreferrer')}>
+            Visit nexumsuum.com <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
       </DialogContent>
@@ -926,7 +926,7 @@ export default function Pricing() {
         </div>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign In</Button>
-          <Button size="sm" onClick={() => window.open('https://www.nexumsuum.com/facility-intelligence', '_blank')}>Learn More</Button>
+          <Button size="sm" onClick={() => setShowLicensingGuide(true)}>Learn More</Button>
         </div>
       </div>
 
@@ -972,13 +972,6 @@ export default function Pricing() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setShowLicensingGuide(true)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            Not sure which plan fits? See how licensing works →
-          </button>
         </div>
 
         {/* Billing model note / retail toggle */}
