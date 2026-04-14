@@ -55,6 +55,7 @@ import FIAS from "./pages/FIAS";
 import PolicyGuide from "./pages/PolicyGuide";
 import NexumWorkspace from "./pages/NexumWorkspace";
 import PlatformGuide from "./pages/PlatformGuide";
+import PropertyDashboard from "./pages/PropertyDashboard";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -271,6 +272,10 @@ export const router = createBrowserRouter([
           {
             path: "platform-guide",
             element: <PlatformGuide />,
+          },
+          {
+            path: "property-dashboard",
+            element: <PropertyDashboard />,
           },
         ],
       },

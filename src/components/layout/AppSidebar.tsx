@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, Building2} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -91,6 +91,7 @@ const allNavItems: NavItem[] = [
   { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
   { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
   { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
+  { name: 'Property & Fleet', href: '/property-dashboard', icon: Building2, access: 'all', tier: 'retail_inventory', orgTypes: ['property', 'entrepreneur'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
 
@@ -125,8 +126,9 @@ function getVisibleItems(
   // Active purchased add-on modules (persist across tier upgrades)
   let activeModules: string[] = [];
   try { activeModules = JSON.parse(localStorage.getItem('nexum_active_modules') || '[]'); } catch { /* ignore */ }
-  const hasRetailModule = activeModules.includes('addon_retail');
-  const hasGovtModule   = activeModules.includes('addon_govt');
+  const hasRetailModule    = activeModules.includes('addon_retail');
+  const hasGovtModule      = activeModules.includes('addon_govt');
+  const hasPropertyModule  = activeModules.includes('addon_property') || orgType === 'property' || orgType === 'entrepreneur';
 
   return allNavItems.filter(item => {
     // Admin-only items (e.g. FIAS) — never shown to non-admins
@@ -136,8 +138,9 @@ function getVisibleItems(
     // Exception: if user purchased the Retail/Govt add-on module, show those dashboards regardless of org type
     if (item.orgTypes && item.orgTypes.length > 0) {
       if (isAdmin) { /* admin always sees all */ }
-      else if (item.orgTypes.includes('retail')     && hasRetailModule) { /* add-on purchased */ }
-      else if (item.orgTypes.includes('government') && hasGovtModule)   { /* add-on purchased */ }
+      else if (item.orgTypes.includes('retail')                         && hasRetailModule)   { /* add-on purchased */ }
+      else if (item.orgTypes.includes('government')                     && hasGovtModule)    { /* add-on purchased */ }
+      else if ((item.orgTypes.includes('property') || item.orgTypes.includes('entrepreneur')) && hasPropertyModule) { /* add-on purchased */ }
       else if (!item.orgTypes.includes(orgType)) return false;
     }
 

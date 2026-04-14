@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type SectorTab = 'facility' | 'retail' | 'government';
+type SectorTab = 'facility' | 'retail' | 'government' | 'property' | 'entrepreneur';
 
 interface Plan {
   name: string;
@@ -267,6 +267,167 @@ const GOVERNMENT_PLANS: Plan[] = [
   },
 ];
 
+// ── PROPERTY MANAGEMENT ──────────────────────────────────────────────────────
+// Stripe IDs: create in Stripe Dashboard → Products, then replace placeholders
+// price_pm_starter_mo  → $197/mo recurring
+// price_pm_starter_yr  → $1,970/yr recurring
+// price_pm_pro_mo      → $397/mo recurring
+// price_pm_pro_yr      → $3,970/yr recurring
+const PROPERTY_PLANS: Plan[] = [
+  {
+    name: 'PM Starter',
+    priceId: 'price_pm_starter_mo',
+    price: 197,
+    billingLabel: '/mo',
+    annualPriceId: 'price_pm_starter_yr',
+    annualPrice: 1970,
+    icon: Building2,
+    color: 'text-teal-400',
+    border: 'border-teal-400/30',
+    bg: 'bg-teal-400/5',
+    badge: null,
+    description: 'Asset intelligence for small property portfolios. Track appliances, systems, maintenance history, and fleet vehicles across up to 5 properties.',
+    features: [
+      '1–5 properties',
+      'Up to 25 units total',
+      'Equipment & appliance library',
+      'Fleet vehicle tracking (up to 10)',
+      'Maintenance log & reminders',
+      'CSV import (properties, assets)',
+      'Work orders',
+      'NOI impact flags',
+    ],
+  },
+  {
+    name: 'PM Professional',
+    priceId: 'price_pm_pro_mo',
+    price: 397,
+    billingLabel: '/mo',
+    annualPriceId: 'price_pm_pro_yr',
+    annualPrice: 3970,
+    icon: Crown,
+    color: 'text-teal-300',
+    border: 'border-teal-300/40',
+    bg: 'bg-teal-300/5',
+    badge: 'Best Value',
+    description: 'Full portfolio intelligence for growing property managers. Multi-building oversight, compliance tracking, and fleet management at scale.',
+    features: [
+      '6–20 properties',
+      'Up to 100 units total',
+      'Everything in PM Starter',
+      'Compliance document tracking',
+      'Fleet tracking (up to 50 vehicles)',
+      'Tenant impact analysis',
+      'Capex vs OpEx modeling',
+      'Manager dashboard',
+    ],
+  },
+];
+
+// ── ENTREPRENEUR BUNDLE (Retail + Property + Fleet) ───────────────────────────
+// Stripe IDs: create in Stripe Dashboard → Products, then replace placeholders
+// price_ent_mo      → $600/mo recurring
+// price_ent_yr      → $6,000/yr recurring
+// price_ent_pro_mo  → $849/mo recurring
+// price_ent_pro_yr  → $8,490/yr recurring
+const ENTREPRENEUR_PLANS: Plan[] = [
+  {
+    name: 'Entrepreneur',
+    priceId: 'price_ent_mo',
+    price: 600,
+    billingLabel: '/mo',
+    annualPriceId: 'price_ent_yr',
+    annualPrice: 6000,
+    icon: Flame,
+    color: 'text-amber-400',
+    border: 'border-amber-400/30',
+    bg: 'bg-amber-400/5',
+    badge: null,
+    description: 'Built for the owner-operator who manages retail locations, rental properties, and a fleet — all from one platform.',
+    features: [
+      '2–3 retail/store locations',
+      'Up to 10 properties (any type)',
+      'Fleet management (up to 20 vehicles)',
+      'Retail compliance & inventory',
+      'Property asset library',
+      'Work orders across all sites',
+      'Unified equipment intelligence',
+      'Priority email support',
+    ],
+  },
+  {
+    name: 'Entrepreneur Pro',
+    priceId: 'price_ent_pro_mo',
+    price: 849,
+    billingLabel: '/mo',
+    annualPriceId: 'price_ent_pro_yr',
+    annualPrice: 8490,
+    icon: Crown,
+    color: 'text-amber-300',
+    border: 'border-amber-300/40',
+    bg: 'bg-amber-300/5',
+    badge: 'Most Capable',
+    description: 'Scale your portfolio with advanced analytics, multi-site benchmarking, and unlimited fleet management across all your ventures.',
+    features: [
+      '4–5 retail/store locations',
+      'Up to 30 properties (mixed portfolio)',
+      'Fleet management (up to 100 vehicles)',
+      'Everything in Entrepreneur',
+      'Executive dashboard',
+      'Multi-site benchmarking',
+      'Compliance analyzer AI',
+      'Phone + priority support',
+    ],
+  },
+];
+
+// ── EXPANSION ADD-ONS (pay-per-unit scaling) ──────────────────────────────────
+// Stripe IDs: create as recurring monthly prices, then replace placeholders
+// price_expand_property → $49/mo per additional property
+// price_expand_fleet    → $19/mo per additional vehicle
+// price_expand_location → $99/mo per additional retail location
+const EXPANSION_ADDONS = [
+  {
+    id: 'expand_property',
+    name: 'Additional Property',
+    priceId: 'price_expand_property',
+    monthlyCost: 49,
+    unit: 'property',
+    icon: Building2,
+    color: 'text-teal-400',
+    border: 'border-teal-400/30',
+    bg: 'bg-teal-400/10',
+    description: 'Add one additional property to your portfolio beyond your plan limit.',
+    sectors: ['property', 'entrepreneur'] as SectorTab[],
+  },
+  {
+    id: 'expand_fleet',
+    name: 'Additional Fleet Vehicles',
+    priceId: 'price_expand_fleet',
+    monthlyCost: 19,
+    unit: 'vehicle',
+    icon: Zap,
+    color: 'text-amber-400',
+    border: 'border-amber-400/30',
+    bg: 'bg-amber-400/10',
+    description: 'Add additional tracked vehicles beyond your plan\'s fleet limit.',
+    sectors: ['property', 'entrepreneur'] as SectorTab[],
+  },
+  {
+    id: 'expand_location',
+    name: 'Additional Retail Location',
+    priceId: 'price_expand_location',
+    monthlyCost: 99,
+    unit: 'location',
+    icon: ShoppingCart,
+    color: 'text-green-400',
+    border: 'border-green-400/30',
+    bg: 'bg-green-400/10',
+    description: 'Add a retail or store location beyond your Entrepreneur plan limit.',
+    sectors: ['entrepreneur'] as SectorTab[],
+  },
+];
+
 const ADDONS = [
   { name: 'FI Platform Implementation', price: 4999, priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup', billing: 'one-time' },
   { name: 'FI Enterprise Support', price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: 'Dedicated support SLA', billing: '/yr' },
@@ -396,6 +557,13 @@ export default function Pricing() {
   const [entImpl,     setEntImpl]     = useState('impl_self');
   const [entModules,  setEntModules]  = useState<string[]>([]);
   const [entLoading,  setEntLoading]  = useState(false);
+  // Expansion add-on quantities (property/fleet/location)
+  const [expandQty, setExpandQty] = useState<Record<string, number>>({
+    expand_property: 0, expand_fleet: 0, expand_location: 0,
+  });
+  const expandTotal = EXPANSION_ADDONS
+    .filter(a => a.sectors.includes(sector))
+    .reduce((s, a) => s + (expandQty[a.id] || 0) * a.monthlyCost, 0);
 
   const toggleStandardAddon = (id: string) =>
     setStandardModuleAddons(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -451,8 +619,10 @@ export default function Pricing() {
   };
 
   const activePlans =
-    sector === 'facility' ? FACILITY_PLANS :
-    sector === 'retail' ? RETAIL_PLANS :
+    sector === 'facility'      ? FACILITY_PLANS :
+    sector === 'retail'        ? RETAIL_PLANS :
+    sector === 'property'      ? PROPERTY_PLANS :
+    sector === 'entrepreneur'  ? ENTREPRENEUR_PLANS :
     GOVERNMENT_PLANS;
 
   const toggleAddon = (priceId: string) => {
@@ -476,6 +646,7 @@ export default function Pricing() {
       const lineItems = [
         { price: priceId, quantity: 1 },
         ...standardAddonItems,
+        ...expansionLineItems,
         ...selectedAddons.map(id => ({ price: id, quantity: 1 })),
       ];
       const token = localStorage.getItem('nexum_access_token');
@@ -530,8 +701,15 @@ export default function Pricing() {
     if (plan.name === 'Premium' || plan.name === 'Command Pro') return 'bg-purple-500 hover:bg-purple-600';
     if (plan.name === 'Business') return 'bg-orange-500 hover:bg-orange-600';
     if (plan.name === 'Retail Pro') return 'bg-emerald-600 hover:bg-emerald-700';
+    if (plan.name === 'PM Professional') return 'bg-teal-600 hover:bg-teal-700';
+    if (plan.name === 'Entrepreneur Pro') return 'bg-amber-600 hover:bg-amber-700';
     return '';
   };
+
+  // Build expansion line items for checkout
+  const expansionLineItems = EXPANSION_ADDONS
+    .filter(a => a.sectors.includes(sector) && (expandQty[a.id] || 0) > 0)
+    .map(a => ({ price: a.priceId, quantity: expandQty[a.id] }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -562,9 +740,11 @@ export default function Pricing() {
         <div className="flex justify-center">
           <div className="inline-flex rounded-lg border border-border bg-card/50 p-1 gap-1">
             {([
-              { value: 'facility' as const, label: 'Facility', icon: Building2 },
-              { value: 'retail' as const, label: 'Retail', icon: ShoppingCart },
-              { value: 'government' as const, label: 'Government', icon: Shield },
+              { value: 'facility'     as const, label: 'Facility',      icon: Building2 },
+              { value: 'retail'       as const, label: 'Retail',         icon: ShoppingCart },
+              { value: 'government'   as const, label: 'Government',     icon: Shield },
+              { value: 'property'     as const, label: 'Property',       icon: Crown },
+              { value: 'entrepreneur' as const, label: 'Entrepreneur',   icon: Flame },
             ]).map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
@@ -585,7 +765,7 @@ export default function Pricing() {
 
         {/* Billing model note / retail toggle */}
         <div className="flex justify-center">
-          {sector === 'retail' ? (
+          {(sector === 'retail' || sector === 'property' || sector === 'entrepreneur') ? (
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-3">
                 <span className={cn('text-sm font-medium', retailBilling === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
@@ -770,6 +950,52 @@ export default function Pricing() {
                           <span className="text-xs text-muted-foreground">Updated total</span>
                           <span className="text-sm font-bold text-cyan-400">
                             ${(plan.price! + standardAddonTotal).toLocaleString()}/yr
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Expansion add-ons — property / entrepreneur sectors */}
+                  {(sector === 'property' || sector === 'entrepreneur') && (
+                    <div className="space-y-3 pt-3 border-t border-border/30">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Scale Beyond Plan Limits
+                      </p>
+                      {EXPANSION_ADDONS.filter(a => a.sectors.includes(sector)).map(addon => {
+                        const AIcon = addon.icon;
+                        const qty = expandQty[addon.id] || 0;
+                        return (
+                          <div key={addon.id} className={cn('rounded-lg border p-3 space-y-2', addon.border, addon.bg)}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <AIcon className={`w-3.5 h-3.5 ${addon.color}`} />
+                                <span className="text-xs font-medium">{addon.name}</span>
+                              </div>
+                              <span className={`text-xs font-semibold ${addon.color}`}>
+                                ${addon.monthlyCost}/mo each
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => setExpandQty(p => ({ ...p, [addon.id]: Math.max(0, (p[addon.id]||0) - 1) }))}
+                                className="w-6 h-6 rounded border border-border/50 flex items-center justify-center text-sm hover:bg-muted/50">−</button>
+                              <span className="text-sm font-medium w-6 text-center">{qty}</span>
+                              <button onClick={() => setExpandQty(p => ({ ...p, [addon.id]: (p[addon.id]||0) + 1 }))}
+                                className="w-6 h-6 rounded border border-border/50 flex items-center justify-center text-sm hover:bg-muted/50">+</button>
+                              {qty > 0 && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  = +${(qty * addon.monthlyCost).toLocaleString()}/mo
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {expandTotal > 0 && (
+                        <div className="flex items-center justify-between pt-1 px-1">
+                          <span className="text-xs text-muted-foreground">Monthly total</span>
+                          <span className="text-sm font-bold text-amber-400">
+                            ${((effectivePrice || 0) + expandTotal).toLocaleString()}/mo
                           </span>
                         </div>
                       )}

@@ -783,6 +783,58 @@ function BillingTab({ user }: { user: any }) {
         </div>
       </div>
 
+      {/* Active subscription value breakdown */}
+      {(() => {
+        const PLAN_COSTS: Record<string, number> = {
+          basic: 10788, standard: 23988, business: 47988, premium: 83988, enterprise: 0,
+          pm_starter: 1970, pm_professional: 3970,
+          entrepreneur: 6000, entrepreneur_pro: 8490,
+        };
+        const baseCost = PLAN_COSTS[currentTier] || 0;
+        let activeModules: string[] = [];
+        try { activeModules = JSON.parse(localStorage.getItem('nexum_active_modules') || '[]'); } catch { /**/ }
+        const ADDON_COSTS: Record<string, { label: string; cost: number; period: string }> = {
+          addon_retail:    { label: 'Retail Module',          cost: 2500,  period: '/yr' },
+          addon_govt:      { label: 'Government Module',       cost: 4000,  period: '/yr' },
+          addon_property:  { label: 'Property Module',         cost: 1970,  period: '/yr' },
+        };
+        const addonRows = activeModules.map(id => ADDON_COSTS[id]).filter(Boolean);
+        const addonTotal = addonRows.reduce((s, a) => s + a.cost, 0);
+        const expandProps = parseInt(localStorage.getItem('nexum_expand_properties') || '0');
+        const expandFleet = parseInt(localStorage.getItem('nexum_expand_fleet') || '0');
+        const expandLocs  = parseInt(localStorage.getItem('nexum_expand_locations') || '0');
+        const expandMo = expandProps * 49 + expandFleet * 19 + expandLocs * 99;
+        const annualTotal = baseCost + addonTotal;
+        if (baseCost === 0 && addonRows.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-border/30 bg-muted/10 p-4 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Subscription Value</p>
+            {baseCost > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="capitalize">{currentTier.replace(/_/g, ' ')} Plan</span>
+                <span className="font-medium">${baseCost.toLocaleString()}/yr</span>
+              </div>
+            )}
+            {addonRows.map((a, i) => (
+              <div key={i} className="flex justify-between text-sm text-muted-foreground">
+                <span>{a.label}</span>
+                <span>+${a.cost.toLocaleString()}{a.period}</span>
+              </div>
+            ))}
+            {expandMo > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Expansion add-ons ({expandProps > 0 ? `${expandProps} prop` : ''}{expandFleet > 0 ? ` ${expandFleet} veh` : ''}{expandLocs > 0 ? ` ${expandLocs} loc` : ''})</span>
+                <span>+${expandMo.toLocaleString()}/mo</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-semibold pt-2 border-t border-border/30">
+              <span>Annual Total</span>
+              <span className="text-cyan-400">${(annualTotal + expandMo * 12).toLocaleString()}/yr</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Plan comparison */}
       <div>
         <h2 className="text-base font-semibold mb-4">Available Plans</h2>
