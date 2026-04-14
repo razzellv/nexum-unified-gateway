@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Check, Flame, Zap, Building2, Crown, ArrowRight, X,
   ShoppingCart, Shield, Star, Sparkles, Lock, Users, Package, Cpu, Wifi,
+  HelpCircle, ChevronRight, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -67,7 +69,7 @@ const FACILITY_PLANS: Plan[] = [
     border: 'border-cyan-400/30',
     bg: 'bg-cyan-400/5',
     badge: null,
-    description: 'Full operational visibility for growing facilities. Includes inventory management and team coordination.',
+    description: 'Full operational visibility for growing facilities. Includes inventory management, team coordination, and optional retail or government modules.',
     features: [
       'Up to 5 facilities',
       'Everything in Basic',
@@ -76,6 +78,8 @@ const FACILITY_PLANS: Plan[] = [
       'Energy Dashboard',
       'Manager & Supervisor dashboards',
       'Inventory Library',
+      '+ Retail Module add-on available ($2,500/yr)',
+      '+ Govt Module add-on available ($4,000/yr)',
       'Priority email support',
     ],
   },
@@ -163,15 +167,18 @@ const RETAIL_PLANS: Plan[] = [
     border: 'border-emerald-400/40',
     bg: 'bg-emerald-400/5',
     badge: 'Best Value',
-    description: 'Multi-location retail intelligence with supplier management and waste tracking. Scales with your growing operation.',
+    description: 'Multi-location retail intelligence with supplier management, PO/RFP tracking, and waste analytics. Built for operators managing 2–3 locations.',
     features: [
       'Everything in Starter',
       'Multi-location (up to 3)',
-      'Waste tracking',
+      'Purchase orders & RFP management',
+      'Supplier directory & scoring',
+      'Waste & shrink tracking',
+      'Light equipment log (fridges, fryers, HVAC)',
+      'Basic work orders',
       'Compliance document storage',
-      'Supplier management',
-      'Manager dashboard',
-      '10 users',
+      'Manager dashboard · 10 users',
+      'Own the building? → Facility Standard + Retail Module',
     ],
   },
 ];
@@ -528,11 +535,208 @@ const ENT_MODULES = [
   { id: 'mod_bms',    label: 'BMS / CMMS Integration',  add: 8000, icon: Wifi,         color: 'text-cyan-400' },
 ] as const;
 
+// ── Licensing Guide Modal ─────────────────────────────────────────────────────
+
+const LICENSING_PATHS = [
+  {
+    id: 'retail_operator',
+    sectors: ['retail'] as SectorTab[],
+    emoji: '🏪',
+    title: 'Retail Operator',
+    subtitle: 'Leases space — runs the business, not the building',
+    color: 'border-green-500/40 bg-green-500/5',
+    badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30',
+    features: ['Inventory tracking', 'Temperature & compliance logs', 'Daily open/close checklists', 'Vendor coordination', 'Waste & shrink tracking'],
+    plan: 'Retail Pro ($297/mo)',
+    planNote: 'No facility system management needed.',
+  },
+  {
+    id: 'owner_franchise',
+    sectors: ['facility'] as SectorTab[],
+    emoji: '🏢',
+    title: 'Owner / Franchise',
+    subtitle: 'Operates AND is responsible for building systems',
+    color: 'border-cyan-500/40 bg-cyan-500/5',
+    badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    features: ['Full equipment intelligence', 'Energy & performance dashboards', 'BMS / system integrations', 'Compliance risk tracking', 'Retail operations tools included'],
+    plan: 'Facility Standard + Retail Module',
+    planNote: 'Full-stack for retailers who manage the building.',
+  },
+  {
+    id: 'multi_site',
+    sectors: ['facility'] as SectorTab[],
+    emoji: '🏬',
+    title: 'Multi-Site Operator',
+    subtitle: 'Manages multiple locations or properties',
+    color: 'border-orange-500/40 bg-orange-500/5',
+    badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    features: ['Cross-site analytics', 'Portfolio-level performance tracking', 'Centralized compliance + operations', 'Multi-user accountability', 'Unified equipment intelligence'],
+    plan: 'Facility Business + Retail Module',
+    planNote: 'Best for 3–15 locations with shared oversight.',
+  },
+  {
+    id: 'government',
+    sectors: ['government'] as SectorTab[],
+    emoji: '🛡️',
+    title: 'Government / Public Safety',
+    subtitle: 'Departments, agencies, and public safety operations',
+    color: 'border-blue-500/40 bg-blue-500/5',
+    badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    features: ['Apparatus & fleet tracking', 'Personnel certifications', 'Chain of custody logging', 'NFPA 1710 response metrics', 'Weapons & uniform inventory', 'CCTV / security camera management'],
+    plan: 'Command Basic → Standard → Pro',
+    planNote: 'Scale from one department to a full multi-agency deployment.',
+  },
+  {
+    id: 'property',
+    sectors: ['property'] as SectorTab[],
+    emoji: '🏘️',
+    title: 'Property Manager',
+    subtitle: 'Manages residential or commercial rental portfolios',
+    color: 'border-teal-500/40 bg-teal-500/5',
+    badgeColor: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    features: ['Multi-property asset library', 'Fleet & vehicle tracking', 'Maintenance logs & reminders', 'NOI impact analysis', 'Tenant-facing compliance records', 'CSV import for properties & assets'],
+    plan: 'PM Starter ($197/mo) or PM Professional ($397/mo)',
+    planNote: 'Scale with expansion add-ons per property or vehicle.',
+  },
+  {
+    id: 'entrepreneur',
+    sectors: ['entrepreneur'] as SectorTab[],
+    emoji: '🚀',
+    title: 'Entrepreneur',
+    subtitle: 'Stores + buildings + fleet — the full portfolio',
+    color: 'border-amber-500/40 bg-amber-500/5',
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    features: ['Full operational ecosystem', 'Retail + facility + asset intelligence', 'Fleet management (car lots, delivery, rental)', 'Multi-site benchmarking', 'Compliance across all verticals', 'Scalable with per-unit expansion add-ons'],
+    plan: 'Entrepreneur ($600/mo) or Entrepreneur Pro ($849/mo)',
+    planNote: 'Built for 2–5 stores, mixed property portfolio, and fleet.',
+  },
+];
+
+function LicensingGuideModal({ open, onClose, activeSector }: {
+  open: boolean; onClose: () => void; activeSector: SectorTab;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background border-border">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-primary" />
+            How Licensing Works — Choose the Right Path
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Nexum Suum is designed to match how you operate — whether you run a store, manage a building, or oversee an entire portfolio.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-3 mt-2">
+          {LICENSING_PATHS.map(path => {
+            const isRecommended = path.sectors.includes(activeSector);
+            return (
+              <div
+                key={path.id}
+                className={cn(
+                  'rounded-xl border-2 p-4 transition-all',
+                  isRecommended ? path.color + ' ring-1 ring-primary/30' : 'border-border/30 bg-muted/5 opacity-75'
+                )}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{path.emoji}</span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-sm">{path.title}</h3>
+                        {isRecommended && (
+                          <Badge className={cn('text-[10px] border', path.badgeColor)}>
+                            Recommended for your sector
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{path.subtitle}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-semibold text-foreground">{path.plan}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{path.planNote}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  {path.features.map(f => (
+                    <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Check className="w-3 h-3 text-green-400 shrink-0" />{f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Upgrade path */}
+        <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <p className="text-sm font-semibold">Upgrade Path — No Confusion</p>
+          </div>
+          <p className="text-xs text-muted-foreground">You can start simple and upgrade anytime. Your data and tools carry over — no need to restart or reconfigure.</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              'Retail Pro → Facility Standard (when you start managing equipment)',
+              'PM Starter → PM Professional (as portfolio grows)',
+              'Entrepreneur → Enterprise (multi-agency or custom deployment)',
+            ].map(step => (
+              <div key={step} className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/20 px-3 py-1.5 rounded-full border border-border/30">
+                <ChevronRight className="w-3 h-3 text-primary shrink-0" />{step}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Warning */}
+        <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+          <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-yellow-300">Important</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              If you own or are responsible for building systems (HVAC, refrigeration, electrical, energy), Retail Pro alone is not sufficient.
+              Facility Intelligence is available in <strong className="text-foreground">Facility Standard and above</strong>.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick rule + CTAs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+          {[
+            { label: 'Leasing space?', rec: 'Retail Pro' },
+            { label: 'Own/manage systems?', rec: 'Facility Standard+' },
+            { label: 'Multiple sites?', rec: 'Business' },
+            { label: 'Scaling everything?', rec: 'Entrepreneur' },
+          ].map(r => (
+            <div key={r.label} className="text-center p-3 rounded-lg border border-border/30 bg-muted/10">
+              <p className="text-[10px] text-muted-foreground">{r.label}</p>
+              <p className="text-xs font-semibold text-primary mt-1">→ {r.rec}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+          <Button className="flex-1" onClick={onClose}>
+            Choose a Plan <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+          <Button variant="outline" className="flex-1" onClick={() => window.open('https://www.nexumsuum.com/book-a-call', '_blank')}>
+            Book a 15-min Call
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
   const [retailBilling, setRetailBilling] = useState<'monthly' | 'annual'>('monthly');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [showLicensingGuide, setShowLicensingGuide] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [quoteForm, setQuoteForm] = useState({
     companyName: '',
@@ -736,8 +940,15 @@ export default function Pricing() {
           </p>
         </div>
 
+        {/* Licensing Guide Modal */}
+        <LicensingGuideModal
+          open={showLicensingGuide}
+          onClose={() => setShowLicensingGuide(false)}
+          activeSector={sector}
+        />
+
         {/* Sector tabs */}
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-3">
           <div className="inline-flex rounded-lg border border-border bg-card/50 p-1 gap-1">
             {([
               { value: 'facility'     as const, label: 'Facility',      icon: Building2 },
@@ -761,6 +972,13 @@ export default function Pricing() {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setShowLicensingGuide(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Not sure which plan fits? See how licensing works →
+          </button>
         </div>
 
         {/* Billing model note / retail toggle */}

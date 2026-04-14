@@ -783,6 +783,23 @@ function BillingTab({ user }: { user: any }) {
         </div>
       </div>
 
+      {/* Retail → Facility upgrade nudge */}
+      {(currentTier === 'retail_starter' || currentTier === 'retail_pro') && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+          <div>
+            <p className="text-sm font-semibold text-emerald-400">Own or manage your building?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Upgrade to Facility Standard + Retail Module for full equipment intelligence, energy
+              dashboard, vendor hub, and BMS integrations. Your retail access carries over.
+            </p>
+          </div>
+          <Button size="sm" className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white"
+            onClick={() => window.location.href = '/pricing?sector=facility'}>
+            See Facility Plans
+          </Button>
+        </div>
+      )}
+
       {/* Active subscription value breakdown */}
       {(() => {
         const PLAN_COSTS: Record<string, number> = {
