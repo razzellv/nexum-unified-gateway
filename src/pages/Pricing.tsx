@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Check, Flame, Zap, Building2, Crown, ArrowRight, X,
-  ShoppingCart, Shield, Star, Sparkles,
+  ShoppingCart, Shield, Star, Sparkles, Lock, Users, Package, Cpu, Wifi,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -316,6 +316,57 @@ const STANDARD_MODULE_ADDONS = [
   },
 ];
 
+// ── Enterprise pricing config ─────────────────────────────────────────────────
+const ENT_BASE = 83988; // Premium tier as annual base
+
+const ENT_STAFF = [
+  { label: '1–25 users',     value: 's25',   add: 0 },
+  { label: '26–75 users',    value: 's75',   add: 6000 },
+  { label: '76–150 users',   value: 's150',  add: 15000 },
+  { label: '151–300 users',  value: 's300',  add: 30000 },
+  { label: '300+ users',     value: 's300p', add: 0,     custom: true },
+] as const;
+
+const ENT_FACILITIES = [
+  { label: '1–5 facilities',   value: 'f5',   add: 0 },
+  { label: '6–15 facilities',  value: 'f15',  add: 12000 },
+  { label: '16–30 facilities', value: 'f30',  add: 28000 },
+  { label: '31–50 facilities', value: 'f50',  add: 50000 },
+  { label: '50+ facilities',   value: 'f50p', add: 0,     custom: true },
+] as const;
+
+const ENT_SIZE = [
+  { label: '<50,000 sqft',        value: 'sz50k',  add: 0 },
+  { label: '50,000–200,000 sqft', value: 'sz200k', add: 4000 },
+  { label: '200,000–500,000 sqft',value: 'sz500k', add: 10000 },
+  { label: '500,000+ sqft',       value: 'sz500p', add: 20000 },
+] as const;
+
+const ENT_ASSETS = [
+  { label: '<500 assets',          value: 'a500',  add: 0 },
+  { label: '500–2,000 assets',     value: 'a2k',   add: 4000 },
+  { label: '2,000–10,000 assets',  value: 'a10k',  add: 10000 },
+  { label: '10,000+ assets',       value: 'a10kp', add: 20000 },
+] as const;
+
+const ENT_SUPPORT = [
+  { label: 'Standard email',              value: 'sup_std', add: 0 },
+  { label: 'Priority response (+$3k/yr)', value: 'sup_pri', add: 3000 },
+  { label: 'Enterprise SLA — dedicated',  value: 'sup_ent', add: 10000 },
+] as const;
+
+const ENT_IMPL = [
+  { label: 'Self-guided (included)',  value: 'impl_self', add: 0,     oneTime: false },
+  { label: 'Assisted setup',          value: 'impl_asst', add: 4999,  oneTime: true },
+  { label: 'White-glove / custom',    value: 'impl_wg',   add: 12000, oneTime: true },
+] as const;
+
+const ENT_MODULES = [
+  { id: 'mod_retail', label: 'Retail Module',          add: 2500, icon: ShoppingCart, color: 'text-green-400' },
+  { id: 'mod_govt',   label: 'Government Module',       add: 4000, icon: Shield,       color: 'text-blue-400' },
+  { id: 'mod_bms',    label: 'BMS / CMMS Integration',  add: 8000, icon: Wifi,         color: 'text-cyan-400' },
+] as const;
+
 export default function Pricing() {
   const navigate = useNavigate();
   const [sector, setSector] = useState<SectorTab>('facility');
@@ -336,6 +387,15 @@ export default function Pricing() {
   const [quoteSuccess, setQuoteSuccess] = useState(false);
   // Standard module add-ons
   const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
+  // Enterprise configurator
+  const [entStaff,    setEntStaff]    = useState('s25');
+  const [entFacility, setEntFacility] = useState('f5');
+  const [entSize,     setEntSize]     = useState('sz50k');
+  const [entAssets,   setEntAssets]   = useState('a500');
+  const [entSupport,  setEntSupport]  = useState('sup_std');
+  const [entImpl,     setEntImpl]     = useState('impl_self');
+  const [entModules,  setEntModules]  = useState<string[]>([]);
+  const [entLoading,  setEntLoading]  = useState(false);
 
   const toggleStandardAddon = (id: string) =>
     setStandardModuleAddons(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -343,6 +403,52 @@ export default function Pricing() {
   const standardAddonTotal = STANDARD_MODULE_ADDONS
     .filter(a => standardModuleAddons.includes(a.id))
     .reduce((s, a) => s + a.annualCost, 0);
+
+  // Enterprise live total
+  const entStaffRow    = ENT_STAFF.find(r => r.value === entStaff)!;
+  const entFacilityRow = ENT_FACILITIES.find(r => r.value === entFacility)!;
+  const entSizeRow     = ENT_SIZE.find(r => r.value === entSize)!;
+  const entAssetsRow   = ENT_ASSETS.find(r => r.value === entAssets)!;
+  const entSupportRow  = ENT_SUPPORT.find(r => r.value === entSupport)!;
+  const entImplRow     = ENT_IMPL.find(r => r.value === entImpl)!;
+  const entModTotal    = ENT_MODULES.filter(m => entModules.includes(m.id)).reduce((s, m) => s + m.add, 0);
+  const isCustomQuote  = ('custom' in entStaffRow && entStaffRow.custom) || ('custom' in entFacilityRow && entFacilityRow.custom);
+  const entAnnualTotal = isCustomQuote ? null : ENT_BASE + entStaffRow.add + entFacilityRow.add + entSizeRow.add + entAssetsRow.add + entSupportRow.add + entModTotal;
+  const entGrandTotal  = entAnnualTotal !== null ? entAnnualTotal + entImplRow.add : null;
+
+  const handleEnterpriseCheckout = async () => {
+    if (!entGrandTotal) return;
+    setEntLoading(true);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          lineItems: [{
+            price_data: {
+              currency: 'usd',
+              unit_amount: entGrandTotal * 100,
+              product_data: { name: 'Enterprise Platform — Nexum Suum FI (Custom Configuration)' },
+            },
+            quantity: 1,
+          }],
+          tier: 'enterprise',
+          successUrl: `${window.location.origin}/welcome?tier=enterprise&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}/pricing`,
+        }),
+      });
+      const data = await response.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error('Enterprise checkout error:', err);
+    } finally {
+      setEntLoading(false);
+    }
+  };
 
   const activePlans =
     sector === 'facility' ? FACILITY_PLANS :
@@ -695,12 +801,13 @@ export default function Pricing() {
           })}
         </div>
 
-        {/* Enterprise Quote Form */}
-        <div id="enterprise-quote" className="space-y-6">
+        {/* ── Enterprise Configurator ── */}
+        <div id="enterprise-quote" className="space-y-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold">Request Enterprise Quote</h2>
+            <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 mb-3">Enterprise</Badge>
+            <h2 className="text-2xl font-bold">Build Your Enterprise Plan</h2>
             <p className="text-muted-foreground mt-1">
-              Custom pricing for large deployments, multi-agency coordination, or white-label needs
+              Configure your deployment — see live pricing, then pay via Stripe or request an invoice.
             </p>
           </div>
 
@@ -711,82 +818,285 @@ export default function Pricing() {
                   <Check className="w-8 h-8 text-green-400" />
                 </div>
                 <h3 className="text-xl font-bold">Quote Request Received</h3>
-                <p className="text-muted-foreground">
-                  Our team will reach out within 1–2 business days to discuss your requirements.
-                </p>
+                <p className="text-muted-foreground">Our team will reach out within 1–2 business days with your invoice or Stripe payment link.</p>
               </CardContent>
             </Card>
           ) : (
-            <Card className="max-w-2xl mx-auto border-border/40">
-              <CardContent className="p-8">
-                <form onSubmit={handleQuoteSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Company Name</label>
-                      <Input required value={quoteForm.companyName}
-                        onChange={e => setQuoteForm(f => ({ ...f, companyName: e.target.value }))}
-                        placeholder="Acme Public Safety" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Contact Name</label>
-                      <Input required value={quoteForm.contactName}
-                        onChange={e => setQuoteForm(f => ({ ...f, contactName: e.target.value }))}
-                        placeholder="Jane Smith" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Email</label>
-                      <Input required type="email" value={quoteForm.email}
-                        onChange={e => setQuoteForm(f => ({ ...f, email: e.target.value }))}
-                        placeholder="jane@agency.gov" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Phone</label>
-                      <Input value={quoteForm.phone}
-                        onChange={e => setQuoteForm(f => ({ ...f, phone: e.target.value }))}
-                        placeholder="+1 (555) 000-0000" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Estimated Facilities / Locations</label>
-                      <Input value={quoteForm.estimatedLocations}
-                        onChange={e => setQuoteForm(f => ({ ...f, estimatedLocations: e.target.value }))}
-                        placeholder="e.g. 12" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Team Size</label>
-                      <Input value={quoteForm.teamSize}
-                        onChange={e => setQuoteForm(f => ({ ...f, teamSize: e.target.value }))}
-                        placeholder="e.g. 50" />
-                    </div>
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Organization Type</label>
-                    <Select value={quoteForm.orgType} onValueChange={val => setQuoteForm(f => ({ ...f, orgType: val }))}>
-                      <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="facility">Facility Management</SelectItem>
-                        <SelectItem value="retail">Retail / Food Service</SelectItem>
-                        <SelectItem value="government">Government / Public Safety</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {/* ── Left: configurator ── */}
+              <div className="lg:col-span-2 space-y-5">
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Additional Notes</label>
-                    <Textarea value={quoteForm.notes}
-                      onChange={e => setQuoteForm(f => ({ ...f, notes: e.target.value }))}
-                      placeholder="Describe your use case, integration needs, or any questions..."
-                      rows={4} />
-                  </div>
+                {/* Staff */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Users className="w-4 h-4 text-primary" />Staff / Users
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {ENT_STAFF.map(t => (
+                      <button key={t.value} onClick={() => setEntStaff(t.value)}
+                        className={cn('text-left px-3 py-2.5 rounded-lg border text-sm transition-all',
+                          entStaff === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border hover:text-foreground')}>
+                        <span className="font-medium block">{t.label}</span>
+                        <span className="text-xs">{t.add === 0 ? ('custom' in t && t.custom ? 'Contact us' : 'Included') : `+$${t.add.toLocaleString()}/yr`}</span>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
 
-                  <Button type="submit" className="w-full" disabled={quoteSubmitting}>
-                    {quoteSubmitting ? 'Submitting...' : 'Submit Quote Request'}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                {/* Facilities */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-primary" />Facilities / Locations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {ENT_FACILITIES.map(t => (
+                      <button key={t.value} onClick={() => setEntFacility(t.value)}
+                        className={cn('text-left px-3 py-2.5 rounded-lg border text-sm transition-all',
+                          entFacility === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border hover:text-foreground')}>
+                        <span className="font-medium block">{t.label}</span>
+                        <span className="text-xs">{t.add === 0 ? ('custom' in t && t.custom ? 'Contact us' : 'Included') : `+$${t.add.toLocaleString()}/yr`}</span>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Building Size */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-primary" />Average Building Size
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {ENT_SIZE.map(t => (
+                      <button key={t.value} onClick={() => setEntSize(t.value)}
+                        className={cn('text-left px-3 py-2.5 rounded-lg border text-sm transition-all',
+                          entSize === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border hover:text-foreground')}>
+                        <span className="font-medium block">{t.label}</span>
+                        <span className="text-xs">{t.add === 0 ? 'Included' : `+$${t.add.toLocaleString()}/yr`}</span>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Assets */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Package className="w-4 h-4 text-primary" />Equipment / Asset Count
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {ENT_ASSETS.map(t => (
+                      <button key={t.value} onClick={() => setEntAssets(t.value)}
+                        className={cn('text-left px-3 py-2.5 rounded-lg border text-sm transition-all',
+                          entAssets === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border hover:text-foreground')}>
+                        <span className="font-medium block">{t.label}</span>
+                        <span className="text-xs">{t.add === 0 ? 'Included' : `+$${t.add.toLocaleString()}/yr`}</span>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Modules */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-primary" />Add-on Modules
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 space-y-2">
+                    {ENT_MODULES.map(m => {
+                      const ModIcon = m.icon;
+                      const on = entModules.includes(m.id);
+                      return (
+                        <button key={m.id} onClick={() => setEntModules(p => on ? p.filter(x => x !== m.id) : [...p, m.id])}
+                          className={cn('w-full text-left flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-all',
+                            on ? 'border-primary/60 bg-primary/10' : 'border-border/40 text-muted-foreground hover:border-border hover:text-foreground')}>
+                          <span className="flex items-center gap-2">
+                            <ModIcon className={cn('w-4 h-4', on ? m.color : 'text-muted-foreground')} />
+                            <span className={cn('font-medium', on && 'text-foreground')}>{m.label}</span>
+                          </span>
+                          <span className={cn('text-xs', on ? m.color : '')}>{on ? <Check className="w-3.5 h-3.5" /> : `+$${m.add.toLocaleString()}/yr`}</span>
+                        </button>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Support + Implementation */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Card className="border-border/40">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <CardTitle className="text-sm font-semibold">Support Tier</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-2">
+                      {ENT_SUPPORT.map(t => (
+                        <button key={t.value} onClick={() => setEntSupport(t.value)}
+                          className={cn('w-full text-left px-3 py-2 rounded-lg border text-xs transition-all',
+                            entSupport === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border')}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border/40">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <CardTitle className="text-sm font-semibold">Implementation</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-2">
+                      {ENT_IMPL.map(t => (
+                        <button key={t.value} onClick={() => setEntImpl(t.value)}
+                          className={cn('w-full text-left px-3 py-2 rounded-lg border text-xs transition-all',
+                            entImpl === t.value ? 'border-primary/60 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:border-border')}>
+                          {t.label}
+                          {t.add > 0 && <span className="ml-1 text-muted-foreground">(+${t.add.toLocaleString()} one-time)</span>}
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Contact fields */}
+                <Card className="border-border/40">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold">Contact Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-5">
+                    <form onSubmit={handleQuoteSubmit} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1"><label className="text-xs text-muted-foreground">Company Name *</label>
+                          <Input required value={quoteForm.companyName} onChange={e => setQuoteForm(f => ({ ...f, companyName: e.target.value }))} placeholder="Acme Facilities" /></div>
+                        <div className="space-y-1"><label className="text-xs text-muted-foreground">Contact Name *</label>
+                          <Input required value={quoteForm.contactName} onChange={e => setQuoteForm(f => ({ ...f, contactName: e.target.value }))} placeholder="Jane Smith" /></div>
+                        <div className="space-y-1"><label className="text-xs text-muted-foreground">Email *</label>
+                          <Input required type="email" value={quoteForm.email} onChange={e => setQuoteForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@company.com" /></div>
+                        <div className="space-y-1"><label className="text-xs text-muted-foreground">Phone</label>
+                          <Input value={quoteForm.phone} onChange={e => setQuoteForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 (555) 000-0000" /></div>
+                      </div>
+                      <div className="space-y-1"><label className="text-xs text-muted-foreground">Organization Type</label>
+                        <Select value={quoteForm.orgType} onValueChange={val => setQuoteForm(f => ({ ...f, orgType: val }))}>
+                          <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="facility">Facility Management</SelectItem>
+                            <SelectItem value="retail">Retail / Food Service</SelectItem>
+                            <SelectItem value="government">Government / Public Safety</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1"><label className="text-xs text-muted-foreground">Notes / Integration requirements</label>
+                        <Textarea value={quoteForm.notes} onChange={e => setQuoteForm(f => ({ ...f, notes: e.target.value }))} placeholder="BMS system used, white-label needs, custom integrations..." rows={3} />
+                      </div>
+                      <Button type="submit" variant="outline" className="w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10" disabled={quoteSubmitting}>
+                        {quoteSubmitting ? 'Submitting...' : 'Request Invoice by Email'}
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* ── Right: live price summary ── */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-6 space-y-4">
+                  <Card className="border-yellow-500/30 bg-yellow-500/5">
+                    <CardHeader className="pt-5 pb-2 px-5">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-yellow-400" />
+                        <CardTitle className="text-sm font-semibold text-yellow-300">Enterprise Summary</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-5 space-y-3">
+                      {/* Breakdown rows */}
+                      {[
+                        { label: 'Premium Base (all features)',    amt: ENT_BASE },
+                        { label: entStaffRow.label,               amt: entStaffRow.add },
+                        { label: entFacilityRow.label,            amt: entFacilityRow.add },
+                        { label: entSizeRow.label,                amt: entSizeRow.add },
+                        { label: entAssetsRow.label,              amt: entAssetsRow.add },
+                        { label: entSupportRow.label,             amt: entSupportRow.add },
+                        ...ENT_MODULES.filter(m => entModules.includes(m.id)).map(m => ({ label: m.label, amt: m.add })),
+                      ].map((row, i) => (
+                        <div key={i} className="flex items-start justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground leading-tight">{row.label}</span>
+                          <span className={cn('shrink-0 font-medium', row.amt === 0 ? 'text-muted-foreground' : 'text-foreground')}>
+                            {row.amt === 0 ? 'Included' : `$${row.amt.toLocaleString()}`}
+                          </span>
+                        </div>
+                      ))}
+
+                      {/* Implementation line */}
+                      {entImplRow.add > 0 && (
+                        <div className="flex items-start justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground">{entImplRow.label} (one-time)</span>
+                          <span className="shrink-0 font-medium">+${entImplRow.add.toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      <div className="border-t border-yellow-500/20 pt-3 space-y-1">
+                        {isCustomQuote ? (
+                          <p className="text-sm text-yellow-400 font-semibold">Custom Quote Required</p>
+                        ) : (
+                          <>
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-xs text-muted-foreground">Annual platform fee</span>
+                              <span className="font-bold text-lg text-yellow-300">${entAnnualTotal!.toLocaleString()}</span>
+                            </div>
+                            {entImplRow.add > 0 && (
+                              <div className="flex items-baseline justify-between">
+                                <span className="text-xs text-muted-foreground">One-time implementation</span>
+                                <span className="text-sm font-semibold">+${entImplRow.add.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="flex items-baseline justify-between pt-1 border-t border-yellow-500/20">
+                              <span className="text-sm font-semibold">Grand Total</span>
+                              <span className="font-bold text-xl text-yellow-300">${entGrandTotal!.toLocaleString()}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Enterprise features always included */}
+                      <div className="pt-2 space-y-1">
+                        {['Everything in Premium', 'BMS/CMMS integrations', 'White-label options', 'Custom SLA', 'On-site training available', 'Dedicated account manager'].map(f => (
+                          <div key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Check className="w-3 h-3 text-yellow-400 shrink-0" />{f}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* CTAs */}
+                      <div className="space-y-2 pt-2">
+                        {!isCustomQuote && (
+                          <Button
+                            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold"
+                            onClick={handleEnterpriseCheckout}
+                            disabled={entLoading}
+                          >
+                            {entLoading ? 'Redirecting...' : `Pay $${entGrandTotal!.toLocaleString()} via Stripe`}
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          className="w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 text-sm"
+                          onClick={() => document.querySelector<HTMLFormElement>('#ent-contact-form')?.requestSubmit()}
+                        >
+                          {isCustomQuote ? 'Request Custom Quote' : 'Request Invoice Instead'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+            </div>
           )}
         </div>
 

@@ -146,8 +146,9 @@ const BMS_PLATFORMS = [
 
 function IntegrationsTab({ user }: { user: any }) {
   const { toast } = useToast();
-  const facilityId = localStorage.getItem('nexum_facility_id') || user?.facilityId || 'YOUR_FACILITY_ID';
-  const apiKey     = localStorage.getItem('nexum_api_key')     || `nxm_${facilityId.slice(0, 8)}_live`;
+  const isEnterprise = (user?.tier || '').toLowerCase() === 'enterprise';
+  const facilityId  = localStorage.getItem('nexum_facility_id') || user?.facilityId || 'YOUR_FACILITY_ID';
+  const apiKey      = localStorage.getItem('nexum_api_key')     || `nxm_${facilityId.slice(0, 8)}_live`;
   const webhookBase = `${import.meta.env.VITE_API_BASE_URL || 'https://api.nexumsuum.com'}/v1/inbound/${facilityId}`;
 
   const [connected, setConnected] = useState<string[]>(() => {
@@ -198,7 +199,32 @@ function IntegrationsTab({ user }: { user: any }) {
         </div>
       </div>
 
-      {/* ── How BMS/CMMS connection works ── */}
+      {/* ── Enterprise gate for BMS/CMMS ── */}
+      {!isEnterprise && (
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-5 flex items-start gap-4">
+          <div className="p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 shrink-0">
+            <Lock className="w-5 h-5 text-yellow-400" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-sm text-yellow-300">BMS / CMMS Integrations — Enterprise Only</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Direct connections to Honeywell, Siemens, Johnson Controls, IBM Maximo, ServiceNow, and other
+              BMS/CMMS platforms require an Enterprise plan. Upgrade to unlock webhook configuration, API key
+              generation, and live data sync from your building systems.
+            </p>
+            <button
+              onClick={() => window.location.href = '/pricing#enterprise-quote'}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-400 hover:text-yellow-300 transition-colors"
+            >
+              View Enterprise pricing <ArrowUpCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <Badge className="shrink-0 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Enterprise</Badge>
+        </div>
+      )}
+
+      {/* ── How BMS/CMMS connection works (Enterprise only) ── */}
+      {isEnterprise && (
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
         <div className="flex items-center gap-2">
           <Link2 className="w-4 h-4 text-primary" />
@@ -233,8 +259,10 @@ function IntegrationsTab({ user }: { user: any }) {
           Supported data types pushed by BMS: <span className="text-foreground">equipment_status · alarm · work_order · energy_reading · asset_health</span>
         </p>
       </div>
+      )}
 
       {/* ── BMS Platforms ── */}
+      {isEnterprise && (
       <div>
         <h2 className="text-base font-semibold mb-3 flex items-center gap-2"><Building2 className="w-4 h-4 text-primary" />BMS Platforms</h2>
         <div className="space-y-3">
@@ -298,8 +326,10 @@ function IntegrationsTab({ user }: { user: any }) {
           })}
         </div>
       </div>
+      )}
 
       {/* ── CMMS Platforms ── */}
+      {isEnterprise && (
       <div>
         <h2 className="text-base font-semibold mb-3 flex items-center gap-2"><Zap className="w-4 h-4 text-primary" />CMMS Platforms</h2>
         <div className="space-y-3">
@@ -363,6 +393,7 @@ function IntegrationsTab({ user }: { user: any }) {
           })}
         </div>
       </div>
+      )}
 
     </div>
   );
