@@ -253,10 +253,60 @@ export default function EquipmentLibrary() {
     } finally { setSubmitting(false); }
   };
 
+  // ── Equipment name change rate limiting ──────────────────────────────────────
+  // Max 2 name changes per equipment per 20-day rolling window.
+  // Log stored per facility: nexum_name_changes_<facilityId>
+  const NAME_CHANGE_LIMIT   = 2;
+  const NAME_CHANGE_WINDOW  = 20 * 24 * 60 * 60 * 1000; // 20 days in ms
+
+  const checkNameChangeAllowed = (equipmentId: string): { allowed: boolean; remaining: number; resetDate?: string } => {
+    const facilityId = user?.facilityId || 'facility-001';
+    const logKey     = `nexum_name_changes_${facilityId}`;
+    let log: Record<string, string[]> = {};
+    try { log = JSON.parse(localStorage.getItem(logKey) || '{}'); } catch { /* ignore */ }
+    const now    = Date.now();
+    const cutoff = now - NAME_CHANGE_WINDOW;
+    const recent = (log[equipmentId] || []).filter(ts => new Date(ts).getTime() > cutoff);
+    const remaining = NAME_CHANGE_LIMIT - recent.length;
+    if (recent.length >= NAME_CHANGE_LIMIT) {
+      const oldest   = Math.min(...recent.map(ts => new Date(ts).getTime()));
+      const resetDate = new Date(oldest + NAME_CHANGE_WINDOW).toLocaleDateString();
+      return { allowed: false, remaining: 0, resetDate };
+    }
+    return { allowed: true, remaining };
+  };
+
+  const recordNameChange = (equipmentId: string) => {
+    const facilityId = user?.facilityId || 'facility-001';
+    const logKey     = `nexum_name_changes_${facilityId}`;
+    let log: Record<string, string[]> = {};
+    try { log = JSON.parse(localStorage.getItem(logKey) || '{}'); } catch { /* ignore */ }
+    const cutoff = Date.now() - NAME_CHANGE_WINDOW;
+    const existing = (log[equipmentId] || []).filter(ts => new Date(ts).getTime() > cutoff);
+    log[equipmentId] = [...existing, new Date().toISOString()];
+    localStorage.setItem(logKey, JSON.stringify(log));
+  };
+
   const handleEdit = async () => {
     if (!selectedEquipment) return;
     try {
       setSubmitting(true);
+
+      // Enforce name change rate limit
+      const nameChanged = formData.equipmentName.trim() !== (selectedEquipment.equipmentName || '').trim();
+      if (nameChanged) {
+        const check = checkNameChangeAllowed(selectedEquipment.equipmentId);
+        if (!check.allowed) {
+          toast({
+            title: 'Name change limit reached',
+            description: `Equipment names can only be changed twice per 20-day period to maintain data integrity. Available again on ${check.resetDate}.`,
+            variant: 'destructive',
+          });
+          setSubmitting(false);
+          return;
+        }
+      }
+
       await apiRequest(`/equipment/${selectedEquipment.equipmentId}`, {
         method: 'PUT', body: JSON.stringify({
           ...formData,
@@ -265,7 +315,17 @@ export default function EquipmentLibrary() {
           replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
         }),
       });
-      toast({ title: 'Success', description: 'Equipment updated' });
+
+      // Record name change after successful save
+      if (nameChanged) recordNameChange(selectedEquipment.equipmentId);
+
+      const check = nameChanged ? checkNameChangeAllowed(selectedEquipment.equipmentId) : null;
+      toast({
+        title: 'Equipment updated',
+        description: nameChanged && check
+          ? `Name updated. ${check.remaining} name change${check.remaining !== 1 ? 's' : ''} remaining this period.`
+          : 'Changes saved successfully.',
+      });
       setEditDialogOpen(false);
       setSelectedEquipment(null);
       resetForm();

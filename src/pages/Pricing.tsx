@@ -268,12 +268,18 @@ const GOVERNMENT_PLANS: Plan[] = [
 ];
 
 const ADDONS = [
-  { name: 'FI Platform Implementation', price: 4999, priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup', billing: 'one-time' },
-  { name: 'FI Enterprise Support', price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: 'Dedicated support SLA', billing: '/yr' },
-  { name: 'FI Priority Support', price: 3000, priceId: 'price_1TAbhqDfw4bOR2dfM0FNrTlF', desc: 'Priority response guarantee', billing: '/yr' },
-  { name: 'Training — Small Team (1–10)', price: 1500, priceId: 'price_1TAbVLDfw4bOR2dfHMCBek1G', desc: 'Team training package', billing: 'one-time' },
-  { name: 'Training — Department (11–25)', price: 3500, priceId: 'price_1TAbWXDfw4bOR2dfeb5UqZHy', desc: 'Department training package', billing: 'one-time' },
-  { name: 'Training — Operations (26–50)', price: 6500, priceId: 'price_1TAbXhDfw4bOR2dfXVyOvlJe', desc: 'Operations training package', billing: 'one-time' },
+  // ── Secure Storage Add-ons ───────────────────────────────────────────────────
+  { name: 'Additional Storage — 50 GB',  price: 29,    priceId: 'price_storage_50gb',            desc: '+50 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  { name: 'Additional Storage — 200 GB', price: 79,    priceId: 'price_storage_200gb',           desc: '+200 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  { name: 'Additional Storage — 1 TB',   price: 149,   priceId: 'price_storage_1tb',             desc: '+1 TB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  // ── Professional Services ────────────────────────────────────────────────────
+  { name: 'FI Platform Implementation',  price: 4999,  priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup', billing: 'one-time', category: 'services' },
+  { name: 'FI Enterprise Support',       price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: 'Dedicated support SLA', billing: '/yr', category: 'services' },
+  { name: 'FI Priority Support',         price: 3000,  priceId: 'price_1TAbhqDfw4bOR2dfM0FNrTlF', desc: 'Priority response guarantee', billing: '/yr', category: 'services' },
+  // ── Training Packages ────────────────────────────────────────────────────────
+  { name: 'Training — Small Team (1–10)',     price: 1500, priceId: 'price_1TAbVLDfw4bOR2dfHMCBek1G', desc: 'Team training package', billing: 'one-time', category: 'training' },
+  { name: 'Training — Department (11–25)',    price: 3500, priceId: 'price_1TAbWXDfw4bOR2dfeb5UqZHy', desc: 'Department training package', billing: 'one-time', category: 'training' },
+  { name: 'Training — Operations (26–50)',    price: 6500, priceId: 'price_1TAbXhDfw4bOR2dfXVyOvlJe', desc: 'Operations training package', billing: 'one-time', category: 'training' },
 ];
 
 export default function Pricing() {
@@ -685,7 +691,17 @@ export default function Pricing() {
         <div className="space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold">Add-ons & Services</h2>
-            <p className="text-muted-foreground mt-1">Enhance your subscription with professional services and training</p>
+            <p className="text-muted-foreground mt-1">Storage expansions, professional services, and training packages</p>
+          </div>
+          {/* Storage callout */}
+          <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" /></svg>
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-cyan-400">Secure Cloud Storage</p>
+              <p className="text-xs text-muted-foreground mt-0.5">All data is stored in encrypted AWS S3 buckets, scoped per licensee account. localStorage acts as an instant-access backup — every write syncs automatically to the cloud. Storage add-ons expand your S3 capacity for documents, photos, compliance files, and media.</p>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {ADDONS.map((addon) => {
