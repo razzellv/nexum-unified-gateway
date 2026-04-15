@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ApprovalsTab } from '@/components/settings/ApprovalsTab';
+import { LocationSetupWizard, planRequiresLocationSetup, type FacilityLocation } from '@/components/LocationSetupWizard';
 
 const ADMIN_ROLES      = ['admin'];
 const EXECUTIVE_ROLES  = ['admin', 'executive'];
@@ -194,6 +195,10 @@ function BillingTab({ user }: { user: any }) {
   const currentTier: string = user?.tier || 'basic';
   const orgType = localStorage.getItem('nexum_org_type') || 'facility';
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [locationWizard, setLocationWizard] = useState<{ open: boolean; planId: string; planName: string }>({
+    open: false, planId: '', planName: '',
+  });
+  const pendingBillingUrl = useRef<string>('');
 
   const planTiers =
     orgType === 'retail'     ? RETAIL_PLAN_TIERS :
@@ -207,7 +212,14 @@ function BillingTab({ user }: { user: any }) {
 
   const handleUpgrade = (planId: string) => {
     const billingUrl = `https://billing.nexumsuum.com/upgrade?plan=${planId}&email=${encodeURIComponent(user?.email || '')}`;
-    window.open(billingUrl, '_blank', 'noopener,noreferrer');
+    const plan = planTiers.find(p => p.id === planId);
+    // Show location setup wizard before going to Stripe for multi-location plans
+    if (planRequiresLocationSetup(planId)) {
+      pendingBillingUrl.current = billingUrl;
+      setLocationWizard({ open: true, planId, planName: plan?.name || planId });
+    } else {
+      window.open(billingUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleManageBilling = () => {
@@ -368,6 +380,21 @@ function BillingTab({ user }: { user: any }) {
           )}
         </div>
       </div>
+
+      {/* Location Setup Wizard — shown before redirecting to Stripe for multi-location plans */}
+      <LocationSetupWizard
+        open={locationWizard.open}
+        onClose={() => setLocationWizard(w => ({ ...w, open: false }))}
+        onProceed={(_locations: FacilityLocation[]) => {
+          setLocationWizard(w => ({ ...w, open: false }));
+          if (pendingBillingUrl.current) {
+            window.open(pendingBillingUrl.current, '_blank', 'noopener,noreferrer');
+            pendingBillingUrl.current = '';
+          }
+        }}
+        planId={locationWizard.planId}
+        planName={locationWizard.planName}
+      />
     </div>
   );
 }
