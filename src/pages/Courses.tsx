@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/api';
 import {
   BookOpen, CheckCircle, Clock, Flame, Snowflake, Wind,
   Zap, Shield, AlertTriangle, Wrench, RefreshCw, GraduationCap,
   PlayCircle, Lock, ClipboardCheck, BarChart3, Users, Brain, TrendingUp,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -316,6 +318,10 @@ export default function Courses() {
   const [enrollingId, setEnrollingId]   = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'enrolled' | 'completed'>('all');
 
+  // Content player state
+  const [activeCourse, setActiveCourse]       = useState<Course | null>(null);
+  const [activeModuleIdx, setActiveModuleIdx] = useState(0);
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -385,6 +391,32 @@ export default function Courses() {
     } finally {
       setEnrollingId(null);
     }
+  };
+
+  const markModuleComplete = (course: Course, moduleId: string) => {
+    setEnrollments(prev => {
+      const existing = prev[course.courseId] ?? {
+        courseId: course.courseId, status: 'in_progress' as const,
+        progressPct: 0, completedModules: [], enrolledAt: new Date().toISOString(),
+      };
+      const completed = Array.from(new Set([...existing.completedModules, moduleId]));
+      const total = course.modules.length;
+      const pct = Math.round((completed.length / total) * 100);
+      const status = pct >= 100 ? 'completed' : 'in_progress';
+      const updated = { ...existing, completedModules: completed, progressPct: pct, status } as Enrollment;
+      const next = { ...prev, [course.courseId]: updated };
+      // Persist progress to localStorage
+      try { localStorage.setItem(`nexum_course_progress_${course.courseId}`, JSON.stringify(updated)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const openCourse = (course: Course) => {
+    const enr = enrollments[course.courseId];
+    // Resume at first incomplete module
+    const firstIncomplete = course.modules.findIndex(m => !enr?.completedModules.includes(m.id));
+    setActiveModuleIdx(firstIncomplete === -1 ? 0 : firstIncomplete);
+    setActiveCourse(course);
   };
 
   const totalModules   = (c: Course) => c.modules?.length ?? 0;
@@ -607,7 +639,7 @@ export default function Courses() {
                           <CheckCircle className="w-4 h-4 mr-2" />Course Complete
                         </Button>
                       ) : enrolled ? (
-                        <Button size="sm" className="w-full" onClick={() => {}}>
+                        <Button size="sm" className="w-full" onClick={() => openCourse(course)}>
                           <PlayCircle className="w-4 h-4 mr-2" />Continue Learning
                         </Button>
                       ) : (
@@ -634,6 +666,163 @@ export default function Courses() {
           </div>
         )}
       </div>
+
+      {/* ── Content Player Dialog ─────────────────────────────────────────── */}
+      {activeCourse && (() => {
+        const mod     = activeCourse.modules[activeModuleIdx];
+        const enr     = enrollments[activeCourse.courseId];
+        const done    = enr?.completedModules ?? [];
+        const isModDone = mod ? done.includes(mod.id) : false;
+        const total   = activeCourse.modules.length;
+        const pct     = total > 0 ? Math.round((done.length / total) * 100) : 0;
+
+        return (
+          <Dialog open={!!activeCourse} onOpenChange={() => setActiveCourse(null)}>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+              <DialogHeader className="px-6 py-4 border-b border-border/40 shrink-0">
+                <DialogTitle className="flex items-center gap-3 text-base pr-8">
+                  {(() => { const Icon = activeCourse.icon; return <Icon className={cn('w-5 h-5 shrink-0', activeCourse.iconColor)} />; })()}
+                  <span className="truncate">{activeCourse.title}</span>
+                  <Badge variant="outline" className="ml-auto shrink-0 text-[10px]">{pct}% complete</Badge>
+                </DialogTitle>
+                <Progress value={pct} className="h-1.5 mt-2" />
+              </DialogHeader>
+
+              <div className="flex flex-1 overflow-hidden min-h-0">
+                {/* Module sidebar */}
+                <div className="w-56 shrink-0 border-r border-border/30 overflow-y-auto bg-muted/20">
+                  <div className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1">Modules</p>
+                    {activeCourse.modules.map((m, idx) => {
+                      const isCurrent  = idx === activeModuleIdx;
+                      const isDone     = done.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          className={cn(
+                            'w-full flex items-start gap-2 p-2 rounded-lg text-left text-xs mb-1 transition-colors',
+                            isCurrent ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/40'
+                          )}
+                          onClick={() => setActiveModuleIdx(idx)}
+                        >
+                          <span className={cn(
+                            'mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0',
+                            isDone ? 'bg-green-400/20 text-green-400' :
+                            isCurrent ? 'bg-primary/20 text-primary' : 'bg-muted/40 text-muted-foreground'
+                          )}>
+                            {isDone
+                              ? <CheckCircle className="w-3 h-3" />
+                              : <span className="text-[9px] font-bold">{idx + 1}</span>
+                            }
+                          </span>
+                          <span className="leading-snug">{m.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Content area */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {mod ? (
+                      <div className="max-w-2xl space-y-6">
+                        {/* Module header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Module {activeModuleIdx + 1} of {total}
+                            </p>
+                            <h2 className="text-xl font-semibold">{mod.title}</h2>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                            <Clock className="w-3.5 h-3.5" />
+                            {mod.durationMin} min
+                          </div>
+                        </div>
+
+                        {/* Placeholder content body */}
+                        <div className="p-5 rounded-xl border border-border/30 bg-muted/20 space-y-4">
+                          <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                            <PlayCircle className="w-8 h-8 text-primary shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">Video Lesson</p>
+                              <p className="text-xs text-muted-foreground">~{mod.durationMin} minutes · HD</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 text-sm text-muted-foreground">
+                            <p className="font-medium text-foreground">Learning Objectives</p>
+                            <ul className="space-y-1.5 list-none">
+                              {[
+                                `Understand the core concepts of ${mod.title.toLowerCase()}`,
+                                'Apply best practices in real facility scenarios',
+                                'Complete the module assessment with a passing score',
+                              ].map((obj, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                  <CheckCircle className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                                  <span>{obj}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground italic">
+                            Course content is loaded from the LMS. Complete the video and pass the quiz to mark this module done.
+                          </div>
+                        </div>
+
+                        {isModDone && (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-green-400/10 border border-green-400/20 text-green-400 text-sm">
+                            <CheckCircle className="w-4 h-4 shrink-0" />
+                            Module completed
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">No module selected.</p>
+                    )}
+                  </div>
+
+                  {/* Footer nav */}
+                  <div className="shrink-0 border-t border-border/40 px-6 py-4 flex items-center justify-between gap-3">
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={activeModuleIdx === 0}
+                      onClick={() => setActiveModuleIdx(i => i - 1)}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />Previous
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant={isModDone ? 'outline' : 'default'}
+                      className={isModDone ? 'border-green-400/30 text-green-400' : ''}
+                      onClick={() => {
+                        if (mod && !isModDone) markModuleComplete(activeCourse, mod.id);
+                      }}
+                      disabled={isModDone}
+                    >
+                      {isModDone
+                        ? <><CheckCircle className="w-4 h-4 mr-1" />Completed</>
+                        : <>Mark Complete</>
+                      }
+                    </Button>
+
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={activeModuleIdx >= total - 1}
+                      onClick={() => setActiveModuleIdx(i => i + 1)}
+                    >
+                      Next<ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </MainLayout>
   );
 }

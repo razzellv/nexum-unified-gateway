@@ -193,9 +193,9 @@ export const router = createBrowserRouter([
             element: <RetailDashboard />,
           },
           {
-  path: "retail-intelligence",
-  element: <RetailIntelligence />,
-},
+            path: "retail-intelligence",
+            element: <RetailIntelligence />,
+          },
           {
             path: "government-dashboard",
             element: <GovernmentDashboard />,
