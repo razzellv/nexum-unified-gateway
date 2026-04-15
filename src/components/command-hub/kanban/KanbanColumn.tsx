@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onTaskCreated?: () => void;
+  onLocalStatusChange?: (taskId: string, status: TaskStatus) => void;
 }
 
 const statusColors: Record<TaskStatus, string> = {
@@ -34,7 +35,7 @@ const statusDotColors: Record<TaskStatus, string> = {
   'archived':       'bg-muted',
 };
 
-export function KanbanColumn({ title, status, tasks, onTaskCreated }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onTaskCreated, onLocalStatusChange }: KanbanColumnProps) {
   const [showNewTask, setShowNewTask] = useState(false);
   const criticalCount = tasks.filter(t => t.priority === 'critical').length;
 
@@ -71,7 +72,7 @@ export function KanbanColumn({ title, status, tasks, onTaskCreated }: KanbanColu
         {/* Tasks */}
         <div className="space-y-0">
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onRefresh={onTaskCreated} />
+            <TaskCard key={task.id} task={task} onRefresh={onTaskCreated} onLocalStatusChange={onLocalStatusChange} />
           ))}
         </div>
 
