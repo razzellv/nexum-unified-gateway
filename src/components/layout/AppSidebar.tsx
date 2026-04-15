@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, Building2} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, History, Target} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -104,11 +104,16 @@ const allNavItems: NavItem[] = [
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
+  // Leadership tools
+  { name: 'Historical Data',  href: '/historical-data', icon: History,   access: 'leadership', tier: 'equipment_metrics' },
+  { name: 'Virtuous Risk',    href: '/virtuous',        icon: Target,    access: 'leadership', tier: 'supervisor_dashboard' },
+
   // Nexum Suum internal tools — admin only
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
-  { name: 'FIAS',            href: '/fias',          icon: ClipboardCheck, access: 'admin_only' },
-  { name: 'Policy Guide',    href: '/policy-guide',  icon: BookOpen,       access: 'admin_only' },
-  { name: 'Workspace',       href: '/workspace',     icon: Briefcase,      access: 'admin_only' },
+  { name: 'FIAS',            href: '/fias',           icon: ClipboardCheck, access: 'admin_only' },
+  { name: 'Policy Guide',    href: '/policy-guide',   icon: BookOpen,       access: 'admin_only' },
+  { name: 'Platform Guide',  href: '/platform-guide', icon: BookOpen,       access: 'admin_only' },
+  { name: 'Workspace',       href: '/workspace',      icon: Briefcase,      access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
 import Login from "./pages/login";
@@ -56,6 +56,9 @@ import PolicyGuide from "./pages/PolicyGuide";
 import NexumWorkspace from "./pages/NexumWorkspace";
 import PlatformGuide from "./pages/PlatformGuide";
 import PropertyDashboard from "./pages/PropertyDashboard";
+import HistoricalData from "./pages/HistoricalData";
+import Virtuous from "./pages/Virtuous";
+import NotFound from "./pages/NotFound";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -277,11 +280,19 @@ export const router = createBrowserRouter([
             path: "property-dashboard",
             element: <PropertyDashboard />,
           },
+          {
+            path: "historical-data",
+            element: <HistoricalData />,
+          },
+          {
+            path: "virtuous",
+            element: <Virtuous />,
+          },
         ],
       },
       {
         path: "*",
-        element: <Navigate to="/login" replace />,
+        element: <NotFound />,
       },
     ],
   },
