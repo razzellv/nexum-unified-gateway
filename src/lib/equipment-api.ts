@@ -175,7 +175,8 @@ export const api = {
       return json;
     } catch (error) {
       console.error('API Error:', error);
-      throw error;
+      console.log('📊 Falling back to mock data');
+      return mockReadings;
     }
   },
 

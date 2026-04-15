@@ -90,6 +90,7 @@ const allNavItems: NavItem[] = [
   { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
   { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
   { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
+  { name: 'Retail Intelligence', href: '/retail-intelligence', icon: BarChart3, access: 'leadership', tier: 'retail_inventory', orgTypes: ['retail'] },
   { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
   { name: 'Property & Fleet', href: '/property-dashboard', icon: Building2, access: 'all', tier: 'retail_inventory', orgTypes: ['property', 'entrepreneur'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
@@ -112,7 +113,7 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
   { name: 'FIAS',            href: '/fias',           icon: ClipboardCheck, access: 'admin_only' },
   { name: 'Policy Guide',    href: '/policy-guide',   icon: BookOpen,       access: 'admin_only' },
-  { name: 'Platform Guide',  href: '/platform-guide', icon: BookOpen,       access: 'admin_only' },
+  { name: 'Platform Guide',  href: '/platform-guide', icon: BookOpen,       access: 'all' },
   { name: 'Workspace',       href: '/workspace',      icon: Briefcase,      access: 'admin_only' },
 ];
 
