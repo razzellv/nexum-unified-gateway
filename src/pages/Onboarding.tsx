@@ -322,17 +322,26 @@ export default function Onboarding() {
       sessionStorage.removeItem('nexum_onboarding_session');
 
       toast({ title: 'Setup complete!', description: 'Your facility is ready. Welcome to Nexum Suum.' });
-      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
-      navigate(destination);
+      navigate(getPostOnboardRoute(orgType, user?.role || ''));
     } catch (error) {
       console.error('Onboarding error:', error);
       toast({ title: 'Setup saved', description: 'Some steps may need completion. You can update settings anytime.', variant: 'destructive' });
-      const destination = orgType === 'retail' ? '/retail-dashboard' : orgType === 'government' ? '/government-dashboard' : '/';
-      navigate(destination);
+      navigate(getPostOnboardRoute(orgType, user?.role || ''));
     } finally {
       setSubmitting(false);
     }
   };
+
+  function getPostOnboardRoute(org: string, role: string): string {
+    if (org === 'retail')      return '/retail-dashboard';
+    if (org === 'government')  return '/government-dashboard';
+    if (org === 'property' || org === 'entrepreneur') return '/property-dashboard';
+    const r = role.toLowerCase();
+    if (r === 'executive' || r === 'director') return '/dashboard/executive';
+    if (r === 'manager')    return '/dashboard/manager';
+    if (r === 'supervisor') return '/dashboard/supervisor';
+    return '/platform-guide';
+  }
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (

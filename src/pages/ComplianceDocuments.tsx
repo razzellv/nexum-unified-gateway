@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface ComplianceDoc {
   id: string;
   title: string;
-  category: 'sop' | 'eop' | 'checklist' | 'pm-schedule' | 'audit-report' | 'permit' | 'certification' | 'policy' | 'other';
+  category: 'sop' | 'eop' | 'checklist' | 'pm-schedule' | 'audit-report' | 'permit' | 'certification' | 'inspection-cert' | 'data-plate' | 'manufacturer-doc' | 'installer-receipt' | 'policy' | 'other';
   description?: string;
   tags: string[];
   facilityId: string;
@@ -33,18 +33,45 @@ interface ComplianceDoc {
   fileSize: number;
   fileData?: string; // base64
   version: string;
+  // Equipment metadata (for inspection certs, data plates, manufacturer docs, installer receipts)
+  equipmentType?: string;
+  systemType?: string;
+  serialNumber?: string;
+  modelNumber?: string;
+  manufacturer?: string;
+  installDate?: string;
+  installerName?: string;
+  installerLicense?: string;
 }
 
+const EQUIPMENT_CATEGORIES = ['inspection-cert', 'data-plate', 'manufacturer-doc', 'installer-receipt', 'certification', 'permit'];
+
 const CATEGORIES = [
-  { id: 'sop',          label: 'SOP',              color: 'text-blue-400 border-blue-400/30 bg-blue-400/10' },
-  { id: 'eop',          label: 'EOP',              color: 'text-red-400 border-red-400/30 bg-red-400/10' },
-  { id: 'checklist',    label: 'Checklist',        color: 'text-green-400 border-green-400/30 bg-green-400/10' },
-  { id: 'pm-schedule',  label: 'PM Schedule',      color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
-  { id: 'audit-report', label: 'Audit Report',     color: 'text-purple-400 border-purple-400/30 bg-purple-400/10' },
-  { id: 'permit',       label: 'Permit',           color: 'text-orange-400 border-orange-400/30 bg-orange-400/10' },
-  { id: 'certification',label: 'Certification',    color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10' },
-  { id: 'policy',       label: 'Policy',           color: 'text-primary border-primary/30 bg-primary/10' },
-  { id: 'other',        label: 'Other',            color: 'text-muted-foreground border-border/30 bg-muted/10' },
+  { id: 'sop',              label: 'SOP',                       color: 'text-blue-400 border-blue-400/30 bg-blue-400/10' },
+  { id: 'eop',              label: 'EOP',                       color: 'text-red-400 border-red-400/30 bg-red-400/10' },
+  { id: 'checklist',        label: 'Checklist',                 color: 'text-green-400 border-green-400/30 bg-green-400/10' },
+  { id: 'pm-schedule',      label: 'PM Schedule',               color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
+  { id: 'inspection-cert',  label: 'Certificate of Inspection', color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10' },
+  { id: 'data-plate',       label: 'Data Plate / Nameplate',    color: 'text-teal-400 border-teal-400/30 bg-teal-400/10' },
+  { id: 'manufacturer-doc', label: 'Manufacturer Documentation',color: 'text-indigo-400 border-indigo-400/30 bg-indigo-400/10' },
+  { id: 'installer-receipt',label: 'Installer Receipt / Commission', color: 'text-violet-400 border-violet-400/30 bg-violet-400/10' },
+  { id: 'audit-report',     label: 'Audit Report',              color: 'text-purple-400 border-purple-400/30 bg-purple-400/10' },
+  { id: 'permit',           label: 'Permit',                    color: 'text-orange-400 border-orange-400/30 bg-orange-400/10' },
+  { id: 'certification',    label: 'Certification',             color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10' },
+  { id: 'policy',           label: 'Policy',                    color: 'text-primary border-primary/30 bg-primary/10' },
+  { id: 'other',            label: 'Other',                     color: 'text-muted-foreground border-border/30 bg-muted/10' },
+];
+
+const EQUIPMENT_TYPES = [
+  'HVAC / Air Handling', 'Boiler / Steam System', 'Fire Suppression System', 'Fire Alarm System',
+  'Elevator / Lift', 'Generator / UPS', 'Electrical Panel / Switchgear', 'Plumbing / Backflow',
+  'Refrigeration / Walk-in', 'Kitchen Equipment', 'Security / Access Control', 'Surveillance / CCTV',
+  'Sprinkler System', 'Emergency Lighting', 'Vehicle / Fleet', 'Other',
+];
+
+const SYSTEM_TYPES = [
+  'Mechanical', 'Electrical', 'Plumbing', 'Fire & Life Safety', 'HVAC', 'Structural',
+  'Security', 'IT / Network', 'Vertical Transport', 'Fuel / Gas', 'Other',
 ];
 
 const STATUS_STYLES = {
@@ -70,6 +97,9 @@ export default function ComplianceDocuments() {
     title: '', category: 'sop' as ComplianceDoc['category'],
     description: '', tags: '', version: '1.0',
     nextReviewDate: '', status: 'current' as ComplianceDoc['status'],
+    // Equipment metadata
+    equipmentType: '', systemType: '', serialNumber: '', modelNumber: '',
+    manufacturer: '', installDate: '', installerName: '', installerLicense: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -102,6 +132,7 @@ export default function ComplianceDocuments() {
           reader.readAsDataURL(selectedFile);
         });
       }
+      const isEquipmentDoc = EQUIPMENT_CATEGORIES.includes(form.category);
       const doc: ComplianceDoc = {
         id: `doc-${Date.now()}`,
         title: form.title,
@@ -115,11 +146,26 @@ export default function ComplianceDocuments() {
         status: form.status,
         fileType, fileSize, fileData,
         version: form.version,
+        // Equipment metadata — only stored when relevant
+        ...(isEquipmentDoc && {
+          equipmentType: form.equipmentType || undefined,
+          systemType: form.systemType || undefined,
+          serialNumber: form.serialNumber || undefined,
+          modelNumber: form.modelNumber || undefined,
+          manufacturer: form.manufacturer || undefined,
+          installDate: form.installDate || undefined,
+          installerName: form.installerName || undefined,
+          installerLicense: form.installerLicense || undefined,
+        }),
       };
       saveDocs([doc, ...docs]);
       setShowUpload(false);
       setSelectedFile(null);
-      setForm({ title: '', category: 'sop', description: '', tags: '', version: '1.0', nextReviewDate: '', status: 'current' });
+      setForm({
+        title: '', category: 'sop', description: '', tags: '', version: '1.0', nextReviewDate: '', status: 'current',
+        equipmentType: '', systemType: '', serialNumber: '', modelNumber: '',
+        manufacturer: '', installDate: '', installerName: '', installerLicense: '',
+      });
       toast({ title: 'Document added', description: doc.title });
     } catch (e) {
       toast({ title: 'Upload failed', variant: 'destructive' });
@@ -248,6 +294,18 @@ export default function ComplianceDocuments() {
                           <span className="text-[10px] text-muted-foreground">v{doc.version}</span>
                         </div>
                         {doc.description && <p className="text-xs text-muted-foreground mb-1">{doc.description}</p>}
+                        {/* Equipment metadata row */}
+                        {(doc.equipmentType || doc.serialNumber || doc.modelNumber || doc.manufacturer) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-1.5 text-xs">
+                            {doc.equipmentType && <span className="text-cyan-400/90"><span className="text-muted-foreground">Type:</span> {doc.equipmentType}</span>}
+                            {doc.systemType && <span className="text-cyan-400/90"><span className="text-muted-foreground">System:</span> {doc.systemType}</span>}
+                            {doc.manufacturer && <span className="text-cyan-400/90"><span className="text-muted-foreground">Mfr:</span> {doc.manufacturer}</span>}
+                            {doc.modelNumber && <span className="text-cyan-400/90"><span className="text-muted-foreground">Model:</span> {doc.modelNumber}</span>}
+                            {doc.serialNumber && <span className="text-cyan-400/90"><span className="text-muted-foreground">S/N:</span> {doc.serialNumber}</span>}
+                            {doc.installerName && <span className="text-cyan-400/90"><span className="text-muted-foreground">Installer:</span> {doc.installerName}{doc.installerLicense ? ` (Lic: ${doc.installerLicense})` : ''}</span>}
+                            {doc.installDate && <span className="text-cyan-400/90"><span className="text-muted-foreground">Installed:</span> {new Date(doc.installDate).toLocaleDateString()}</span>}
+                          </div>
+                        )}
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Added {new Date(doc.uploadedAt).toLocaleDateString()}</span>
                           <span>By {doc.uploadedBy}</span>
@@ -334,6 +392,63 @@ export default function ComplianceDocuments() {
                 <Label className="text-xs">Tags <span className="text-muted-foreground font-normal">(comma separated)</span></Label>
                 <Input value={form.tags} onChange={e => setForm(p => ({...p, tags: e.target.value}))} placeholder="boiler, HVAC, maintenance, NJ-code" className="h-9 text-sm" />
               </div>
+              {/* Equipment fields — shown for equipment-related categories */}
+              {EQUIPMENT_CATEGORIES.includes(form.category) && (
+                <div className="space-y-3 pt-2 border-t border-border/30">
+                  <p className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" />Equipment / System Details
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Equipment Type</Label>
+                      <select value={form.equipmentType} onChange={e => setForm(p => ({...p, equipmentType: e.target.value}))}
+                        className="w-full h-9 text-sm border border-border/40 bg-card/50 rounded-lg px-3 focus:outline-none">
+                        <option value="">— Select —</option>
+                        {EQUIPMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">System Type</Label>
+                      <select value={form.systemType} onChange={e => setForm(p => ({...p, systemType: e.target.value}))}
+                        className="w-full h-9 text-sm border border-border/40 bg-card/50 rounded-lg px-3 focus:outline-none">
+                        <option value="">— Select —</option>
+                        {SYSTEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Manufacturer</Label>
+                      <Input value={form.manufacturer} onChange={e => setForm(p => ({...p, manufacturer: e.target.value}))} placeholder="e.g. Carrier, Siemens" className="h-9 text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Model Number</Label>
+                      <Input value={form.modelNumber} onChange={e => setForm(p => ({...p, modelNumber: e.target.value}))} placeholder="e.g. 50XC036-301" className="h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Serial Number</Label>
+                    <Input value={form.serialNumber} onChange={e => setForm(p => ({...p, serialNumber: e.target.value}))} placeholder="e.g. SN-2024-00481" className="h-9 text-sm" />
+                  </div>
+                  {(form.category === 'installer-receipt' || form.category === 'inspection-cert' || form.category === 'certification' || form.category === 'permit') && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Installer / Inspector Name</Label>
+                        <Input value={form.installerName} onChange={e => setForm(p => ({...p, installerName: e.target.value}))} placeholder="Full name or company" className="h-9 text-sm" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">License / Cert #</Label>
+                        <Input value={form.installerLicense} onChange={e => setForm(p => ({...p, installerLicense: e.target.value}))} placeholder="e.g. NJ-HVAC-2241" className="h-9 text-sm" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Install / Inspection Date</Label>
+                    <Input type="date" value={form.installDate} onChange={e => setForm(p => ({...p, installDate: e.target.value}))} className="h-9 text-sm" />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label className="text-xs">File <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <div className="flex items-center gap-2">
@@ -341,7 +456,7 @@ export default function ComplianceDocuments() {
                     <Upload className="w-4 h-4 mr-2" />{selectedFile ? selectedFile.name : 'Choose File'}
                   </Button>
                   {selectedFile && <button onClick={() => setSelectedFile(null)}><X className="w-4 h-4 text-muted-foreground" /></button>}
-                  <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xlsx,.csv,.txt" onChange={handleFileSelect} />
+                  <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xlsx,.csv,.txt,.jpg,.jpeg,.png" onChange={handleFileSelect} />
                 </div>
               </div>
             </div>

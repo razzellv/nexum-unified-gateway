@@ -52,6 +52,8 @@ type NavItem = {
   tier?: TierFeature;
   /** Only show for these org types (undefined = all) */
   orgTypes?: string[];
+  /** Set at runtime by getVisibleItems when tier check fails */
+  _locked?: boolean;
 };
 
 const allNavItems: NavItem[] = [
@@ -110,6 +112,7 @@ function getVisibleItems(
   orgType: string,
   isLeadership: boolean,
   isAdmin: boolean,
+  canFeature: (f: TierFeature) => boolean,
 ): NavItem[] {
   const isRetailStaff    = orgType === 'retail'      && RETAIL_STAFF.includes(role);
   const isRetailLeader   = orgType === 'retail'      && RETAIL_LEADERSHIP.includes(role);
@@ -117,6 +120,18 @@ function getVisibleItems(
   const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
   return allNavItems.filter(item => {
+    // Admin-only items (e.g. FIAS) — never shown to non-admins
+    if (item.access === 'admin_only') return isAdmin;
+
+    // Tier-locked items: keep visible so users see what's available, but mark locked
+    // (TierBadge handles the visual lock; routing guard handles access)
+    // Exception: admin always has full access
+    if (item.tier && !isAdmin && !canFeature(item.tier)) {
+      item._locked = true; // mark for visual treatment
+    } else {
+      item._locked = false;
+    }
+
     // Org-type filter — admin sees all org dashboards; others only see their own
     if (item.orgTypes && item.orgTypes.length > 0) {
       if (!isAdmin && !item.orgTypes.includes(orgType)) return false;
@@ -177,7 +192,8 @@ export function AppSidebar() {
   ];
   const isLeadership = allLeadershipRoles.includes(role);
 
-  const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin);
+  const { can } = useTier();
+  const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin, can);
 
   return (
     <aside className={cn(
@@ -208,6 +224,22 @@ export function AppSidebar() {
                     {!collapsed && item.name}
                   </h3>
                 </div>
+              );
+            }
+            if (item._locked) {
+              // Show locked items dimmed — click goes to pricing to upgrade
+              const Icon = item.icon!;
+              return (
+                <NavLink
+                  key={item.href || item.name}
+                  to="/pricing"
+                  icon={item.icon!}
+                  collapsed={collapsed}
+                  className="opacity-40 hover:opacity-60"
+                >
+                  {item.name}
+                  {!collapsed && item.tier && <TierBadge feature={item.tier} />}
+                </NavLink>
               );
             }
             return (

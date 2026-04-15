@@ -188,6 +188,13 @@ const MOCK_GOV_ITEMS: GovItem[] = [
 export default function InventoryLibrary() {
   const { user } = useAuth();
   const facilityId = user?.facilityId || 'facility-001';
+
+  // Facility-scoped localStorage keys — prevents cross-tenant data collision
+  const INV_KEY      = `nexum_inventory_${facilityId}`;
+  const CHECKOUT_KEY = `inventory_checkout_logs_${facilityId}`;
+  const TEMP_KEY     = `inventory_temp_logs_${facilityId}`;
+  const GOV_KEY      = `gov_inventory_${facilityId}`;
+
   // ── State ────────────────────────────────────────────────────────────────────
   const [inventory, setInventory] = useState<InventoryPart[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryPart[]>([]);
@@ -200,14 +207,14 @@ export default function InventoryLibrary() {
   const [activeGroupFilter, setActiveGroupFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('inventory');
 
-  // checkout / temp logs
+  // checkout / temp logs — facility-scoped
   const [checkoutLogs, setCheckoutLogs] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('inventory_checkout_logs') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(CHECKOUT_KEY) || '[]'); } catch { return []; }
   });
   const [checkoutForm, setCheckoutForm] = useState({ itemId: '', itemName: '', quantity: 1, checkedOutBy: '', job: '', notes: '', action: 'checkout' });
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [tempLogs, setTempLogs] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('inventory_temp_logs') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(TEMP_KEY) || '[]'); } catch { return []; }
   });
   const [showTempLog, setShowTempLog] = useState(false);
   const [tempForm, setTempForm] = useState({ itemId: '', itemName: '', temp: '', unit: 'F', location: '', loggedBy: '', notes: '' });
@@ -224,10 +231,10 @@ export default function InventoryLibrary() {
   const [pharmacyForm, setPharmacyForm] = useState({ ...EMPTY_PHARMACY_FORM });
   const [addSubmitting, setAddSubmitting] = useState(false);
 
-  // Gov / Public Safety
+  // Gov / Public Safety — facility-scoped
   const [govItems, setGovItems] = useState<GovItem[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('gov_inventory') || '[]');
+      const saved = JSON.parse(localStorage.getItem(GOV_KEY) || '[]');
       return saved.length > 0 ? saved : MOCK_GOV_ITEMS;
     } catch { return MOCK_GOV_ITEMS; }
   });
@@ -255,7 +262,7 @@ export default function InventoryLibrary() {
     const log = { id: Date.now().toString(), ...checkoutForm, timestamp: new Date().toISOString(), facilityId, logType: 'checkout' };
     const updated = [log, ...checkoutLogs].slice(0, 500);
     setCheckoutLogs(updated);
-    localStorage.setItem('inventory_checkout_logs', JSON.stringify(updated));
+    localStorage.setItem(CHECKOUT_KEY, JSON.stringify(updated));
     setShowCheckoutModal(false);
     toast({ title: `Item ${checkoutForm.action === 'checkout' ? 'checked out' : checkoutForm.action === 'checkin' ? 'returned' : 'verified'}`, description: `${checkoutForm.itemName} — ${checkoutForm.checkedOutBy}` });
     // Persist to backend
@@ -274,7 +281,7 @@ export default function InventoryLibrary() {
     const log = { ...tempForm, id: Date.now().toString(), timestamp: new Date().toISOString(), facilityId, logType: 'temperature' };
     const updated = [log, ...tempLogs].slice(0, 200);
     setTempLogs(updated);
-    localStorage.setItem('inventory_temp_logs', JSON.stringify(updated));
+    localStorage.setItem(TEMP_KEY, JSON.stringify(updated));
     setShowTempLog(false);
     setTempForm({ itemId: '', itemName: '', temp: '', unit: 'F', location: '', loggedBy: '', notes: '' });
     // Persist to backend
@@ -299,7 +306,7 @@ export default function InventoryLibrary() {
     } catch {
       // Load from localStorage if API unavailable
       try {
-        const saved = JSON.parse(localStorage.getItem('nexum_inventory') || '[]');
+        const saved = JSON.parse(localStorage.getItem(INV_KEY) || '[]');
         setInventory(saved);
       } catch { setInventory([]); }
     } finally {
@@ -387,9 +394,9 @@ export default function InventoryLibrary() {
       }
 
       // Save to localStorage
-      const saved = (() => { try { return JSON.parse(localStorage.getItem('nexum_inventory') || '[]'); } catch { return []; } })();
+      const saved = (() => { try { return JSON.parse(localStorage.getItem(INV_KEY) || '[]'); } catch { return []; } })();
       const updated = [newItem, ...saved];
-      localStorage.setItem('nexum_inventory', JSON.stringify(updated));
+      localStorage.setItem(INV_KEY, JSON.stringify(updated));
       setInventory(prev => [newItem, ...prev]);
 
       // POST to API
@@ -439,7 +446,7 @@ export default function InventoryLibrary() {
       };
       const updated = [newItem, ...govItems];
       setGovItems(updated);
-      localStorage.setItem('gov_inventory', JSON.stringify(updated));
+      localStorage.setItem(GOV_KEY, JSON.stringify(updated));
 
       try {
         const token = localStorage.getItem('nexum_access_token');
@@ -1179,9 +1186,9 @@ export default function InventoryLibrary() {
             notes: row.notes || undefined,
             createdAt: new Date().toISOString(),
           };
-          const saved = (() => { try { return JSON.parse(localStorage.getItem('nexum_inventory') || '[]'); } catch { return []; } })();
+          const saved = (() => { try { return JSON.parse(localStorage.getItem(INV_KEY) || '[]'); } catch { return []; } })();
           const updated = [newItem, ...saved];
-          localStorage.setItem('nexum_inventory', JSON.stringify(updated));
+          localStorage.setItem(INV_KEY, JSON.stringify(updated));
           setInventory(prev => [newItem as any, ...prev]);
           try {
             const token = localStorage.getItem('nexum_access_token');

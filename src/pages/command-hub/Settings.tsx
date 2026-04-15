@@ -82,41 +82,102 @@ const utilTextColor = (pct: number) =>
   pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400';
 
 // ── Billing / Plan tab ────────────────────────────────────────────────────────
-const PLAN_TIERS = [
+interface PlanTier {
+  id: string;
+  name: string;
+  price: string;
+  sub?: string; // e.g. monthly equiv or annual option
+  features: string[];
+  highlight: boolean;
+  isEnterprise?: boolean;
+}
+
+const FACILITY_PLAN_TIERS: PlanTier[] = [
   {
     id: 'basic',
     name: 'Basic',
-    price: '$49/mo',
-    features: ['Up to 5 users', 'Core facility monitoring', 'Work orders', 'Basic reporting'],
+    price: '$10,788/yr',
+    sub: '~$899/mo',
+    features: ['Up to 2 facilities', 'Equipment Library', 'Work orders', 'Compliance Logger', 'Facility Data Source', 'Basic dashboards', 'Email support'],
     highlight: false,
   },
   {
     id: 'standard',
     name: 'Standard',
-    price: '$149/mo',
-    features: ['Up to 20 users', 'Everything in Basic', 'Compliance tracking', 'Vendor management', 'API access'],
+    price: '$23,988/yr',
+    sub: '~$1,999/mo',
+    features: ['Up to 5 facilities', 'Everything in Basic', 'Vendor Hub', 'Violations tracking', 'Energy Dashboard', 'Manager & Supervisor dashboards', 'Inventory Library', 'Priority email support'],
     highlight: false,
   },
   {
     id: 'business',
     name: 'Business',
-    price: '$349/mo',
-    features: ['Up to 75 users', 'Everything in Standard', 'Advanced analytics', 'Multi-building', 'Priority support'],
+    price: '$47,988/yr',
+    sub: '~$3,999/mo',
+    features: ['Up to 15 facilities', 'Everything in Standard', 'Executive Dashboard', 'Multi-facility analytics', 'Compliance Analyzer AI', 'Command Hub (full)', 'Phone + email support'],
     highlight: true,
   },
   {
     id: 'premium',
     name: 'Premium',
-    price: '$699/mo',
-    features: ['Unlimited users', 'Everything in Business', 'Executive dashboards', 'Custom integrations', 'Dedicated CSM'],
+    price: '$83,988/yr',
+    sub: '~$6,999/mo',
+    features: ['Unlimited facilities', 'Everything in Business', 'VVFI AI Facility Instructor', 'OVPI Performance Intelligence', 'Optimize & Learn LMS', 'Custom onboarding', 'Dedicated account manager', '24/7 priority support'],
+    highlight: false,
+  },
+];
+
+const RETAIL_PLAN_TIERS: PlanTier[] = [
+  {
+    id: 'retail_starter',
+    name: 'Retail Starter',
+    price: '$197/mo',
+    sub: '$1,970/yr (save 2 months)',
+    features: ['1 location · 5 users', 'Inventory tracking', 'Shelf life + FIFO alerts', 'Temperature compliance logs', 'Daily open/close checklists', 'Health inspection readiness score'],
     highlight: false,
   },
   {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 'Custom',
-    features: ['Everything in Premium', 'On-premise option', 'SLA guarantee', 'Custom contracts', 'White-label'],
+    id: 'retail_pro',
+    name: 'Retail Pro',
+    price: '$297/mo',
+    sub: '$2,970/yr (save 2 months)',
+    features: ['Up to 3 locations · 10 users', 'Everything in Starter', 'Waste tracking', 'Compliance document storage', 'Supplier management', 'Manager dashboard'],
+    highlight: true,
+  },
+];
+
+const GOVT_PLAN_TIERS: PlanTier[] = [
+  {
+    id: 'command_basic',
+    name: 'Command Basic',
+    price: '$4,970/yr',
+    sub: '~$414/mo',
+    features: ['1 department · 15 users', 'Apparatus / fleet tracking', 'Personnel certifications', 'Chain of custody logging', 'Equipment inventory', 'Work orders', 'Compliance logging'],
     highlight: false,
+  },
+  {
+    id: 'command_standard',
+    name: 'Command Standard',
+    price: '$9,970/yr',
+    sub: '~$831/mo',
+    features: ['Up to 5 units · 30 users', 'Everything in Basic', 'Response metrics (NFPA 1710)', 'Weapons + uniform inventory', 'Compliance reporting'],
+    highlight: false,
+  },
+  {
+    id: 'command_pro',
+    name: 'Command Pro',
+    price: '$19,970/yr',
+    sub: '~$1,664/mo',
+    features: ['Unlimited units & users', 'Everything in Standard', 'AI compliance analysis', 'Full Command Hub', 'Optimize & Learn LMS', 'Dedicated account manager'],
+    highlight: true,
+  },
+  {
+    id: 'command_enterprise',
+    name: 'Command Enterprise',
+    price: 'Custom',
+    features: ['Everything in Command Pro', 'Multi-agency deployment', 'White-label options', 'Custom integrations', 'Dedicated SLA', 'On-site training', 'Custom contract'],
+    highlight: false,
+    isEnterprise: true,
   },
 ];
 
@@ -131,10 +192,20 @@ const CANCELLATION_POLICY = [
 function BillingTab({ user }: { user: any }) {
   const { toast } = useToast();
   const currentTier: string = user?.tier || 'basic';
+  const orgType = localStorage.getItem('nexum_org_type') || 'facility';
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  const planTiers =
+    orgType === 'retail'     ? RETAIL_PLAN_TIERS :
+    orgType === 'government' ? GOVT_PLAN_TIERS   :
+    FACILITY_PLAN_TIERS;
+
+  // Tiers that are considered "paid" — mid-upgrade gets prorated credit
+  const paidTierIds = planTiers.map(p => p.id);
+  const isOnPaidPlan = paidTierIds.includes(currentTier);
+  const currentPlanIndex = planTiers.findIndex(p => p.id === currentTier);
+
   const handleUpgrade = (planId: string) => {
-    // Redirect to billing portal — replace URL with your actual Stripe / billing portal link
     const billingUrl = `https://billing.nexumsuum.com/upgrade?plan=${planId}&email=${encodeURIComponent(user?.email || '')}`;
     window.open(billingUrl, '_blank', 'noopener,noreferrer');
   };
@@ -150,7 +221,6 @@ function BillingTab({ user }: { user: any }) {
       description: 'Your cancellation has been submitted. Access continues until the end of your billing period.',
     });
     setShowCancelConfirm(false);
-    // In production: POST to /billing/cancel endpoint here
   };
 
   return (
@@ -161,7 +231,8 @@ function BillingTab({ user }: { user: any }) {
           <div className="p-2 rounded-lg bg-cyan-500/20"><CreditCard className="w-5 h-5 text-cyan-400" /></div>
           <div>
             <p className="text-xs text-muted-foreground">Current Plan</p>
-            <p className="font-semibold text-lg capitalize">{currentTier.replace('_', ' ')}</p>
+            <p className="font-semibold text-lg capitalize">{planTiers.find(p => p.id === currentTier)?.name || currentTier.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-muted-foreground">{planTiers.find(p => p.id === currentTier)?.price || ''}</p>
           </div>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={handleManageBilling}>
@@ -169,12 +240,27 @@ function BillingTab({ user }: { user: any }) {
         </Button>
       </div>
 
+      {/* Mid-plan upgrade proration notice */}
+      {isOnPaidPlan && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+          <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium text-green-400">Upgrade anytime — you keep your money.</p>
+            <p className="text-muted-foreground mt-0.5">
+              When you upgrade mid-cycle, a prorated credit for the unused days on your current plan is automatically applied to your new plan. You only pay the difference.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Plan comparison */}
       <div>
         <h2 className="text-base font-semibold mb-4">Available Plans</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {PLAN_TIERS.map(plan => {
+        <div className={cn('grid gap-3', planTiers.length <= 2 ? 'sm:grid-cols-2' : planTiers.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4')}>
+          {planTiers.map((plan, idx) => {
             const isCurrent = currentTier === plan.id;
+            const isUpgrade = !isCurrent && currentPlanIndex >= 0 && idx > currentPlanIndex;
+            const isDowngrade = !isCurrent && currentPlanIndex >= 0 && idx < currentPlanIndex;
             return (
               <div
                 key={plan.id}
@@ -200,6 +286,7 @@ function BillingTab({ user }: { user: any }) {
                 <div>
                   <p className="font-semibold">{plan.name}</p>
                   <p className="text-lg font-bold text-cyan-400">{plan.price}</p>
+                  {plan.sub && <p className="text-[10px] text-muted-foreground">{plan.sub}</p>}
                 </div>
                 <ul className="space-y-1 flex-1">
                   {plan.features.map(f => (
@@ -208,15 +295,34 @@ function BillingTab({ user }: { user: any }) {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  size="sm"
-                  disabled={isCurrent}
-                  variant={isCurrent ? 'outline' : 'default'}
-                  className={cn('w-full gap-1.5 mt-1', !isCurrent && 'bg-cyan-600 hover:bg-cyan-500')}
-                  onClick={() => !isCurrent && handleUpgrade(plan.id)}
-                >
-                  {isCurrent ? 'Active Plan' : <><ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade</>}
-                </Button>
+                {plan.isEnterprise ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1.5 mt-1 border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                    onClick={() => handleUpgrade(plan.id)}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Contact Sales
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    disabled={isCurrent}
+                    variant={isCurrent ? 'outline' : 'default'}
+                    className={cn('w-full gap-1.5 mt-1',
+                      !isCurrent && isUpgrade && 'bg-cyan-600 hover:bg-cyan-500',
+                      !isCurrent && isDowngrade && 'bg-muted hover:bg-muted/80 text-muted-foreground',
+                    )}
+                    onClick={() => !isCurrent && handleUpgrade(plan.id)}
+                  >
+                    {isCurrent ? 'Active Plan'
+                      : isUpgrade ? <><ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade</>
+                      : 'Switch Plan'}
+                  </Button>
+                )}
+                {!isCurrent && isUpgrade && isOnPaidPlan && (
+                  <p className="text-[10px] text-green-400/80 text-center -mt-1">Prorated credit applied</p>
+                )}
               </div>
             );
           })}
