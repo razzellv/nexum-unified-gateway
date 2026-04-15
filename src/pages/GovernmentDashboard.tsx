@@ -12,6 +12,7 @@ import {
   Shield, Truck, Users, AlertTriangle, Clock, CheckCircle, XCircle,
   FileText, Award, Activity, Package, ArrowRight, Zap, TrendingUp,
   AlertOctagon, Radio, MapPin, Lock, History, BarChart2, Flag,
+  Camera, Plus, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRangeFilter, filterByRange, bucketByDay, type DateRange } from '@/components/DateRangeFilter';
@@ -63,6 +64,43 @@ const MOCK_INVENTORY = [
   { id: 'inv-8', category: 'Fire PPE',    name: 'SCBA (Air Pack)',            qty: 6,  total: 8,  condition: 'Inspect' },
 ];
 
+// ─── CCTV / Camera data ──────────────────────────────────────────────────────
+interface SecurityCamera {
+  id: string;
+  name: string;
+  location: string;
+  status: 'online' | 'offline' | 'maintenance';
+  type: 'Fixed' | 'PTZ' | 'Thermal' | 'Doorbell';
+  ip?: string;
+}
+
+const MOCK_CAMERAS: SecurityCamera[] = [
+  { id: 'cam-1', name: 'Front Entrance',    location: 'Main Entry',    status: 'online',      type: 'PTZ',      ip: '192.168.1.101' },
+  { id: 'cam-2', name: 'Rear Parking',      location: 'Lot B',         status: 'online',      type: 'Fixed',    ip: '192.168.1.102' },
+  { id: 'cam-3', name: 'Evidence Room',     location: 'Basement L1',   status: 'online',      type: 'Fixed',    ip: '192.168.1.103' },
+  { id: 'cam-4', name: 'Holding Area',      location: 'Building 1B',   status: 'maintenance', type: 'Fixed',    ip: '192.168.1.104' },
+  { id: 'cam-5', name: 'Perimeter N',       location: 'Fence Line N',  status: 'online',      type: 'Thermal',  ip: '192.168.1.105' },
+  { id: 'cam-6', name: 'Vehicle Bay',       location: 'Garage',        status: 'offline',     type: 'Fixed',    ip: '192.168.1.106' },
+];
+
+// ─── Inventory item interface ─────────────────────────────────────────────────
+interface InventoryItem {
+  id: string;
+  category: string;
+  name: string;
+  qty: number;
+  total: number;
+  condition: 'Good' | 'Fair' | 'Poor' | 'Inspect';
+  serialNumber?: string;
+  location?: string;
+  notes?: string;
+}
+
+const INVENTORY_CATEGORIES = [
+  'Firearms', 'Ammunition', 'Less-Lethal', 'PPE', 'Fire PPE', 'SCBA',
+  'Uniforms', 'Communication', 'Surveillance/CCTV', 'Medical', 'Tools', 'Vehicles',
+];
+
 const NFPA_BENCHMARKS = { turnout: 1.5, travel: 4, total: 8 }; // minutes
 
 function getDaysUntilExpiry(dateStr: string): number {
@@ -109,6 +147,28 @@ export default function GovernmentDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [complianceLogs, setComplianceLogs] = useState<any[]>([]);
   const [allViolations, setAllViolations] = useState<any[]>([]);
+
+  // CCTV cameras — localStorage backed
+  const [cameras, setCameras] = useState<SecurityCamera[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nexum_govt_cameras') || '[]');
+      return Array.isArray(saved) && saved.length > 0 ? saved : MOCK_CAMERAS;
+    } catch { return MOCK_CAMERAS; }
+  });
+  const [showAddCamera, setShowAddCamera] = useState(false);
+  const [newCam, setNewCam] = useState<Omit<SecurityCamera, 'id'>>({ name: '', location: '', status: 'online', type: 'Fixed', ip: '' });
+
+  // Inventory — localStorage backed
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nexum_govt_inventory') || '[]');
+      return Array.isArray(saved) && saved.length > 0 ? saved : MOCK_INVENTORY.map(i => ({ ...i, serialNumber: '', location: '', notes: '' }));
+    } catch { return MOCK_INVENTORY.map(i => ({ ...i, serialNumber: '', location: '', notes: '' })); }
+  });
+  const [showAddInventory, setShowAddInventory] = useState(false);
+  const [newItem, setNewItem] = useState<Omit<InventoryItem, 'id'>>({
+    category: 'Firearms', name: '', qty: 0, total: 0, condition: 'Good', serialNumber: '', location: '', notes: '',
+  });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -206,6 +266,38 @@ export default function GovernmentDashboard() {
     setShowAddCustody(false);
   };
 
+  const addCamera = () => {
+    if (!newCam.name || !newCam.location) return;
+    const cam: SecurityCamera = { id: `cam-${Date.now()}`, ...newCam };
+    const next = [cam, ...cameras];
+    setCameras(next);
+    localStorage.setItem('nexum_govt_cameras', JSON.stringify(next));
+    setNewCam({ name: '', location: '', status: 'online', type: 'Fixed', ip: '' });
+    setShowAddCamera(false);
+  };
+
+  const deleteCamera = (id: string) => {
+    const next = cameras.filter(c => c.id !== id);
+    setCameras(next);
+    localStorage.setItem('nexum_govt_cameras', JSON.stringify(next));
+  };
+
+  const addInventoryItem = () => {
+    if (!newItem.name || newItem.total <= 0) return;
+    const item: InventoryItem = { id: `inv-${Date.now()}`, ...newItem };
+    const next = [...inventory, item];
+    setInventory(next);
+    localStorage.setItem('nexum_govt_inventory', JSON.stringify(next));
+    setNewItem({ category: 'Firearms', name: '', qty: 0, total: 0, condition: 'Good', serialNumber: '', location: '', notes: '' });
+    setShowAddInventory(false);
+  };
+
+  const deleteInventoryItem = (id: string) => {
+    const next = inventory.filter(i => i.id !== id);
+    setInventory(next);
+    localStorage.setItem('nexum_govt_inventory', JSON.stringify(next));
+  };
+
   // Org-type guard — only government orgs and admin have access
   const orgType = localStorage.getItem('nexum_org_type') || sessionStorage.getItem('nexum_org_type') || '';
   const role = user?.role?.toLowerCase() || '';
@@ -251,7 +343,7 @@ export default function GovernmentDashboard() {
         </div>
 
         {/* KPI row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
             {
               label: 'Units Available', value: `${availableUnits}/${units.length}`,
@@ -274,6 +366,13 @@ export default function GovernmentDashboard() {
               icon: Award,
               color: personnelReadiness >= 90 ? 'text-green-400' : personnelReadiness >= 70 ? 'text-yellow-400' : 'text-red-400',
               sub: `${expiredCerts.length} cert(s) expired`,
+            },
+            {
+              label: 'Cameras Online',
+              value: `${cameras.filter(c => c.status === 'online').length}/${cameras.length}`,
+              icon: Camera,
+              color: cameras.filter(c => c.status === 'offline').length > 0 ? 'text-yellow-400' : 'text-green-400',
+              sub: `${cameras.filter(c => c.status === 'offline').length} offline`,
             },
           ].map(({ label, value, icon: Icon, color, sub }) => (
             <Card key={label} className="neon-border">
@@ -515,24 +614,109 @@ export default function GovernmentDashboard() {
         {/* Weapons & Uniform Inventory */}
         <Card className="neon-border">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="w-4 h-4 text-primary" />Weapons &amp; Uniform Inventory
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Package className="w-4 h-4 text-primary" />Weapons &amp; Uniform Inventory
+              </CardTitle>
+              <Button size="sm" variant="outline" className="text-xs h-7 px-2 border-border/40"
+                onClick={() => setShowAddInventory(v => !v)}>
+                <Plus className="w-3 h-3 mr-1" />Add Item
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Add item form */}
+            {showAddInventory && (
+              <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">New Inventory Item</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5 col-span-2"
+                    value={newItem.category}
+                    onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                  >
+                    {INVENTORY_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  <input
+                    className="col-span-2 text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Item name (e.g. Glock 17 Service Pistol)"
+                    value={newItem.name}
+                    onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                  />
+                  <input
+                    type="number" min={0}
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Qty in service"
+                    value={newItem.qty || ''}
+                    onChange={e => setNewItem({ ...newItem, qty: Number(e.target.value) })}
+                  />
+                  <input
+                    type="number" min={0}
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Total qty"
+                    value={newItem.total || ''}
+                    onChange={e => setNewItem({ ...newItem, total: Number(e.target.value) })}
+                  />
+                  <input
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Serial / Asset #"
+                    value={newItem.serialNumber}
+                    onChange={e => setNewItem({ ...newItem, serialNumber: e.target.value })}
+                  />
+                  <input
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Location / Storage"
+                    value={newItem.location}
+                    onChange={e => setNewItem({ ...newItem, location: e.target.value })}
+                  />
+                  <select
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    value={newItem.condition}
+                    onChange={e => setNewItem({ ...newItem, condition: e.target.value as InventoryItem['condition'] })}
+                  >
+                    {(['Good', 'Fair', 'Poor', 'Inspect'] as const).map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  <input
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Notes (optional)"
+                    value={newItem.notes}
+                    onChange={e => setNewItem({ ...newItem, notes: e.target.value })}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-7 text-xs" onClick={addInventoryItem}>Save Item</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowAddInventory(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {MOCK_INVENTORY.map(item => {
-                const pct = Math.round((item.qty / item.total) * 100);
+              {inventory.map(item => {
+                const pct = item.total > 0 ? Math.round((item.qty / item.total) * 100) : 0;
                 const color = pct >= 80 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
                 return (
-                  <div key={item.id} className="p-3 rounded-lg border border-border/30 bg-muted/10 space-y-2">
+                  <div key={item.id} className="p-3 rounded-lg border border-border/30 bg-muted/10 space-y-2 group relative">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{item.category}</span>
-                      <Badge variant="outline" className={cn('text-[10px]',
-                        item.condition === 'Good' ? 'border-green-400/30 text-green-400' : 'border-yellow-400/30 text-yellow-400'
-                      )}>{item.condition}</Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className={cn('text-[10px]',
+                          item.condition === 'Good' ? 'border-green-400/30 text-green-400' :
+                          item.condition === 'Inspect' ? 'border-yellow-400/30 text-yellow-400' :
+                          item.condition === 'Poor' ? 'border-red-400/30 text-red-400' :
+                          'border-orange-400/30 text-orange-400'
+                        )}>{item.condition}</Badge>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/50 hover:text-red-400"
+                          onClick={() => deleteInventoryItem(item.id)}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs font-medium leading-tight">{item.name}</p>
+                    {item.serialNumber && <p className="text-[10px] text-muted-foreground">S/N: {item.serialNumber}</p>}
+                    {item.location && <p className="text-[10px] text-muted-foreground">{item.location}</p>}
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">In Service</span>
@@ -540,9 +724,135 @@ export default function GovernmentDashboard() {
                       </div>
                       <Progress value={pct} className="h-1.5" />
                     </div>
+                    {item.notes && <p className="text-[10px] text-muted-foreground/70 italic">{item.notes}</p>}
                   </div>
                 );
               })}
+              {inventory.length === 0 && (
+                <div className="col-span-4 text-center py-8 text-muted-foreground text-sm">
+                  No inventory items. Add your first item above.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CCTV / Security Camera Panel */}
+        <Card className="neon-border">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Camera className="w-4 h-4 text-primary" />CCTV &amp; Security Cameras
+                <Badge variant="outline" className="text-[10px] border-green-400/30 text-green-400">
+                  {cameras.filter(c => c.status === 'online').length} Online
+                </Badge>
+                {cameras.filter(c => c.status === 'offline').length > 0 && (
+                  <Badge variant="outline" className="text-[10px] border-red-400/30 text-red-400">
+                    {cameras.filter(c => c.status === 'offline').length} Offline
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button size="sm" variant="outline" className="text-xs h-7 px-2 border-border/40"
+                onClick={() => setShowAddCamera(v => !v)}>
+                <Plus className="w-3 h-3 mr-1" />Add Camera
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Add camera form */}
+            {showAddCamera && (
+              <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Register New Camera</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Camera name"
+                    value={newCam.name}
+                    onChange={e => setNewCam({ ...newCam, name: e.target.value })}
+                  />
+                  <input
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="Location"
+                    value={newCam.location}
+                    onChange={e => setNewCam({ ...newCam, location: e.target.value })}
+                  />
+                  <select
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    value={newCam.type}
+                    onChange={e => setNewCam({ ...newCam, type: e.target.value as SecurityCamera['type'] })}
+                  >
+                    {(['Fixed', 'PTZ', 'Thermal', 'Doorbell'] as const).map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  <select
+                    className="text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    value={newCam.status}
+                    onChange={e => setNewCam({ ...newCam, status: e.target.value as SecurityCamera['status'] })}
+                  >
+                    <option value="online">Online</option>
+                    <option value="offline">Offline</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                  <input
+                    className="col-span-2 text-xs bg-background border border-border/40 rounded px-2 py-1.5"
+                    placeholder="IP Address (optional)"
+                    value={newCam.ip}
+                    onChange={e => setNewCam({ ...newCam, ip: e.target.value })}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-7 text-xs" onClick={addCamera}>Save Camera</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowAddCamera(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {cameras.map(cam => (
+                <div key={cam.id} className={cn(
+                  'p-3 rounded-lg border bg-muted/10 flex items-start justify-between gap-2 group',
+                  cam.status === 'online' ? 'border-green-400/20' :
+                  cam.status === 'offline' ? 'border-red-400/20' : 'border-yellow-400/20'
+                )}>
+                  <div className="flex items-start gap-2.5">
+                    <div className={cn(
+                      'mt-1 w-2 h-2 rounded-full shrink-0',
+                      cam.status === 'online' ? 'bg-green-400 shadow-[0_0_6px_#4ade80]' :
+                      cam.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+                    )} />
+                    <div>
+                      <p className="text-xs font-medium">{cam.name}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-2.5 h-2.5" />{cam.location}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[10px] py-0">{cam.type}</Badge>
+                        {cam.ip && (
+                          <span className="text-[10px] text-muted-foreground/60 font-mono">{cam.ip}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className={cn('text-[10px] capitalize',
+                      cam.status === 'online' ? 'border-green-400/30 text-green-400' :
+                      cam.status === 'offline' ? 'border-red-400/30 text-red-400' :
+                      'border-yellow-400/30 text-yellow-400'
+                    )}>{cam.status}</Badge>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/50 hover:text-red-400 ml-1"
+                      onClick={() => deleteCamera(cam.id)}
+                      title="Remove camera"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {cameras.length === 0 && (
+                <div className="col-span-3 text-center py-8 text-muted-foreground text-sm">
+                  No cameras registered. Add your first camera above.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
