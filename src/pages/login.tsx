@@ -106,9 +106,7 @@ export default function Login() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-        
-        body { margin: 0; font-family: 'Poppins', sans-serif; }
+        body { margin: 0; background: #000c11; font-family: 'Poppins', sans-serif; }
         
         .login-container {
           position: fixed;
@@ -133,7 +131,7 @@ export default function Login() {
           flex-direction: column;
           color: #00ffe1;
           z-index: 1000;
-          animation: fadeOut 1.2s ease 3.5s forwards;
+          animation: fadeOut 0.8s ease 1s forwards;
         }
         
         .intro-text {
@@ -160,7 +158,7 @@ export default function Login() {
           flex-direction: column;
           perspective: 1000px;
           opacity: 0;
-          animation: fadeInConsole 1s ease 4s forwards;
+          animation: fadeInConsole 0.8s ease 1.5s forwards;
         }
         
         @keyframes fadeInConsole { to { opacity: 1; } }

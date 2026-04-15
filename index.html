@@ -16,6 +16,11 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@nexumsuum" />
     <meta name="twitter:image" content="https://nexumsuum.com/og-image.png" />
+    <!-- Prevent white flash before JS loads; base dark background matches app theme -->
+    <style>html,body,#root{margin:0;padding:0;background:#000c11;color:#eafcff;min-height:100vh;}</style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
