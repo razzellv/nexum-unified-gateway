@@ -164,5 +164,13 @@ export const externalApps = [
     healthEndpoint: "https://nexumsuum-facilityintelligence-dash.lovable.app",
     description: "Facility performance analytics and system intelligence views",
     accessLevel: "Licensed Client + Admin"
+  },
+  {
+    id: "facility-compass",
+    name: "Facility Compass",
+    url: "https://facility-compass.netlify.app",
+    healthEndpoint: "https://facility-compass.netlify.app",
+    description: "Nexum internal tool — FIAS assessments, VVFI retainer, audits, doc generator, client account management",
+    accessLevel: "Nexum Staff Only"
   }
 ];

@@ -54,6 +54,7 @@ export type TierFeature =
   | 'lms'
   | 'api_access'
   | 'priority_support'
+  | 'audit_report'
   // Enterprise
   | 'white_label'
   | 'custom_integrations'
@@ -145,7 +146,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
-      'api_access', 'priority_support',
+      'api_access', 'priority_support', 'audit_report',
     ],
   },
   enterprise: {
@@ -166,7 +167,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
-      'api_access', 'priority_support',
+      'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla',
     ],
   },
@@ -188,7 +189,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
-      'api_access', 'priority_support',
+      'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla',
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
       'waste_tracking', 'supplier_management',
@@ -404,6 +405,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   lms:                   'premium',
   api_access:            'premium',
   priority_support:      'premium',
+  audit_report:          'premium',
   // Enterprise
   white_label:           'enterprise',
   custom_integrations:   'enterprise',

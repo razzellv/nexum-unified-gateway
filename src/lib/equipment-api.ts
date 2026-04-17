@@ -1,117 +1,34 @@
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
-// Mock data for development
-const mockReadings = {
-  success: true,
-  count: 5,
-  readings: [
-    {
-      PK: "FACILITY#facility-001",
-      SK: "LOGS#2026-01-17T02:05:26.956Z#boiler",
-      facilityId: "facility-001",
-      equipmentId: "boiler",
-      systemType: "boiler",
-      timestamp: "2026-01-17T02:05:26.956Z",
-      created_at: "2026-01-17T02:05:26.956Z",
-      source: "manual",
-      operator: "Razzell",
-      operatorId: "",
-      operatorNotes: "Morning rounds - normal operation",
-      shift: "A",
-      metrics: {},
-      supply_temp: 185,
-      return_temp: 165,
-      efficiency: 84,
-      psi: 130,
-      gas_psi: 3.5,
-      delta_t: 20
-    },
-    {
-      PK: "FACILITY#facility-001",
-      SK: "LOGS#2026-01-16T14:30:00.000Z#boiler",
-      facilityId: "facility-001",
-      equipmentId: "boiler",
-      systemType: "boiler",
-      timestamp: "2026-01-16T14:30:00.000Z",
-      created_at: "2026-01-16T14:30:00.000Z",
-      source: "manual",
-      operator: "Mike T",
-      operatorId: "",
-      operatorNotes: "Afternoon check",
-      shift: "day",
-      metrics: {},
-      supply_temp: 180,
-      return_temp: 160,
-      efficiency: 82,
-      psi: 125,
-      gas_psi: 3.2,
-      delta_t: 20
-    },
-    {
-      PK: "FACILITY#facility-001",
-      SK: "LOGS#2026-01-16T06:00:00.000Z#boiler",
-      facilityId: "facility-001",
-      equipmentId: "boiler",
-      systemType: "boiler",
-      timestamp: "2026-01-16T06:00:00.000Z",
-      created_at: "2026-01-16T06:00:00.000Z",
-      source: "manual",
-      operator: "Sarah L",
-      operatorId: "",
-      operatorNotes: "Early morning startup",
-      shift: "night",
-      metrics: {},
-      supply_temp: 175,
-      return_temp: 158,
-      efficiency: 80,
-      psi: 120,
-      gas_psi: 3.0,
-      delta_t: 17
-    },
-    {
-      PK: "FACILITY#facility-001",
-      SK: "LOGS#2026-01-15T22:00:00.000Z#boiler",
-      facilityId: "facility-001",
-      equipmentId: "boiler",
-      systemType: "boiler",
-      timestamp: "2026-01-15T22:00:00.000Z",
-      created_at: "2026-01-15T22:00:00.000Z",
-      source: "manual",
-      operator: "John D",
-      operatorId: "",
-      operatorNotes: "Evening rounds - all normal",
-      shift: "evening",
-      metrics: {},
-      supply_temp: 182,
-      return_temp: 162,
-      efficiency: 83,
-      psi: 128,
-      gas_psi: 3.3,
-      delta_t: 20
-    },
-    {
-      PK: "FACILITY#facility-001",
-      SK: "LOGS#2026-01-15T10:00:00.000Z#boiler",
-      facilityId: "facility-001",
-      equipmentId: "boiler",
-      systemType: "boiler",
-      timestamp: "2026-01-15T10:00:00.000Z",
-      created_at: "2026-01-15T10:00:00.000Z",
-      source: "automated",
-      operator: "System",
-      operatorId: "",
-      operatorNotes: "",
-      shift: "day",
-      metrics: {},
-      supply_temp: 188,
-      return_temp: 168,
-      efficiency: 85,
-      psi: 132,
-      gas_psi: 3.6,
-      delta_t: 20
-    }
-  ]
+// Per-equipment baseline mock data — shown when API returns no data or user has no token
+const MOCK_READINGS: Record<string, any[]> = {
+  boiler: [
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-17T02:05:26.956Z#boiler", facilityId: "facility-001", equipmentId: "boiler", systemType: "boiler", timestamp: "2026-01-17T02:05:26.956Z", source: "manual", operator: "Razzell", shift: "A", supply_temp: 185, return_temp: 165, efficiency: 84, psi: 130, gas_psi: 3.5, delta_t: 20 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T14:30:00.000Z#boiler", facilityId: "facility-001", equipmentId: "boiler", systemType: "boiler", timestamp: "2026-01-16T14:30:00.000Z", source: "manual", operator: "Mike T", shift: "day", supply_temp: 180, return_temp: 160, efficiency: 82, psi: 125, gas_psi: 3.2, delta_t: 20 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T06:00:00.000Z#boiler", facilityId: "facility-001", equipmentId: "boiler", systemType: "boiler", timestamp: "2026-01-16T06:00:00.000Z", source: "manual", operator: "Sarah L", shift: "night", supply_temp: 175, return_temp: 158, efficiency: 80, psi: 120, gas_psi: 3.0, delta_t: 17 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T22:00:00.000Z#boiler", facilityId: "facility-001", equipmentId: "boiler", systemType: "boiler", timestamp: "2026-01-15T22:00:00.000Z", source: "manual", operator: "John D", shift: "evening", supply_temp: 182, return_temp: 162, efficiency: 83, psi: 128, gas_psi: 3.3, delta_t: 20 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T10:00:00.000Z#boiler", facilityId: "facility-001", equipmentId: "boiler", systemType: "boiler", timestamp: "2026-01-15T10:00:00.000Z", source: "automated", operator: "System", shift: "day", supply_temp: 188, return_temp: 168, efficiency: 85, psi: 132, gas_psi: 3.6, delta_t: 20 },
+  ],
+  chiller: [
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-17T07:00:00.000Z#chiller", facilityId: "facility-001", equipmentId: "chiller", systemType: "chiller", timestamp: "2026-01-17T07:00:00.000Z", source: "manual", operator: "Razzell", shift: "A", supply_temp: 44, return_temp: 54, efficiency: 79, psi: 185, delta_t: 10 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T19:00:00.000Z#chiller", facilityId: "facility-001", equipmentId: "chiller", systemType: "chiller", timestamp: "2026-01-16T19:00:00.000Z", source: "manual", operator: "Sarah L", shift: "evening", supply_temp: 45, return_temp: 55, efficiency: 77, psi: 182, delta_t: 10 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T07:00:00.000Z#chiller", facilityId: "facility-001", equipmentId: "chiller", systemType: "chiller", timestamp: "2026-01-16T07:00:00.000Z", source: "automated", operator: "System", shift: "day", supply_temp: 44, return_temp: 53, efficiency: 81, psi: 188, delta_t: 9 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T19:00:00.000Z#chiller", facilityId: "facility-001", equipmentId: "chiller", systemType: "chiller", timestamp: "2026-01-15T19:00:00.000Z", source: "manual", operator: "Mike T", shift: "evening", supply_temp: 46, return_temp: 56, efficiency: 76, psi: 179, delta_t: 10 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T07:00:00.000Z#chiller", facilityId: "facility-001", equipmentId: "chiller", systemType: "chiller", timestamp: "2026-01-15T07:00:00.000Z", source: "manual", operator: "John D", shift: "day", supply_temp: 43, return_temp: 53, efficiency: 82, psi: 190, delta_t: 10 },
+  ],
+  pump: [
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-17T08:00:00.000Z#pump", facilityId: "facility-001", equipmentId: "pump", systemType: "pump", timestamp: "2026-01-17T08:00:00.000Z", source: "manual", operator: "Razzell", shift: "A", supply_temp: 58, return_temp: 52, efficiency: 88, psi: 42, delta_t: 6 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T20:00:00.000Z#pump", facilityId: "facility-001", equipmentId: "pump", systemType: "pump", timestamp: "2026-01-16T20:00:00.000Z", source: "automated", operator: "System", shift: "evening", supply_temp: 57, return_temp: 51, efficiency: 87, psi: 41, delta_t: 6 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-16T08:00:00.000Z#pump", facilityId: "facility-001", equipmentId: "pump", systemType: "pump", timestamp: "2026-01-16T08:00:00.000Z", source: "manual", operator: "Mike T", shift: "day", supply_temp: 59, return_temp: 53, efficiency: 86, psi: 44, delta_t: 6 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T20:00:00.000Z#pump", facilityId: "facility-001", equipmentId: "pump", systemType: "pump", timestamp: "2026-01-15T20:00:00.000Z", source: "manual", operator: "Sarah L", shift: "evening", supply_temp: 56, return_temp: 50, efficiency: 89, psi: 40, delta_t: 6 },
+    { PK: "FACILITY#facility-001", SK: "LOGS#2026-01-15T08:00:00.000Z#pump", facilityId: "facility-001", equipmentId: "pump", systemType: "pump", timestamp: "2026-01-15T08:00:00.000Z", source: "automated", operator: "System", shift: "day", supply_temp: 60, return_temp: 54, efficiency: 88, psi: 43, delta_t: 6 },
+  ],
 };
+
+function getMockReadings(equipmentId: string) {
+  const readings = MOCK_READINGS[equipmentId] ?? MOCK_READINGS['boiler'];
+  return { success: true, count: readings.length, readings };
+}
 
 // Get token from localStorage
 const getAuthToken = (): string | null => {
@@ -142,11 +59,10 @@ export const api = {
   async getEquipmentReadings(equipmentId: string, limit: number = 50) {
     const token = getAuthToken();
     
-    // If no token, return mock data for development
     if (!token) {
       console.log('📊 Using mock data (no auth token)');
       return new Promise((resolve) => {
-        setTimeout(() => resolve(mockReadings), 500);
+        setTimeout(() => resolve(getMockReadings(equipmentId)), 500);
       });
     }
 
@@ -160,23 +76,25 @@ export const api = {
           },
         }
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const json = await response.json();
-      
-      // Transform readings to flatten nested data
-      if (json.readings) {
-        json.readings = json.readings.map(transformLogItem);
+
+      // Fall back to mock if API returns no data for this equipment
+      if (!json.readings || json.readings.length === 0) {
+        console.log('📊 API returned empty — using baseline mock data');
+        return getMockReadings(equipmentId);
       }
-      
+
+      json.readings = json.readings.map(transformLogItem);
       return json;
     } catch (error) {
       console.error('API Error:', error);
       console.log('📊 Falling back to mock data');
-      return mockReadings;
+      return getMockReadings(equipmentId);
     }
   },
 
