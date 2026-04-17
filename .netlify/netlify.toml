@@ -1,16 +1,15 @@
+functionsDirectory = "/Users/razzelltaylor/Documents/FI Platform /nexum-unified-gateway/netlify/functions"
+functionsDirectoryOrigin = "config"
 redirectsOrigin = "config"
 plugins = []
 headers = []
 
-[functions]
-
-[functions."*"]
-
 [build]
-publish = "/Users/razzelltaylor/nexum-unified-gateway/dist"
+publish = "/Users/razzelltaylor/Documents/FI Platform /nexum-unified-gateway/dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
+functions = "/Users/razzelltaylor/Documents/FI Platform /nexum-unified-gateway/netlify/functions"
 
 [build.environment]
 
@@ -25,6 +24,11 @@ command = "npm run build"
 [build.processing.js]
 
 [build.services]
+
+[functions]
+
+[functions."*"]
+node_bundler = "esbuild"
 
 [[redirects]]
 from = "/*"

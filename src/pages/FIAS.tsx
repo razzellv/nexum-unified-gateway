@@ -16,7 +16,7 @@ import {
   ClipboardCheck, ChevronRight, ChevronLeft, Lock, AlertTriangle,
   CheckCircle, Shield, Building2, User, Wrench, FileText,
   TrendingDown, TrendingUp, BarChart3, Zap, AlertOctagon,
-  Download, Plus, Trash2, ArrowRight, Mail, Send,
+  Download, Plus, Trash2, ArrowRight, Mail, Send, ExternalLink,
 } from 'lucide-react';
 import {
   SystemType, AssessmentType, FIASFinding, RiskBand,
@@ -104,8 +104,10 @@ export default function FIAS() {
     priority: 'medium', generateWorkOrder: true,
   });
 
-  // ── Section 7: Sealed ────────────────────────────────────────────────────────
+  // ── Section 7: Sealed + bridge ───────────────────────────────────────────────
   const [sealed, setSealed] = useState(false);
+  const [pushed, setPushed] = useState(false);
+  const [compassUrl, setCompassUrl] = useState<string | null>(null);
 
   // ── Computed scores ──────────────────────────────────────────────────────────
   const allQuestions = useMemo(() => getAllQuestions(systemType), [systemType]);
@@ -162,6 +164,8 @@ export default function FIAS() {
     toast({ title: 'Assessment Sealed', description: 'FIAS record is now immutable and ready to push to platform.' });
   };
 
+  const COMPASS_URL = import.meta.env.VITE_COMPASS_URL || 'https://facility-compass.netlify.app';
+
   const pushToPlatform = () => {
     const session = {
       sessionId: `fias-${Date.now()}`,
@@ -177,8 +181,27 @@ export default function FIAS() {
     localStorage.setItem('nexum_fias_sessions', JSON.stringify([session, ...existing]));
     // Dispatch event so dashboards update
     window.dispatchEvent(new CustomEvent('fias-session-submitted', { detail: session }));
+
+    // Build cross-platform URL so consultant can import into Facility Compass
+    const params = new URLSearchParams({
+      import:       'gateway',
+      facilityName: facilityName || '',
+      facilityId:   session.facilityId,
+      location:     location || '',
+      systemType:   systemType || '',
+      fiasScore:    String(fiasScore),
+      riskBand:     riskBand || '',
+      assessorEmail:assessorEmail || '',
+      assessedAt:   session.sealedAt,
+      notes:        [
+        `Equipment FIAS — ${systemType?.replace(/_/g, ' ')}`,
+        `Condition: ${conditionScore}/100  Performance: ${performanceScore}/100  Risk: ${riskScore}/100`,
+        findings.length > 0 ? `Findings: ${findings.map((f: any) => f.observedCondition).join('; ')}` : '',
+      ].filter(Boolean).join('\n'),
+    });
+    setCompassUrl(`${COMPASS_URL}/fias/new?${params.toString()}`);
+    setPushed(true);
     toast({ title: 'Pushed to Platform', description: `FIAS score ${fiasScore} for ${facilityName} is now live on dashboards.` });
-    navigate('/dashboard/executive');
   };
 
   if (!isAdmin) {
@@ -423,6 +446,8 @@ export default function FIAS() {
             newFinding={newFinding} setNewFinding={setNewFinding}
             addFinding={addFinding} removeFinding={removeFinding}
             sealed={sealed} sealAssessment={sealAssessment} pushToPlatform={pushToPlatform}
+            pushed={pushed} compassUrl={compassUrl}
+            onGoToDashboard={() => navigate('/dashboard/executive')}
             facilityName={facilityName} systemType={systemType}
           />
         )}
@@ -445,6 +470,7 @@ function StepsThreeToSeven({
   findings, newFinding, setNewFinding,
   addFinding, removeFinding,
   sealed, sealAssessment, pushToPlatform,
+  pushed, compassUrl, onGoToDashboard,
   facilityName, systemType,
 }: any) {
   const PRIORITY_META = {
@@ -865,7 +891,7 @@ function StepsThreeToSeven({
               <Lock className="w-4 h-4 mr-2" />Seal Assessment Record
             </Button>
           </div>
-        ) : (
+        ) : !pushed ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20 text-xs text-green-400">
               <CheckCircle className="w-4 h-4 shrink-0" />
@@ -874,6 +900,35 @@ function StepsThreeToSeven({
             <Button className="w-full" onClick={pushToPlatform}>
               <ArrowRight className="w-4 h-4 mr-2" />Push to FI Platform &amp; View Dashboard
             </Button>
+            <Button variant="outline" className="w-full" onClick={() => window.print()}>
+              <Download className="w-4 h-4 mr-2" />Export as PDF (Print)
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20 text-xs text-green-400">
+              <CheckCircle className="w-4 h-4 shrink-0" />
+              <span><strong>Pushed to Platform</strong> — dashboards updated. Session stored.</span>
+            </div>
+            {compassUrl && (
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                <Send className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-primary">Bridge to Facility Compass</p>
+                  <p className="text-muted-foreground mt-0.5">Open this session in the FIAS advisory tool to start a client assessment with equipment context pre-loaded.</p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 flex-col sm:flex-row">
+              {compassUrl && (
+                <Button className="flex-1 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20" variant="outline" onClick={() => window.open(compassUrl, '_blank')}>
+                  <ExternalLink className="w-4 h-4 mr-2" />Open in Facility Compass
+                </Button>
+              )}
+              <Button className="flex-1" onClick={onGoToDashboard}>
+                <ArrowRight className="w-4 h-4 mr-2" />Go to Dashboard
+              </Button>
+            </div>
             <Button variant="outline" className="w-full" onClick={() => window.print()}>
               <Download className="w-4 h-4 mr-2" />Export as PDF (Print)
             </Button>
