@@ -36,6 +36,7 @@ import CustodianDashboard from "./pages/CustodianDashboard";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
 import ContractorInstalls from "./pages/ContractorInstalls";
+import OrgEfficiencyReport from "./pages/OrgEfficiencyReport";
 
 // 🔥 Command Hub Imports
 import WorkOrders from "./pages/command-hub/WorkOrders";
@@ -179,6 +180,10 @@ export const router = createBrowserRouter([
           {
             path: "contractor-installs",
             element: <ContractorInstalls />,
+          },
+          {
+            path: "org-efficiency-report",
+            element: <OrgEfficiencyReport />,
           },
           {
             path: "data-source",
