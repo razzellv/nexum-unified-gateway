@@ -34,8 +34,8 @@ import EngineerDashboard from "./pages/EngineerDashboard";
 import CustodianDashboard from "./pages/CustodianDashboard";
 
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
-import FacilityIntelligence from "./pages/FacilityIntelligence";
 import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
+import ContractorInstalls from "./pages/ContractorInstalls";
 
 // 🔥 Command Hub Imports
 import WorkOrders from "./pages/command-hub/WorkOrders";
@@ -177,8 +177,8 @@ export const router = createBrowserRouter([
             element: <StaffPerformanceCompass />,
           },
           {
-            path: "facility-intelligence",
-            element: <FacilityIntelligence />,
+            path: "contractor-installs",
+            element: <ContractorInstalls />,
           },
           {
             path: "data-source",

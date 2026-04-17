@@ -23,7 +23,8 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, History, Target} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass} from "lucide-react";
+import { externalApps } from '@/config/systeme';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -97,7 +98,6 @@ const allNavItems: NavItem[] = [
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
 
   { type: 'separator', name: 'Dashboards', access: 'all' },
-  { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
   { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
@@ -106,8 +106,8 @@ const allNavItems: NavItem[] = [
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
   // Leadership tools
-  { name: 'Historical Data',  href: '/historical-data', icon: History,   access: 'leadership', tier: 'equipment_metrics' },
-  { name: 'Virtuous Risk',    href: '/virtuous',        icon: Target,    access: 'leadership', tier: 'supervisor_dashboard' },
+  { name: 'Equipment History',    href: '/historical-data',     icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
+  { name: 'Contractor Installs',  href: '/contractor-installs', icon: HardHat,   access: 'leadership' },
 
   // Nexum Suum internal tools — admin only
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
@@ -115,6 +115,7 @@ const allNavItems: NavItem[] = [
   { name: 'Policy Guide',    href: '/policy-guide',   icon: BookOpen,       access: 'admin_only' },
   { name: 'Platform Guide',  href: '/platform-guide', icon: BookOpen,       access: 'all' },
   { name: 'Workspace',       href: '/workspace',      icon: Briefcase,      access: 'admin_only' },
+  { name: 'Facility Compass', href: '__fc_launch__',  icon: Compass,        access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────
@@ -236,6 +237,32 @@ export function AppSidebar() {
                     {!collapsed && item.name}
                   </h3>
                 </div>
+              );
+            }
+            if (item.href === '__fc_launch__') {
+              return (
+                <button
+                  key="fc-launch"
+                  onClick={() => {
+                    const app = externalApps.find(a => a.id === 'facility-compass');
+                    const token = localStorage.getItem('nexum_id_token') || '';
+                    const facilityId = localStorage.getItem('nexum_facility_id') || '';
+                    if (app?.url) {
+                      window.open(
+                        `${app.url}?token=${token}&facilityId=${facilityId}&source=nexum-gateway`,
+                        '_blank'
+                      );
+                    }
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    "hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                    collapsed && "justify-center px-2"
+                  )}
+                >
+                  <Compass className="w-5 h-5 shrink-0" />
+                  {!collapsed && <span className="truncate">Facility Compass</span>}
+                </button>
               );
             }
             return (
