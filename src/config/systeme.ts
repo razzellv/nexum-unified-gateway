@@ -168,8 +168,8 @@ export const externalApps = [
   {
     id: "facility-compass",
     name: "Facility Compass",
-    url: "https://facility-compass.netlify.app",
-    healthEndpoint: "https://facility-compass.netlify.app",
+    url: "https://internal.nexumsuum-facilityintelligence.com",
+    healthEndpoint: "https://internal.nexumsuum-facilityintelligence.com",
     description: "Nexum internal tool — FIAS assessments, VVFI retainer, audits, doc generator, client account management",
     accessLevel: "Nexum Staff Only"
   }
