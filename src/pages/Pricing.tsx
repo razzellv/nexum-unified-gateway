@@ -796,7 +796,9 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         localStorage.setItem('nexum_pilot_approved', 'true');
         localStorage.setItem('nexum_pilot_code', code.trim().toUpperCase());
         onClose();
-        navigate('/onboarding?pilot=true');
+        // If already logged in go straight to onboarding; otherwise register first
+        const token = localStorage.getItem('nexum_access_token');
+        navigate(token ? '/onboarding?pilot=true' : '/register?pilot=true');
       } else {
         setVerifyError(data.message || 'Invalid code or email. Please check your approval email and try again.');
       }
@@ -1169,6 +1171,16 @@ export default function Pricing() {
   const handleCheckout = async (plan: Plan, effectivePriceId?: string) => {
     const priceId = effectivePriceId || plan.priceId;
     if (!priceId) return;
+
+    // If user is not logged in, send them to register first
+    const token = localStorage.getItem('nexum_access_token');
+    if (!token) {
+      sessionStorage.setItem('nexum_pending_plan',     plan.name);
+      sessionStorage.setItem('nexum_pending_price_id', priceId);
+      navigate(`/register?plan=${encodeURIComponent(plan.name)}&priceId=${encodeURIComponent(priceId)}`);
+      return;
+    }
+
     setLoadingPlan(plan.name);
     try {
       const standardAddonItems =
@@ -1258,6 +1270,7 @@ export default function Pricing() {
         </div>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign In</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/register')}>Create Account</Button>
           <Button size="sm" onClick={() => setShowLicensingGuide(true)}>Learn More</Button>
         </div>
       </div>

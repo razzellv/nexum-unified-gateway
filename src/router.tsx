@@ -2,6 +2,8 @@ import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
 import Login from "./pages/login";
+import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Onboarding from "./pages/Onboarding";
@@ -79,6 +81,14 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <Login />,
+      },
+      {
+        path: "/register",
+        element: <Register />,
+      },
+      {
+        path: "/verify-email",
+        element: <VerifyEmail />,
       },
       {
         path: "/auth/callback",
