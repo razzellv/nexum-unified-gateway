@@ -448,7 +448,7 @@ const FacilityTopology = () => {
 // ─── Main Index ───────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const { userRole, logout } = useAuth();
+  const { userRole, logout, user } = useAuth();
   const navigate = useNavigate();
 
   const [equipmentCount, setEquipmentCount] = useState(0);
@@ -457,8 +457,9 @@ const Index = () => {
 
   const fetchEquipment = async () => {
     setIsLoadingEquipment(true);
+    const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
     try {
-      const data = await getRecentEquipment('facility-001');
+      const data = await getRecentEquipment(facilityId);
       const equipment = data.equipment || data.items || data || [];
       setEquipmentCount(equipment.length);
       const recent = equipment.slice(0, 3).map((item: any) => ({

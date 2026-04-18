@@ -572,12 +572,41 @@ export default function ManagerDashboard() {
           onSystemChange={setSelectedSystem}
         />
 
+        {/* Department Context Banner */}
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-neon-cyan" />
+            <span className="text-sm font-semibold text-neon-cyan">
+              Viewing: {selectedDept === 'All' ? 'All Departments' : `${selectedDept} Department`}
+            </span>
+          </div>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-xs text-muted-foreground">
+            <span className="text-foreground font-medium">{openWorkOrders}</span> open work orders
+          </span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-xs text-muted-foreground">
+            <span className="text-foreground font-medium">{deptViolationCount}</span> active violations
+          </span>
+          {deptBudgetRow && (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-xs text-muted-foreground">
+                Budget: <span className={`font-semibold ${deptBudgetRow.percentage >= 90 ? 'text-red-400' : deptBudgetRow.percentage >= 75 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  ${(deptBudgetRow.actual || 0).toLocaleString()} / ${(deptBudgetRow.budget || 0).toLocaleString()} ({deptBudgetRow.percentage || 0}%)
+                </span>
+              </span>
+            </>
+          )}
+          <span className="text-xs text-muted-foreground ml-auto">{user?.name || user?.email}</span>
+        </div>
+
         {/* Department Filter */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Showing: <span className="text-foreground font-medium">{selectedDept}</span> department
+              Filter: <span className="text-foreground font-medium">{selectedDept}</span> department
             </span>
           </div>
           <Select value={selectedDept} onValueChange={setSelectedDept}>

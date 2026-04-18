@@ -89,16 +89,18 @@ useEffect(() => {
 }, [user?.facilityId]);
   
   const loadSystems = async () => {
-    if (!user?.facilityId) return;
-
+    const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
     try {
       setLoading(true);
       setSystemsError(null);
-      const data = await apiRequest('/equipment-systems');
+      const data = await apiRequest(`/equipment-systems?facility_id=${facilityId}`);
       setSystems(data.systems || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load systems:', error);
-      setSystemsError('Equipment systems data unavailable. The service may be temporarily down.');
+      const msg = error?.status === 500
+        ? 'Equipment Systems service is temporarily unavailable. Please try again.'
+        : 'Could not load equipment systems. Check your connection and retry.';
+      setSystemsError(msg);
       setSystems([]);
     } finally {
       setLoading(false);
@@ -468,18 +470,35 @@ useEffect(() => {
         </div>
 
         {loading ? (
-          <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-              Loading systems...
-            </CardContent>
-          </Card>
-        ) : filteredSystems.length === 0 ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map(i => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader className="pb-3">
+                  <div className="h-5 bg-muted/40 rounded w-48 mb-2" />
+                  <div className="flex gap-2">
+                    <div className="h-5 bg-muted/40 rounded w-28" />
+                    <div className="h-5 bg-muted/40 rounded w-24" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2, 3, 4].map(j => <div key={j} className="h-12 bg-muted/30 rounded-lg" />)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredSystems.length === 0 && !systemsError ? (
           <Card>
             <CardContent className="p-12 text-center text-muted-foreground">
               <Network className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
               <p className="text-lg font-medium mb-2">No equipment systems yet</p>
-              <p className="text-sm">Create your first system to bundle connected equipment</p>
+              <p className="text-sm mb-4">Create your first system to group connected equipment into logical packages</p>
+              {canEdit && (
+                <Button onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />Add Your First System
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

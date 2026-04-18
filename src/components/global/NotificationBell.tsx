@@ -158,6 +158,31 @@ export function NotificationBell() {
         });
       }
 
+      // ── Inventory: low stock check ──
+      try {
+        const invRes = await fetch(`${baseUrl}/inventory?facilityId=${user.facilityId}&limit=100`, { headers });
+        if (invRes.ok) {
+          const invData = await invRes.json();
+          const items: any[] = invData.items || invData.inventory || [];
+          items.forEach((item: any) => {
+            const qty = Number(item.quantity ?? item.qty ?? 0);
+            const min = Number(item.minQuantity ?? item.minQty ?? item.reorderPoint ?? 0);
+            if (min > 0 && qty <= min) {
+              notifs.push({
+                id: `inv-low-${item.itemId || item.id || item.partNumber}`,
+                title: 'Low Stock Alert',
+                message: `${item.name || item.itemName || item.partNumber || 'Item'} — ${qty} remaining (min: ${min})`,
+                type: 'compliance',
+                severity: qty === 0 ? 'critical' : 'warning',
+                read: false,
+                timestamp: new Date().toISOString(),
+                link: '/inventory-library',
+              });
+            }
+          });
+        }
+      } catch { /* best-effort */ }
+
       // Sort: emergencies first, then by timestamp desc
       notifs.sort((a, b) => {
         if (a.type === 'emergency' && b.type !== 'emergency') return -1;
@@ -167,7 +192,11 @@ export function NotificationBell() {
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
 
-      setNotifications(notifs.slice(0, 25));
+      // Restore read state from localStorage
+      const readIds = new Set<string>(JSON.parse(localStorage.getItem('nexum_notif_read') || '[]'));
+      const merged = notifs.slice(0, 25).map(n => ({ ...n, read: readIds.has(n.id) }));
+      setNotifications(merged);
+      localStorage.setItem('nexum_notifications', JSON.stringify(merged));
     } catch (err) {
       console.error('NotificationBell fetch error:', err);
     } finally {
@@ -181,11 +210,22 @@ export function NotificationBell() {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
+  const markRead = (ids: string[]) => {
+    setNotifications(prev => {
+      const updated = prev.map(n => ids.includes(n.id) ? { ...n, read: true } : n);
+      const allReadIds = updated.filter(n => n.read).map(n => n.id);
+      localStorage.setItem('nexum_notif_read', JSON.stringify(allReadIds));
+      localStorage.setItem('nexum_notifications', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const handleOpen = (o: boolean) => {
     setOpen(o);
     if (o) {
       setTimeout(() => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        const ids = notifications.filter(n => !n.read).map(n => n.id);
+        if (ids.length) markRead(ids);
       }, 3000);
     }
   };
@@ -257,7 +297,7 @@ export function NotificationBell() {
               <Badge variant="secondary" className="text-xs">{unreadCount} new</Badge>
             )}
             <Button variant="ghost" size="sm" className="text-xs h-7"
-              onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}>
+              onClick={() => markRead(notifications.map(n => n.id))}>
               Mark all read
             </Button>
           </div>
