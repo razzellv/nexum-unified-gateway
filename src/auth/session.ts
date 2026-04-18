@@ -43,10 +43,25 @@ export const getStoredTokens = (): AuthTokens | null => {
 export const clearTokens = (): void => {
   try {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
-    // Also clear legacy token keys used by Lovable auth
+    // Auth tokens
     localStorage.removeItem("nexum_access_token");
     localStorage.removeItem("nexum_id_token");
     localStorage.removeItem("nexum_refresh_token");
+    // Session / org context — cleared on logout (re-set at next login)
+    localStorage.removeItem("nexum_org_type");
+    localStorage.removeItem("nexum_retail_mode");
+    localStorage.removeItem("nexum_store_info");
+    localStorage.removeItem("nexum_onboarding_verified");
+    localStorage.removeItem("nexum_onboarding_session");
+    localStorage.removeItem("nexum_onboarding_tier");
+    localStorage.removeItem("nexum_onboarding_email");
+    localStorage.removeItem("nexum_active_facility_id");
+    localStorage.removeItem("nexum_active_facility_name");
+    localStorage.removeItem("nexum_facility_name");
+    localStorage.removeItem("nexum_notif_read");
+    localStorage.removeItem("nexum_notifications");
+    // NOTE: Do NOT clear: nexum_dept_budgets, nexum_facilities,
+    // compliance_docs, nexum_network_contacts — these persist across logins
   } catch (error) {
     console.error("[Auth] Failed to clear tokens:", error);
   }

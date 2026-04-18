@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES_BY_ORG_TYPE } from '../config/roles';
+import { NexumPageLoader } from '@/components/global/NexumLoader';
 
 function getPostLoginRoute(role: string, orgType: string): string | null {
   const retail  = ROLES_BY_ORG_TYPE.retail;
@@ -31,10 +32,6 @@ export default function ProtectedRoute() {
   const { isAuthenticated, loading, user } = useAuth();
   const navigate = useNavigate();
 
-  console.log("🔒 ProtectedRoute: checking auth");
-  console.log("🔒 isAuthenticated:", isAuthenticated);
-  console.log("🔒 loading:", loading);
-
   useEffect(() => {
     if (!loading && isAuthenticated && user) {
       // Only redirect on the root path — don't intercept deep links
@@ -45,25 +42,18 @@ export default function ProtectedRoute() {
       const target  = getPostLoginRoute(role, orgType);
 
       if (target) {
-        console.log(`🔒 Role-based redirect: ${role} (${orgType}) → ${target}`);
         navigate(target, { replace: true });
       }
     }
   }, [loading, isAuthenticated, user, navigate]);
 
   if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Loading...</p>
-      </div>
-    );
+    return <NexumPageLoader message="Verifying session…" />;
   }
 
   if (!isAuthenticated) {
-    console.log("🔒 Not authenticated, redirecting to /login");
     return <Navigate to="/login" replace />;
   }
 
-  console.log("🔒 Authenticated! Rendering children");
   return <Outlet />;
 }
