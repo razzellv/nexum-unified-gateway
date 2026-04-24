@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass, FileText} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass, FileText, Wrench} from "lucide-react";
 import { externalApps } from '@/config/systeme';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -110,6 +110,10 @@ const allNavItems: NavItem[] = [
   { name: 'Contractor Installs',  href: '/contractor-installs',    icon: HardHat,   access: 'leadership' },
   { name: 'Efficiency Report',    href: '/org-efficiency-report',  icon: FileText,  access: 'leadership', tier: 'audit_report' },
 
+  // Vendor portal — vendor role only
+  { type: 'separator', name: 'Vendor Portal', access: 'vendor' },
+  { name: 'My Dashboard', href: '/vendor-dashboard', icon: Wrench, access: 'vendor' },
+
   // Nexum Suum internal tools — admin only
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
   { name: 'FIAS',            href: '/fias',           icon: ClipboardCheck, access: 'admin_only' },
@@ -138,7 +142,19 @@ function getVisibleItems(
   const hasGovtModule      = activeModules.includes('addon_govt');
   const hasPropertyModule  = activeModules.includes('addon_property') || orgType === 'property' || orgType === 'entrepreneur';
 
+  const isVendor = role === 'vendor';
+
+  // Vendor role: only sees vendor portal items + Main Hub
+  if (isVendor) {
+    return allNavItems.filter(item =>
+      item.access === 'vendor' || item.href === '/'
+    );
+  }
+
   return allNavItems.filter(item => {
+    // Vendor-only items — never shown to non-vendors
+    if (item.access === 'vendor') return false;
+
     // Admin-only items (e.g. FIAS) — never shown to non-admins
     if (item.access === 'admin_only') return isAdmin;
 

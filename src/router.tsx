@@ -60,6 +60,7 @@ import PlatformGuide from "./pages/PlatformGuide";
 import PropertyDashboard from "./pages/PropertyDashboard";
 import HistoricalData from "./pages/HistoricalData";
 import Virtuous from "./pages/Virtuous";
+import VendorDashboard from "./pages/VendorDashboard";
 import NotFound from "./pages/NotFound";
 
 // Placeholder component for modules in progress
@@ -297,6 +298,10 @@ export const router = createBrowserRouter([
           {
             path: "virtuous",
             element: <Virtuous />,
+          },
+          {
+            path: "vendor-dashboard",
+            element: <VendorDashboard />,
           },
         ],
       },
