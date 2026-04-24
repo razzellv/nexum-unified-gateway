@@ -523,7 +523,7 @@ const Index = () => {
                 <Shield className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium">View as:</span>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/employee")}>
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/employees")}>
                     <User className="w-3 h-3 mr-1" /> Employee
                   </Button>
                   <Button variant="ghost" size="sm" className="h-8" onClick={() => navigate("/dashboard/supervisor")}>

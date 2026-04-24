@@ -63,6 +63,7 @@ import PropertyDashboard from "./pages/PropertyDashboard";
 import HistoricalData from "./pages/HistoricalData";
 import Virtuous from "./pages/Virtuous";
 import VendorDashboard from "./pages/VendorDashboard";
+import FacilityIntelligence from "./pages/FacilityIntelligence";
 import NotFound from "./pages/NotFound";
 import FacilityCommandCenter from "./pages/FacilityCommandCenter";
 
@@ -309,6 +310,10 @@ export const router = createBrowserRouter([
           {
             path: "virtuous",
             element: <Virtuous />,
+          },
+          {
+            path: "facility-intelligence",
+            element: <FacilityIntelligence />,
           },
           {
             path: "vendor-dashboard",
