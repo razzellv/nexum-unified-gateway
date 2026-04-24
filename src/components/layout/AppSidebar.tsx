@@ -35,13 +35,15 @@ import type { TierFeature } from '@/config/tiers';
 import { ROLES_BY_ORG_TYPE } from '@/config/roles';
 
 // ── Role sets ────────────────────────────────────────────────────────────────
-const FACILITY_LEADERSHIP  = ROLES_BY_ORG_TYPE.facility.leadership;
-const RETAIL_STAFF         = ROLES_BY_ORG_TYPE.retail.staff;
-const RETAIL_LEADERSHIP    = ROLES_BY_ORG_TYPE.retail.leadership;
-const GOVT_STAFF           = ROLES_BY_ORG_TYPE.government.staff;
-const GOVT_LEADERSHIP      = ROLES_BY_ORG_TYPE.government.leadership;
+const FACILITY_LEADERSHIP    = ROLES_BY_ORG_TYPE.facility.leadership;
+const RETAIL_STAFF           = ROLES_BY_ORG_TYPE.retail.staff;
+const RETAIL_LEADERSHIP      = ROLES_BY_ORG_TYPE.retail.leadership;
+const GOVT_STAFF             = ROLES_BY_ORG_TYPE.government.staff;
+const GOVT_LEADERSHIP        = ROLES_BY_ORG_TYPE.government.leadership;
+const SERVICE_TECH_STAFF     = ROLES_BY_ORG_TYPE.service_tech.staff;
+const SERVICE_TECH_LEADERSHIP = ROLES_BY_ORG_TYPE.service_tech.leadership;
 // Legacy facility staff definition
-const FACILITY_STAFF       = ROLES_BY_ORG_TYPE.facility.staff;
+const FACILITY_STAFF         = ROLES_BY_ORG_TYPE.facility.staff;
 
 type NavItem = {
   name?: string;
@@ -115,6 +117,14 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Vendor Portal', access: 'vendor' },
   { name: 'My Dashboard', href: '/vendor-dashboard', icon: Wrench, access: 'vendor' },
 
+  // Service Tech portal — service_tech org type
+  { type: 'separator', name: 'Service Operations', access: 'service_tech' },
+  { name: 'Service Dashboard', href: '/service-tech', icon: Wrench, access: 'service_tech' },
+  { name: 'Service Analytics', href: '/service-tech-analytics', icon: BarChart3, access: 'service_tech' },
+  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'service_tech' },
+  { name: 'Vendors', href: '/vendors', icon: Building2, access: 'service_tech' },
+  { name: 'Calendar', href: '/calendar', icon: Calendar, access: 'service_tech' },
+
   // Nexum Suum internal tools — admin only
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
   { name: 'FIAS',            href: '/fias',           icon: ClipboardCheck, access: 'admin_only' },
@@ -131,10 +141,11 @@ function getVisibleItems(
   isLeadership: boolean,
   isAdmin: boolean,
 ): NavItem[] {
-  const isRetailStaff    = orgType === 'retail'      && RETAIL_STAFF.includes(role);
-  const isRetailLeader   = orgType === 'retail'      && RETAIL_LEADERSHIP.includes(role);
-  const isGovtStaff      = orgType === 'government'  && GOVT_STAFF.includes(role);
-  const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
+  const isRetailStaff      = orgType === 'retail'       && RETAIL_STAFF.includes(role);
+  const isRetailLeader     = orgType === 'retail'       && RETAIL_LEADERSHIP.includes(role);
+  const isGovtStaff        = orgType === 'government'   && GOVT_STAFF.includes(role);
+  const isGovtLeader       = orgType === 'government'   && GOVT_LEADERSHIP.includes(role);
+  const isServiceTech      = orgType === 'service_tech' || SERVICE_TECH_STAFF.includes(role) || SERVICE_TECH_LEADERSHIP.includes(role);
 
   // Active purchased add-on modules (persist across tier upgrades)
   let activeModules: string[] = [];
@@ -152,9 +163,19 @@ function getVisibleItems(
     );
   }
 
+  // Service tech org/role: only sees service_tech items + Main Hub
+  if (isServiceTech && !isAdmin) {
+    return allNavItems.filter(item =>
+      item.access === 'service_tech' || item.href === '/'
+    );
+  }
+
   return allNavItems.filter(item => {
     // Vendor-only items — never shown to non-vendors
     if (item.access === 'vendor') return false;
+
+    // Service-tech-only items — never shown to non-service-tech (except admin)
+    if (item.access === 'service_tech') return isAdmin;
 
     // Admin-only items (e.g. FIAS) — never shown to non-admins
     if (item.access === 'admin_only') return isAdmin;
@@ -220,6 +241,7 @@ export function AppSidebar() {
     ...FACILITY_LEADERSHIP,
     ...RETAIL_LEADERSHIP,
     ...GOVT_LEADERSHIP,
+    ...SERVICE_TECH_LEADERSHIP,
     'admin',
   ];
   const isLeadership = allLeadershipRoles.includes(role);

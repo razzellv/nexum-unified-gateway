@@ -63,6 +63,8 @@ import PropertyDashboard from "./pages/PropertyDashboard";
 import HistoricalData from "./pages/HistoricalData";
 import Virtuous from "./pages/Virtuous";
 import VendorDashboard from "./pages/VendorDashboard";
+import ServiceTechDashboard from "./pages/ServiceTechDashboard";
+import ServiceTechAnalytics from "./pages/ServiceTechAnalytics";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
 import NotFound from "./pages/NotFound";
 import FacilityCommandCenter from "./pages/FacilityCommandCenter";
@@ -318,6 +320,14 @@ export const router = createBrowserRouter([
           {
             path: "vendor-dashboard",
             element: <VendorDashboard />,
+          },
+          {
+            path: "service-tech",
+            element: <ServiceTechDashboard />,
+          },
+          {
+            path: "service-tech-analytics",
+            element: <ServiceTechAnalytics />,
           },
         ],
       },

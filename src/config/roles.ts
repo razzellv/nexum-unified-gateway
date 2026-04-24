@@ -11,6 +11,10 @@ export const ROLES_BY_ORG_TYPE = {
     leadership: ['chief', 'director', 'lieutenant', 'captain'],
     staff: ['officer', 'firefighter', 'dispatcher', 'ems_tech', 'personnel'],
   },
+  service_tech: {
+    leadership: ['owner', 'operations_manager', 'dispatch_manager'],
+    staff: ['technician', 'field_tech', 'apprentice'],
+  },
 };
 
 export const DEPARTMENTS = [
@@ -43,7 +47,13 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   dispatcher:  'Dispatcher',
   ems_tech:    'EMS Technician',
   personnel:   'Personnel',
-  admin:       'Admin',
+  admin:             'Admin',
+  vendor:            'Vendor',
+  service_tech:      'Service Tech',
+  field_tech:        'Field Technician',
+  operations_manager:'Operations Manager',
+  dispatch_manager:  'Dispatch Manager',
+  apprentice:        'Apprentice',
 };
 
 /** All roles for a given org type (leadership + staff), or all if orgType unknown */

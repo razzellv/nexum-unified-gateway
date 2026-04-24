@@ -5,9 +5,10 @@ import { ROLES_BY_ORG_TYPE } from '../config/roles';
 import { NexumPageLoader } from '@/components/global/NexumLoader';
 
 function getPostLoginRoute(role: string, orgType: string): string | null {
-  const retail  = ROLES_BY_ORG_TYPE.retail;
-  const govt    = ROLES_BY_ORG_TYPE.government;
-  const facility = ROLES_BY_ORG_TYPE.facility;
+  const retail      = ROLES_BY_ORG_TYPE.retail;
+  const govt        = ROLES_BY_ORG_TYPE.government;
+  const facility    = ROLES_BY_ORG_TYPE.facility;
+  const serviceTech = ROLES_BY_ORG_TYPE.service_tech;
 
   if (orgType === 'retail') {
     if ([...retail.staff, ...retail.leadership].includes(role)) return '/retail-dashboard';
@@ -15,6 +16,12 @@ function getPostLoginRoute(role: string, orgType: string): string | null {
 
   if (orgType === 'government') {
     if ([...govt.staff, ...govt.leadership].includes(role)) return '/government-dashboard';
+  }
+
+  if (role === 'vendor') return '/vendor-dashboard';
+
+  if (orgType === 'service_tech') {
+    if (serviceTech.leadership.includes(role) || serviceTech.staff.includes(role)) return '/service-tech';
   }
 
   // Facility routing by seniority
