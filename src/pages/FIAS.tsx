@@ -164,7 +164,7 @@ export default function FIAS() {
     toast({ title: 'Assessment Sealed', description: 'FIAS record is now immutable and ready to push to platform.' });
   };
 
-  const COMPASS_URL = import.meta.env.VITE_COMPASS_URL || 'https://facility-compass.netlify.app';
+  const COMPASS_URL = import.meta.env.VITE_COMPASS_URL || 'https://internal.nexumsuum-facilityintelligence.com';
 
   const pushToPlatform = () => {
     const session = {
