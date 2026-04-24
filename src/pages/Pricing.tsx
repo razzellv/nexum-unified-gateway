@@ -185,16 +185,16 @@ const RETAIL_PLANS: Plan[] = [
 
 // ── SERVICE TECH — monthly + annual ──────────────────────────────────────────
 // Stripe: create products in Dashboard → Products, then replace placeholder IDs
-// price_st_starter_mo  → $197/mo   price_st_starter_yr  → $1,970/yr
-// price_st_pro_mo      → $347/mo   price_st_pro_yr      → $3,470/yr
+// price_st_starter_mo  → $397/mo   price_st_starter_yr  → $3,970/yr
+// price_st_pro_mo      → $797/mo   price_st_pro_yr      → $7,970/yr
 const SERVICE_TECH_PLANS: Plan[] = [
   {
     name: 'Service Tech Starter',
     priceId: 'price_st_starter_mo',
-    price: 197,
+    price: 397,
     billingLabel: '/mo',
     annualPriceId: 'price_st_starter_yr',
-    annualPrice: 1970,
+    annualPrice: 3970,
     icon: Zap,
     color: 'text-orange-400',
     border: 'border-orange-400/30',
@@ -208,16 +208,17 @@ const SERVICE_TECH_PLANS: Plan[] = [
       'Client site tracking',
       'Vendor + contractor directory',
       'Job completion tracking',
-      '1 dispatch office · 5 techs',
+      '2 months free on annual',
+      '1 dispatch office · up to 5 techs',
     ],
   },
   {
     name: 'Service Tech Pro',
     priceId: 'price_st_pro_mo',
-    price: 347,
+    price: 797,
     billingLabel: '/mo',
     annualPriceId: 'price_st_pro_yr',
-    annualPrice: 3470,
+    annualPrice: 7970,
     icon: Star,
     color: 'text-amber-400',
     border: 'border-amber-400/40',
@@ -228,12 +229,12 @@ const SERVICE_TECH_PLANS: Plan[] = [
       'Everything in Starter',
       'Service analytics dashboard',
       'Vendor performance scoring',
-      'Completion rate tracking',
-      'On-time rate + response metrics',
-      'Recurring issue flags',
+      'Completion rate + on-time tracking',
+      'Response time + recurring issue flags',
       'Multi-client management',
       'Revenue by service type',
       'Tech performance reports',
+      '2 months free on annual',
       'Up to 20 technicians',
     ],
   },
