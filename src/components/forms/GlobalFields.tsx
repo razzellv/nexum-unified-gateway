@@ -1,9 +1,10 @@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, Building2, AlertTriangle, Gauge } from 'lucide-react';
+import { Clock, User, Building2, AlertTriangle, Gauge, Thermometer } from 'lucide-react';
 import { Shift, SystemInfo, MeasurementType } from '@/types/logging';
 import { mockUser, getCurrentShift } from '@/data/mockData';
 import { cn } from '@/lib/utils';
@@ -12,7 +13,7 @@ interface GlobalFieldsProps {
   facility: string;
   building: string;
   system: SystemInfo | null;
-  isFacilityLevel?: boolean; // true for energy logs - no equipment ID
+  isFacilityLevel?: boolean;
   shift: Shift;
   onShiftChange: (shift: Shift) => void;
   notes: string;
@@ -25,6 +26,8 @@ interface GlobalFieldsProps {
   onReviewNotesChange?: (notes: string) => void;
   showReviewNotes?: boolean;
   isReadOnly?: boolean;
+  oat?: string;
+  onOatChange?: (val: string) => void;
 }
 
 export function GlobalFields({
@@ -44,6 +47,8 @@ export function GlobalFields({
   onReviewNotesChange,
   showReviewNotes = false,
   isReadOnly = false,
+  oat,
+  onOatChange,
 }: GlobalFieldsProps) {
   const currentTime = new Date().toLocaleString('en-US', {
     weekday: 'short',
@@ -154,6 +159,26 @@ export function GlobalFields({
             This entry will be tagged as estimated data
           </p>
         )}
+      </div>
+
+      {/* Outside Air Temperature */}
+      <div className="input-group">
+        <Label htmlFor="oat" className="text-sm font-medium flex items-center gap-2">
+          <Thermometer className="h-4 w-4 text-sky-400" />
+          Outside Air Temperature (OAT) °F
+        </Label>
+        <Input
+          id="oat"
+          type="number"
+          value={oat ?? ''}
+          onChange={(e) => onOatChange?.(e.target.value)}
+          placeholder="e.g. 32"
+          disabled={isReadOnly}
+          className="w-40"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Required for governance — affects efficiency benchmarks and load correlation.
+        </p>
       </div>
 
       {/* Notes */}
