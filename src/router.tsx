@@ -64,6 +64,7 @@ import HistoricalData from "./pages/HistoricalData";
 import Virtuous from "./pages/Virtuous";
 import VendorDashboard from "./pages/VendorDashboard";
 import NotFound from "./pages/NotFound";
+import FacilityCommandCenter from "./pages/FacilityCommandCenter";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -271,7 +272,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "command-center",
-            element: <ComingSoon title="Facility Command Center" />,
+            element: <FacilityCommandCenter />,
           },
           {
             path: "instructor",
