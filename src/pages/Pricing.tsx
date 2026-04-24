@@ -10,11 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Check, Flame, Zap, Building2, Crown, ArrowRight, X,
   ShoppingCart, Shield, Star, Sparkles, Lock, Users, Package, Cpu, Wifi,
-  HelpCircle, ChevronRight, AlertTriangle, RefreshCw,
+  HelpCircle, ChevronRight, AlertTriangle, RefreshCw, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type SectorTab = 'facility' | 'retail' | 'government' | 'property' | 'entrepreneur';
+type SectorTab = 'facility' | 'retail' | 'government' | 'property' | 'entrepreneur' | 'service_tech';
 
 interface Plan {
   name: string;
@@ -179,6 +179,62 @@ const RETAIL_PLANS: Plan[] = [
       'Compliance document storage',
       'Manager dashboard · 10 users',
       'Own the building? → Facility Standard + Retail Module',
+    ],
+  },
+];
+
+// ── SERVICE TECH — monthly + annual ──────────────────────────────────────────
+// Stripe: create products in Dashboard → Products, then replace placeholder IDs
+// price_st_starter_mo  → $197/mo   price_st_starter_yr  → $1,970/yr
+// price_st_pro_mo      → $347/mo   price_st_pro_yr      → $3,470/yr
+const SERVICE_TECH_PLANS: Plan[] = [
+  {
+    name: 'Service Tech Starter',
+    priceId: 'price_st_starter_mo',
+    price: 197,
+    billingLabel: '/mo',
+    annualPriceId: 'price_st_starter_yr',
+    annualPrice: 1970,
+    icon: Zap,
+    color: 'text-orange-400',
+    border: 'border-orange-400/30',
+    bg: 'bg-orange-400/5',
+    badge: null,
+    description: 'Field operations intelligence for HVAC, mechanical, and facilities service companies. Dispatch, work orders, and client site management in one place.',
+    features: [
+      'Service dispatch board',
+      'Technician status grid',
+      'Work order management',
+      'Client site tracking',
+      'Vendor + contractor directory',
+      'Job completion tracking',
+      '1 dispatch office · 5 techs',
+    ],
+  },
+  {
+    name: 'Service Tech Pro',
+    priceId: 'price_st_pro_mo',
+    price: 347,
+    billingLabel: '/mo',
+    annualPriceId: 'price_st_pro_yr',
+    annualPrice: 3470,
+    icon: Star,
+    color: 'text-amber-400',
+    border: 'border-amber-400/40',
+    bg: 'bg-amber-400/5',
+    badge: 'Best Value',
+    description: 'Full service intelligence with analytics, vendor performance tracking, and multi-client management. Built for growing service companies.',
+    features: [
+      'Everything in Starter',
+      'Service analytics dashboard',
+      'Vendor performance scoring',
+      'Completion rate tracking',
+      'On-time rate + response metrics',
+      'Recurring issue flags',
+      'Multi-client management',
+      'Revenue by service type',
+      'Tech performance reports',
+      'Up to 20 technicians',
     ],
   },
 ];
@@ -1158,6 +1214,7 @@ export default function Pricing() {
   const activePlans =
     sector === 'facility'      ? FACILITY_PLANS :
     sector === 'retail'        ? RETAIL_PLANS :
+    sector === 'service_tech'  ? SERVICE_TECH_PLANS :
     sector === 'property'      ? PROPERTY_PLANS :
     sector === 'entrepreneur'  ? ENTREPRENEUR_PLANS :
     GOVERNMENT_PLANS;
@@ -1301,6 +1358,7 @@ export default function Pricing() {
             {([
               { value: 'facility'     as const, label: 'Facility',      icon: Building2 },
               { value: 'retail'       as const, label: 'Retail',         icon: ShoppingCart },
+              { value: 'service_tech' as const, label: 'Service Tech',   icon: Wrench },
               { value: 'government'   as const, label: 'Government',     icon: Shield },
               { value: 'property'     as const, label: 'Property',       icon: Crown },
               { value: 'entrepreneur' as const, label: 'Entrepreneur',   icon: Flame },
@@ -1324,7 +1382,7 @@ export default function Pricing() {
 
         {/* Billing model note / retail toggle */}
         <div className="flex justify-center">
-          {(sector === 'retail' || sector === 'property' || sector === 'entrepreneur') ? (
+          {(sector === 'retail' || sector === 'service_tech' || sector === 'property' || sector === 'entrepreneur') ? (
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-3">
                 <span className={cn('text-sm font-medium', retailBilling === 'monthly' ? 'text-foreground' : 'text-muted-foreground')}>
@@ -1382,7 +1440,7 @@ export default function Pricing() {
           {activePlans.map((plan) => {
             const Icon = plan.icon;
             const isRetail = sector === 'retail';
-            const isMonthlySector = sector === 'retail' || sector === 'property' || sector === 'entrepreneur';
+            const isMonthlySector = sector === 'retail' || sector === 'service_tech' || sector === 'property' || sector === 'entrepreneur';
             const useAnnual = isMonthlySector && retailBilling === 'annual';
             const effectivePrice   = useAnnual && plan.annualPrice   ? plan.annualPrice   : plan.price;
             const effectivePriceId = useAnnual && plan.annualPriceId ? plan.annualPriceId : plan.priceId;
