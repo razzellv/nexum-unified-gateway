@@ -98,6 +98,7 @@ const allNavItems: NavItem[] = [
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
 
   { type: 'separator', name: 'Dashboards', access: 'all' },
+  { name: 'Unified Dashboard', href: '/dashboard', icon: LayoutDashboard, access: 'leadership', tier: 'basic_dashboards' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
   { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
