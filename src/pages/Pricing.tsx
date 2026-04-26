@@ -184,16 +184,15 @@ const RETAIL_PLANS: Plan[] = [
 ];
 
 // ── SERVICE TECH — monthly + annual ──────────────────────────────────────────
-// Stripe: create products in Dashboard → Products, then replace placeholder IDs
-// price_st_starter_mo  → $397/mo   price_st_starter_yr  → $3,970/yr
-// price_st_pro_mo      → $797/mo   price_st_pro_yr      → $7,970/yr
+// price_1TQNVoDfw4bOR2dfHDuSpXP7  → $397/mo   price_1TQNPhDfw4bOR2df7oxLjDSC → $3,970/yr
+// price_1TQNT8Dfw4bOR2dfpxNZFoog  → $797/mo   price_1TQNQoDfw4bOR2df5jGaOyLW → $7,970/yr
 const SERVICE_TECH_PLANS: Plan[] = [
   {
     name: 'Service Tech Starter',
-    priceId: 'price_st_starter_mo',
+    priceId: 'price_1TQNVoDfw4bOR2dfHDuSpXP7',
     price: 397,
     billingLabel: '/mo',
-    annualPriceId: 'price_st_starter_yr',
+    annualPriceId: 'price_1TQNPhDfw4bOR2df7oxLjDSC',
     annualPrice: 3970,
     icon: Zap,
     color: 'text-orange-400',
@@ -214,10 +213,10 @@ const SERVICE_TECH_PLANS: Plan[] = [
   },
   {
     name: 'Service Tech Pro',
-    priceId: 'price_st_pro_mo',
+    priceId: 'price_1TQNT8Dfw4bOR2dfpxNZFoog',
     price: 797,
     billingLabel: '/mo',
-    annualPriceId: 'price_st_pro_yr',
+    annualPriceId: 'price_1TQNQoDfw4bOR2df5jGaOyLW',
     annualPrice: 7970,
     icon: Star,
     color: 'text-amber-400',
