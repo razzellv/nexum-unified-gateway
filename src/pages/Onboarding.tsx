@@ -147,6 +147,78 @@ export default function Onboarding() {
   const [auditFile, setAuditFile] = useState<File | null>(null);
   const [auditMeta, setAuditMeta] = useState({ agency: '', inspectionDate: '', result: 'pass' });
 
+  // ── Portal CSV import state ────────────────────────────────────────────────
+  const [csvImportDone, setCsvImportDone]     = useState(false);
+  const [csvImportCount, setCsvImportCount]   = useState({ staff: 0, equipment: 0 });
+  const portalCsvRef = useRef<HTMLInputElement>(null);
+
+  function importFromPortalCSV(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) return;
+
+      const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.replace(/"/g, '').trim());
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? '']));
+      });
+
+      // Extract unique tech names → staff
+      const techNames = [...new Set(
+        rows.map(r => r['tech name'] || r['techname'] || r['tech'] || r['reporter (anonymous if blank)'] || '')
+          .filter(n => n && n !== '(anonymous)' && n.length > 1)
+      )];
+
+      // Extract unique equipment from boiler / chiller / facility log rows
+      const equipmentRows: EquipmentItem[] = [];
+      const seen = new Set<string>();
+      rows.forEach(r => {
+        const eqId   = r['equipment id'] || r['equipmentid'] || '';
+        const name   = r['boiler name / location'] || r['chiller name / location'] || r['location'] || '';
+        const sysRaw = r['system type'] || (headers.includes('stack temp (°f)') ? 'boiler' : headers.includes('condenser temp (°f)') ? 'chiller' : 'ahu');
+        const key    = `${sysRaw}:${eqId}`;
+        if (!seen.has(key) && (eqId || name)) {
+          seen.add(key);
+          equipmentRows.push({
+            equipmentType: sysRaw === 'boiler' ? 'boiler' : sysRaw === 'chiller' ? 'chiller' : sysRaw,
+            manufacturer: '',
+            model: '',
+            location: name || eqId,
+            serialNumber: eqId,
+          });
+        }
+      });
+
+      // Merge into existing state
+      if (techNames.length > 0) {
+        setStaff(prev => {
+          const existing = prev.filter(s => s.name);
+          const newStaff = techNames
+            .filter(n => !existing.find(s => s.name === n))
+            .map(n => ({ name: n, role: 'technician', email: '', department: 'Maintenance' }));
+          return [...existing, ...newStaff].slice(0, 20);
+        });
+      }
+
+      if (equipmentRows.length > 0) {
+        setEquipment(prev => {
+          const existing = prev.filter(e => e.equipmentType);
+          const newEq = equipmentRows.filter(eq =>
+            !existing.find(e => e.location === eq.location && e.equipmentType === eq.equipmentType)
+          );
+          return [...existing, ...newEq].slice(0, 30);
+        });
+      }
+
+      setCsvImportCount({ staff: techNames.length, equipment: equipmentRows.length });
+      setCsvImportDone(true);
+      toast({ title: `Portal data imported — ${techNames.length} staff, ${equipmentRows.length} equipment entries pre-filled.` });
+    };
+    reader.readAsText(file);
+  }
+
   // Retail-specific state
   const [retailStore, setRetailStore] = useState({ storeName: '', storeType: '', address: '', city: '', state: '', zip: '' });
   const [retailCategories, setRetailCategories] = useState<string[]>(['']);
@@ -371,6 +443,50 @@ export default function Onboarding() {
 
       {/* Content */}
       <div className="flex-1 px-6 py-8 max-w-3xl mx-auto w-full">
+
+        {/* ── Portal CSV Import Banner ── */}
+        {step <= 2 && (
+          <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-all ${
+            csvImportDone
+              ? 'border-green-500/30 bg-green-500/5'
+              : 'border-primary/20 bg-primary/5'
+          }`}>
+            <div className="flex-1 min-w-0">
+              {csvImportDone ? (
+                <>
+                  <p className="text-sm font-semibold text-green-400">✓ Portal data imported</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {csvImportCount.staff} staff pre-filled in Step 2 · {csvImportCount.equipment} equipment entries pre-filled in Step 3.
+                    Review and add any missing details.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-primary">Already using a Nexum Suum Portal package?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Export your Google Sheet as CSV and upload it here — we'll pre-fill your staff and equipment from your log data.
+                  </p>
+                </>
+              )}
+            </div>
+            {!csvImportDone && (
+              <>
+                <input
+                  ref={portalCsvRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={e => { if (e.target.files?.[0]) importFromPortalCSV(e.target.files[0]); }}
+                />
+                <Button size="sm" variant="outline" onClick={() => portalCsvRef.current?.click()}
+                  className="shrink-0 text-xs">
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Import from Portal CSV
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
         {/* ── Step 0: Org Type ── */}
         {step === 0 && (

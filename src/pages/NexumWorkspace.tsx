@@ -139,7 +139,33 @@ const EMPTY_FORM: Omit<CRMClient, 'id' | 'createdAt'> = {
   notes: '', lastContact: '', tier: 'basic',
 };
 
-type WorkspaceTab = 'crm' | 'pilot' | 'promos' | 'email';
+type WorkspaceTab = 'crm' | 'pilot' | 'promos' | 'email' | 'prospects';
+
+// ── Prospect Buyer (portal purchaser) types ───────────────────────────────────
+type ProspectStatus = 'pending' | 'scheduled' | 'import_ready' | 'converted' | 'churned';
+
+interface ProspectBuyer {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone?: string;
+  product: string;
+  amount?: number;
+  purchasedAt: string;
+  status: ProspectStatus;
+  notes?: string;
+}
+
+const PROSPECT_STATUS_META: Record<ProspectStatus, { label: string; color: string; bg: string }> = {
+  pending:      { label: 'Pending Review',   color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
+  scheduled:    { label: 'Call Scheduled',   color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20'   },
+  import_ready: { label: 'Import Ready',     color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20'   },
+  converted:    { label: 'Converted to FI',  color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
+  churned:      { label: 'Churned',          color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20'     },
+};
+
+const PROSPECTS_KEY = 'nexum_prospect_buyers';
 
 // ═════════════════════════════════════════════════════════════════════════════
 export default function NexumWorkspace() {
@@ -188,6 +214,12 @@ export default function NexumWorkspace() {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(() => load(EMAIL_KEY, DEFAULT_EMAIL_SETTINGS));
   const [savingEmail, setSavingEmail]     = useState(false);
 
+  // ── Prospect buyers state ─────────────────────────────────────────────────
+  const [prospects, setProspects]               = useState<ProspectBuyer[]>(() => load(PROSPECTS_KEY, []));
+  const [fetchingProspects, setFetchingProspects] = useState(false);
+  const [prospectLoading, setProspectLoading]   = useState<string | null>(null);
+  const [prospectNotes, setProspectNotes]       = useState<Record<string, string>>({});
+
   // ── Fetch pilot applications ──────────────────────────────────────────────
   useEffect(() => {
     if (!isAdmin || tab !== 'pilot') return;
@@ -208,6 +240,77 @@ export default function NexumWorkspace() {
     };
     fetchPilots();
   }, [isAdmin, tab]);
+
+  // ── Fetch prospect buyers (portal purchasers) ─────────────────────────────
+  useEffect(() => {
+    if (!isAdmin || tab !== 'prospects') return;
+    const fetchProspects = async () => {
+      setFetchingProspects(true);
+      try {
+        const token = localStorage.getItem('nexum_access_token');
+        const res = await fetch(`${API}/prospect-buyers`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const buyers: ProspectBuyer[] = data.buyers || data || [];
+          if (buyers.length > 0) { setProspects(buyers); save(PROSPECTS_KEY, buyers); }
+        }
+      } catch { /* localStorage fallback */ }
+      finally { setFetchingProspects(false); }
+    };
+    fetchProspects();
+  }, [isAdmin, tab]);
+
+  // ── Prospect actions ──────────────────────────────────────────────────────
+  const doProspectAction = async (
+    prospect: ProspectBuyer,
+    action: 'approve' | 'schedule' | 'import-ready' | 'convert' | 'churn',
+  ) => {
+    setProspectLoading(prospect.id);
+    const token = localStorage.getItem('nexum_access_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const statusMap: Record<string, ProspectStatus> = {
+      'approve':      'pending',
+      'schedule':     'scheduled',
+      'import-ready': 'import_ready',
+      'convert':      'converted',
+      'churn':        'churned',
+    };
+
+    try {
+      await fetch(`${API}/prospect-buyers/${prospect.id}/${action}`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          email: prospect.email,
+          name: prospect.name,
+          company: prospect.company,
+          product: prospect.product,
+          notes: prospectNotes[prospect.id] || prospect.notes || '',
+        }),
+      });
+    } catch { /* optimistic update below */ }
+
+    setProspects(prev => {
+      const updated = prev.map(p => p.id === prospect.id
+        ? { ...p, status: statusMap[action], notes: prospectNotes[prospect.id] ?? p.notes }
+        : p);
+      save(PROSPECTS_KEY, updated);
+      return updated;
+    });
+
+    const msgs: Record<string, string> = {
+      'approve':      'Reviewed — pending outreach',
+      'schedule':     `Onboarding call scheduled for ${prospect.name}`,
+      'import-ready': `Import instructions sent to ${prospect.email}`,
+      'convert':      `${prospect.name} converted to FI Platform`,
+      'churn':        'Marked as churned',
+    };
+    toast({ title: msgs[action] });
+    setProspectLoading(null);
+  };
 
   // ── Pilot actions ─────────────────────────────────────────────────────────
   const doPilotAction = async (
@@ -438,10 +541,11 @@ export default function NexumWorkspace() {
         {/* Tab switcher */}
         <div className="flex gap-1 p-1 rounded-lg border border-border bg-card/50 flex-wrap">
           {([
-            { id: 'crm'    as const, label: 'CRM',                icon: BarChart3 },
-            { id: 'pilot'  as const, label: `Pilot${pendingPilots.length > 0 ? ` (${pendingPilots.length})` : ''}`, icon: Rocket },
-            { id: 'promos' as const, label: 'Promotions',         icon: Tag },
-            { id: 'email'  as const, label: 'Email Settings',     icon: Mail },
+            { id: 'crm'       as const, label: 'CRM',                icon: BarChart3 },
+            { id: 'pilot'     as const, label: `Pilot${pendingPilots.length > 0 ? ` (${pendingPilots.length})` : ''}`, icon: Rocket },
+            { id: 'prospects' as const, label: `Prospects${prospects.filter(p => p.status === 'pending').length > 0 ? ` (${prospects.filter(p => p.status === 'pending').length})` : ''}`, icon: ExternalLink },
+            { id: 'promos'    as const, label: 'Promotions',       icon: Tag },
+            { id: 'email'     as const, label: 'Email Settings',   icon: Mail },
           ]).map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
               className={cn('flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
@@ -832,6 +936,133 @@ export default function NexumWorkspace() {
                   <p key={e.value} className="font-mono">{e.value}</p>
                 ))}
                 <p className="pt-1 text-[11px]">These must be verified in AWS SES before they can send. Each address is already domain-verified under nexumsuum.com and nexumsuum-facilityintelligence.com.</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ═══════════════ PROSPECTS TAB ════════════════════════════════════ */}
+        {tab === 'prospects' && (
+          <div className="space-y-5">
+            {/* KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Pending Review',  value: prospects.filter(p => p.status === 'pending').length,      color: 'text-yellow-400', icon: Clock },
+                { label: 'Call Scheduled',  value: prospects.filter(p => p.status === 'scheduled').length,    color: 'text-blue-400',   icon: Activity },
+                { label: 'Import Ready',    value: prospects.filter(p => p.status === 'import_ready').length, color: 'text-cyan-400',   icon: FileText },
+                { label: 'Converted to FI', value: prospects.filter(p => p.status === 'converted').length,   color: 'text-green-400',  icon: CheckCircle },
+              ].map(({ label, value, color, icon: Icon }) => (
+                <Card key={label} className="neon-border">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+                      <p className={cn('text-3xl font-bold mt-0.5', color)}>{value}</p>
+                    </div>
+                    <Icon className={cn('w-6 h-6 opacity-40', color)} />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Refresh + context */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Portal purchasers from <code className="font-mono bg-muted/30 px-1 rounded text-[10px]">nexumsuum-connections.netlify.app</code> — approve to convert to FI Platform clients.
+              </p>
+              <Button variant="ghost" size="sm" onClick={() => setTab('prospects')} disabled={fetchingProspects}>
+                {fetchingProspects ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {prospects.length === 0 ? (
+              <Card className="neon-border">
+                <CardContent className="p-12 text-center text-muted-foreground text-sm">
+                  <ExternalLink className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p>No prospect buyers yet.</p>
+                  <p className="text-xs mt-1 text-muted-foreground/60">
+                    Buyers from the portal will appear here automatically once the Stripe webhook Lambda is wired to <code className="font-mono text-[10px]">POST /prospect-buyers</code>.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {prospects.map(p => {
+                  const meta = PROSPECT_STATUS_META[p.status];
+                  const busy = prospectLoading === p.id;
+                  return (
+                    <Card key={p.id} className="neon-border">
+                      <CardContent className="p-5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <p className="font-semibold text-foreground">{p.name}</p>
+                              {p.company && <span className="text-xs text-muted-foreground">· {p.company}</span>}
+                              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold border', meta.bg, meta.color)}>{meta.label}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">{p.email}{p.phone ? ` · ${p.phone}` : ''}</p>
+                            <p className="text-xs text-cyan-400 font-medium mb-1">{p.product}</p>
+                            {p.amount && <p className="text-xs text-green-400">${p.amount} purchased · {new Date(p.purchasedAt).toLocaleDateString()}</p>}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 shrink-0">
+                            {p.status === 'pending' && (
+                              <Button size="sm" variant="outline" disabled={busy}
+                                onClick={() => doProspectAction(p, 'schedule')}
+                                className="text-blue-400 border-blue-400/30 hover:bg-blue-400/10 text-xs">
+                                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Schedule Call'}
+                              </Button>
+                            )}
+                            {(p.status === 'pending' || p.status === 'scheduled') && (
+                              <Button size="sm" variant="outline" disabled={busy}
+                                onClick={() => doProspectAction(p, 'import-ready')}
+                                className="text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/10 text-xs">
+                                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Send Import Instructions'}
+                              </Button>
+                            )}
+                            {p.status !== 'converted' && p.status !== 'churned' && (
+                              <Button size="sm" disabled={busy}
+                                onClick={() => doProspectAction(p, 'convert')}
+                                className="bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 text-xs">
+                                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Mark Converted ✓'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="mt-3 pt-3 border-t border-border/20 flex gap-2">
+                          <input
+                            value={prospectNotes[p.id] ?? p.notes ?? ''}
+                            onChange={e => setProspectNotes(prev => ({ ...prev, [p.id]: e.target.value }))}
+                            placeholder="Add internal note…"
+                            className="flex-1 text-xs bg-muted/20 border border-border/20 rounded px-2 py-1 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Conversion process guide */}
+            <Card className="neon-border border-border/20 bg-muted/10">
+              <CardContent className="p-5 space-y-3">
+                <p className="text-sm font-semibold text-foreground">Conversion Pipeline</p>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
+                  {[
+                    { step: '01', label: 'Prospect buys from portal', desc: 'Stripe → Lambda → Prospect Buyers tab' },
+                    { step: '02', label: 'Schedule onboarding call', desc: 'Review their use case, current systems, team size' },
+                    { step: '03', label: 'Send Import Instructions', desc: 'They export Google Sheet CSV → upload to FI Platform onboarding' },
+                    { step: '04', label: 'Convert to FI Platform', desc: 'Create Cognito account, assign tier, send welcome email' },
+                  ].map(({ step, label, desc }) => (
+                    <div key={step} className="p-3 rounded-lg border border-border/20 bg-background/30">
+                      <p className="text-2xl font-bold text-primary/20 font-mono mb-1">{step}</p>
+                      <p className="font-medium text-foreground/80 mb-1">{label}</p>
+                      <p>{desc}</p>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
