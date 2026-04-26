@@ -226,6 +226,9 @@ export default function NexumWorkspace() {
         body: JSON.stringify({
           notes: pilotNotes[app.id] || app.notes || '',
           promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1',
+          email: app.email,
+          contactName: app.contactName,
+          companyName: app.companyName,
           ...extra,
         }),
       });
