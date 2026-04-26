@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/MainLayout';
 import { ParticleBackground } from '@/components/ParticleBackground';
@@ -178,6 +178,53 @@ const vendorStatusBadge: Record<VendorStatus, string> = {
   probation: 'border-yellow-400/50 text-yellow-400',
   inactive: 'border-muted-foreground/40 text-muted-foreground',
 };
+
+// ── Auto-detection ─────────────────────────────────────────────────────────────
+
+function detectRecurringIssues(jobs: CompletedJob[], requests: ServiceRequest[]): RecurringFlag[] {
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  // Unify into { equipmentSystem, date } entries
+  const entries: { equipmentSystem: string; date: string }[] = [
+    ...jobs.map(j => ({ equipmentSystem: j.equipmentSystem, date: j.date })),
+    ...requests.map(r => ({ equipmentSystem: r.equipmentSystem, date: r.createdAt })),
+  ];
+
+  // Group by normalized equipmentSystem
+  const groups = new Map<string, { equipmentSystem: string; dates: string[] }>();
+  for (const entry of entries) {
+    const key = entry.equipmentSystem.toLowerCase().trim();
+    if (!groups.has(key)) {
+      groups.set(key, { equipmentSystem: entry.equipmentSystem, dates: [] });
+    }
+    groups.get(key)!.dates.push(entry.date);
+  }
+
+  const flags: RecurringFlag[] = [];
+  for (const { equipmentSystem, dates } of groups.values()) {
+    // Filter to dates within last 90 days
+    const recent = dates.filter(d => {
+      const parsed = new Date(d);
+      return !isNaN(parsed.getTime()) && parsed >= cutoff && parsed <= today;
+    });
+    if (recent.length >= 3) {
+      const sorted = [...recent].sort((a, b) => b.localeCompare(a));
+      const lastService = sorted[0];
+      const count = recent.length;
+      flags.push({
+        id: `auto-${equipmentSystem.replace(/\s+/g, '-').toLowerCase()}`,
+        equipmentSystem,
+        serviceCount: count,
+        lastService,
+        issue: `${count} service events in last 90 days — review for root cause`,
+      });
+    }
+  }
+
+  return flags;
+}
 
 // ── Mock data ──────────────────────────────────────────────────────────────────
 
@@ -763,10 +810,37 @@ function PerformanceTab() {
 
   const band = rateBand(completionRate);
 
-  const [recurringFlags] = useState<RecurringFlag[]>(() => {
+  const [savedRecurringFlags] = useState<RecurringFlag[]>(() => {
     const saved = safeParseArray<RecurringFlag>('svc_recurring_flags');
     return saved.length > 0 ? saved : MOCK_RECURRING_FLAGS;
   });
+
+  const [completedJobs] = useState<CompletedJob[]>(() => {
+    const saved = safeParseArray<CompletedJob>('svc_completed_jobs');
+    return saved.length > 0 ? saved : MOCK_COMPLETED_JOBS;
+  });
+
+  const [activeRequests] = useState<ServiceRequest[]>(() => {
+    const saved = safeParseArray<ServiceRequest>('svc_active_requests');
+    return saved.length > 0 ? saved : MOCK_ACTIVE_REQUESTS;
+  });
+
+  const autoFlags = useMemo(
+    () => detectRecurringIssues(completedJobs, activeRequests),
+    [completedJobs, activeRequests],
+  );
+
+  const recurringFlags = useMemo(() => {
+    const autoSystems = new Set(autoFlags.map(f => f.equipmentSystem.toLowerCase().trim()));
+    const savedExtras = savedRecurringFlags.filter(
+      f => !autoSystems.has(f.equipmentSystem.toLowerCase().trim()),
+    );
+    return [...autoFlags, ...savedExtras];
+  }, [autoFlags, savedRecurringFlags]);
+
+  useEffect(() => {
+    localStorage.setItem('svc_recurring_flags', JSON.stringify(autoFlags));
+  }, [autoFlags]);
 
   const agingWO = MOCK_AGING_WO.slice().sort((a, b) => b.ageDays - a.ageDays);
 
@@ -846,20 +920,35 @@ function PerformanceTab() {
         </CardHeader>
         <CardContent className="space-y-3">
           {recurringFlags.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No recurring issues flagged</p>
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No recurring issues detected. All equipment service frequency is within normal range.
+            </p>
           ) : (
-            recurringFlags.map(flag => (
-              <div key={flag.id} className="rounded-lg border border-orange-400/30 bg-orange-400/5 p-3 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-orange-300">{flag.equipmentSystem}</p>
-                  <Badge variant="outline" className="text-[10px] border-orange-400/40 text-orange-400">
-                    {flag.serviceCount}x services
-                  </Badge>
+            recurringFlags.map(flag => {
+              const isAuto = flag.id.startsWith('auto-');
+              return (
+                <div key={flag.id} className="rounded-lg border border-orange-400/30 bg-orange-400/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-orange-300">{flag.equipmentSystem}</p>
+                    <div className="flex items-center gap-1.5">
+                      {isAuto && (
+                        <Badge variant="outline" className="text-[10px] border-orange-500/50 text-orange-400 bg-orange-400/10">
+                          Auto-Detected
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] border-orange-400/40 text-orange-400">
+                        {flag.serviceCount}x in 90d
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    <span className="font-medium text-orange-200/80">{flag.serviceCount} service events</span> in 90 days
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Last service: {flag.lastService}</p>
+                  <p className="text-xs text-orange-200/70">{flag.issue}</p>
                 </div>
-                <p className="text-xs text-orange-200/70">{flag.issue}</p>
-                <p className="text-[10px] text-muted-foreground">Last service: {flag.lastService}</p>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>
@@ -906,8 +995,33 @@ export default function RetailDashboard() {
       const saved = JSON.parse(localStorage.getItem('service_tech_kpis') || 'null');
       if (saved && typeof saved === 'object') return saved;
     } catch { /* ignore */ }
-    return { total: 47, completed: 31, open: 12, inProgress: 4, onTimeRate: 78, emergencyAlerts: 3, recurringIssues: 2 };
+    return { total: 47, completed: 31, open: 12, inProgress: 4, onTimeRate: 78, emergencyAlerts: 3 };
   });
+
+  // Auto-compute recurring issues count from live localStorage data
+  const [kpiCompletedJobs] = useState<CompletedJob[]>(() => {
+    const saved = safeParseArray<CompletedJob>('svc_completed_jobs');
+    return saved.length > 0 ? saved : MOCK_COMPLETED_JOBS;
+  });
+  const [kpiActiveRequests] = useState<ServiceRequest[]>(() => {
+    const saved = safeParseArray<ServiceRequest>('svc_active_requests');
+    return saved.length > 0 ? saved : MOCK_ACTIVE_REQUESTS;
+  });
+  const kpiAutoFlags = useMemo(
+    () => detectRecurringIssues(kpiCompletedJobs, kpiActiveRequests),
+    [kpiCompletedJobs, kpiActiveRequests],
+  );
+  const kpiSavedFlags = useMemo<RecurringFlag[]>(() => {
+    const saved = safeParseArray<RecurringFlag>('svc_recurring_flags');
+    return saved.length > 0 ? saved : MOCK_RECURRING_FLAGS;
+  }, []);
+  const recurringIssuesCount = useMemo(() => {
+    const autoSystems = new Set(kpiAutoFlags.map(f => f.equipmentSystem.toLowerCase().trim()));
+    const savedExtras = kpiSavedFlags.filter(
+      f => !autoSystems.has(f.equipmentSystem.toLowerCase().trim()),
+    );
+    return kpiAutoFlags.length + savedExtras.length;
+  }, [kpiAutoFlags, kpiSavedFlags]);
 
   const [upgradeBannerOpen, setUpgradeBannerOpen] = useState(true);
 
@@ -925,7 +1039,7 @@ export default function RetailDashboard() {
     { label: 'Completion Rate', value: `${completionRate}%`, color: rateColor(completionRate), sub: 'completed / total' },
     { label: 'On-Time Rate', value: `${kpis.onTimeRate}%`, color: rateColor(kpis.onTimeRate), sub: 'on-time completion' },
     { label: 'Emergency Alerts', value: kpis.emergencyAlerts, color: 'text-red-400', sub: 'require attention', badge: kpis.emergencyAlerts > 0 ? 'red' : undefined },
-    { label: 'Recurring Issues', value: kpis.recurringIssues, color: kpis.recurringIssues > 0 ? 'text-orange-400' : 'text-muted-foreground', sub: '≥3 calls / 90 days', badge: kpis.recurringIssues > 0 ? 'orange' : undefined },
+    { label: 'Recurring Issues', value: recurringIssuesCount, color: recurringIssuesCount > 0 ? 'text-orange-400' : 'text-muted-foreground', sub: '≥3 calls / 90 days', badge: recurringIssuesCount > 0 ? 'orange' : undefined },
   ];
 
   return (

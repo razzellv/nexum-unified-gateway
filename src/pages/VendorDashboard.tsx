@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import {
   ClipboardList, CheckCircle, Clock, AlertTriangle, Bell,
   Building2, Wrench, Calendar, ChevronDown, ChevronUp,
-  Send, Users, Phone, Mail, Star, ArrowUpRight,
+  Send, Users, Phone, Mail, Star, ArrowUpRight, User,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -361,9 +363,23 @@ function ScheduleDialog({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const VendorDashboard = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Vendor dashboard is restricted to vendor and service_tech org types
+  // Other org types who navigate here directly are redirected
+  useEffect(() => {
+    if (user?.orgType && user.orgType !== 'vendor' && user.orgType !== 'service_tech') {
+      navigate('/', { replace: true });
+    }
+  }, [user?.orgType, navigate]);
+
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [respondId, setRespondId] = useState<string | null>(null);
   const [responseText, setResponseText] = useState('');
+  const [removedClients, setRemovedClients] = useState<Array<{ clientName: string; removedAt: string }>>(() =>
+    JSON.parse(localStorage.getItem('nexum_vendor_removed_clients') || '[]')
+  );
 
   const pendingCount = MOCK_REQUESTS.filter(r => r.status === 'pending_approval').length;
 
@@ -393,6 +409,43 @@ const VendorDashboard = () => {
             </Button>
           </div>
         </div>
+
+        {/* Vendor identity banner */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+            <User className="w-4 h-4 text-blue-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-blue-300">Viewing as: {MY_VENDOR_NAME}</p>
+            <p className="text-xs text-muted-foreground">You can only see work assigned to your company · {MOCK_CLIENTS.length} active client{MOCK_CLIENTS.length !== 1 ? 's' : ''}</p>
+          </div>
+          <Badge variant="outline" className="text-[10px] border-blue-500/30 text-blue-400 shrink-0">Vendor Account</Badge>
+        </div>
+
+        {/* Client removal notification */}
+        {removedClients.length > 0 && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-orange-300">Client Access Removed</p>
+              {removedClients.map((rc, i) => (
+                <p key={i} className="text-xs text-muted-foreground">
+                  {rc.clientName} removed your access on {new Date(rc.removedAt).toLocaleDateString()}.
+                  Your historical work for this client is preserved in their records.
+                </p>
+              ))}
+            </div>
+            <button
+              className="text-muted-foreground hover:text-foreground text-xs shrink-0"
+              onClick={() => {
+                setRemovedClients([]);
+                localStorage.removeItem('nexum_vendor_removed_clients');
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Summary tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -480,6 +533,10 @@ const VendorDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Showing {MOCK_CLIENTS.length} client{MOCK_CLIENTS.length !== 1 ? 's' : ''} assigned to your account.
+                  Contact your facility manager to update assignments.
+                </p>
                 {[...MOCK_CLIENTS].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)).map(client => (
                   <div key={client.id} className={cn(
                     'p-4 rounded-lg border transition-colors',

@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Plus, Search, Phone, RefreshCw, Mail, Send, Bell,
   CheckCircle, Clock, AlertTriangle, Users, ClipboardList, BarChart3,
+  ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { AddVendorDialog } from '@/components/command-hub/dialogs/AddVendorDialog';
 import { FilterDialog } from '@/components/command-hub/dialogs/FilterDialog';
@@ -55,6 +56,16 @@ interface VendorAlert {
   sentAt: string;
   status: AlertStatus;
   response?: string;
+}
+
+interface RemovedVendor {
+  vendorId: string;
+  name: string;
+  contactName?: string;
+  specialty?: string[];
+  removedAt: string;
+  removedBy: string;
+  historicalJobCount: number;
 }
 
 const MOCK_ALERTS: VendorAlert[] = [
@@ -101,20 +112,32 @@ function CompletionGauge({ rate, label, color }: { rate: number; label: string; 
 
 // ── Invite Vendor Dialog ──────────────────────────────────────────────────────
 function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [email, setEmail] = useState('');
-  const [name, setName]   = useState('');
-  const [msg, setMsg]     = useState('');
+  const [email, setEmail]     = useState('');
+  const [name, setName]       = useState('');
+  const [msg, setMsg]         = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const send = () => {
-    if (!email || !name) {
-      toast({ title: 'Required', description: 'Name and email are required.', variant: 'destructive' });
-      return;
-    }
-    toast({
-      title: 'Invite sent',
-      description: `${name} (${email}) will receive an account creation email with access instructions.`,
-    });
-    setEmail(''); setName(''); setMsg('');
+  const send = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    try {
+      await fetch(`${API_BASE}/vendors/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ email, message: msg }),
+      });
+    } catch { /* best-effort */ }
+
+    // Persist invite to localStorage
+    const invites = JSON.parse(localStorage.getItem('nexum_vendor_invites') || '[]');
+    invites.unshift({ email, message: msg, sentAt: new Date().toISOString(), status: 'pending' });
+    localStorage.setItem('nexum_vendor_invites', JSON.stringify(invites));
+
+    toast({ title: 'Invite Sent', description: `Invitation sent to ${email}` });
+    setEmail('');
+    setName('');
+    setMsg('');
+    setLoading(false);
     onOpenChange(false);
   };
 
@@ -129,11 +152,11 @@ function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         </p>
         <div className="space-y-3 py-2">
           <div className="space-y-1">
-            <Label>Company / Contact Name <span className="text-destructive">*</span></Label>
+            <Label>Company / Contact Name</Label>
             <Input placeholder="e.g. CoolTech Refrigeration" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>Email Address <span className="text-destructive">*</span></Label>
+            <Label>Vendor Email Address <span className="text-destructive">*</span></Label>
             <Input type="email" placeholder="vendor@company.com" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="space-y-1">
@@ -143,7 +166,12 @@ function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={send}><Send className="w-4 h-4 mr-2" />Send Invite</Button>
+          <Button onClick={send} disabled={!email.trim() || loading}>
+            {loading
+              ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Sending…</>
+              : <><Send className="w-4 h-4 mr-2" />Send Invite</>
+            }
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -223,6 +251,10 @@ const Vendors = () => {
   const [showFilter, setShowFilter]       = useState(false);
   const [alertTarget, setAlertTarget]     = useState<Vendor | null>(null);
   const [workFilter, setWorkFilter]       = useState('all');
+  const [removedVendors, setRemovedVendors] = useState<RemovedVendor[]>(() =>
+    JSON.parse(localStorage.getItem('nexum_removed_vendors') || '[]')
+  );
+  const [showFormerVendors, setShowFormerVendors] = useState(false);
 
   const fetchVendors = useCallback(async () => {
     setLoading(true);
@@ -253,6 +285,23 @@ const Vendors = () => {
         method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error();
+
+      const vendor = vendors.find(v => v.vendorId === vendorId);
+      if (vendor) {
+        const removed: RemovedVendor = {
+          vendorId,
+          name: vendorName,
+          contactName: vendor.contactName,
+          specialty: vendor.specialty,
+          removedAt: new Date().toISOString(),
+          removedBy: 'Admin',
+          historicalJobCount: MOCK_WORK.filter(w => w.vendorId === vendorId).length,
+        };
+        const updated = [removed, ...removedVendors];
+        setRemovedVendors(updated);
+        localStorage.setItem('nexum_removed_vendors', JSON.stringify(updated));
+      }
+
       setVendors(prev => prev.filter(v => v.vendorId !== vendorId));
       toast({ title: 'Vendor Removed', description: `${vendorName} removed. All historical work is preserved.` });
     } catch {
@@ -380,6 +429,37 @@ const Vendors = () => {
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Former Vendors */}
+            {removedVendors.length > 0 && (
+              <div className="mt-6">
+                <button
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowFormerVendors(prev => !prev)}
+                >
+                  {showFormerVendors ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  Former Vendors ({removedVendors.length}) — historical work preserved
+                </button>
+                {showFormerVendors && (
+                  <div className="mt-3 space-y-2">
+                    {removedVendors.map(rv => (
+                      <div key={rv.vendorId} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/30 opacity-70">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">{rv.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Removed {new Date(rv.removedAt).toLocaleDateString()} · {rv.historicalJobCount} historical job{rv.historicalJobCount !== 1 ? 's' : ''} preserved
+                          </p>
+                          {rv.specialty && rv.specialty.length > 0 && (
+                            <p className="text-xs text-muted-foreground">{rv.specialty.join(', ')}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted shrink-0">Former</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
