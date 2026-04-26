@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Plus, Search, Phone, RefreshCw, Mail, Send, Bell,
-  CheckCircle, Clock, AlertTriangle, Users, ClipboardList,
+  CheckCircle, Clock, AlertTriangle, Users, ClipboardList, BarChart3,
 } from 'lucide-react';
 import { AddVendorDialog } from '@/components/command-hub/dialogs/AddVendorDialog';
 import { FilterDialog } from '@/components/command-hub/dialogs/FilterDialog';
@@ -38,6 +38,11 @@ export interface Vendor {
   activeContracts: number;
   totalSpend: number;
   createdAt?: string;
+  completionRate?: number;      // 0-100 — percentage of jobs completed on time
+  onTimeRate?: number;          // 0-100 — jobs completed by the committed date
+  serviceCategory?: string;     // primary category: 'HVAC' | 'Plumbing' | 'Electrical' | 'Controls' | 'Fire Safety' | 'General'
+  assignedSystems?: string[];   // list of system IDs this vendor is assigned to, e.g. ['BLR-001', 'CHL-001']
+  status?: 'active' | 'inactive' | 'probation' | 'preferred';
 }
 
 // ── Alert types ───────────────────────────────────────────────────────────────
@@ -57,6 +62,12 @@ const MOCK_ALERTS: VendorAlert[] = [
   { id: 'a-002', vendorId: 'v-002', vendorName: 'CoolTech Refrigeration', issue: 'Chiller efficiency dropped below 70% — condenser check needed', sentAt: '2026-01-16T14:05:00.000Z', status: 'resolved' },
 ];
 
+const MOCK_PERFORMANCE: Record<string, { completionRate: number; onTimeRate: number; serviceCategory: string; assignedSystems: string[]; status: 'active' | 'inactive' | 'probation' | 'preferred' }> = {
+  'v-001': { completionRate: 94, onTimeRate: 88, serviceCategory: 'HVAC',          assignedSystems: ['BLR-001', 'AHU-001', 'AHU-002'], status: 'preferred' },
+  'v-002': { completionRate: 82, onTimeRate: 76, serviceCategory: 'Refrigeration', assignedSystems: ['CHL-001', 'CHL-002'],             status: 'active'    },
+  'v-003': { completionRate: 71, onTimeRate: 65, serviceCategory: 'Plumbing',      assignedSystems: ['PMP-001', 'PMP-002'],             status: 'probation' },
+};
+
 // ── Mock work history (mirrors ContractorInstalls entries) ────────────────────
 const MOCK_WORK = [
   { id: 'ci-001', vendorId: 'v-001', vendorName: 'Northeast HVAC Services', type: 'install',     desc: 'New low-NOx burner assembly', equipment: 'BLR-001', date: '2026-01-10', status: 'completed' },
@@ -67,6 +78,26 @@ const MOCK_WORK = [
 ];
 
 const SPECIALTIES = ['All', 'Boilers', 'Chillers', 'Electrical', 'Controls', 'Safety', 'General', 'Pumps', 'Piping', 'Refrigeration', 'Burners'];
+
+// ── Completion Gauge ──────────────────────────────────────────────────────────
+function CompletionGauge({ rate, label, color }: { rate: number; label: string; color: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={cn('font-semibold', color)}>{rate}%</span>
+      </div>
+      <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500',
+            rate >= 90 ? 'bg-green-500' : rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+          )}
+          style={{ width: `${rate}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 // ── Invite Vendor Dialog ──────────────────────────────────────────────────────
 function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -304,6 +335,9 @@ const Vendors = () => {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="performance" className="flex items-center gap-1.5 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" />Performance
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Contacts tab ───────────────────────────────────────────────── */}
@@ -428,6 +462,90 @@ const Vendors = () => {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Performance tab ────────────────────────────────────────────── */}
+          <TabsContent value="performance" className="space-y-4 mt-4">
+            {(() => {
+              const entries = Object.entries(MOCK_PERFORMANCE);
+              const fleetAvgCompletion = Math.round(entries.reduce((sum, [, p]) => sum + p.completionRate, 0) / entries.length);
+              const fleetAvgOnTime     = Math.round(entries.reduce((sum, [, p]) => sum + p.onTimeRate,     0) / entries.length);
+              const fleetScore         = Math.round((fleetAvgCompletion + fleetAvgOnTime) / 2);
+
+              const STATUS_BADGE: Record<string, string> = {
+                preferred: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10',
+                active:    'text-green-400 border-green-400/30 bg-green-400/10',
+                probation: 'text-orange-400 border-orange-400/30 bg-orange-400/10',
+                inactive:  'text-muted-foreground border-border/30 bg-muted/10',
+              };
+
+              const scoreColor = (score: number) =>
+                score >= 90 ? 'text-green-400' : score >= 70 ? 'text-yellow-400' : 'text-red-400';
+
+              return (
+                <>
+                  {/* Fleet summary row */}
+                  <Card className="bg-muted/20 border-border/30">
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Fleet Average — {entries.length} vendors</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                      <CompletionGauge rate={fleetAvgCompletion} label="Job Completion" color={scoreColor(fleetAvgCompletion)} />
+                      <CompletionGauge rate={fleetAvgOnTime}     label="On-Time Rate"   color={scoreColor(fleetAvgOnTime)}     />
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Overall fleet score:&nbsp;
+                        <span className={cn('font-bold text-sm', scoreColor(fleetScore))}>{fleetScore} / 100</span>
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Per-vendor scorecards */}
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {entries.map(([vendorId, perf]) => {
+                      const vendorName = MOCK_WORK.find(w => w.vendorId === vendorId)?.vendorName ?? vendorId;
+                      const score      = Math.round((perf.completionRate + perf.onTimeRate) / 2);
+                      return (
+                        <Card key={vendorId} className="border-border/30">
+                          <CardContent className="p-4 space-y-3">
+                            {/* Header row */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">{vendorName}</p>
+                                <Badge variant="outline" className="text-[10px] capitalize mt-0.5">{perf.serviceCategory}</Badge>
+                              </div>
+                              <Badge variant="outline" className={cn('text-[10px] capitalize shrink-0', STATUS_BADGE[perf.status] ?? STATUS_BADGE.inactive)}>
+                                {perf.status}
+                              </Badge>
+                            </div>
+
+                            {/* Gauges */}
+                            <div className="space-y-2">
+                              <CompletionGauge rate={perf.completionRate} label="Job Completion" color={scoreColor(perf.completionRate)} />
+                              <CompletionGauge rate={perf.onTimeRate}     label="On-Time Rate"   color={scoreColor(perf.onTimeRate)}     />
+                            </div>
+
+                            {/* Assigned systems */}
+                            <div className="flex flex-wrap gap-1">
+                              {perf.assignedSystems.map(sys => (
+                                <span key={sys} className="text-[10px] px-1.5 py-0.5 rounded bg-muted/40 border border-border/20 text-muted-foreground font-mono">
+                                  {sys}
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* Overall score */}
+                            <div className="flex items-center justify-between pt-1 border-t border-border/20">
+                              <span className="text-xs text-muted-foreground">Overall score</span>
+                              <span className={cn('text-sm font-bold', scoreColor(score))}>{score} / 100</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </div>

@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 // ── TYPES ─────────────────────────────────────────────────────────────────────
 
 type ProjectType = 'equipment_install' | 'system_upgrade' | 'retrofit' | 'repair' | 'inspection' | 'other';
-type ProjectStatus = 'scheduled' | 'in_progress' | 'pending_inspection' | 'completed' | 'cancelled';
+type ProjectStatus = 'requested' | 'approved' | 'scheduled' | 'in_progress' | 'pending_inspection' | 'delayed' | 'needs_follow_up' | 'completed' | 'rejected' | 'cancelled';
 type Priority = 'low' | 'medium' | 'high' | 'critical';
 
 interface Milestone {
@@ -96,6 +96,12 @@ interface Project {
   milestones: Milestone[];
   photos: ProjectPhoto[];
   noteLog: NoteEntry[];
+  complianceImpact?: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  efficiencyImpact?: 'none' | 'low' | 'medium' | 'high';
+  decisionDefensibilityNotes?: string;
+  delayReason?: string;
+  approvedBy?: string;
+  approvedAt?: string;
   createdAt: string;
 }
 
@@ -104,11 +110,16 @@ interface Project {
 const STORAGE_KEY = 'nexum_contractor_installs';
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string; bg: string; icon: any }> = {
-  scheduled:         { label: 'Scheduled',          color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/30',   icon: Calendar },
-  in_progress:       { label: 'In Progress',         color: 'text-cyan-400',   bg: 'bg-cyan-400/10 border-cyan-400/30',   icon: Wrench },
-  pending_inspection:{ label: 'Pending Inspection',  color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/30',icon: Shield },
-  completed:         { label: 'Completed',           color: 'text-green-400',  bg: 'bg-green-400/10 border-green-400/30', icon: CheckCircle2 },
-  cancelled:         { label: 'Cancelled',           color: 'text-red-400',    bg: 'bg-red-400/10 border-red-400/30',     icon: X },
+  requested:         { label: 'Requested',          color: 'text-purple-400',  bg: 'bg-purple-400/10 border-purple-400/30',  icon: ClipboardList },
+  approved:          { label: 'Approved',            color: 'text-teal-400',    bg: 'bg-teal-400/10 border-teal-400/30',      icon: CheckCircle2 },
+  scheduled:         { label: 'Scheduled',           color: 'text-blue-400',    bg: 'bg-blue-400/10 border-blue-400/30',      icon: Calendar },
+  in_progress:       { label: 'In Progress',         color: 'text-cyan-400',    bg: 'bg-cyan-400/10 border-cyan-400/30',      icon: Wrench },
+  pending_inspection:{ label: 'Pending Inspection',  color: 'text-yellow-400',  bg: 'bg-yellow-400/10 border-yellow-400/30',  icon: Shield },
+  delayed:           { label: 'Delayed',             color: 'text-orange-400',  bg: 'bg-orange-400/10 border-orange-400/30',  icon: AlertTriangle },
+  needs_follow_up:   { label: 'Needs Follow-Up',     color: 'text-yellow-400',  bg: 'bg-yellow-400/10 border-yellow-400/30',  icon: StickyNote },
+  completed:         { label: 'Completed',           color: 'text-green-400',   bg: 'bg-green-400/10 border-green-400/30',    icon: CheckCircle2 },
+  rejected:          { label: 'Rejected',            color: 'text-red-400',     bg: 'bg-red-400/10 border-red-400/30',        icon: X },
+  cancelled:         { label: 'Cancelled',           color: 'text-red-400',     bg: 'bg-red-400/10 border-red-400/30',        icon: X },
 };
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string }> = {
@@ -244,6 +255,9 @@ function blankForm(facilityId: string) {
     inspectionRequired: false, inspectionDate: '', assignedTo: '',
     notes: '', facilityId,
     milestones: [] as { title: string; dueDate: string }[],
+    complianceImpact: 'none' as 'none' | 'low' | 'medium' | 'high' | 'critical',
+    efficiencyImpact: 'none' as 'none' | 'low' | 'medium' | 'high',
+    decisionDefensibilityNotes: '',
   };
 }
 
@@ -868,6 +882,31 @@ const ContractorInstalls = () => {
                     <Label className="text-xs">Project Notes</Label>
                     <Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3} className="mt-1 text-sm resize-none" placeholder="Any additional notes, special instructions, or context…" />
                   </div>
+                  {/* Impact Assessment */}
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/30">
+                    <div>
+                      <Label className="text-xs">Compliance Impact</Label>
+                      <Select value={form.complianceImpact} onValueChange={v => setForm(p => ({ ...p, complianceImpact: v as 'none' | 'low' | 'medium' | 'high' | 'critical' }))}>
+                        <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(['none', 'low', 'medium', 'high', 'critical'] as const).map(o => <SelectItem key={o} value={o} className="capitalize">{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Efficiency Impact</Label>
+                      <Select value={form.efficiencyImpact} onValueChange={v => setForm(p => ({ ...p, efficiencyImpact: v as 'none' | 'low' | 'medium' | 'high' }))}>
+                        <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(['none', 'low', 'medium', 'high'] as const).map(o => <SelectItem key={o} value={o} className="capitalize">{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs">Decision Defensibility Notes</Label>
+                      <Textarea value={form.decisionDefensibilityNotes} onChange={e => setForm(p => ({ ...p, decisionDefensibilityNotes: e.target.value }))} rows={3} className="mt-1 text-sm resize-none" placeholder="Why was this decision made? What alternatives were considered?" />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1028,6 +1067,40 @@ const ContractorInstalls = () => {
                         <div className="p-3 rounded-xl border border-border/30 bg-muted/5">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Project Notes</p>
                           <p className="text-sm text-muted-foreground leading-relaxed">{p.notes}</p>
+                        </div>
+                      )}
+                      {/* Impact Assessment */}
+                      {(p.complianceImpact || p.efficiencyImpact || p.decisionDefensibilityNotes) && (
+                        <div className="p-3 rounded-xl border border-border/30 bg-muted/5 space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Impact Assessment</p>
+                          {p.complianceImpact && p.complianceImpact !== 'none' && (
+                            <div className="flex items-center gap-2">
+                              <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Compliance Impact:</span>
+                              <Badge variant="outline" className={cn('text-[10px]',
+                                p.complianceImpact === 'critical' ? 'text-red-400 border-red-400/30' :
+                                p.complianceImpact === 'high'     ? 'text-orange-400 border-orange-400/30' :
+                                p.complianceImpact === 'medium'   ? 'text-yellow-400 border-yellow-400/30' :
+                                p.complianceImpact === 'low'      ? 'text-blue-400 border-blue-400/30' :
+                                'text-muted-foreground'
+                              )}>
+                                {p.complianceImpact}
+                              </Badge>
+                            </div>
+                          )}
+                          {p.efficiencyImpact && p.efficiencyImpact !== 'none' && (
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Efficiency Impact:</span>
+                              <Badge variant="outline" className="text-[10px]">{p.efficiencyImpact}</Badge>
+                            </div>
+                          )}
+                          {p.decisionDefensibilityNotes && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Decision Notes:</p>
+                              <p className="text-xs bg-muted/20 p-2 rounded border border-border/20 leading-relaxed">{p.decisionDefensibilityNotes}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                       {p.status === 'completed' && (

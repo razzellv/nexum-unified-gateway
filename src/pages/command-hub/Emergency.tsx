@@ -5,9 +5,19 @@ import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard'
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Plus, Phone, History, RefreshCw, MapPin, Clock, User } from 'lucide-react';
+import { AlertTriangle, Plus, Phone, History, RefreshCw, MapPin, Clock, User, Bell, Send, ChevronDown } from 'lucide-react';
 import { DeclareEmergencyDialog } from '@/components/command-hub/dialogs/DeclareEmergencyDialog';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+
+const FALLBACK_VENDORS = [
+  { vendorId: 'v-001', name: 'Northeast HVAC Services' },
+  { vendorId: 'v-002', name: 'CoolTech Refrigeration' },
+  { vendorId: 'v-003', name: 'Precision Plumbing' },
+];
 
 const Emergency = () => {
   const { user } = useAuth();
@@ -18,8 +28,33 @@ const Emergency = () => {
   const [violations, setViolations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Vendor alert state
+  const [availableVendors, setAvailableVendors] = useState(FALLBACK_VENDORS);
+  const [vendorAlertOpen, setVendorAlertOpen] = useState(false);
+  const [vendorAlertIssue, setVendorAlertIssue] = useState('');
+  const [vendorAlertTarget, setVendorAlertTarget] = useState('');
+  const [vendorAlertContext, setVendorAlertContext] = useState('');
+
   useEffect(() => {
     fetchData();
+    // Load vendors from localStorage if available
+    try {
+      const stored = localStorage.getItem('nexum_vendors');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const vendors = Array.isArray(parsed) ? parsed : parsed.vendors || parsed.items || [];
+        if (vendors.length > 0) {
+          setAvailableVendors(
+            vendors.map((v: any) => ({
+              vendorId: v.vendorId || v.id || String(v._id || ''),
+              name: v.name || v.vendorName || 'Unknown Vendor',
+            }))
+          );
+        }
+      }
+    } catch {
+      // fall back to FALLBACK_VENDORS already set
+    }
   }, []);
 
   const fetchData = async () => {
@@ -71,6 +106,36 @@ const Emergency = () => {
     setShowDeclareEmergency(true);
   };
 
+  const openVendorAlert = (description: string) => {
+    setVendorAlertIssue(description);
+    setVendorAlertContext(description);
+    setVendorAlertTarget('');
+    setVendorAlertOpen(true);
+  };
+
+  const sendVendorAlert = () => {
+    if (!vendorAlertTarget || !vendorAlertIssue) return;
+    const vendor = availableVendors.find(v => v.vendorId === vendorAlertTarget);
+    const alert = {
+      id: `a-${Date.now()}`,
+      vendorId: vendorAlertTarget,
+      vendorName: vendor?.name || vendorAlertTarget,
+      issue: vendorAlertIssue,
+      sentAt: new Date().toISOString(),
+      status: 'sent',
+      source: 'emergency',
+    };
+    // Persist to localStorage so Vendor Hub picks it up
+    try {
+      const existing = JSON.parse(localStorage.getItem('nexum_vendor_alerts') || '[]');
+      localStorage.setItem('nexum_vendor_alerts', JSON.stringify([alert, ...existing]));
+    } catch {}
+    toast({ title: 'Vendor alerted', description: `${vendor?.name || 'Vendor'} has been notified.` });
+    setVendorAlertOpen(false);
+    setVendorAlertIssue('');
+    setVendorAlertTarget('');
+  };
+
   const activeCount = violations.length + emergencies.filter(e => e.status !== 'completed').length;
 
   return (
@@ -96,6 +161,9 @@ const Emergency = () => {
             </Button>
             <Button variant="outline" size="sm" onClick={() => toast({ title: 'Emergency Contacts', description: 'Opening contact directory...' })}>
               <Phone className="w-4 h-4 mr-2" />Contacts
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => openVendorAlert('Emergency alert — immediate response needed')}>
+              <Bell className="w-4 h-4 mr-2" />Alert Vendor
             </Button>
             <Button variant="destructive" size="sm" onClick={() => setShowDeclareEmergency(true)}>
               <Plus className="w-4 h-4 mr-2" />Declare Emergency
@@ -148,6 +216,16 @@ const Emergency = () => {
                           Severity {v.severity || '!'}
                         </Badge>
                       </div>
+                      <div className="flex justify-end mt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-orange-400/30 text-orange-400 hover:bg-orange-400/10"
+                          onClick={() => openVendorAlert(v.violationType || v.type || 'Safety violation requiring vendor response')}
+                        >
+                          <Bell className="w-3 h-3 mr-1" />Alert Vendor
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -178,6 +256,16 @@ const Emergency = () => {
                           {wo.status || 'open'}
                         </Badge>
                       </div>
+                      <div className="flex justify-end mt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-orange-400/30 text-orange-400 hover:bg-orange-400/10"
+                          onClick={() => openVendorAlert(wo.title || wo.description || 'Critical work order requiring vendor response')}
+                        >
+                          <Bell className="w-3 h-3 mr-1" />Alert Vendor
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -207,6 +295,51 @@ const Emergency = () => {
           onOpenChange={(o) => { if (!o) { setShowDeclareEmergency(false); setPreselectedType(undefined); fetchData(); } }}
         />
       )}
+
+      <Dialog open={vendorAlertOpen} onOpenChange={setVendorAlertOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-orange-400" />Alert a Vendor
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label>Select Vendor</Label>
+              <Select value={vendorAlertTarget} onValueChange={setVendorAlertTarget}>
+                <SelectTrigger><SelectValue placeholder="Choose a vendor..." /></SelectTrigger>
+                <SelectContent>
+                  {availableVendors.map(v => (
+                    <SelectItem key={v.vendorId} value={v.vendorId}>{v.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Issue / Message</Label>
+              <Textarea
+                value={vendorAlertIssue}
+                onChange={e => setVendorAlertIssue(e.target.value)}
+                placeholder="Describe the emergency and what's needed..."
+                className="min-h-[80px] resize-none"
+              />
+            </div>
+            {vendorAlertContext && vendorAlertContext !== vendorAlertIssue && (
+              <p className="text-xs text-muted-foreground">Pre-filled from: {vendorAlertContext.slice(0, 60)}...</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setVendorAlertOpen(false)}>Cancel</Button>
+            <Button
+              onClick={sendVendorAlert}
+              disabled={!vendorAlertTarget || !vendorAlertIssue}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Send className="w-4 h-4 mr-2" />Send Alert
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
