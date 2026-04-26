@@ -227,8 +227,8 @@ export default function NexumWorkspace() {
           notes: pilotNotes[app.id] || app.notes || '',
           promoId: 'promo_1TM6yrDfw4bOR2dfq1igLbG1',
           email: app.email,
-          contactName: app.contactName,
-          companyName: app.companyName,
+          contactName: app.name,
+          companyName: app.company,
           ...extra,
         }),
       });
