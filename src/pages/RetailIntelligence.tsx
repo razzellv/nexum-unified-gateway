@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,916 +9,1239 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingCart, Users, TrendingUp, Package, Plus, X, ChevronDown, ChevronRight,
-  Trash2, BarChart3, AlertTriangle, FileText, Truck, DollarSign, RefreshCw,
+  ClipboardList, Users, FileSearch, Package, Plus, X, ChevronDown, ChevronRight,
+  Trash2, Star, AlertTriangle, Wrench, DollarSign, CalendarClock, ShieldCheck,
+  Thermometer, Zap,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type POStatus = 'draft' | 'sent' | 'received' | 'partial' | 'cancelled';
-type RFPStatus = 'open' | 'closed' | 'awarded' | 'cancelled';
-type WasteReason = 'expired' | 'damaged' | 'theft' | 'spoilage' | 'overstock' | 'other';
+type WOStatus = 'draft' | 'requested' | 'approved' | 'in_progress' | 'completed' | 'cancelled';
+type QuoteStatus = 'open' | 'closed' | 'awarded' | 'cancelled';
+type MaterialCategory = 'filters' | 'belts' | 'bearings' | 'refrigerant' | 'controls' | 'piping' | 'electrical' | 'other';
 
-interface POItem { name: string; qty: number; unitCost: number; }
-
-interface PurchaseOrder {
-  id: string; poNumber: string; supplierId: string; supplierName: string;
-  items: POItem[]; status: POStatus; orderDate: string;
-  expectedDelivery?: string; receivedDate?: string; notes?: string;
+interface WOLineItem {
+  description: string;
+  qty: number;
+  unitCost: number;
 }
 
-interface Supplier {
-  id: string; name: string; contact: string; email?: string; phone?: string;
-  category: string; rating: number; leadTimeDays: number;
-  paymentTerms?: string; notes?: string; addedAt: string;
+interface WorkOrder {
+  id: string;
+  woNumber: string;
+  vendorId: string;
+  vendorName: string;
+  items: WOLineItem[];
+  status: WOStatus;
+  createdDate: string;
+  scheduledDate?: string;
+  completedDate?: string;
+  equipmentSystem: string;
+  workType: string;
+  notes?: string;
+  totalCost: number;
 }
 
-interface RFP {
-  id: string; title: string; category: string; description: string;
-  deadline?: string; status: RFPStatus;
-  bids: Array<{ supplier: string; amount: number; notes: string }>;
-  awardedTo?: string; createdAt: string;
+interface VendorRecord {
+  id: string;
+  name: string;
+  contact: string;
+  email?: string;
+  phone?: string;
+  serviceCategory: string;
+  rating: number;
+  leadTimeDays: number;
+  paymentTerms?: string;
+  licenseNumber?: string;
+  insuranceExpiry?: string;
+  assignedSystems: string[];
+  notes?: string;
+  addedAt: string;
 }
 
-interface WasteEntry {
-  id: string; date: string; itemName: string; category: string;
-  quantity: number; unitCost: number; totalCost: number;
-  reason: WasteReason; notes?: string;
+interface ServiceQuote {
+  id: string;
+  title: string;
+  equipmentSystem: string;
+  workScope: string;
+  deadline?: string;
+  status: QuoteStatus;
+  bids: Array<{
+    vendor: string;
+    amount: number;
+    leadTime: string;
+    notes: string;
+  }>;
+  awardedTo?: string;
+  createdAt: string;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+interface MaterialEntry {
+  id: string;
+  date: string;
+  itemName: string;
+  category: MaterialCategory;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  linkedWO?: string;
+  appliedTo: string;
+  notes?: string;
+}
 
-const STORAGE_KEYS = {
-  pos: 'nexum_retail_pos',
-  suppliers: 'nexum_retail_suppliers',
-  rfps: 'nexum_retail_rfps',
-  waste: 'nexum_retail_waste',
-};
+// ─── Mock Data ───────────────────────────────────────────────────────────────
 
-const PO_STATUS_META: Record<POStatus, { label: string; color: string; bg: string }> = {
-  draft:     { label: 'Draft',     color: 'text-muted-foreground', bg: 'bg-muted/20' },
-  sent:      { label: 'Sent',      color: 'text-blue-400',         bg: 'bg-blue-500/10' },
-  received:  { label: 'Received',  color: 'text-green-400',        bg: 'bg-green-500/10' },
-  partial:   { label: 'Partial',   color: 'text-yellow-400',       bg: 'bg-yellow-500/10' },
-  cancelled: { label: 'Cancelled', color: 'text-red-400',          bg: 'bg-red-500/10' },
-};
+const MOCK_WORK_ORDERS: WorkOrder[] = [
+  {
+    id: 'wo-1', woNumber: 'WO-2025-0041', vendorId: 'v-1', vendorName: 'Arctic Systems HVAC',
+    items: [
+      { description: 'Chiller tube cleaning — 450-ton unit', qty: 1, unitCost: 3200 },
+      { description: 'Chemical descaling treatment', qty: 2, unitCost: 480 },
+    ],
+    status: 'completed', createdDate: '2025-03-10', scheduledDate: '2025-03-18',
+    completedDate: '2025-03-19', equipmentSystem: 'Chiller', workType: 'Preventive Maintenance',
+    notes: 'Tube fouling factor improved from 0.0015 to 0.0003 post-cleaning.',
+    totalCost: 4160,
+  },
+  {
+    id: 'wo-2', woNumber: 'WO-2025-0042', vendorId: 'v-1', vendorName: 'Arctic Systems HVAC',
+    items: [
+      { description: 'Cooling tower fan motor replacement — 25HP', qty: 1, unitCost: 2750 },
+      { description: 'Motor coupling alignment', qty: 1, unitCost: 350 },
+      { description: 'Labor — motor swap & commissioning', qty: 6, unitCost: 125 },
+    ],
+    status: 'in_progress', createdDate: '2025-04-01', scheduledDate: '2025-04-22',
+    equipmentSystem: 'Cooling Tower', workType: 'Corrective Repair',
+    notes: 'Motor vibration exceeded 0.25 in/s RMS. Parts on order.',
+    totalCost: 3850,
+  },
+  {
+    id: 'wo-3', woNumber: 'WO-2025-0043', vendorId: 'v-4', vendorName: 'Pinnacle Controls Group',
+    items: [
+      { description: 'BAS controller firmware upgrade — Trane Tracer', qty: 3, unitCost: 680 },
+      { description: 'DDC sensor recalibration', qty: 12, unitCost: 45 },
+    ],
+    status: 'approved', createdDate: '2025-04-10', scheduledDate: '2025-05-05',
+    equipmentSystem: 'Building Automation System', workType: 'Software / Controls',
+    notes: 'Firmware 5.2.1 required for integration with new energy management platform.',
+    totalCost: 2580,
+  },
+  {
+    id: 'wo-4', woNumber: 'WO-2025-0044', vendorId: 'v-3', vendorName: 'BlueLine Mechanical',
+    items: [
+      { description: 'AHU-7 coil replacement — 12-row DX coil', qty: 1, unitCost: 5400 },
+      { description: 'Refrigerant recovery & recharge (R-410A)', qty: 1, unitCost: 920 },
+      { description: 'Labor — crane lift & installation', qty: 10, unitCost: 145 },
+    ],
+    status: 'requested', createdDate: '2025-04-18', equipmentSystem: 'AHU-7',
+    workType: 'Major Repair', notes: 'Coil leak confirmed via electronic detector. Unit offline.',
+    totalCost: 7770,
+  },
+  {
+    id: 'wo-5', woNumber: 'WO-2025-0045', vendorId: 'v-2', vendorName: 'Meridian Electrical Services',
+    items: [
+      { description: 'Variable frequency drive replacement — 30HP', qty: 1, unitCost: 3100 },
+      { description: 'VFD programming & parameter set', qty: 1, unitCost: 400 },
+    ],
+    status: 'draft', createdDate: '2025-04-22',
+    equipmentSystem: 'Pump Station', workType: 'Equipment Replacement',
+    notes: 'VFD faulting on over-current. Pump P-12 on bypass.',
+    totalCost: 3500,
+  },
+];
 
-const RFP_STATUS_META: Record<RFPStatus, { label: string; color: string }> = {
-  open:      { label: 'Open',      color: 'text-green-400' },
-  closed:    { label: 'Closed',    color: 'text-muted-foreground' },
-  awarded:   { label: 'Awarded',   color: 'text-blue-400' },
-  cancelled: { label: 'Cancelled', color: 'text-red-400' },
-};
+const MOCK_VENDORS: VendorRecord[] = [
+  {
+    id: 'v-1', name: 'Arctic Systems HVAC', contact: 'Derek Holt', email: 'dholt@arcticsystems.com',
+    phone: '(312) 555-0182', serviceCategory: 'HVAC', rating: 5, leadTimeDays: 3,
+    paymentTerms: 'Net 30', licenseNumber: 'IL-HVAC-29841', insuranceExpiry: '2026-01-15',
+    assignedSystems: ['Chiller', 'Cooling Tower', 'AHU'], notes: 'Preferred vendor — 10-yr relationship.',
+    addedAt: '2022-06-01',
+  },
+  {
+    id: 'v-2', name: 'Meridian Electrical Services', contact: 'Sandra Yee', email: 'syee@meridianelec.com',
+    phone: '(312) 555-0247', serviceCategory: 'Electrical', rating: 4, leadTimeDays: 5,
+    paymentTerms: 'Net 45', licenseNumber: 'IL-EC-77302', insuranceExpiry: '2025-06-10',
+    assignedSystems: ['Pump Station', 'MCC', 'Lighting'], notes: 'Strong on industrial MCC work.',
+    addedAt: '2023-01-15',
+  },
+  {
+    id: 'v-3', name: 'BlueLine Mechanical', contact: 'Tom Farrell', email: 'tfarrell@bluelinemech.com',
+    phone: '(773) 555-0391', serviceCategory: 'Mechanical', rating: 4, leadTimeDays: 7,
+    paymentTerms: 'Net 30', licenseNumber: 'IL-MECH-50214', insuranceExpiry: '2025-05-30',
+    assignedSystems: ['AHU', 'FCU', 'Hydronic Piping'],
+    notes: 'Good on refrigeration; slower on scheduling during peak season.',
+    addedAt: '2023-07-20',
+  },
+  {
+    id: 'v-4', name: 'Pinnacle Controls Group', contact: 'Alicia Romero', email: 'aromero@pinnaclecontrols.com',
+    phone: '(630) 555-0518', serviceCategory: 'Controls', rating: 5, leadTimeDays: 4,
+    paymentTerms: 'Net 30', licenseNumber: 'IL-CTRL-18843', insuranceExpiry: '2026-03-22',
+    assignedSystems: ['BAS', 'DDC', 'Trane Tracer', 'Niagara N4'],
+    notes: 'Certified Trane and Niagara integrator.', addedAt: '2021-11-10',
+  },
+  {
+    id: 'v-5', name: 'ColdChain Refrigeration', contact: 'Marcus Webb', email: 'mwebb@coldchainref.com',
+    phone: '(847) 555-0673', serviceCategory: 'Refrigeration', rating: 3, leadTimeDays: 10,
+    paymentTerms: 'Net 60', licenseNumber: 'IL-REF-34509', insuranceExpiry: '2025-04-05',
+    assignedSystems: ['Walk-in Coolers', 'Process Chillers', 'Condensing Units'],
+    notes: 'Competitive pricing but longer lead times on parts.', addedAt: '2024-02-01',
+  },
+];
 
-const WASTE_REASON_META: Record<WasteReason, { label: string; color: string; bg: string }> = {
-  expired:   { label: 'Expired',   color: 'text-red-400',    bg: 'bg-red-500/10' },
-  damaged:   { label: 'Damaged',   color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  theft:     { label: 'Theft',     color: 'text-purple-400', bg: 'bg-purple-500/10' },
-  spoilage:  { label: 'Spoilage',  color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-  overstock: { label: 'Overstock', color: 'text-blue-400',   bg: 'bg-blue-500/10' },
-  other:     { label: 'Other',     color: 'text-muted-foreground', bg: 'bg-muted/20' },
-};
+const MOCK_QUOTES: ServiceQuote[] = [
+  {
+    id: 'q-1', title: 'Annual Chiller PM Contract', equipmentSystem: 'Chiller',
+    workScope: 'Full-scope annual preventive maintenance contract for (2) 450-ton York centrifugal chillers. Includes: tube cleaning, oil analysis, refrigerant charge check, eddy-current testing, vibration analysis, controls calibration, and startup/shutdown.',
+    deadline: '2025-05-15', status: 'open',
+    bids: [
+      { vendor: 'Arctic Systems HVAC', amount: 28500, leadTime: '14 days', notes: 'Includes 2 emergency call-outs.' },
+      { vendor: 'BlueLine Mechanical', amount: 31200, leadTime: '10 days', notes: 'Eddy-current testing sub-contracted.' },
+    ],
+    createdAt: '2025-04-05',
+  },
+  {
+    id: 'q-2', title: 'Cooling Tower Basin Rebuild', equipmentSystem: 'Cooling Tower',
+    workScope: 'Full basin cleaning, inspecting, and recoating for (3) induced-draft cooling towers. Replace fill media on Tower CT-2. Repair cold-water basin cracks with epoxy mortar. Replace float valve assemblies on all three units.',
+    deadline: '2025-06-01', status: 'awarded', awardedTo: 'Arctic Systems HVAC',
+    bids: [
+      { vendor: 'Arctic Systems HVAC', amount: 19800, leadTime: '21 days', notes: 'Fill media sourced from Brentwood Industries.' },
+      { vendor: 'BlueLine Mechanical', amount: 22400, leadTime: '18 days', notes: 'Price includes scaffolding rental.' },
+      { vendor: 'ColdChain Refrigeration', amount: 24100, leadTime: '30 days', notes: 'Limited cooling tower experience noted.' },
+    ],
+    createdAt: '2025-03-20',
+  },
+  {
+    id: 'q-3', title: 'Building Automation Upgrade — Phase 2', equipmentSystem: 'BAS / DDC',
+    workScope: 'Upgrade existing Andover Continuum controllers to Niagara N4 framework. Migrate all 240 data points. Re-commission AHU schedules and setpoints. Provide graphics package for new Supervisor workstation. Training for facilities staff.',
+    deadline: '2025-07-30', status: 'open',
+    bids: [
+      { vendor: 'Pinnacle Controls Group', amount: 87500, leadTime: '45 days', notes: 'Niagara certified; includes 1-yr warranty on programming.' },
+    ],
+    createdAt: '2025-04-12',
+  },
+];
 
-const SUPPLIER_CATEGORIES = ['produce','dairy','dry goods','beverages','meat & deli','cleaning','packaging','equipment','services','other'];
-const PAYMENT_TERMS = ['Net 30','Net 60','Net 90','COD','Prepaid','Net 15'];
-const WASTE_ITEM_CATEGORIES = ['dairy','produce','meat','bakery','beverage','frozen','dry goods','supplies','other'];
+const MOCK_MATERIALS: MaterialEntry[] = [
+  {
+    id: 'm-1', date: '2025-04-20', itemName: 'MERV-13 Filters 20x25x4', category: 'filters',
+    quantity: 48, unitCost: 18.50, totalCost: 888, linkedWO: 'WO-2025-0041', appliedTo: 'AHU-1 through AHU-6',
+    notes: 'Quarterly filter change.',
+  },
+  {
+    id: 'm-2', date: '2025-04-18', itemName: 'AHU Fan Belt — B-78', category: 'belts',
+    quantity: 6, unitCost: 22.00, totalCost: 132, linkedWO: 'WO-2025-0042', appliedTo: 'AHU-3, AHU-5',
+    notes: 'Matched set replacement.',
+  },
+  {
+    id: 'm-3', date: '2025-04-15', itemName: 'Pump Bearing 6205-2RS', category: 'bearings',
+    quantity: 4, unitCost: 38.75, totalCost: 155, linkedWO: 'WO-2025-0045', appliedTo: 'Pump P-12',
+    notes: 'Bearing noise detected on vibration survey.',
+  },
+  {
+    id: 'm-4', date: '2025-04-12', itemName: 'R-410A Refrigerant (25 lb cylinder)', category: 'refrigerant',
+    quantity: 3, unitCost: 210.00, totalCost: 630, linkedWO: 'WO-2025-0044', appliedTo: 'AHU-7 DX Coil',
+    notes: 'Charge added after coil repair and pressure test.',
+  },
+  {
+    id: 'm-5', date: '2025-04-10', itemName: 'Trane Tracer UC400 Controller', category: 'controls',
+    quantity: 2, unitCost: 680.00, totalCost: 1360, linkedWO: 'WO-2025-0043', appliedTo: 'AHU-8, AHU-9',
+    notes: 'Replaced failed controllers.',
+  },
+  {
+    id: 'm-6', date: '2025-04-08', itemName: '2" Copper Pipe Fittings (assorted)', category: 'piping',
+    quantity: 20, unitCost: 14.25, totalCost: 285, appliedTo: 'Hydronic Supply Main — Level 3',
+    notes: 'Repair of small leak at union joint.',
+  },
+  {
+    id: 'm-7', date: '2025-04-05', itemName: '30A Circuit Breaker — Square D QO', category: 'electrical',
+    quantity: 3, unitCost: 42.00, totalCost: 126, linkedWO: 'WO-2025-0045', appliedTo: 'MCC Panel B',
+    notes: 'Breakers replaced during VFD installation.',
+  },
+  {
+    id: 'm-8', date: '2025-04-02', itemName: 'Vibration Isolation Pads — 6"x6"', category: 'other',
+    quantity: 8, unitCost: 12.50, totalCost: 100, appliedTo: 'Pump P-12, P-13',
+    notes: 'Installed during pump realignment.',
+  },
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function load<T>(key: string, fallback: T): T {
-  try { return JSON.parse(localStorage.getItem(key) || '') ?? fallback; } catch { return fallback; }
-}
-function save(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
-
-function poTotal(po: PurchaseOrder): number {
-  return po.items.reduce((s, i) => s + i.qty * i.unitCost, 0);
-}
-
-function nextPONumber(pos: PurchaseOrder[]): string {
-  const year = new Date().getFullYear();
-  const n = pos.filter(p => p.poNumber.startsWith(`PO-${year}`)).length + 1;
-  return `PO-${year}-${String(n).padStart(3, '0')}`;
+function loadFromStorage<T>(key: string, fallback: T[]): T[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T[]) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function RatingDots({ value }: { value: number }) {
+function saveToStorage<T>(key: string, data: T[]): void {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function woStatusColor(status: WOStatus): string {
+  return {
+    draft: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    requested: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    approved: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    in_progress: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    completed: 'bg-green-500/20 text-green-400 border-green-500/30',
+    cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
+  }[status] ?? 'bg-gray-500/20 text-gray-400';
+}
+
+function quoteStatusColor(status: QuoteStatus): string {
+  return {
+    open: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    closed: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    awarded: 'bg-green-500/20 text-green-400 border-green-500/30',
+    cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
+  }[status] ?? 'bg-gray-500/20 text-gray-400';
+}
+
+function materialCategoryColor(cat: MaterialCategory): string {
+  return {
+    filters: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    belts: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    bearings: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    refrigerant: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    controls: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    piping: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    electrical: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    other: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  }[cat] ?? 'bg-gray-500/20 text-gray-400';
+}
+
+function insuranceBadge(expiry?: string): JSX.Element | null {
+  if (!expiry) return null;
+  const exp = new Date(expiry);
+  const now = new Date();
+  const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs ml-1">Expired</Badge>;
+  if (diffDays <= 60) return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs ml-1">Expiring Soon</Badge>;
+  return null;
+}
+
+function fmt(n: number): string {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ─── Tab: Work Orders ────────────────────────────────────────────────────────
+
+function WorkOrdersTab() {
+  const { toast } = useToast();
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() =>
+    loadFromStorage<WorkOrder>('foi_work_orders', MOCK_WORK_ORDERS)
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const [form, setForm] = useState({
+    vendorName: '', equipmentSystem: '', workType: '', scheduledDate: '', notes: '',
+  });
+  const [lineItems, setLineItems] = useState<WOLineItem[]>([{ description: '', qty: 1, unitCost: 0 }]);
+
+  const totalSpend = workOrders.reduce((s, w) => s + w.totalCost, 0);
+  const openCount = workOrders.filter(w => ['requested', 'approved', 'in_progress', 'draft'].includes(w.status)).length;
+  const completedCount = workOrders.filter(w => w.status === 'completed').length;
+
+  function updateStatus(id: string, status: WOStatus) {
+    const updated = workOrders.map(w => w.id === id ? { ...w, status } : w);
+    setWorkOrders(updated);
+    saveToStorage('foi_work_orders', updated);
+    toast({ title: 'Status updated', description: `Work order updated to ${status.replace('_', ' ')}.` });
+  }
+
+  function addLineItem() {
+    setLineItems([...lineItems, { description: '', qty: 1, unitCost: 0 }]);
+  }
+
+  function removeLineItem(i: number) {
+    setLineItems(lineItems.filter((_, idx) => idx !== i));
+  }
+
+  function updateLineItem(i: number, field: keyof WOLineItem, val: string | number) {
+    setLineItems(lineItems.map((li, idx) => idx === i ? { ...li, [field]: val } : li));
+  }
+
+  function saveWorkOrder() {
+    if (!form.vendorName || !form.equipmentSystem || !form.workType) {
+      toast({ title: 'Missing fields', description: 'Vendor, equipment system, and work type are required.', variant: 'destructive' });
+      return;
+    }
+    const totalCost = lineItems.reduce((s, li) => s + (li.qty * li.unitCost), 0);
+    const wo: WorkOrder = {
+      id: `wo-${Date.now()}`,
+      woNumber: `WO-${Date.now()}`,
+      vendorId: `v-${Date.now()}`,
+      vendorName: form.vendorName,
+      items: lineItems,
+      status: 'draft',
+      createdDate: new Date().toISOString().split('T')[0],
+      scheduledDate: form.scheduledDate || undefined,
+      equipmentSystem: form.equipmentSystem,
+      workType: form.workType,
+      notes: form.notes || undefined,
+      totalCost,
+    };
+    const updated = [wo, ...workOrders];
+    setWorkOrders(updated);
+    saveToStorage('foi_work_orders', updated);
+    setForm({ vendorName: '', equipmentSystem: '', workType: '', scheduledDate: '', notes: '' });
+    setLineItems([{ description: '', qty: 1, unitCost: 0 }]);
+    setShowForm(false);
+    toast({ title: 'Work order created', description: `${wo.woNumber} saved.` });
+  }
+
   return (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5].map(i => (
-        <div key={i} className={cn('w-2 h-2 rounded-full', i <= value ? 'bg-yellow-400' : 'bg-muted/40')} />
-      ))}
+    <div className="space-y-4">
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Total WOs', value: workOrders.length, icon: <ClipboardList className="h-4 w-4 text-blue-400" /> },
+          { label: 'Open', value: openCount, icon: <CalendarClock className="h-4 w-4 text-cyan-400" /> },
+          { label: 'Completed', value: completedCount, icon: <ShieldCheck className="h-4 w-4 text-green-400" /> },
+          { label: 'Total Spend', value: fmt(totalSpend), icon: <DollarSign className="h-4 w-4 text-amber-400" /> },
+        ].map(s => (
+          <Card key={s.label} className="bg-card border-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              {s.icon}
+              <div>
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-lg font-semibold text-foreground">{s.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Work Orders</h3>
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
+          <Plus className="h-4 w-4" /> New Work Order
+        </Button>
+      </div>
+
+      {/* New WO form */}
+      {showForm && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              New Work Order
+              <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="h-4 w-4" /></Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Vendor / Contractor</label>
+                <Input value={form.vendorName} onChange={e => setForm({ ...form, vendorName: e.target.value })} placeholder="Arctic Systems HVAC" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Equipment / System</label>
+                <Input value={form.equipmentSystem} onChange={e => setForm({ ...form, equipmentSystem: e.target.value })} placeholder="Chiller, AHU-7, Pump P-12…" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Work Type</label>
+                <Input value={form.workType} onChange={e => setForm({ ...form, workType: e.target.value })} placeholder="Preventive Maintenance, Corrective Repair…" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Scheduled Date</label>
+                <Input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional context…" rows={2} />
+            </div>
+
+            {/* Line items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground">Line Items</p>
+                <Button size="sm" variant="outline" onClick={addLineItem} className="gap-1 h-7 text-xs">
+                  <Plus className="h-3 w-3" /> Add Row
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {lineItems.map((li, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-6">
+                      <Input value={li.description} onChange={e => updateLineItem(i, 'description', e.target.value)} placeholder="Description" className="h-8 text-xs" />
+                    </div>
+                    <div className="col-span-2">
+                      <Input type="number" value={li.qty} min={1} onChange={e => updateLineItem(i, 'qty', Number(e.target.value))} placeholder="Qty" className="h-8 text-xs" />
+                    </div>
+                    <div className="col-span-3">
+                      <Input type="number" value={li.unitCost} min={0} step={0.01} onChange={e => updateLineItem(i, 'unitCost', Number(e.target.value))} placeholder="Unit Cost" className="h-8 text-xs" />
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLineItem(i)}>
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-right">
+                Total: <span className="text-foreground font-semibold">{fmt(lineItems.reduce((s, li) => s + li.qty * li.unitCost, 0))}</span>
+              </p>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveWorkOrder}>Save Work Order</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WO list */}
+      <div className="space-y-2">
+        {workOrders.map(wo => (
+          <Card key={wo.id} className="bg-card border-border">
+            <CardContent className="p-4">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setExpandedId(expandedId === wo.id ? null : wo.id)}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {expandedId === wo.id
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  }
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-foreground">{wo.woNumber}</span>
+                      <Badge className={cn('text-xs border', woStatusColor(wo.status))}>
+                        {wo.status.replace('_', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {wo.vendorName} · {wo.equipmentSystem} · {wo.workType}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0 ml-4">
+                  <p className="text-sm font-semibold text-foreground">{fmt(wo.totalCost)}</p>
+                  <p className="text-xs text-muted-foreground">{wo.createdDate}</p>
+                </div>
+              </div>
+
+              {expandedId === wo.id && (
+                <div className="mt-4 space-y-3 border-t border-border pt-3">
+                  {/* Line items table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-muted-foreground border-b border-border">
+                          <th className="text-left pb-1">Description</th>
+                          <th className="text-right pb-1">Qty</th>
+                          <th className="text-right pb-1">Unit Cost</th>
+                          <th className="text-right pb-1">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {wo.items.map((item, i) => (
+                          <tr key={i} className="border-b border-border/50">
+                            <td className="py-1 text-foreground">{item.description}</td>
+                            <td className="py-1 text-right text-muted-foreground">{item.qty}</td>
+                            <td className="py-1 text-right text-muted-foreground">{fmt(item.unitCost)}</td>
+                            <td className="py-1 text-right font-medium text-foreground">{fmt(item.qty * item.unitCost)}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td colSpan={3} className="pt-2 text-right text-muted-foreground font-medium">Total</td>
+                          <td className="pt-2 text-right font-bold text-foreground">{fmt(wo.totalCost)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {wo.notes && (
+                    <p className="text-xs text-muted-foreground bg-muted/30 rounded p-2">{wo.notes}</p>
+                  )}
+                  {/* Status update */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Update status:</span>
+                    <Select value={wo.status} onValueChange={v => updateStatus(wo.id, v as WOStatus)}>
+                      <SelectTrigger className="h-7 text-xs w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(['draft','requested','approved','in_progress','completed','cancelled'] as WOStatus[]).map(s => (
+                          <SelectItem key={s} value={s}>{s.replace('_',' ')}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Tab: Vendors ─────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'purchase-orders' | 'suppliers' | 'rfp' | 'waste';
+function VendorsTab() {
+  const { toast } = useToast();
+  const [vendors, setVendors] = useState<VendorRecord[]>(() =>
+    loadFromStorage<VendorRecord>('foi_vendors', MOCK_VENDORS)
+  );
+  const [showForm, setShowForm] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'category' | 'rating'>('name');
 
-const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'overview',        label: 'Overview',       icon: BarChart3 },
-  { id: 'purchase-orders', label: 'Purchase Orders',icon: ShoppingCart },
-  { id: 'suppliers',       label: 'Suppliers',      icon: Truck },
-  { id: 'rfp',             label: 'RFP / Procurement', icon: FileText },
-  { id: 'waste',           label: 'Waste & Shrink', icon: AlertTriangle },
+  const [form, setForm] = useState({
+    name: '', contact: '', email: '', phone: '', serviceCategory: 'HVAC',
+    leadTimeDays: '', paymentTerms: '', licenseNumber: '', insuranceExpiry: '',
+    assignedSystems: '', notes: '',
+  });
+
+  function saveVendor() {
+    if (!form.name || !form.contact || !form.serviceCategory) {
+      toast({ title: 'Missing fields', description: 'Name, contact, and service category are required.', variant: 'destructive' });
+      return;
+    }
+    const v: VendorRecord = {
+      id: `v-${Date.now()}`,
+      name: form.name, contact: form.contact,
+      email: form.email || undefined, phone: form.phone || undefined,
+      serviceCategory: form.serviceCategory,
+      rating: 3, leadTimeDays: Number(form.leadTimeDays) || 7,
+      paymentTerms: form.paymentTerms || undefined,
+      licenseNumber: form.licenseNumber || undefined,
+      insuranceExpiry: form.insuranceExpiry || undefined,
+      assignedSystems: form.assignedSystems.split(',').map(s => s.trim()).filter(Boolean),
+      notes: form.notes || undefined,
+      addedAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = [v, ...vendors];
+    setVendors(updated);
+    saveToStorage('foi_vendors', updated);
+    setForm({ name: '', contact: '', email: '', phone: '', serviceCategory: 'HVAC', leadTimeDays: '', paymentTerms: '', licenseNumber: '', insuranceExpiry: '', assignedSystems: '', notes: '' });
+    setShowForm(false);
+    toast({ title: 'Vendor added', description: `${v.name} saved.` });
+  }
+
+  const sorted = [...vendors].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'category') return a.serviceCategory.localeCompare(b.serviceCategory);
+    return b.rating - a.rating;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-2">
+          {(['name','category','rating'] as const).map(s => (
+            <Button key={s} size="sm" variant={sortBy === s ? 'default' : 'outline'}
+              className="h-7 text-xs" onClick={() => setSortBy(s)}>
+              Sort by {s}
+            </Button>
+          ))}
+        </div>
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
+          <Plus className="h-4 w-4" /> Add Vendor
+        </Button>
+      </div>
+
+      {showForm && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              Add Vendor / Contractor
+              <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="h-4 w-4" /></Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Company Name</label>
+                <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Arctic Systems HVAC" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Primary Contact</label>
+                <Input value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} placeholder="Jane Smith" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="jane@company.com" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Phone</label>
+                <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="(312) 555-0100" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Service Category</label>
+                <Select value={form.serviceCategory} onValueChange={v => setForm({ ...form, serviceCategory: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['HVAC','Electrical','Plumbing','Controls','Mechanical','Refrigeration','Fire Safety'].map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Avg Lead Time (days)</label>
+                <Input type="number" value={form.leadTimeDays} onChange={e => setForm({ ...form, leadTimeDays: e.target.value })} placeholder="7" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Payment Terms</label>
+                <Input value={form.paymentTerms} onChange={e => setForm({ ...form, paymentTerms: e.target.value })} placeholder="Net 30" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">License Number</label>
+                <Input value={form.licenseNumber} onChange={e => setForm({ ...form, licenseNumber: e.target.value })} placeholder="IL-HVAC-12345" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Insurance Expiry</label>
+                <Input type="date" value={form.insuranceExpiry} onChange={e => setForm({ ...form, insuranceExpiry: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Assigned Systems (comma-separated)</label>
+                <Input value={form.assignedSystems} onChange={e => setForm({ ...form, assignedSystems: e.target.value })} placeholder="Chiller, AHU, Cooling Tower" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes…" rows={2} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveVendor}>Save Vendor</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Vendor table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-muted-foreground border-b border-border">
+              <th className="text-left py-2 pr-3">Company</th>
+              <th className="text-left py-2 pr-3">Category</th>
+              <th className="text-left py-2 pr-3">Contact</th>
+              <th className="text-left py-2 pr-3">Rating</th>
+              <th className="text-left py-2 pr-3">Lead Time</th>
+              <th className="text-left py-2 pr-3">Assigned Systems</th>
+              <th className="text-left py-2">Insurance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(v => (
+              <tr key={v.id} className="border-b border-border/50 hover:bg-muted/10">
+                <td className="py-2 pr-3">
+                  <p className="font-medium text-foreground">{v.name}</p>
+                  {v.licenseNumber && <p className="text-xs text-muted-foreground">{v.licenseNumber}</p>}
+                </td>
+                <td className="py-2 pr-3">
+                  <Badge variant="outline" className="text-xs">{v.serviceCategory}</Badge>
+                </td>
+                <td className="py-2 pr-3">
+                  <p className="text-foreground">{v.contact}</p>
+                  {v.email && <p className="text-xs text-muted-foreground">{v.email}</p>}
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={cn('h-3 w-3', i < v.rating ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground')} />
+                    ))}
+                  </div>
+                </td>
+                <td className="py-2 pr-3 text-muted-foreground">{v.leadTimeDays}d</td>
+                <td className="py-2 pr-3">
+                  <div className="flex flex-wrap gap-1">
+                    {v.assignedSystems.map(s => (
+                      <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                    ))}
+                  </div>
+                </td>
+                <td className="py-2">
+                  <div className="flex items-center gap-1">
+                    {v.insuranceExpiry && (
+                      <span className="text-xs text-muted-foreground">{v.insuranceExpiry}</span>
+                    )}
+                    {insuranceBadge(v.insuranceExpiry)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: Service Quotes ──────────────────────────────────────────────────────
+
+function QuotesTab() {
+  const { toast } = useToast();
+  const [quotes, setQuotes] = useState<ServiceQuote[]>(() =>
+    loadFromStorage<ServiceQuote>('foi_quotes', MOCK_QUOTES)
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const [form, setForm] = useState({ title: '', equipmentSystem: '', workScope: '', deadline: '' });
+  const [bidRows, setBidRows] = useState<Array<{ vendor: string; amount: string; leadTime: string; notes: string }>>([
+    { vendor: '', amount: '', leadTime: '', notes: '' },
+  ]);
+
+  function addBidRow() {
+    setBidRows([...bidRows, { vendor: '', amount: '', leadTime: '', notes: '' }]);
+  }
+
+  function removeBidRow(i: number) {
+    setBidRows(bidRows.filter((_, idx) => idx !== i));
+  }
+
+  function updateBidRow(i: number, field: string, val: string) {
+    setBidRows(bidRows.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+  }
+
+  function saveQuote() {
+    if (!form.title || !form.equipmentSystem || !form.workScope) {
+      toast({ title: 'Missing fields', description: 'Title, equipment system, and work scope are required.', variant: 'destructive' });
+      return;
+    }
+    const q: ServiceQuote = {
+      id: `q-${Date.now()}`,
+      title: form.title, equipmentSystem: form.equipmentSystem,
+      workScope: form.workScope, deadline: form.deadline || undefined,
+      status: 'open',
+      bids: bidRows.filter(r => r.vendor).map(r => ({
+        vendor: r.vendor, amount: Number(r.amount) || 0, leadTime: r.leadTime, notes: r.notes,
+      })),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = [q, ...quotes];
+    setQuotes(updated);
+    saveToStorage('foi_quotes', updated);
+    setForm({ title: '', equipmentSystem: '', workScope: '', deadline: '' });
+    setBidRows([{ vendor: '', amount: '', leadTime: '', notes: '' }]);
+    setShowForm(false);
+    toast({ title: 'Quote request created', description: `${q.title} saved.` });
+  }
+
+  function awardBid(quoteId: string, vendorName: string) {
+    const updated = quotes.map(q =>
+      q.id === quoteId ? { ...q, status: 'awarded' as QuoteStatus, awardedTo: vendorName } : q
+    );
+    setQuotes(updated);
+    saveToStorage('foi_quotes', updated);
+    toast({ title: 'Quote awarded', description: `Awarded to ${vendorName}.` });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Service Quotes</h3>
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
+          <Plus className="h-4 w-4" /> New Quote Request
+        </Button>
+      </div>
+
+      {showForm && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              New Quote Request
+              <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="h-4 w-4" /></Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Title</label>
+                <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Annual Chiller PM Contract" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Equipment / System</label>
+                <Input value={form.equipmentSystem} onChange={e => setForm({ ...form, equipmentSystem: e.target.value })} placeholder="Chiller, BAS, Cooling Tower…" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Work Scope</label>
+                <Textarea value={form.workScope} onChange={e => setForm({ ...form, workScope: e.target.value })} placeholder="Describe the scope of work…" rows={3} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Bid Deadline</label>
+                <Input type="date" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+              </div>
+            </div>
+
+            {/* Bid rows */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground">Bids</p>
+                <Button size="sm" variant="outline" onClick={addBidRow} className="gap-1 h-7 text-xs">
+                  <Plus className="h-3 w-3" /> Add Bid
+                </Button>
+              </div>
+              {bidRows.map((r, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-center mb-2">
+                  <div className="col-span-3">
+                    <Input value={r.vendor} onChange={e => updateBidRow(i, 'vendor', e.target.value)} placeholder="Vendor" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" value={r.amount} onChange={e => updateBidRow(i, 'amount', e.target.value)} placeholder="Amount" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-3">
+                    <Input value={r.leadTime} onChange={e => updateBidRow(i, 'leadTime', e.target.value)} placeholder="Lead time" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-3">
+                    <Input value={r.notes} onChange={e => updateBidRow(i, 'notes', e.target.value)} placeholder="Notes" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeBidRow(i)}>
+                      <Trash2 className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveQuote}>Save Quote Request</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {quotes.map(q => (
+          <Card key={q.id} className="bg-card border-border">
+            <CardContent className="p-4">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {expandedId === q.id
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  }
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-foreground">{q.title}</span>
+                      <Badge className={cn('text-xs border', quoteStatusColor(q.status))}>
+                        {q.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {q.equipmentSystem} · {q.bids.length} bid{q.bids.length !== 1 ? 's' : ''}
+                      {q.deadline && ` · Deadline: ${q.deadline}`}
+                    </p>
+                  </div>
+                </div>
+                {q.awardedTo && (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs ml-4">
+                    Awarded: {q.awardedTo}
+                  </Badge>
+                )}
+              </div>
+
+              {expandedId === q.id && (
+                <div className="mt-4 space-y-3 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground bg-muted/30 rounded p-2 leading-relaxed">{q.workScope}</p>
+                  {q.bids.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border">
+                            <th className="text-left pb-1">Vendor</th>
+                            <th className="text-right pb-1">Amount</th>
+                            <th className="text-left pb-1 pl-3">Lead Time</th>
+                            <th className="text-left pb-1 pl-3">Notes</th>
+                            <th className="text-left pb-1 pl-3">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {q.bids.map((bid, i) => {
+                            const isWinner = q.awardedTo === bid.vendor;
+                            return (
+                              <tr key={i} className={cn('border-b border-border/50', isWinner && 'bg-green-500/10')}>
+                                <td className={cn('py-1.5 font-medium', isWinner ? 'text-green-400' : 'text-foreground')}>
+                                  {bid.vendor} {isWinner && '✓'}
+                                </td>
+                                <td className="py-1.5 text-right text-foreground font-semibold">{fmt(bid.amount)}</td>
+                                <td className="py-1.5 pl-3 text-muted-foreground">{bid.leadTime}</td>
+                                <td className="py-1.5 pl-3 text-muted-foreground">{bid.notes}</td>
+                                <td className="py-1.5 pl-3">
+                                  {q.status !== 'awarded' && (
+                                    <Button size="sm" variant="outline" className="h-6 text-xs"
+                                      onClick={() => awardBid(q.id, bid.vendor)}>
+                                      Award
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: Materials & Parts ───────────────────────────────────────────────────
+
+function MaterialsTab() {
+  const { toast } = useToast();
+  const [materials, setMaterials] = useState<MaterialEntry[]>(() =>
+    loadFromStorage<MaterialEntry>('foi_materials', MOCK_MATERIALS)
+  );
+  const [showForm, setShowForm] = useState(false);
+
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    itemName: '', category: 'filters' as MaterialCategory,
+    quantity: '1', unitCost: '', linkedWO: '', appliedTo: '', notes: '',
+  });
+
+  const totalCostForm = Number(form.quantity) * Number(form.unitCost);
+
+  // Summary calcs
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - 7);
+
+  const monthSpend = materials
+    .filter(m => new Date(m.date) >= startOfMonth)
+    .reduce((s, m) => s + m.totalCost, 0);
+  const weekItems = materials.filter(m => new Date(m.date) >= startOfWeek).length;
+
+  const catCounts: Partial<Record<MaterialCategory, number>> = {};
+  materials.forEach(m => { catCounts[m.category] = (catCounts[m.category] ?? 0) + 1; });
+  const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+
+  const highestCostItem = materials.reduce((max, m) => m.totalCost > (max?.totalCost ?? 0) ? m : max, materials[0]);
+
+  function saveMaterial() {
+    if (!form.itemName || !form.appliedTo) {
+      toast({ title: 'Missing fields', description: 'Item name and applied-to system are required.', variant: 'destructive' });
+      return;
+    }
+    const entry: MaterialEntry = {
+      id: `m-${Date.now()}`,
+      date: form.date, itemName: form.itemName, category: form.category,
+      quantity: Number(form.quantity) || 1, unitCost: Number(form.unitCost) || 0,
+      totalCost: (Number(form.quantity) || 1) * (Number(form.unitCost) || 0),
+      linkedWO: form.linkedWO || undefined, appliedTo: form.appliedTo,
+      notes: form.notes || undefined,
+    };
+    const updated = [entry, ...materials];
+    setMaterials(updated);
+    saveToStorage('foi_materials', updated);
+    setForm({ date: new Date().toISOString().split('T')[0], itemName: '', category: 'filters', quantity: '1', unitCost: '', linkedWO: '', appliedTo: '', notes: '' });
+    setShowForm(false);
+    toast({ title: 'Material logged', description: `${entry.itemName} recorded.` });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Month Spend', value: fmt(monthSpend), icon: <DollarSign className="h-4 w-4 text-amber-400" /> },
+          { label: 'Top Category', value: topCat, icon: <Package className="h-4 w-4 text-purple-400" /> },
+          { label: 'Highest Cost Item', value: highestCostItem ? highestCostItem.itemName.split(' ').slice(0,3).join(' ') : '—', icon: <AlertTriangle className="h-4 w-4 text-orange-400" /> },
+          { label: 'Items This Week', value: weekItems, icon: <Wrench className="h-4 w-4 text-cyan-400" /> },
+        ].map(s => (
+          <Card key={s.label} className="bg-card border-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              {s.icon}
+              <div>
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-sm font-semibold text-foreground truncate">{s.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Materials & Parts Log</h3>
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
+          <Plus className="h-4 w-4" /> Log Material / Part
+        </Button>
+      </div>
+
+      {showForm && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              Log Material / Part
+              <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="h-4 w-4" /></Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Date</label>
+                <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Item Name</label>
+                <Input value={form.itemName} onChange={e => setForm({ ...form, itemName: e.target.value })} placeholder="MERV-13 Filter 20x25x4" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                <Select value={form.category} onValueChange={v => setForm({ ...form, category: v as MaterialCategory })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(['filters','belts','bearings','refrigerant','controls','piping','electrical','other'] as MaterialCategory[]).map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
+                <Input type="number" min={1} value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Unit Cost ($)</label>
+                <Input type="number" min={0} step={0.01} value={form.unitCost} onChange={e => setForm({ ...form, unitCost: e.target.value })} placeholder="0.00" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Total Cost</label>
+                <Input disabled value={totalCostForm > 0 ? fmt(totalCostForm) : '—'} className="text-muted-foreground" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Linked WO (optional)</label>
+                <Input value={form.linkedWO} onChange={e => setForm({ ...form, linkedWO: e.target.value })} placeholder="WO-2025-0041" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Applied To (system/equipment)</label>
+                <Input value={form.appliedTo} onChange={e => setForm({ ...form, appliedTo: e.target.value })} placeholder="AHU-3, Pump P-12…" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+                <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes…" rows={2} />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveMaterial}>Save Entry</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Materials table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-muted-foreground border-b border-border">
+              <th className="text-left py-2 pr-3">Date</th>
+              <th className="text-left py-2 pr-3">Item</th>
+              <th className="text-left py-2 pr-3">Category</th>
+              <th className="text-right py-2 pr-3">Qty</th>
+              <th className="text-right py-2 pr-3">Unit</th>
+              <th className="text-right py-2 pr-3">Total</th>
+              <th className="text-left py-2 pr-3">Linked WO</th>
+              <th className="text-left py-2 pr-3">Applied To</th>
+              <th className="text-left py-2">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map(m => (
+              <tr key={m.id} className="border-b border-border/50 hover:bg-muted/10">
+                <td className="py-2 pr-3 text-muted-foreground whitespace-nowrap">{m.date}</td>
+                <td className="py-2 pr-3 text-foreground font-medium">{m.itemName}</td>
+                <td className="py-2 pr-3">
+                  <Badge className={cn('text-xs border', materialCategoryColor(m.category))}>{m.category}</Badge>
+                </td>
+                <td className="py-2 pr-3 text-right text-muted-foreground">{m.quantity}</td>
+                <td className="py-2 pr-3 text-right text-muted-foreground">{fmt(m.unitCost)}</td>
+                <td className="py-2 pr-3 text-right font-semibold text-foreground">{fmt(m.totalCost)}</td>
+                <td className="py-2 pr-3 text-muted-foreground text-xs">{m.linkedWO ?? '—'}</td>
+                <td className="py-2 pr-3 text-muted-foreground text-xs">{m.appliedTo}</td>
+                <td className="py-2 text-muted-foreground text-xs">{m.notes ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+type TabId = 'work-orders' | 'vendors' | 'quotes' | 'materials';
+
+const TABS: Array<{ id: TabId; label: string; icon: JSX.Element }> = [
+  { id: 'work-orders', label: 'Work Orders', icon: <ClipboardList className="h-4 w-4" /> },
+  { id: 'vendors', label: 'Vendors', icon: <Users className="h-4 w-4" /> },
+  { id: 'quotes', label: 'Service Quotes', icon: <FileSearch className="h-4 w-4" /> },
+  { id: 'materials', label: 'Materials & Parts', icon: <Package className="h-4 w-4" /> },
 ];
 
 export default function RetailIntelligence() {
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-
-  // ── State ──
-  const [pos,       setPos]       = useState<PurchaseOrder[]>(() => load(STORAGE_KEYS.pos, []));
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => load(STORAGE_KEYS.suppliers, []));
-  const [rfps,      setRfps]      = useState<RFP[]>(() => load(STORAGE_KEYS.rfps, []));
-  const [waste,     setWaste]     = useState<WasteEntry[]>(() => load(STORAGE_KEYS.waste, []));
-
-  // ── Modal visibility ──
-  const [showAddPO,       setShowAddPO]       = useState(false);
-  const [showAddSupplier, setShowAddSupplier] = useState(false);
-  const [showAddRFP,      setShowAddRFP]      = useState(false);
-  const [showAddWaste,    setShowAddWaste]    = useState(false);
-  const [expandedPO,      setExpandedPO]      = useState<string | null>(null);
-  const [expandedRFP,     setExpandedRFP]     = useState<string | null>(null);
-  const [supplierSearch,  setSupplierSearch]  = useState('');
-  const [wasteFilter,     setWasteFilter]     = useState<WasteReason | 'all'>('all');
-  const [wastePeriod,     setWastePeriod]     = useState<'week' | 'month' | 'all'>('month');
-  const [bidForms,        setBidForms]        = useState<Record<string, { supplier: string; amount: string; notes: string }>>({});
-
-  // ── PO Form ──
-  const [poForm, setPoForm] = useState({
-    supplierName: '', orderDate: new Date().toISOString().split('T')[0],
-    expectedDelivery: '', status: 'draft' as POStatus, notes: '',
-    items: [{ name: '', qty: 1, unitCost: 0 }],
-  });
-
-  // ── Supplier Form ──
-  const [supForm, setSupForm] = useState({
-    name: '', contact: '', email: '', phone: '',
-    category: 'produce', rating: 4, leadTimeDays: 3,
-    paymentTerms: 'Net 30', notes: '',
-  });
-
-  // ── RFP Form ──
-  const [rfpForm, setRfpForm] = useState({
-    title: '', category: '', description: '', deadline: '',
-  });
-
-  // ── Waste Form ──
-  const [wasteForm, setWasteForm] = useState({
-    date: new Date().toISOString().split('T')[0], itemName: '',
-    category: 'dairy', quantity: 1, unitCost: 0,
-    reason: 'expired' as WasteReason, notes: '',
-  });
-
-  // ── Persist helpers ──
-  function savePos(next: PurchaseOrder[])   { setPos(next);       save(STORAGE_KEYS.pos, next); }
-  function saveSup(next: Supplier[])        { setSuppliers(next); save(STORAGE_KEYS.suppliers, next); }
-  function saveRfps(next: RFP[])            { setRfps(next);      save(STORAGE_KEYS.rfps, next); }
-  function saveWaste(next: WasteEntry[])    { setWaste(next);     save(STORAGE_KEYS.waste, next); }
-
-  // ── Handlers ──
-  const handleAddPO = () => {
-    if (!poForm.supplierName || poForm.items.every(i => !i.name)) return;
-    const po: PurchaseOrder = {
-      id: Date.now().toString(),
-      poNumber: nextPONumber(pos),
-      supplierId: Date.now().toString(),
-      supplierName: poForm.supplierName,
-      items: poForm.items.filter(i => i.name),
-      status: poForm.status,
-      orderDate: poForm.orderDate,
-      expectedDelivery: poForm.expectedDelivery || undefined,
-      notes: poForm.notes,
-    };
-    savePos([...pos, po]);
-    setPoForm({ supplierName:'', orderDate:new Date().toISOString().split('T')[0], expectedDelivery:'', status:'draft', notes:'', items:[{name:'',qty:1,unitCost:0}] });
-    setShowAddPO(false);
-    toast({ title: 'PO created', description: po.poNumber });
-  };
-
-  const handleAddSupplier = () => {
-    if (!supForm.name) return;
-    const s: Supplier = { ...supForm, id: Date.now().toString(), addedAt: new Date().toISOString() };
-    saveSup([...suppliers, s]);
-    setSupForm({ name:'', contact:'', email:'', phone:'', category:'produce', rating:4, leadTimeDays:3, paymentTerms:'Net 30', notes:'' });
-    setShowAddSupplier(false);
-    toast({ title: 'Supplier added', description: supForm.name });
-  };
-
-  const handleAddRFP = () => {
-    if (!rfpForm.title || !rfpForm.description) return;
-    const r: RFP = { ...rfpForm, id: Date.now().toString(), status: 'open', bids: [], createdAt: new Date().toISOString() };
-    saveRfps([...rfps, r]);
-    setRfpForm({ title:'', category:'', description:'', deadline:'' });
-    setShowAddRFP(false);
-    toast({ title: 'RFP created', description: rfpForm.title });
-  };
-
-  const handleAddWaste = () => {
-    if (!wasteForm.itemName || !wasteForm.quantity) return;
-    const w: WasteEntry = { ...wasteForm, id: Date.now().toString(), totalCost: wasteForm.quantity * wasteForm.unitCost };
-    saveWaste([...waste, w]);
-    setWasteForm({ date:new Date().toISOString().split('T')[0], itemName:'', category:'dairy', quantity:1, unitCost:0, reason:'expired', notes:'' });
-    setShowAddWaste(false);
-    toast({ title: 'Waste entry logged' });
-  };
-
-  const handleMarkReceived = (poId: string) => {
-    const next = pos.map(p => p.id === poId ? { ...p, status: 'received' as POStatus, receivedDate: new Date().toISOString().split('T')[0] } : p);
-    savePos(next);
-    toast({ title: 'PO marked received' });
-  };
-
-  const handleAddBid = (rfpId: string) => {
-    const bf = bidForms[rfpId];
-    if (!bf?.supplier || !bf?.amount) return;
-    const next = rfps.map(r => r.id === rfpId
-      ? { ...r, bids: [...r.bids, { supplier: bf.supplier, amount: parseFloat(bf.amount) || 0, notes: bf.notes || '' }] }
-      : r);
-    saveRfps(next);
-    setBidForms(prev => ({ ...prev, [rfpId]: { supplier:'', amount:'', notes:'' } }));
-    toast({ title: 'Bid added' });
-  };
-
-  const handleAwardRFP = (rfpId: string, supplier: string) => {
-    const next = rfps.map(r => r.id === rfpId ? { ...r, status: 'awarded' as RFPStatus, awardedTo: supplier } : r);
-    saveRfps(next);
-    toast({ title: 'RFP awarded', description: supplier });
-  };
-
-  // ── Derived KPIs ──
-  const openPOs      = pos.filter(p => p.status === 'draft' || p.status === 'sent' || p.status === 'partial').length;
-  const openPOValue  = pos.filter(p => p.status !== 'cancelled' && p.status !== 'received').reduce((s, p) => s + poTotal(p), 0);
-  const openRFPs     = rfps.filter(r => r.status === 'open').length;
-  const ytdWaste     = waste.reduce((s, w) => s + w.totalCost, 0);
-
-  // Waste date filter
-  const now = Date.now();
-  const filteredWaste = waste.filter(w => {
-    const wt = new Date(w.date).getTime();
-    if (wastePeriod === 'week'  && now - wt > 7  * 86400000) return false;
-    if (wastePeriod === 'month' && now - wt > 30 * 86400000) return false;
-    return wasteFilter === 'all' || w.reason === wasteFilter;
-  });
-
-  // Waste by category breakdown
-  const wasteByCat = filteredWaste.reduce((acc, w) => {
-    acc[w.category] = (acc[w.category] || 0) + w.totalCost;
-    return acc;
-  }, {} as Record<string, number>);
-  const maxWasteCat = Math.max(...Object.values(wasteByCat), 1);
-
-  const filteredSuppliers = suppliers.filter(s =>
-    !supplierSearch || s.name.toLowerCase().includes(supplierSearch.toLowerCase()) || s.category.includes(supplierSearch.toLowerCase())
-  );
+  const [activeTab, setActiveTab] = useState<TabId>('work-orders');
 
   return (
     <MainLayout>
-      <div className="p-4 md:p-6 space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="p-6 space-y-6">
+        {/* Page header */}
+        <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-emerald-400" />
-              Retail Intelligence
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Purchase orders, suppliers, procurement, and waste tracking.</p>
+            <div className="flex items-center gap-3 mb-1">
+              <Thermometer className="h-6 w-6 text-cyan-400" />
+              <h1 className="text-2xl font-bold text-foreground">Field Operations Intelligence</h1>
+              <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs font-bold tracking-wider">OPS INTEL</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5" />
+              Procurement · Vendor Quotes · Materials · Work Analysis
+            </p>
           </div>
         </div>
 
-        {/* KPI Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Open POs',       value: openPOs,                        color: 'text-blue-400',    icon: ShoppingCart },
-            { label: 'Active Suppliers',value: suppliers.length,              color: 'text-teal-400',    icon: Truck },
-            { label: 'Open RFPs',      value: openRFPs,                       color: 'text-purple-400',  icon: FileText },
-            { label: 'Waste Cost YTD', value: `$${ytdWaste.toLocaleString()}`,color: 'text-red-400',     icon: AlertTriangle },
-          ].map(k => (
-            <Card key={k.label} className="border-border/30 bg-muted/10">
-              <CardContent className="p-3 flex items-center gap-2">
-                <k.icon className={cn('w-4 h-4 shrink-0', k.color)} />
-                <div>
-                  <p className="text-xs text-muted-foreground">{k.label}</p>
-                  <p className={cn('font-bold text-sm', k.color)}>{k.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-border/30 overflow-x-auto pb-0">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={cn('flex items-center gap-1.5 px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
-                activeTab === t.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-              <t.icon className="w-3.5 h-3.5" />{t.label}
+        {/* Tab navigation */}
+        <div className="flex gap-1 bg-muted/30 rounded-lg p-1 w-fit">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                activeTab === tab.id
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+              )}
+            >
+              {tab.icon}
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* ── OVERVIEW ── */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-border/30">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-blue-400" /> Recent Purchase Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                {pos.length === 0 && <p className="text-xs text-muted-foreground">No purchase orders yet.</p>}
-                {[...pos].reverse().slice(0, 5).map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium">{p.poNumber}</p>
-                      <p className="text-xs text-muted-foreground">{p.supplierName} · {p.orderDate}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-green-400">${poTotal(p).toLocaleString()}</span>
-                      <Badge className={cn('text-[10px]', PO_STATUS_META[p.status].color, PO_STATUS_META[p.status].bg)}>
-                        {PO_STATUS_META[p.status].label}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/30">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400" /> Waste by Reason (All Time)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4 space-y-2">
-                {waste.length === 0 && <p className="text-xs text-muted-foreground">No waste entries yet.</p>}
-                {(Object.entries(
-                  waste.reduce((acc, w) => { acc[w.reason] = (acc[w.reason] || 0) + w.totalCost; return acc; }, {} as Record<string, number>)
-                ) as [WasteReason, number][]).sort((a, b) => b[1] - a[1]).map(([reason, total]) => {
-                  const max = Math.max(...waste.reduce((acc, w) => { acc[w.reason] = (acc[w.reason]||0)+w.totalCost; return acc; }, {} as Record<string,number>) ? Object.values(waste.reduce((acc, w) => { acc[w.reason]=(acc[w.reason]||0)+w.totalCost; return acc; }, {} as Record<string,number>)) : [1]);
-                  const pct = Math.round((total / Math.max(max, 1)) * 100);
-                  return (
-                    <div key={reason} className="space-y-0.5">
-                      <div className="flex justify-between text-xs">
-                        <span className={WASTE_REASON_META[reason]?.color || 'text-muted-foreground'}>{WASTE_REASON_META[reason]?.label || reason}</span>
-                        <span className="text-muted-foreground">${total.toLocaleString()}</span>
-                      </div>
-                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500/60 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/30 lg:col-span-2">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-teal-400" /> Top Suppliers
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                {suppliers.length === 0 && <p className="text-xs text-muted-foreground">No suppliers added yet.</p>}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {suppliers.slice(0, 6).map(s => (
-                    <div key={s.id} className="p-3 rounded-lg border border-border/30 bg-muted/10 text-xs space-y-1">
-                      <p className="font-semibold">{s.name}</p>
-                      <p className="text-muted-foreground capitalize">{s.category} · {s.leadTimeDays}d lead</p>
-                      <RatingDots value={s.rating} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* ── PURCHASE ORDERS ── */}
-        {activeTab === 'purchase-orders' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {pos.length} orders · {openPOs} open · <span className="text-green-400 font-medium">${openPOValue.toLocaleString()} open value</span>
-              </p>
-              <Button size="sm" className="gap-2 bg-blue-600 hover:bg-blue-500" onClick={() => setShowAddPO(true)}>
-                <Plus className="w-4 h-4" /> New PO
-              </Button>
-            </div>
-
-            {pos.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No purchase orders yet.</p>
-              </div>
-            )}
-
-            {[...pos].reverse().map(p => (
-              <Card key={p.id} className="border-border/30">
-                <div className="flex items-start justify-between gap-3 p-4 cursor-pointer"
-                  onClick={() => setExpandedPO(expandedPO === p.id ? null : p.id)}>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">{p.poNumber}</p>
-                      <Badge className={cn('text-[10px]', PO_STATUS_META[p.status].color, PO_STATUS_META[p.status].bg)}>
-                        {PO_STATUS_META[p.status].label}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{p.supplierName} · {p.orderDate}</p>
-                    <p className="text-xs font-medium text-green-400 mt-0.5">${poTotal(p).toLocaleString()} · {p.items.length} item{p.items.length !== 1 ? 's' : ''}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={e => { e.stopPropagation(); const next = pos.filter(x => x.id !== p.id); savePos(next); }}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    {expandedPO === p.id ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                  </div>
-                </div>
-
-                {expandedPO === p.id && (
-                  <div className="border-t border-border/20 p-4 space-y-3">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-muted-foreground border-b border-border/20">
-                          <th className="text-left pb-1">Item</th>
-                          <th className="text-right pb-1">Qty</th>
-                          <th className="text-right pb-1">Unit Cost</th>
-                          <th className="text-right pb-1">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {p.items.map((item, i) => (
-                          <tr key={i} className="border-b border-border/10 last:border-0">
-                            <td className="py-1">{item.name}</td>
-                            <td className="text-right">{item.qty}</td>
-                            <td className="text-right">${item.unitCost.toFixed(2)}</td>
-                            <td className="text-right font-medium">${(item.qty * item.unitCost).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        <tr className="font-semibold">
-                          <td colSpan={3} className="pt-2 text-right text-muted-foreground">Total</td>
-                          <td className="pt-2 text-right text-green-400">${poTotal(p).toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      {p.expectedDelivery && <span>Expected: {p.expectedDelivery}</span>}
-                      {p.receivedDate && <span className="text-green-400">Received: {p.receivedDate}</span>}
-                      {p.notes && <span className="italic">{p.notes}</span>}
-                    </div>
-                    {(p.status === 'sent' || p.status === 'partial') && (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-500 text-xs h-7"
-                        onClick={() => handleMarkReceived(p.id)}>
-                        Mark Received
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* ── SUPPLIERS ── */}
-        {activeTab === 'suppliers' && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <Input placeholder="Search suppliers..." className="max-w-xs"
-                value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} />
-              <Button size="sm" className="gap-2 bg-teal-600 hover:bg-teal-500" onClick={() => setShowAddSupplier(true)}>
-                <Plus className="w-4 h-4" /> Add Supplier
-              </Button>
-            </div>
-
-            {suppliers.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No suppliers yet.</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSuppliers.map(s => {
-                const ratingColor = s.rating >= 4 ? 'text-green-400' : s.rating >= 3 ? 'text-yellow-400' : 'text-red-400';
-                return (
-                  <Card key={s.id} className="border-border/30">
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-semibold">{s.name}</p>
-                          <Badge variant="outline" className="text-[10px] mt-1 capitalize">{s.category}</Badge>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <RatingDots value={s.rating} />
-                          <button onClick={() => { saveSup(suppliers.filter(x => x.id !== s.id)); }}
-                            className="text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                        {s.contact && <span>Contact: {s.contact}</span>}
-                        {s.email && <span className="truncate">✉ {s.email}</span>}
-                        {s.phone && <span>📞 {s.phone}</span>}
-                        <span className={cn('font-medium', ratingColor)}>Lead: {s.leadTimeDays}d</span>
-                        {s.paymentTerms && <span>{s.paymentTerms}</span>}
-                      </div>
-                      {s.notes && <p className="text-xs text-muted-foreground italic">{s.notes}</p>}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── RFP / PROCUREMENT ── */}
-        {activeTab === 'rfp' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{rfps.length} RFPs · {openRFPs} open</p>
-              <Button size="sm" className="gap-2 bg-purple-600 hover:bg-purple-500" onClick={() => setShowAddRFP(true)}>
-                <Plus className="w-4 h-4" /> New RFP
-              </Button>
-            </div>
-
-            {rfps.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No RFPs yet.</p>
-              </div>
-            )}
-
-            {[...rfps].reverse().map(r => {
-              const isExpanded = expandedRFP === r.id;
-              const isExpired = r.deadline && new Date(r.deadline).getTime() < Date.now();
-              const bf = bidForms[r.id] || { supplier: '', amount: '', notes: '' };
-              return (
-                <Card key={r.id} className="border-border/30">
-                  <div className="flex items-start justify-between gap-3 p-4 cursor-pointer"
-                    onClick={() => setExpandedRFP(isExpanded ? null : r.id)}>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold">{r.title}</p>
-                        <Badge className={cn('text-[10px]', RFP_STATUS_META[r.status].color, 'bg-muted/20')}>
-                          {RFP_STATUS_META[r.status].label}
-                        </Badge>
-                        {r.bids.length > 0 && <Badge variant="outline" className="text-[10px]">{r.bids.length} bid{r.bids.length !== 1 ? 's' : ''}</Badge>}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.category}{r.deadline && <span className={cn('ml-2', isExpired ? 'text-red-400' : '')}>Deadline: {r.deadline}{isExpired ? ' (expired)' : ''}</span>}
-                      </p>
-                      {r.awardedTo && <p className="text-xs text-blue-400 mt-0.5">Awarded to: {r.awardedTo}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={e => { e.stopPropagation(); saveRfps(rfps.filter(x => x.id !== r.id)); }}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-border/20 p-4 space-y-4">
-                      <p className="text-sm text-muted-foreground">{r.description}</p>
-
-                      {/* Bids */}
-                      {r.bids.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bids</p>
-                          {r.bids.map((bid, i) => (
-                            <div key={i} className="flex items-center justify-between p-2 rounded border border-border/30 bg-muted/10 text-xs">
-                              <div>
-                                <span className="font-medium">{bid.supplier}</span>
-                                {bid.notes && <span className="text-muted-foreground ml-2">— {bid.notes}</span>}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-green-400 font-semibold">${bid.amount.toLocaleString()}</span>
-                                {r.status === 'open' && (
-                                  <button onClick={() => handleAwardRFP(r.id, bid.supplier)}
-                                    className="text-[10px] px-2 py-0.5 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors">
-                                    Award
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Add bid */}
-                      {r.status === 'open' && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Bid</p>
-                          <div className="flex gap-2 flex-wrap">
-                            <Input className="flex-1 min-w-[140px] h-7 text-xs" placeholder="Supplier name"
-                              value={bf.supplier} onChange={e => setBidForms(prev => ({ ...prev, [r.id]: { ...bf, supplier: e.target.value } }))} />
-                            <Input className="w-28 h-7 text-xs" placeholder="Amount ($)" type="number"
-                              value={bf.amount} onChange={e => setBidForms(prev => ({ ...prev, [r.id]: { ...bf, amount: e.target.value } }))} />
-                            <Input className="flex-1 min-w-[120px] h-7 text-xs" placeholder="Notes"
-                              value={bf.notes} onChange={e => setBidForms(prev => ({ ...prev, [r.id]: { ...bf, notes: e.target.value } }))} />
-                            <Button size="sm" className="h-7 text-xs" onClick={() => handleAddBid(r.id)}>Add</Button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        {r.status === 'open' && (
-                          <button onClick={() => saveRfps(rfps.map(x => x.id === r.id ? { ...x, status: 'closed' as RFPStatus } : x))}
-                            className="text-xs px-3 py-1 rounded border border-border/40 text-muted-foreground hover:text-foreground transition-colors">
-                            Close RFP
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── WASTE & SHRINK ── */}
-        {activeTab === 'waste' && (
-          <div className="space-y-5">
-            {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: 'Total Waste Cost',   value: `$${filteredWaste.reduce((s,w)=>s+w.totalCost,0).toLocaleString()}`, color: 'text-red-400' },
-                { label: 'Units Wasted',       value: filteredWaste.reduce((s,w)=>s+w.quantity,0).toLocaleString(),         color: 'text-orange-400' },
-                { label: 'Top Category',       value: Object.entries(wasteByCat).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—',    color: 'text-yellow-400' },
-                { label: 'Entries',            value: filteredWaste.length,                                                  color: 'text-muted-foreground' },
-              ].map(k => (
-                <Card key={k.label} className="border-border/30 bg-muted/10">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">{k.label}</p>
-                    <p className={cn('font-bold text-sm', k.color)}>{k.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Controls */}
-            <div className="flex flex-wrap items-center gap-2 justify-between">
-              <div className="flex gap-1 flex-wrap">
-                {(['all','expired','damaged','theft','spoilage','overstock','other'] as const).map(f => (
-                  <button key={f} onClick={() => setWasteFilter(f)}
-                    className={cn('text-xs px-3 py-1 rounded-full border transition-colors', wasteFilter === f
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border/40 text-muted-foreground hover:text-foreground')}>
-                    {f === 'all' ? 'All' : WASTE_REASON_META[f].label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  {(['week','month','all'] as const).map(p => (
-                    <button key={p} onClick={() => setWastePeriod(p)}
-                      className={cn('text-xs px-2 py-1 rounded border transition-colors', wastePeriod === p
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border/40 text-muted-foreground hover:text-foreground')}>
-                      {p === 'week' ? '7d' : p === 'month' ? '30d' : 'All'}
-                    </button>
-                  ))}
-                </div>
-                <Button size="sm" className="gap-1 bg-red-700 hover:bg-red-600 h-7 text-xs" onClick={() => setShowAddWaste(true)}>
-                  <Plus className="w-3 h-3" /> Log Waste
-                </Button>
-              </div>
-            </div>
-
-            {/* Category breakdown */}
-            {Object.keys(wasteByCat).length > 0 && (
-              <Card className="border-border/30">
-                <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-sm font-semibold">Waste by Category</CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 pb-4 space-y-2">
-                  {Object.entries(wasteByCat).sort((a,b)=>b[1]-a[1]).map(([cat, total]) => (
-                    <div key={cat} className="space-y-0.5">
-                      <div className="flex justify-between text-xs">
-                        <span className="capitalize text-muted-foreground">{cat}</span>
-                        <span className="text-red-400 font-medium">${total.toLocaleString()}</span>
-                      </div>
-                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500/60 rounded-full transition-all" style={{ width: `${Math.round((total/maxWasteCat)*100)}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Waste log */}
-            {filteredWaste.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No waste entries in this period.</p>
-              </div>
-            )}
-            <div className="space-y-2">
-              {[...filteredWaste].sort((a,b)=>b.date.localeCompare(a.date)).map(w => (
-                <div key={w.id} className="flex items-center justify-between p-3 rounded-lg border border-border/30 bg-card text-xs">
-                  <div className="flex-1">
-                    <p className="font-medium">{w.itemName}</p>
-                    <p className="text-muted-foreground capitalize">{w.category} · {w.date}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-muted-foreground">{w.quantity} units</span>
-                    <span className="text-red-400 font-semibold">${w.totalCost.toLocaleString()}</span>
-                    <Badge className={cn('text-[10px]', WASTE_REASON_META[w.reason].color, WASTE_REASON_META[w.reason].bg)}>
-                      {WASTE_REASON_META[w.reason].label}
-                    </Badge>
-                    <button onClick={() => saveWaste(waste.filter(x => x.id !== w.id))}
-                      className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── MODALS ── */}
-
-        {/* Add PO */}
-        {showAddPO && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowAddPO(false)}>
-            <Card className="w-full max-w-lg border-blue-500/30 my-4" onClick={e => e.stopPropagation()}>
-              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">New Purchase Order</CardTitle>
-                <button onClick={() => setShowAddPO(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Supplier *</label>
-                    <Input placeholder="Supplier name" value={poForm.supplierName} onChange={e => setPoForm(f => ({...f, supplierName: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Order Date</label>
-                    <Input type="date" value={poForm.orderDate} onChange={e => setPoForm(f => ({...f, orderDate: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Expected Delivery</label>
-                    <Input type="date" value={poForm.expectedDelivery} onChange={e => setPoForm(f => ({...f, expectedDelivery: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
-                    <Select value={poForm.status} onValueChange={v => setPoForm(f => ({...f, status: v as POStatus}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{(Object.keys(PO_STATUS_META) as POStatus[]).map(s => <SelectItem key={s} value={s}>{PO_STATUS_META[s].label}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs text-muted-foreground">Items</label>
-                    <button onClick={() => setPoForm(f => ({...f, items: [...f.items, {name:'',qty:1,unitCost:0}]}))}
-                      className="text-xs text-primary hover:text-primary/80 flex items-center gap-1">
-                      <Plus className="w-3 h-3" /> Add Item
-                    </button>
-                  </div>
-                  {poForm.items.map((item, i) => (
-                    <div key={i} className="grid grid-cols-5 gap-1.5 items-center">
-                      <Input className="col-span-2 h-7 text-xs" placeholder="Item name"
-                        value={item.name} onChange={e => { const items = [...poForm.items]; items[i].name = e.target.value; setPoForm(f => ({...f, items})); }} />
-                      <Input className="h-7 text-xs" type="number" placeholder="Qty"
-                        value={item.qty} onChange={e => { const items = [...poForm.items]; items[i].qty = parseInt(e.target.value)||1; setPoForm(f => ({...f, items})); }} />
-                      <Input className="h-7 text-xs" type="number" placeholder="Unit $"
-                        value={item.unitCost||''} onChange={e => { const items = [...poForm.items]; items[i].unitCost = parseFloat(e.target.value)||0; setPoForm(f => ({...f, items})); }} />
-                      <button onClick={() => setPoForm(f => ({...f, items: f.items.filter((_,j) => j !== i)}))}
-                        className="text-muted-foreground hover:text-destructive transition-colors flex justify-center">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {poForm.items.length > 0 && (
-                    <p className="text-xs text-right text-green-400 font-medium">
-                      Total: ${poForm.items.reduce((s,i) => s + i.qty*i.unitCost, 0).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1"><label className="text-xs text-muted-foreground">Notes</label>
-                  <Textarea rows={2} value={poForm.notes} onChange={e => setPoForm(f => ({...f, notes: e.target.value}))} /></div>
-                <Button className="w-full bg-blue-600 hover:bg-blue-500" onClick={handleAddPO}>Create PO</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Add Supplier */}
-        {showAddSupplier && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowAddSupplier(false)}>
-            <Card className="w-full max-w-md border-teal-500/30 my-4" onClick={e => e.stopPropagation()}>
-              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Add Supplier</CardTitle>
-                <button onClick={() => setShowAddSupplier(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Supplier Name *</label>
-                    <Input value={supForm.name} onChange={e => setSupForm(f => ({...f, name: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Contact Person</label>
-                    <Input value={supForm.contact} onChange={e => setSupForm(f => ({...f, contact: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Category</label>
-                    <Select value={supForm.category} onValueChange={v => setSupForm(f => ({...f, category: v}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{SUPPLIER_CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Email</label>
-                    <Input type="email" value={supForm.email} onChange={e => setSupForm(f => ({...f, email: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Phone</label>
-                    <Input value={supForm.phone} onChange={e => setSupForm(f => ({...f, phone: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Rating (1–5)</label>
-                    <Select value={String(supForm.rating)} onValueChange={v => setSupForm(f => ({...f, rating: parseInt(v)}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n} star{n!==1?'s':''}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Lead Time (days)</label>
-                    <Input type="number" value={supForm.leadTimeDays} onChange={e => setSupForm(f => ({...f, leadTimeDays: parseInt(e.target.value)||1}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Payment Terms</label>
-                    <Select value={supForm.paymentTerms} onValueChange={v => setSupForm(f => ({...f, paymentTerms: v}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{PAYMENT_TERMS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label>
-                    <Textarea rows={2} value={supForm.notes} onChange={e => setSupForm(f => ({...f, notes: e.target.value}))} /></div>
-                </div>
-                <Button className="w-full bg-teal-600 hover:bg-teal-500" onClick={handleAddSupplier}>Add Supplier</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Add RFP */}
-        {showAddRFP && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowAddRFP(false)}>
-            <Card className="w-full max-w-md border-purple-500/30" onClick={e => e.stopPropagation()}>
-              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">New RFP</CardTitle>
-                <button onClick={() => setShowAddRFP(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-3">
-                <div className="space-y-1"><label className="text-xs text-muted-foreground">Title *</label>
-                  <Input placeholder="e.g. Produce supplier Q3" value={rfpForm.title} onChange={e => setRfpForm(f => ({...f, title: e.target.value}))} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Category</label>
-                    <Input placeholder="produce, equipment..." value={rfpForm.category} onChange={e => setRfpForm(f => ({...f, category: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Deadline</label>
-                    <Input type="date" value={rfpForm.deadline} onChange={e => setRfpForm(f => ({...f, deadline: e.target.value}))} /></div>
-                </div>
-                <div className="space-y-1"><label className="text-xs text-muted-foreground">Description *</label>
-                  <Textarea rows={3} placeholder="Describe requirements, quantities, specs..." value={rfpForm.description} onChange={e => setRfpForm(f => ({...f, description: e.target.value}))} /></div>
-                <Button className="w-full bg-purple-600 hover:bg-purple-500" onClick={handleAddRFP}>Create RFP</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Add Waste Entry */}
-        {showAddWaste && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowAddWaste(false)}>
-            <Card className="w-full max-w-md border-red-500/30" onClick={e => e.stopPropagation()}>
-              <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400" /> Log Waste Entry
-                </CardTitle>
-                <button onClick={() => setShowAddWaste(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Item Name *</label>
-                    <Input placeholder="e.g. Whole Milk 1 Gal" value={wasteForm.itemName} onChange={e => setWasteForm(f => ({...f, itemName: e.target.value}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Category</label>
-                    <Select value={wasteForm.category} onValueChange={v => setWasteForm(f => ({...f, category: v}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{WASTE_ITEM_CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Reason</label>
-                    <Select value={wasteForm.reason} onValueChange={v => setWasteForm(f => ({...f, reason: v as WasteReason}))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{(Object.keys(WASTE_REASON_META) as WasteReason[]).map(r => <SelectItem key={r} value={r}>{WASTE_REASON_META[r].label}</SelectItem>)}</SelectContent>
-                    </Select></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Quantity *</label>
-                    <Input type="number" value={wasteForm.quantity} onChange={e => setWasteForm(f => ({...f, quantity: parseFloat(e.target.value)||1}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Unit Cost ($)</label>
-                    <Input type="number" value={wasteForm.unitCost||''} onChange={e => setWasteForm(f => ({...f, unitCost: parseFloat(e.target.value)||0}))} /></div>
-                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label>
-                    <Input type="date" value={wasteForm.date} onChange={e => setWasteForm(f => ({...f, date: e.target.value}))} /></div>
-                  <div className="col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label>
-                    <Textarea rows={2} value={wasteForm.notes||''} onChange={e => setWasteForm(f => ({...f, notes: e.target.value}))} /></div>
-                </div>
-                {wasteForm.quantity > 0 && wasteForm.unitCost > 0 && (
-                  <p className="text-xs text-right text-red-400 font-medium">
-                    Total loss: ${(wasteForm.quantity * wasteForm.unitCost).toLocaleString()}
-                  </p>
-                )}
-                <Button className="w-full bg-red-700 hover:bg-red-600" onClick={handleAddWaste}>Log Waste</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
+        {/* Tab content */}
+        <div>
+          {activeTab === 'work-orders' && <WorkOrdersTab />}
+          {activeTab === 'vendors' && <VendorsTab />}
+          {activeTab === 'quotes' && <QuotesTab />}
+          {activeTab === 'materials' && <MaterialsTab />}
+        </div>
       </div>
     </MainLayout>
   );
