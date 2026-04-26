@@ -69,22 +69,43 @@ const MOCK_WORK = [
 const SPECIALTIES = ['All', 'Boilers', 'Chillers', 'Electrical', 'Controls', 'Safety', 'General', 'Pumps', 'Piping', 'Refrigeration', 'Burners'];
 
 // ── Invite Vendor Dialog ──────────────────────────────────────────────────────
-function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [email, setEmail] = useState('');
-  const [name, setName]   = useState('');
-  const [msg, setMsg]     = useState('');
+function InviteVendorDialog({ open, onOpenChange, facilityId }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  facilityId: string;
+}) {
+  const [email, setEmail]     = useState('');
+  const [name, setName]       = useState('');
+  const [msg, setMsg]         = useState('');
+  const [sending, setSending] = useState(false);
 
-  const send = () => {
+  const send = async () => {
     if (!email || !name) {
       toast({ title: 'Required', description: 'Name and email are required.', variant: 'destructive' });
       return;
     }
-    toast({
-      title: 'Invite sent',
-      description: `${name} (${email}) will receive an account creation email with access instructions.`,
-    });
-    setEmail(''); setName(''); setMsg('');
-    onOpenChange(false);
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/vendors/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ name, email, message: msg, facilityId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      toast({
+        title: 'Invite sent',
+        description: `${name} (${email}) will receive an account creation email with access instructions.`,
+      });
+      setEmail(''); setName(''); setMsg('');
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: 'Invite failed', description: err.message || 'Could not send invite. Try again.', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -111,8 +132,10 @@ function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={send}><Send className="w-4 h-4 mr-2" />Send Invite</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={sending}>Cancel</Button>
+          <Button onClick={send} disabled={sending || !email || !name}>
+            <Send className="w-4 h-4 mr-2" />{sending ? 'Sending…' : 'Send Invite'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -433,7 +456,7 @@ const Vendors = () => {
       </div>
 
       <AddVendorDialog open={showAddVendor} onOpenChange={setShowAddVendor} onVendorAdded={handleVendorAdded} />
-      <InviteVendorDialog open={showInvite} onOpenChange={setShowInvite} />
+      <InviteVendorDialog open={showInvite} onOpenChange={setShowInvite} facilityId={facilityId} />
       <FilterDialog open={showFilter} onOpenChange={setShowFilter} title="Filter Vendors" categories={['On Call', 'Boilers', 'Chillers', 'Electrical', 'Controls']} />
       <AlertPokeDialog vendor={alertTarget} open={!!alertTarget} onOpenChange={v => { if (!v) setAlertTarget(null); }} onSend={handleAlertSent} />
     </MainLayout>
