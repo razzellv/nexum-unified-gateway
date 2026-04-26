@@ -111,34 +111,44 @@ function CompletionGauge({ rate, label, color }: { rate: number; label: string; 
 }
 
 // ── Invite Vendor Dialog ──────────────────────────────────────────────────────
-function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function InviteVendorDialog({ open, onOpenChange, facilityId }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  facilityId: string;
+}) {
   const [email, setEmail]     = useState('');
   const [name, setName]       = useState('');
   const [msg, setMsg]         = useState('');
   const [loading, setLoading] = useState(false);
 
   const send = async () => {
-    if (!email.trim()) return;
+    if (!email || !name) {
+      toast({ title: 'Required', description: 'Name and email are required.', variant: 'destructive' });
+      return;
+    }
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/vendors/invite`, {
+      const res = await fetch(`${API_BASE}/vendors/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ email, message: msg }),
+        body: JSON.stringify({ name, email, message: msg, facilityId }),
       });
-    } catch { /* best-effort */ }
-
-    // Persist invite to localStorage
-    const invites = JSON.parse(localStorage.getItem('nexum_vendor_invites') || '[]');
-    invites.unshift({ email, message: msg, sentAt: new Date().toISOString(), status: 'pending' });
-    localStorage.setItem('nexum_vendor_invites', JSON.stringify(invites));
-
-    toast({ title: 'Invite Sent', description: `Invitation sent to ${email}` });
-    setEmail('');
-    setName('');
-    setMsg('');
-    setLoading(false);
-    onOpenChange(false);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      // Persist invite locally for instant UI feedback
+      const invites = JSON.parse(localStorage.getItem('nexum_vendor_invites') || '[]');
+      invites.unshift({ name, email, message: msg, sentAt: new Date().toISOString(), status: 'pending' });
+      localStorage.setItem('nexum_vendor_invites', JSON.stringify(invites));
+      toast({ title: 'Invite sent', description: `${name} (${email}) will receive an account creation email.` });
+      setEmail(''); setName(''); setMsg('');
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: 'Invite failed', description: err.message || 'Could not send invite. Try again.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -165,8 +175,8 @@ function InviteVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={send} disabled={!email.trim() || loading}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
+          <Button onClick={send} disabled={loading || !email || !name}>
             {loading
               ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Sending…</>
               : <><Send className="w-4 h-4 mr-2" />Send Invite</>
@@ -631,7 +641,7 @@ const Vendors = () => {
       </div>
 
       <AddVendorDialog open={showAddVendor} onOpenChange={setShowAddVendor} onVendorAdded={handleVendorAdded} />
-      <InviteVendorDialog open={showInvite} onOpenChange={setShowInvite} />
+      <InviteVendorDialog open={showInvite} onOpenChange={setShowInvite} facilityId={facilityId} />
       <FilterDialog open={showFilter} onOpenChange={setShowFilter} title="Filter Vendors" categories={['On Call', 'Boilers', 'Chillers', 'Electrical', 'Controls']} />
       <AlertPokeDialog vendor={alertTarget} open={!!alertTarget} onOpenChange={v => { if (!v) setAlertTarget(null); }} onSend={handleAlertSent} />
     </MainLayout>
