@@ -166,7 +166,8 @@ export default function FIAS() {
 
   const COMPASS_URL = import.meta.env.VITE_COMPASS_URL || 'https://internal.nexumsuum-facilityintelligence.com';
 
-  const pushToPlatform = () => {
+  const pushToPlatform = async () => {
+    const sealedAt = new Date().toISOString();
     const session = {
       sessionId: `fias-${Date.now()}`,
       facilityId: facilityId || `fac-${Date.now()}`,
@@ -174,13 +175,23 @@ export default function FIAS() {
       assessorName, assessorEmail, conductedAt, equipmentTag,
       conditionScore, performanceScore, riskScore, fiasScore, riskBand,
       conditionResponses, performanceNotes, riskNotes, findings,
-      sealed: true, sealedAt: new Date().toISOString(),
+      sealed: true, sealedAt,
     };
-    // Persist to localStorage so dashboards can read it
+
+    // Persist to localStorage so dashboards can read it immediately
     const existing = (() => { try { return JSON.parse(localStorage.getItem('nexum_fias_sessions') || '[]'); } catch { return []; } })();
     localStorage.setItem('nexum_fias_sessions', JSON.stringify([session, ...existing]));
-    // Dispatch event so dashboards update
     window.dispatchEvent(new CustomEvent('fias-session-submitted', { detail: session }));
+
+    // Persist server-side
+    try {
+      const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/fias-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(session),
+      });
+    } catch { /* localStorage is the fallback — don't block the UI */ }
 
     // Build cross-platform URL so consultant can import into Facility Compass
     const params = new URLSearchParams({
@@ -192,7 +203,7 @@ export default function FIAS() {
       fiasScore:    String(fiasScore),
       riskBand:     riskBand || '',
       assessorEmail:assessorEmail || '',
-      assessedAt:   session.sealedAt,
+      assessedAt:   sealedAt,
       notes:        [
         `Equipment FIAS — ${systemType?.replace(/_/g, ' ')}`,
         `Condition: ${conditionScore}/100  Performance: ${performanceScore}/100  Risk: ${riskScore}/100`,
