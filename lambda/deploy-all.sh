@@ -13,7 +13,7 @@ FRONTEND_URL="https://portal.nexumsuum-facilityintelligence.com"
 PORTAL_URL="https://nexumsuum-connections.netlify.app"
 ADMIN_EMAIL="razzellv@nexumsuum.com"
 # Set this after deploying the Apps Script (Extensions → Apps Script → Deploy → Web app URL)
-SHEETS_SCRIPT_URL=""
+SHEETS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxmbYPEuVIRL_pb2BJxcjnli5UYyUe0M2kI6NedHk9bBu3FuYhex1lAuDYv1psACGL9/exec"
 # Set this from Stripe Dashboard → Developers → Webhooks → signing secret
 STRIPE_WEBHOOK_SECRET=""
 # Set this from Stripe Dashboard → Developers → API keys → Secret key
