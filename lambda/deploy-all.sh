@@ -9,8 +9,15 @@ ACCOUNT_ID="758027491272"
 REGION="us-east-2"
 API_ID="vflco2pvo3"
 FROM_EMAIL="noreply@nexumsuum.com"
-FRONTEND_URL="https://nexumsuum.com"
+FRONTEND_URL="https://portal.nexumsuum-facilityintelligence.com"
+PORTAL_URL="https://nexumsuum-connections.netlify.app"
 ADMIN_EMAIL="razzellv@nexumsuum.com"
+# Set this after deploying the Apps Script (Extensions → Apps Script → Deploy → Web app URL)
+SHEETS_SCRIPT_URL=""
+# Set this from Stripe Dashboard → Developers → Webhooks → signing secret
+STRIPE_WEBHOOK_SECRET=""
+# Set this from Stripe Dashboard → Developers → API keys → Secret key
+STRIPE_SECRET_KEY=""
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -117,7 +124,7 @@ add_route() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-echo "1/5  DynamoDB Tables"
+echo "1/6  DynamoDB Tables"
 # NexumVendors
 create_table NexumVendors \
   --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
@@ -145,10 +152,17 @@ create_table NexumSettings \
   --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST
 
-echo ""
-echo "2/5  IAM Roles"
+# NexumProspectBuyers
+create_table NexumProspectBuyers \
+  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
+  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]'
 
-for ROLE in vendor-invite-role fias-session-role pilot-lambda-role email-settings-role; do
+echo ""
+echo "2/6  IAM Roles"
+
+for ROLE in vendor-invite-role fias-session-role pilot-lambda-role email-settings-role prospect-buyers-role stripe-webhook-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -173,6 +187,12 @@ aws iam put-role-policy --role-name pilot-lambda-role --policy-name policy \
 aws iam put-role-policy --role-name email-settings-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSettings\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name prospect-buyers-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumProspectBuyers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumProspectBuyers/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name stripe-webhook-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"},{\"Effect\":\"Allow\",\"Action\":[\"lambda:InvokeFunction\"],\"Resource\":\"arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:nexum-prospect-buyers\"}]}" > /dev/null
+
 echo "  ✓ Policies attached"
 
 echo ""
@@ -180,34 +200,48 @@ echo "  Waiting 12s for IAM propagation..."
 sleep 12
 
 echo ""
-echo "3/5  Lambda Functions"
+echo "3/6  Lambda Functions"
 
-deploy_lambda "vendor-invite"  "vendor-invite.mjs"  "vendor-invite-role"  "VENDORS_TABLE=NexumVendors,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
-deploy_lambda "fias-session"   "fias-session.mjs"   "fias-session-role"   "FIAS_TABLE=NexumFIAS"
-deploy_lambda "pilot-submit"   "pilot-submit.mjs"   "pilot-lambda-role"   "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},ADMIN_EMAIL=${ADMIN_EMAIL}"
-deploy_lambda "pilot-admin"    "pilot-admin.mjs"    "pilot-lambda-role"   "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
-deploy_lambda "email-settings" "email-settings.mjs" "email-settings-role" "SETTINGS_TABLE=NexumSettings"
-
-echo ""
-echo "4/5  API Gateway Routes"
-
-add_route "POST /vendors/invite"                    "vendor-invite"  "jwt"
-add_route "POST /fias-sessions"                     "fias-session"   "jwt"
-add_route "POST /pilot-application"                 "pilot-submit"   "none"
-add_route "POST /pilot-verify"                      "pilot-submit"   "none"
-add_route "GET /pilot-applications"                 "pilot-admin"    "jwt"
-add_route "PATCH /pilot-applications/{id}/{action}" "pilot-admin"    "jwt"
-add_route "POST /email-settings"                    "email-settings" "jwt"
-add_route "GET /email-settings"                     "email-settings" "jwt"
+deploy_lambda "vendor-invite"           "vendor-invite.mjs"        "vendor-invite-role"    "VENDORS_TABLE=NexumVendors,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
+deploy_lambda "fias-session"            "fias-session.mjs"         "fias-session-role"     "FIAS_TABLE=NexumFIAS"
+deploy_lambda "pilot-submit"            "pilot-submit.mjs"         "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},ADMIN_EMAIL=${ADMIN_EMAIL}"
+deploy_lambda "pilot-admin"             "pilot-admin.mjs"          "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
+deploy_lambda "email-settings"          "email-settings.mjs"       "email-settings-role"   "SETTINGS_TABLE=NexumSettings"
+deploy_lambda "nexum-prospect-buyers"   "prospect-buyers.mjs"      "prospect-buyers-role"  "PROSPECTS_TABLE=NexumProspectBuyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},FRONTEND_URL=${FRONTEND_URL},PORTAL_URL=${PORTAL_URL},SHEETS_SCRIPT_URL=${SHEETS_SCRIPT_URL}"
+deploy_lambda "nexum-stripe-webhook"    "stripe-webhook.mjs"       "stripe-webhook-role"   "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY},STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET},PROSPECTS_LAMBDA_NAME=nexum-prospect-buyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},PORTAL_URL=${PORTAL_URL},FRONTEND_URL=${FRONTEND_URL}"
 
 echo ""
-echo "5/5  Verify routes"
+echo "4/6  API Gateway Routes"
+
+add_route "POST /vendors/invite"                        "vendor-invite"         "jwt"
+add_route "POST /fias-sessions"                         "fias-session"          "jwt"
+add_route "POST /pilot-application"                     "pilot-submit"          "none"
+add_route "POST /pilot-verify"                          "pilot-submit"          "none"
+add_route "GET /pilot-applications"                     "pilot-admin"           "jwt"
+add_route "POST /pilot-applications/{id}/{action}"      "pilot-admin"           "jwt"
+add_route "POST /email-settings"                        "email-settings"        "jwt"
+add_route "GET /email-settings"                         "email-settings"        "jwt"
+add_route "GET /prospect-buyers"                        "nexum-prospect-buyers" "jwt"
+add_route "POST /prospect-buyers/{id}/{action}"         "nexum-prospect-buyers" "jwt"
+add_route "POST /stripe-webhook"                        "nexum-stripe-webhook"  "none"
+
+echo ""
+echo "5/6  Stripe Webhook registration reminder"
+echo "  ─────────────────────────────────────────────────"
+echo "  After deploy, register this URL in Stripe Dashboard:"
+echo "  https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod/stripe-webhook"
+echo "  Event to listen for: checkout.session.completed"
+echo "  Copy the signing secret → set STRIPE_WEBHOOK_SECRET above → redeploy"
+echo "  ─────────────────────────────────────────────────"
+
+echo ""
+echo "6/6  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
-  --query 'Items[?contains(RouteKey,`invite`) || contains(RouteKey,`fias`) || contains(RouteKey,`pilot`) || contains(RouteKey,`email-settings`)].[RouteKey,AuthorizationType]' \
+  --query 'Items[?contains(RouteKey,`invite`) || contains(RouteKey,`pilot`) || contains(RouteKey,`prospect`) || contains(RouteKey,`stripe`) || contains(RouteKey,`email-settings`)].[RouteKey,AuthorizationType]' \
   --output table
 
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  Deploy complete."
-echo "  All 5 Lambdas live on API: $API_ID"
+echo "  All 7 Lambdas live on API: $API_ID"
 echo "═══════════════════════════════════════════════"
