@@ -144,7 +144,7 @@ export const handler = async (event) => {
         Subject: { Data: `New Pilot Application — ${name} (${company || "no company"})` },
         Body: {
           Text: {
-            Data: `New pilot application received.\n\nName: ${name}\nCompany: ${company}\nEmail: ${email}\nRole: ${role}\nFacilities: ${facilities}\nUse Case: ${useCase}\n\nReview in NexumWorkspace → Pilot tab.\nApp ID: ${appId}`,
+            Data: `New pilot application received.\n\nName: ${name}\nCompany: ${company}\nEmail: ${email}\nRole: ${role}\nFacilities: ${facilities}\nUse Case: ${useCase}\n\nReview application: ${FRONTEND_URL}/workspace\nApp ID: ${appId}`,
           },
         },
       },
