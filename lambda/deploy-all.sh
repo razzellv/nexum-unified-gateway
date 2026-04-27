@@ -123,10 +123,35 @@ add_route() {
   echo "  ✓ Route $ROUTE_KEY → $LAMBDA_NAME ($AUTH)"
 }
 
+# ── Helper: configure CORS on the HTTP API ────────────────────────────────────
+configure_cors() {
+  echo "  Configuring CORS for API ${API_ID}..."
+  aws apigatewayv2 update-api \
+    --api-id $API_ID \
+    --cors-configuration \
+      "AllowOrigins=https://internal.nexumsuum-facilityintelligence.com,https://portal.nexumsuum-facilityintelligence.com,https://nexumsuum-connections.netlify.app,AllowMethods=GET POST PUT DELETE OPTIONS,AllowHeaders=Content-Type Authorization,AllowCredentials=false,MaxAge=86400" \
+    --region $REGION > /dev/null
+  echo "  ✓ CORS updated — allowed origins:"
+  echo "    https://internal.nexumsuum-facilityintelligence.com"
+  echo "    https://portal.nexumsuum-facilityintelligence.com"
+  echo "    https://nexumsuum-connections.netlify.app"
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
+echo "0/6  CORS Configuration"
+configure_cors
+
+echo ""
 echo "1/6  DynamoDB Tables"
 # NexumVendors
 create_table NexumVendors \
+  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
+  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]'
+
+# NexumFIASClients
+create_table NexumFIASClients \
   --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
   --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
@@ -162,7 +187,7 @@ create_table NexumProspectBuyers \
 echo ""
 echo "2/6  IAM Roles"
 
-for ROLE in vendor-invite-role fias-session-role pilot-lambda-role email-settings-role prospect-buyers-role stripe-webhook-role; do
+for ROLE in vendor-invite-role fias-session-role fias-clients-role pilot-lambda-role email-settings-role prospect-buyers-role stripe-webhook-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -177,6 +202,9 @@ done
 # Attach DynamoDB + SES policies
 aws iam put-role-policy --role-name vendor-invite-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fias-clients-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIASClients\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIASClients/index/*\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fias-session-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIAS\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIAS/index/*\"]}]}" > /dev/null
@@ -202,6 +230,7 @@ sleep 12
 echo ""
 echo "3/6  Lambda Functions"
 
+deploy_lambda "fias-clients"            "fias-clients.mjs"         "fias-clients-role"     "FIAS_CLIENTS_TABLE=NexumFIASClients"
 deploy_lambda "vendor-invite"           "vendor-invite.mjs"        "vendor-invite-role"    "VENDORS_TABLE=NexumVendors,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
 deploy_lambda "fias-session"            "fias-session.mjs"         "fias-session-role"     "FIAS_TABLE=NexumFIAS"
 deploy_lambda "pilot-submit"            "pilot-submit.mjs"         "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},ADMIN_EMAIL=${ADMIN_EMAIL}"
@@ -213,6 +242,10 @@ deploy_lambda "nexum-stripe-webhook"    "stripe-webhook.mjs"       "stripe-webho
 echo ""
 echo "4/6  API Gateway Routes"
 
+add_route "GET /fias/clients"                           "fias-clients"          "jwt"
+add_route "POST /fias/clients"                          "fias-clients"          "jwt"
+add_route "PUT /fias/clients/{clientId}"                "fias-clients"          "jwt"
+add_route "DELETE /fias/clients/{clientId}"             "fias-clients"          "jwt"
 add_route "POST /vendors/invite"                        "vendor-invite"         "jwt"
 add_route "POST /fias-sessions"                         "fias-session"          "jwt"
 add_route "POST /pilot-application"                     "pilot-submit"          "none"
