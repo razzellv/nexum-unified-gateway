@@ -23,7 +23,9 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield,
+  FileOutput, BookOpen, Wrench, Zap, Search,
+} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -104,6 +106,20 @@ const allNavItems: NavItem[] = [
   { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
+
+  // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
+  { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
+  { name: 'Workspace', href: '/nexum-workspace', icon: LayoutDashboard, access: 'admin_only' },
+  { name: 'FIAS Assessment', href: '/fias', icon: Activity, access: 'admin_only' },
+  { name: 'Rapid Review', href: '/rapid-review', icon: Search, access: 'admin_only' },
+  { name: 'VVFI Retainers', href: '/vvfi', icon: TrendingUp, access: 'admin_only' },
+  { name: 'Client Accounts', href: '/client-accounts', icon: Users, access: 'admin_only' },
+  { name: 'Audit Module', href: '/audit-module', icon: ClipboardList, access: 'admin_only' },
+  { name: 'Doc Generator', href: '/doc-generator', icon: FileOutput, access: 'admin_only' },
+  { name: 'Energy Baseline', href: '/energy-baseline', icon: Zap, access: 'admin_only' },
+  { name: 'Contractor Installs', href: '/contractor-installs', icon: Wrench, access: 'admin_only' },
+  { name: 'CTS-3 Model', href: '/cts3-model', icon: BarChart3, access: 'admin_only' },
+  { name: 'Internal Guide', href: '/internal-guide', icon: BookOpen, access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────

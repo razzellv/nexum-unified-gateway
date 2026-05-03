@@ -71,7 +71,19 @@ export type TierFeature =
   | 'chain_of_custody'
   | 'response_metrics'
   | 'weapons_inventory'
-  | 'compliance_reporting';
+  | 'compliance_reporting'
+  // Nexum Internal Tools (admin only)
+  | 'fias'
+  | 'energy_baseline'
+  | 'contractor_installs'
+  | 'vvfi_tool'
+  | 'client_accounts'
+  | 'audit_module'
+  | 'doc_generator'
+  | 'cts3_model'
+  | 'nexum_workspace'
+  | 'rapid_review'
+  | 'internal_guide';
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
   // ── Facility tiers ──────────────────────────────────────────────────────────
@@ -424,4 +436,16 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   response_metrics:      'command_standard',
   weapons_inventory:     'command_standard',
   compliance_reporting:  'command_standard',
+  // Nexum Internal Tools (admin only — gated at route level, not tier)
+  fias:                  'admin',
+  energy_baseline:       'admin',
+  contractor_installs:   'admin',
+  vvfi_tool:             'admin',
+  client_accounts:       'admin',
+  audit_module:          'admin',
+  doc_generator:         'admin',
+  cts3_model:            'admin',
+  nexum_workspace:       'admin',
+  rapid_review:          'admin',
+  internal_guide:        'admin',
 };

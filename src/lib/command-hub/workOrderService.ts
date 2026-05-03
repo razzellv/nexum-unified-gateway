@@ -1,10 +1,10 @@
 import { Flame, Snowflake, Wind, Droplets, Gauge, Zap, Thermometer, Wrench, ShieldAlert, Cpu, LucideIcon, Fan } from 'lucide-react';
 import { WorkOrder, WorkOrderPriority, WorkOrderStatus, EquipmentType, WorkOrderNote } from '@/types/command-hub/workOrder';
 import { mockWorkOrders } from '@/data/command-hub/workOrderData';
+import { apiRequest } from '@/lib/api';
 
-// TODO: Replace with actual API configuration
-// const API_BASE_URL = 'https://your-api-gateway.execute-api.region.amazonaws.com/prod';
-// const FACILITY_ID = 'facility-001';
+const getToken = () =>
+  localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
 
 // Priority color helpers
 export function getPriorityColor(priority: WorkOrderPriority): string {
@@ -150,49 +150,44 @@ export function formatDateTime(dateString: string): string {
   });
 }
 
-// API Functions with mock fallbacks
+// ── API Functions (real calls with mock fallback) ────────────────────────────
 
 export async function fetchWorkOrders(facilityId: string): Promise<WorkOrder[]> {
-  // TODO: Replace with actual API call
-  // const response = await fetch(`${API_BASE_URL}/workorders?facilityId=${facilityId}`, {
-  //   headers: {
-  //     'Authorization': `Bearer ${token}`,
-  //     'Content-Type': 'application/json',
-  //   },
-  // });
-  // if (!response.ok) throw new Error('Failed to fetch work orders');
-  // return response.json();
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
+  if (getToken()) {
+    try {
+      const data = await apiRequest<WorkOrder[]>(`/work-orders?facilityId=${facilityId}`);
+      if (Array.isArray(data)) return data;
+    } catch { /* fall through to mock */ }
+  }
+  await new Promise(r => setTimeout(r, 300));
   return mockWorkOrders;
 }
 
 export async function fetchWorkOrder(workOrderId: string, facilityId: string): Promise<WorkOrder | null> {
-  // TODO: Replace with actual API call
-  // const response = await fetch(`${API_BASE_URL}/workorders/${workOrderId}?facilityId=${facilityId}`);
-  // if (!response.ok) throw new Error('Failed to fetch work order');
-  // return response.json();
-  
-  await new Promise(resolve => setTimeout(resolve, 200));
+  if (getToken()) {
+    try {
+      return await apiRequest<WorkOrder>(`/work-orders/${workOrderId}?facilityId=${facilityId}`);
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 200));
   return mockWorkOrders.find(wo => wo.workOrderId === workOrderId) || null;
 }
 
 export async function createWorkOrder(workOrder: Partial<WorkOrder>): Promise<WorkOrder> {
-  // TODO: Replace with actual API call
-  // const response = await fetch(`${API_BASE_URL}/workorders`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(workOrder),
-  // });
-  // if (!response.ok) throw new Error('Failed to create work order');
-  // return response.json();
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const newWorkOrder: WorkOrder = {
-    workOrderId: `wo-2026-${String(mockWorkOrders.length + 1).padStart(3, '0')}`,
-    facilityId: 'facility-001',
-    orgId: 'org-demo-001',
+  if (getToken()) {
+    try {
+      return await apiRequest<WorkOrder>('/work-orders', {
+        method: 'POST',
+        body: JSON.stringify(workOrder),
+      });
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 500));
+  return {
+    workOrderId: `wo-${Date.now()}`,
+    facilityId: workOrder.facilityId || 'facility-001',
+    orgId: workOrder.orgId || 'org-001',
+    contextType: workOrder.contextType || 'equipment',
     equipmentId: workOrder.equipmentId || '',
     equipmentType: workOrder.equipmentType || 'hvac',
     type: workOrder.type || 'corrective',
@@ -215,57 +210,68 @@ export async function createWorkOrder(workOrder: Partial<WorkOrder>): Promise<Wo
     notes: [],
     safetyPrecautions: workOrder.safetyPrecautions,
     violationId: workOrder.violationId,
-  };
-  return newWorkOrder;
+  } as WorkOrder;
 }
 
 export async function updateWorkOrder(workOrderId: string, updates: Partial<WorkOrder>): Promise<WorkOrder> {
-  // TODO: Replace with actual API call
-  // const response = await fetch(`${API_BASE_URL}/workorders/${workOrderId}`, {
-  //   method: 'PUT',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(updates),
-  // });
-  // if (!response.ok) throw new Error('Failed to update work order');
-  // return response.json();
-  
-  await new Promise(resolve => setTimeout(resolve, 300));
+  if (getToken()) {
+    try {
+      return await apiRequest<WorkOrder>(`/work-orders/${workOrderId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 300));
   const existing = mockWorkOrders.find(wo => wo.workOrderId === workOrderId);
   if (!existing) throw new Error('Work order not found');
   return { ...existing, ...updates };
 }
 
 export async function deleteWorkOrder(workOrderId: string): Promise<void> {
-  // TODO: Replace with actual API call
-  // const response = await fetch(`${API_BASE_URL}/workorders/${workOrderId}`, {
-  //   method: 'DELETE',
-  // });
-  // if (!response.ok) throw new Error('Failed to delete work order');
-  
-  await new Promise(resolve => setTimeout(resolve, 300));
+  if (getToken()) {
+    try {
+      await apiRequest<void>(`/work-orders/${workOrderId}`, { method: 'DELETE' });
+      return;
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 300));
 }
 
 export async function addWorkOrderNote(
   workOrderId: string,
   content: string,
   author: string,
-  authorName: string
+  authorName: string,
 ): Promise<WorkOrderNote> {
-  // TODO: Implement via API - append note to work order
-  await new Promise(resolve => setTimeout(resolve, 200));
-  return {
+  const note: WorkOrderNote = {
     id: `note-${Date.now()}`,
     content,
     author,
     authorName,
     createdAt: new Date().toISOString(),
   };
+  if (getToken()) {
+    try {
+      return await apiRequest<WorkOrderNote>(`/work-orders/${workOrderId}/notes`, {
+        method: 'POST',
+        body: JSON.stringify(note),
+      });
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 200));
+  return note;
 }
 
-export async function updateWorkOrderStatus(
-  workOrderId: string,
-  status: WorkOrderStatus
-): Promise<void> {
-  // TODO: Replace with actual API call
-  await new Promise(resolve => setTimeout(resolve, 200));
+export async function updateWorkOrderStatus(workOrderId: string, status: WorkOrderStatus): Promise<void> {
+  if (getToken()) {
+    try {
+      await apiRequest<void>(`/work-orders/${workOrderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      return;
+    } catch { /* fall through */ }
+  }
+  await new Promise(r => setTimeout(r, 200));
 }

@@ -53,6 +53,19 @@ import Workload from "./pages/command-hub/Workload";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Courses from "./pages/Courses";
 
+// Nexum Internal Tools
+import FIAS from "./pages/FIAS";
+import VVFI from "./pages/VVFI";
+import ClientAccounts from "./pages/ClientAccounts";
+import AuditModule from "./pages/AuditModule";
+import DocGenerator from "./pages/DocGenerator";
+import EnergyBaseline from "./pages/EnergyBaseline";
+import ContractorInstalls from "./pages/ContractorInstalls";
+import CTS3Model from "./pages/CTS3Model";
+import NexumWorkspace from "./pages/NexumWorkspace";
+import RapidReview from "./pages/RapidReview";
+import InternalGuide from "./pages/InternalGuide";
+
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -256,6 +269,51 @@ export const router = createBrowserRouter([
           {
             path: "optimize-learn",
             element: <Courses />,
+          },
+          // Nexum Internal Tools (admin only)
+          {
+            path: "fias",
+            element: <FIAS />,
+          },
+          {
+            path: "vvfi",
+            element: <VVFI />,
+          },
+          {
+            path: "client-accounts",
+            element: <ClientAccounts />,
+          },
+          {
+            path: "audit-module",
+            element: <AuditModule />,
+          },
+          {
+            path: "doc-generator",
+            element: <DocGenerator />,
+          },
+          {
+            path: "energy-baseline",
+            element: <EnergyBaseline />,
+          },
+          {
+            path: "contractor-installs",
+            element: <ContractorInstalls />,
+          },
+          {
+            path: "cts3-model",
+            element: <CTS3Model />,
+          },
+          {
+            path: "nexum-workspace",
+            element: <NexumWorkspace />,
+          },
+          {
+            path: "rapid-review",
+            element: <RapidReview />,
+          },
+          {
+            path: "internal-guide",
+            element: <InternalGuide />,
           },
         ],
       },
