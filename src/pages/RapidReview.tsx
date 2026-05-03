@@ -41,21 +41,23 @@ const IMPACT_COLORS: Record<string, string> = {
 
 const SERVICE_TIERS = [
   {
-    id: 'intro',
-    name: 'FI Intro',
+    id: 'rapid_review',
+    name: 'Rapid Review',
     price: 'Free',
-    desc: '30-min AI strategy call + rapid review summary',
-    features: ['AI issue analysis', 'Top risk identification', 'Recommended next steps', 'PDF summary report'],
-    cta: 'Schedule Call',
-    color: 'border-border',
+    priceNote: '20–30 min call',
+    desc: 'Virtual questionnaire to map operational structure, workflow, and early risks.',
+    features: ['Ops structure questionnaire', 'Utility bill review', 'Risk identification', 'Analysis to Improve report', 'Service tier recommendation'],
+    cta: 'This Review',
+    color: 'border-cyan-400/30',
   },
   {
     id: 'onsite_lite',
     name: 'Onsite Lite',
     price: '$2,500',
-    desc: 'Onsite Performance Walkthrough — half-day assessment',
-    features: ['On-site facility walkthrough', 'Equipment condition review', 'Priority fix list', 'Written summary report', '1-hr debrief call'],
-    cta: 'Book Onsite Lite',
+    priceNote: 'Half-day on-site',
+    desc: 'On-site walkthrough — trend data, operator & manager assessment, report + SOPs/EOPs/Checklists.',
+    features: ['Current trend data logged', 'Lead operator evaluated', 'Manager workflow observed', 'Written assessment report', 'Custom SOPs, EOPs & Checklists'],
+    cta: 'Recommend Onsite Lite',
     color: 'border-primary/40',
     highlight: true,
   },
@@ -63,12 +65,36 @@ const SERVICE_TIERS = [
     id: 'full_engagement',
     name: 'Full Engagement',
     price: '$5,000+',
-    desc: 'Facility Intelligence Transformation Program',
-    features: ['Full FIAS assessment', 'Energy baseline report', 'CTS-3 correlation model', 'ROI & investment analysis', 'Implementation roadmap', 'Ongoing VVFI retainer option'],
-    cta: 'Start Full Engagement',
+    priceNote: 'Full transformation',
+    desc: 'Adds staff capability scoring, interlock/safety testing, blowdown lines, compliance fault documentation.',
+    features: ['All Onsite Lite deliverables', 'Staff capability scoring', 'Interlock & safety testing', 'Blowdown & load testing', 'Compliance faults documented', 'Permits & certs verified'],
+    cta: 'Recommend Full Engagement',
     color: 'border-yellow-500/40',
   },
+  {
+    id: 'consulting',
+    name: 'Consulting / VVFI',
+    price: 'Retainer',
+    priceNote: '$500–$2,000/mo',
+    desc: 'Ongoing quarterly/bi-weekly meetings, 30-question bank, Analysis to Improve reports, custom docs.',
+    features: ['Quarterly or bi-weekly meetings', 'Custom 30-question bank', 'Weekly improvement tracking', 'Analysis to Improve report', 'Custom SOPs on request', '20% off FI Platform year 1'],
+    cta: 'Recommend Consulting',
+    color: 'border-green-400/30',
+  },
 ];
+
+interface OpsQuestionnaire {
+  logFrequency: string;
+  logMethod: string;
+  sopLocation: string;
+  safetySignage: string;
+  currentWorkflow: string;
+  staffFollowWorkflow: string;
+  roughWeek: string;
+  leadOperatorName: string;
+  managerName: string;
+  openConcerns: string;
+}
 
 interface ReviewSession {
   id: string;
@@ -78,12 +104,19 @@ interface ReviewSession {
   sqft: string;
   contactEmail: string;
   contactPhone: string;
+  ops: OpsQuestionnaire;
   selectedIssues: string[];
   billNotes: string;
   aiAnalysis: string;
   selectedTier: string;
   reportSent: boolean;
 }
+
+const BLANK_OPS: OpsQuestionnaire = {
+  logFrequency: '', logMethod: '', sopLocation: '', safetySignage: '',
+  currentWorkflow: '', staffFollowWorkflow: '', roughWeek: '',
+  leadOperatorName: '', managerName: '', openConcerns: '',
+};
 
 function blankSession(): ReviewSession {
   return {
@@ -94,6 +127,7 @@ function blankSession(): ReviewSession {
     sqft: '',
     contactEmail: '',
     contactPhone: '',
+    ops: { ...BLANK_OPS },
     selectedIssues: [],
     billNotes: '',
     aiAnalysis: '',
@@ -109,43 +143,65 @@ function generateAnalysis(session: ReviewSession): string {
   const criticals = issues.filter(i => i.impact === 'Critical' || i.impact === 'High');
   const energyIssues = issues.filter(i => i.category === 'Energy');
   const sqft = parseFloat(session.sqft) || 0;
+  const { ops } = session;
 
-  let text = `FACILITY INTELLIGENCE RAPID REVIEW\n`;
+  let text = `FACILITY INTELLIGENCE RAPID REVIEW — ANALYSIS TO IMPROVE\n`;
+  text += `${'='.repeat(60)}\n`;
   text += `Client: ${session.clientName || 'N/A'} | ${session.facilityType} | ${sqft ? sqft.toLocaleString() + ' sqft' : 'Sqft TBD'}\n`;
   text += `Date: ${session.date}\n\n`;
 
-  text += `EXECUTIVE SUMMARY\n`;
-  text += `Based on the initial review, ${session.clientName || 'this facility'} has ${issues.length} identified risk area(s), `;
+  text += `EXECUTIVE SUMMARY\n${'-'.repeat(40)}\n`;
+  text += `Based on the Rapid Review call, ${session.clientName || 'this facility'} has ${issues.length} identified risk area(s), `;
   text += `${criticals.length} of which are rated High or Critical priority.\n\n`;
 
+  // Operational structure findings
+  const opsGaps: string[] = [];
+  if (!ops.logFrequency || ops.logFrequency === 'As-Needed' || ops.logFrequency === 'Never') opsGaps.push('Inconsistent or absent equipment logging');
+  if (!ops.sopLocation || ops.sopLocation.toLowerCase().includes('no') || ops.sopLocation.toLowerCase().includes('none')) opsGaps.push('No documented SOP location / SOPs may not exist');
+  if (ops.safetySignage === 'No') opsGaps.push('No safety awareness or regulatory signage posted');
+  if (!ops.currentWorkflow) opsGaps.push('Workflow not documented or described');
+
+  if (opsGaps.length > 0) {
+    text += `OPERATIONAL STRUCTURE GAPS\n${'-'.repeat(40)}\n`;
+    opsGaps.forEach((g, i) => { text += `${i + 1}. ${g}\n`; });
+    text += '\n';
+  }
+
+  if (ops.roughWeek) {
+    text += `TYPICAL WEEK SUMMARY\n${'-'.repeat(40)}\n`;
+    text += `${ops.roughWeek}\n\n`;
+  }
+
   if (criticals.length > 0) {
-    text += `TOP PRIORITY ISSUES\n`;
-    criticals.forEach((issue, i) => {
-      text += `${i + 1}. [${issue.impact}] ${issue.label}\n`;
-    });
+    text += `TOP PRIORITY RISKS\n${'-'.repeat(40)}\n`;
+    criticals.forEach((issue, i) => { text += `${i + 1}. [${issue.impact}] ${issue.label}\n`; });
     text += '\n';
   }
 
   if (energyIssues.length > 0) {
-    text += `ENERGY OPPORTUNITY\n`;
-    text += `${energyIssues.length} energy-related issue(s) identified. `;
+    text += `ENERGY OPPORTUNITY\n${'-'.repeat(40)}\n`;
     if (sqft > 0) {
       const estSavings = Math.round(sqft * 0.85 * 0.12);
-      text += `Estimated annual savings potential: $${estSavings.toLocaleString()} (based on $0.12/sqft industry benchmark for facilities in this condition range).\n\n`;
+      text += `${energyIssues.length} energy gap(s) identified. Estimated savings potential: $${estSavings.toLocaleString()}/yr\n(based on $0.12/sqft benchmark for facilities in this condition range).\n\n`;
     } else {
-      text += `Complete the energy baseline to quantify savings potential.\n\n`;
+      text += `${energyIssues.length} energy gap(s) identified. Complete energy baseline to quantify savings potential.\n\n`;
     }
   }
 
-  text += `RECOMMENDED NEXT STEP\n`;
-  if (issues.length >= 5) {
-    text += `High issue density — recommend Full Engagement (FITP) to develop a complete transformation roadmap and ROI analysis.`;
-  } else if (issues.length >= 3) {
-    text += `Multiple issues identified — recommend Onsite Lite walkthrough to validate findings and prioritize action items.`;
-  } else {
-    text += `Low-to-moderate concern level — recommend a 30-min AI strategy call to review findings and confirm next steps.`;
+  if (session.billNotes) {
+    text += `UTILITY NOTES\n${'-'.repeat(40)}\n${session.billNotes}\n\n`;
   }
 
+  text += `RECOMMENDATIONS\n${'-'.repeat(40)}\n`;
+  if (issues.length >= 5 || opsGaps.length >= 3) {
+    text += `High issue density — recommend Full Engagement to develop a complete transformation roadmap, interlock & safety testing, and staff capability scoring.\n`;
+  } else if (issues.length >= 3 || opsGaps.length >= 2) {
+    text += `Multiple gaps identified — recommend Onsite Lite walkthrough to log trend data, assess lead operator and manager, and deliver SOPs, EOPs and Checklists.\n`;
+  } else {
+    text += `Low-to-moderate concern level — recommend starting with Onsite Lite to establish a baseline and validate findings from this review.\n`;
+  }
+
+  text += `\nPrepared by: Nexum Suum Facility Intelligence™\n`;
   return text;
 }
 
@@ -179,15 +235,17 @@ export default function RapidReview() {
         : [...d.selectedIssues, id],
     }));
 
+  const updateOps = (field: keyof OpsQuestionnaire, val: string) =>
+    setDraft(d => ({ ...d, ops: { ...d.ops, [field]: val } }));
+
   const runAnalysis = async () => {
     setIsAnalyzing(true);
-    // Generate analysis client-side (AI call would go here if API key available)
-    await new Promise(r => setTimeout(r, 1200));
+    await new Promise(r => setTimeout(r, 1400));
     const analysis = generateAnalysis(draft);
     setDraft(d => ({ ...d, aiAnalysis: analysis }));
     setIsAnalyzing(false);
     toast.success('Analysis complete.');
-    setStep(4);
+    setStep(5);
   };
 
   const saveSession = () => {
@@ -231,11 +289,11 @@ export default function RapidReview() {
           <TabsContent value="review" className="mt-4">
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
-              {['Client Info', 'Utility Bills', 'Issue Selector', 'AI Analysis & Report'].map((s, i) => (
+              {['Client Info', 'Ops Questionnaire', 'Utility Bills', 'Issue Selector', 'Analysis & Report'].map((s, i) => (
                 <div key={s} className="flex items-center gap-2 shrink-0">
                   <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold', step === i + 1 ? 'bg-primary text-primary-foreground' : step > i + 1 ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground')}>{i + 1}</div>
                   <span className={cn('text-sm whitespace-nowrap', step === i + 1 ? 'font-medium' : 'text-muted-foreground')}>{s}</span>
-                  {i < 3 && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                  {i < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
                 </div>
               ))}
             </div>
@@ -285,10 +343,93 @@ export default function RapidReview() {
               </Card>
             )}
 
-            {/* Step 2 — Utility Bills */}
+            {/* Step 2 — Operational Questionnaire (20-30 min call) */}
             {step === 2 && (
               <Card>
-                <CardHeader><CardTitle>Step 2 — Utility Bills</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>Step 2 — Operational Structure Questionnaire</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Complete during the 20–30 min Rapid Review call. Captures how the facility currently operates.</p>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Lead Operator / Engineer Name</Label>
+                      <Input value={draft.ops.leadOperatorName} onChange={e => updateOps('leadOperatorName', e.target.value)} placeholder="Name and role" />
+                    </div>
+                    <div>
+                      <Label>Facility Manager Name</Label>
+                      <Input value={draft.ops.managerName} onChange={e => updateOps('managerName', e.target.value)} placeholder="Name" />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>How often are logs taken?</Label>
+                      <Select value={draft.ops.logFrequency} onValueChange={v => updateOps('logFrequency', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                        <SelectContent>
+                          {['Multiple times daily', 'Daily', 'Weekly', 'Monthly', 'As-Needed', 'Never / No logs taken'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>How are logs taken / stored?</Label>
+                      <Input value={draft.ops.logMethod} onChange={e => updateOps('logMethod', e.target.value)} placeholder="Paper binder, spreadsheet, CMMS, app…" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Where are SOPs kept?</Label>
+                      <Input value={draft.ops.sopLocation} onChange={e => updateOps('sopLocation', e.target.value)} placeholder="Binder in boiler room, shared drive, nowhere…" />
+                    </div>
+                    <div>
+                      <Label>Safety / awareness signage posted?</Label>
+                      <Select value={draft.ops.safetySignage} onValueChange={v => updateOps('safetySignage', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {['Yes — comprehensive', 'Yes — some areas', 'Minimal / outdated', 'No'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <Label>Describe the current workflow — how does day-to-day operation run?</Label>
+                    <Textarea value={draft.ops.currentWorkflow} onChange={e => updateOps('currentWorkflow', e.target.value)} rows={3} placeholder="Walk-through of typical daily tasks, who does what, shift handoffs, etc." />
+                  </div>
+
+                  <div>
+                    <Label>How do staff follow the workflow? Is it communicated, trained, or informal?</Label>
+                    <Textarea value={draft.ops.staffFollowWorkflow} onChange={e => updateOps('staffFollowWorkflow', e.target.value)} rows={3} placeholder="Verbal instruction only? Posted on wall? Part of onboarding? Nobody really knows?" />
+                  </div>
+
+                  <div>
+                    <Label>What does a rough / busy week look like?</Label>
+                    <Textarea value={draft.ops.roughWeek} onChange={e => updateOps('roughWeek', e.target.value)} rows={3} placeholder="Unplanned breakdowns, call-outs, compliance visits, emergencies — paint the picture." />
+                  </div>
+
+                  <div>
+                    <Label>Any open concerns the client wants to flag?</Label>
+                    <Textarea value={draft.ops.openConcerns} onChange={e => updateOps('openConcerns', e.target.value)} rows={2} placeholder="Anything weighing on them — budget, equipment, staff turnover, upcoming inspections…" />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+                    <Button className="flex-1" onClick={() => setStep(3)}>Next <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Step 3 — Utility Bills */}
+            {step === 3 && (
+              <Card>
+                <CardHeader><CardTitle>Step 3 — Utility Bills</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div
                     className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
@@ -300,7 +441,7 @@ export default function RapidReview() {
                     <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" multiple className="hidden"
                       onChange={e => {
                         const files = Array.from(e.target.files || []);
-                        if (files.length) toast.success(`${files.length} file(s) selected (analysis requires backend integration).`);
+                        if (files.length) toast.success(`${files.length} file(s) selected.`);
                       }}
                     />
                   </div>
@@ -310,28 +451,28 @@ export default function RapidReview() {
                       value={draft.billNotes}
                       onChange={e => updateDraft('billNotes', e.target.value)}
                       rows={4}
-                      placeholder="Paste utility data or notes here. Example: Electric avg $4,200/mo, Gas avg $1,800/mo, 12-month total $72,480. EUI estimated at 95 kBTU/sqft/yr…"
+                      placeholder="Electric avg $4,200/mo, Gas avg $1,800/mo, 12-month total $72,480. EUI est. 95 kBTU/sqft/yr…"
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
-                    <Button className="flex-1" onClick={() => setStep(3)}>Next <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                    <Button variant="outline" onClick={() => setStep(2)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+                    <Button className="flex-1" onClick={() => setStep(4)}>Next <ChevronRight className="w-4 h-4 ml-1" /></Button>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Step 3 — Issue Selector */}
-            {step === 3 && (
+            {/* Step 4 — Issue Selector */}
+            {step === 4 && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Step 3 — Issue Selector</CardTitle>
+                    <CardTitle>Step 4 — Issue Selector</CardTitle>
                     <Badge variant="secondary">{draft.selectedIssues.length} selected</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Select all issues and risks identified or suspected for this facility:</p>
+                  <p className="text-sm text-muted-foreground">Select all risks and issues identified or suspected for this facility:</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {TOP_10_ISSUES.map(issue => (
                       <button
@@ -359,12 +500,12 @@ export default function RapidReview() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(2)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+                    <Button variant="outline" onClick={() => setStep(3)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
                     <Button className="flex-1" onClick={runAnalysis} disabled={isAnalyzing}>
                       {isAnalyzing ? (
                         <>Analyzing… <span className="ml-2 animate-spin">⟳</span></>
                       ) : (
-                        <><Sparkles className="w-4 h-4 mr-2" />Generate AI Analysis</>
+                        <><Sparkles className="w-4 h-4 mr-2" />Generate Analysis to Improve</>
                       )}
                     </Button>
                   </div>
@@ -372,8 +513,8 @@ export default function RapidReview() {
               </Card>
             )}
 
-            {/* Step 4 — Analysis & Report */}
-            {step === 4 && (
+            {/* Step 5 — Analysis & Report */}
+            {step === 5 && (
               <div className="space-y-4">
                 {/* Analysis */}
                 <Card className="border-primary/20">
@@ -419,13 +560,14 @@ export default function RapidReview() {
                           className={cn(
                             'text-left border rounded-lg p-4 transition-colors',
                             draft.selectedTier === tier.id ? 'border-primary bg-primary/5' : tier.color,
-                            tier.highlight && draft.selectedTier !== tier.id && 'border-primary/40',
+                            (tier as any).highlight && draft.selectedTier !== tier.id && 'border-primary/40',
                           )}
                         >
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-0.5">
                             <p className="font-bold text-sm">{tier.name}</p>
-                            <Badge variant={tier.highlight ? 'default' : 'secondary'} className="text-xs">{tier.price}</Badge>
+                            <Badge variant={(tier as any).highlight ? 'default' : 'secondary'} className="text-xs">{tier.price}</Badge>
                           </div>
+                          <p className="text-xs text-primary mb-2">{(tier as any).priceNote}</p>
                           <p className="text-xs text-muted-foreground mb-2">{tier.desc}</p>
                           <ul className="space-y-1">
                             {tier.features.map(f => (
@@ -472,7 +614,7 @@ export default function RapidReview() {
                 </Card>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(3)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+                  <Button variant="outline" onClick={() => setStep(4)}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
                   <Button className="flex-1" onClick={saveSession}>
                     <FileText className="w-4 h-4 mr-2" />Save Review Session
                   </Button>
@@ -482,56 +624,56 @@ export default function RapidReview() {
           </TabsContent>
 
           {/* ── Service Tiers ── */}
-          <TabsContent value="tiers" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {SERVICE_TIERS.map(tier => (
-                <Card key={tier.id} className={cn('border', tier.color, tier.highlight && 'shadow-lg')}>
-                  {tier.highlight && (
-                    <div className="bg-primary text-primary-foreground text-xs text-center py-1 px-3 rounded-t font-medium">Most Recommended</div>
+          <TabsContent value="tiers" className="mt-4 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {SERVICE_TIERS.map((tier, idx) => (
+                <Card key={tier.id} className={cn('border flex flex-col', tier.color, (tier as any).highlight && 'shadow-lg ring-1 ring-primary/30')}>
+                  {(tier as any).highlight && (
+                    <div className="bg-primary text-primary-foreground text-xs text-center py-1 px-3 rounded-t font-medium">Most Booked</div>
                   )}
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{tier.name}</CardTitle>
-                      <Badge variant="outline" className="text-lg font-bold px-3 py-1">{tier.price}</Badge>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">{idx + 2}</div>
+                      <CardTitle className="text-base">{tier.name}</CardTitle>
                     </div>
-                    <p className="text-sm text-muted-foreground">{tier.desc}</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold">{tier.price}</span>
+                      <span className="text-xs text-muted-foreground">{(tier as any).priceNote}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{tier.desc}</p>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <ul className="space-y-2">
+                  <CardContent className="flex-1 flex flex-col gap-4">
+                    <ul className="space-y-1.5 flex-1">
                       {tier.features.map(f => (
-                        <li key={f} className="flex items-center gap-2 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />{f}
+                        <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />{f}
                         </li>
                       ))}
                     </ul>
-                    <Separator />
-                    <Button className="w-full" variant={tier.highlight ? 'default' : 'outline'}>
-                      {tier.cta}
-                    </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="border-border/50">
-                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500" />FI Intro → Onsite Lite Pathway</CardTitle></CardHeader>
-                <CardContent className="text-sm text-muted-foreground space-y-2">
-                  <p>1. Client submits utility bills via Rapid Review</p>
-                  <p>2. Nexum generates AI analysis + selects top issues</p>
-                  <p>3. 30-min strategy call to review findings</p>
-                  <p>4. Recommend Onsite Lite or Full Engagement based on issue density</p>
-                  <p>5. Upsell to VVFI retainer after engagement complete</p>
+                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500" />The Engagement Journey</CardTitle></CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-1.5">
+                  <p><span className="text-foreground font-medium">1. FI Intro</span> — Free discovery call. Is FI the right fit?</p>
+                  <p><span className="text-foreground font-medium">2. Rapid Review</span> — Free 20–30 min call. Ops structure + utility review + this tool.</p>
+                  <p><span className="text-foreground font-medium">3. Onsite Lite</span> — $2,500. Half-day on-site. Report + SOPs/EOPs/Checklists.</p>
+                  <p><span className="text-foreground font-medium">4. Full Engagement</span> — $5,000+. Deep staff, system & compliance evaluation.</p>
+                  <p><span className="text-foreground font-medium">5. Consulting / VVFI</span> — Retainer. Ongoing relationship, Analysis to Improve.</p>
                 </CardContent>
               </Card>
 
               <Card className="border-border/50">
                 <CardHeader><CardTitle className="text-sm flex items-center gap-2"><DollarSign className="w-4 h-4 text-green-500" />Revenue Path</CardTitle></CardHeader>
-                <CardContent className="text-sm text-muted-foreground space-y-2">
-                  <p>FI Intro (Free) → Onsite Lite ($2,500) → Full Engagement ($5k+)</p>
-                  <p>+ FI Platform subscription (Basic $10,788/yr → Enterprise)</p>
-                  <p>+ VVFI Retainer ($500–$2,000/mo ongoing)</p>
-                  <p>+ Contractor Install oversight fees</p>
+                <CardContent className="text-sm text-muted-foreground space-y-1.5">
+                  <p>Rapid Review (Free) → Onsite Lite ($2,500) → Full Engagement ($5k+)</p>
+                  <p>+ VVFI Consulting retainer ($500–$2,000/mo ongoing)</p>
+                  <p>+ FI Platform license ($10,788–$83,988/yr) with 20% VVFI discount</p>
+                  <p>+ Custom SOPs, EOPs & Checklists via Doc Generator</p>
                 </CardContent>
               </Card>
             </div>

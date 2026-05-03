@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Check, Flame, Zap, Building2, Crown, ArrowRight, X,
   ShoppingCart, Shield, Star, Sparkles,
+  Phone, MapPin, Users, FileText, TrendingUp, ChevronRight,
+  ClipboardCheck, Wrench, BookOpen, BarChart3, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -398,6 +400,235 @@ export default function Pricing() {
           <h1 className="text-4xl md:text-5xl font-bold">Intelligence for Every Sector</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Real-time monitoring, AI-powered insights, and comprehensive compliance tracking for facility, retail, and public safety operations.
+          </p>
+        </div>
+
+        {/* ── Consulting Services Sequence ────────────────────────────────────── */}
+        <div className="space-y-8">
+          <div className="text-center space-y-2">
+            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Consulting Services</Badge>
+            <h2 className="text-3xl font-bold">The Nexum Engagement Journey</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Every client follows a structured path — from discovery to full transformation.
+              Each stage builds on the last, so you only invest further when it makes sense.
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {[
+              {
+                step: 1,
+                name: 'FI Intro',
+                price: 'Free',
+                priceNote: 'No commitment',
+                icon: BookOpen,
+                color: 'text-blue-400',
+                border: 'border-blue-400/30',
+                bg: 'bg-blue-400/5',
+                badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                desc: 'Learn whether the Facility Intelligence framework is the right fit for your operation.',
+                deliverables: [
+                  'FI framework overview',
+                  'Fit assessment conversation',
+                  'Sector-specific use case review',
+                  'No obligation, no pressure',
+                ],
+              },
+              {
+                step: 2,
+                name: 'Rapid Review',
+                price: 'Free',
+                priceNote: '20–30 min virtual call',
+                icon: Phone,
+                color: 'text-cyan-400',
+                border: 'border-cyan-400/30',
+                bg: 'bg-cyan-400/5',
+                badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+                desc: 'Virtual questionnaire and discovery call to map your current operational structure.',
+                deliverables: [
+                  'How logs are taken & stored',
+                  'Where SOPs are kept',
+                  'Safety awareness & signage review',
+                  'Workflow & staff routines',
+                  'Utility bill summary review',
+                  'What a rough week looks like',
+                ],
+              },
+              {
+                step: 3,
+                name: 'Onsite Lite',
+                price: '$2,500',
+                priceNote: 'Half-day assessment',
+                icon: MapPin,
+                color: 'text-orange-400',
+                border: 'border-orange-400/40',
+                bg: 'bg-orange-400/5',
+                badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                highlight: true,
+                desc: 'On-site walkthrough to log trend data, assess key personnel, and deliver actionable documents.',
+                deliverables: [
+                  'Current trend data logged',
+                  'Lead operator & engineer evaluated',
+                  'Manager workflow observed',
+                  'Emergency & unplanned task handling',
+                  'System & process understanding scored',
+                  'Written assessment report',
+                  'Generated SOPs, EOPs & Checklists',
+                ],
+              },
+              {
+                step: 4,
+                name: 'Full Engagement',
+                price: '$5,000+',
+                priceNote: 'Full transformation program',
+                icon: Wrench,
+                color: 'text-purple-400',
+                border: 'border-purple-400/40',
+                bg: 'bg-purple-400/5',
+                badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                desc: 'Everything in Onsite Lite plus deep staff, system, and compliance evaluation.',
+                deliverables: [
+                  'All staff roles assessed',
+                  'System troubleshooting tracked',
+                  'Interlock & safety testing',
+                  'Blowdown line & load testing',
+                  'Communication flow review',
+                  'Active compliance faults documented',
+                  'Permits, certs & licenses verified',
+                  'Staff capability scoring (boilers, chillers, etc.)',
+                ],
+              },
+              {
+                step: 5,
+                name: 'Consulting / VVFI',
+                price: 'Retainer',
+                priceNote: '$500–$2,000/mo',
+                icon: TrendingUp,
+                color: 'text-green-400',
+                border: 'border-green-400/30',
+                bg: 'bg-green-400/5',
+                badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30',
+                desc: 'Ongoing relationship — quarterly or bi-weekly meetings, custom reports, and Analysis to Improve.',
+                deliverables: [
+                  '30-question bank from past assessments',
+                  'Quarterly or bi-weekly meetings',
+                  'Weekly client improvement reports',
+                  'Analysis to Improve reports',
+                  'Recommendations, feedback & soft advice',
+                  'Custom SOPs & Checklists on request',
+                  '1 original + 2 copies within 72hrs',
+                  '20% off first year FI Platform license',
+                ],
+              },
+            ].map((stage, idx, arr) => {
+              const Icon = stage.icon;
+              return (
+                <div key={stage.step} className="relative flex flex-col">
+                  {/* Connector arrow — desktop */}
+                  {idx < arr.length - 1 && (
+                    <div className="hidden xl:flex absolute -right-2.5 top-8 z-10 items-center justify-center w-5">
+                      <ChevronRight className="w-5 h-5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  <div className={cn(
+                    'flex flex-col h-full rounded-xl border-2 p-5 transition-all hover:scale-[1.01]',
+                    stage.border, stage.bg,
+                    (stage as any).highlight && 'ring-1 ring-orange-400/30 shadow-lg shadow-orange-400/10',
+                  )}>
+                    {/* Step badge */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border', stage.badgeColor)}>
+                        {stage.step}
+                      </div>
+                      <Badge className={cn('text-xs border', stage.badgeColor)}>{stage.price}</Badge>
+                      {(stage as any).highlight && (
+                        <Badge className="text-xs bg-orange-500 text-white border-0 ml-auto">Most Booked</Badge>
+                      )}
+                    </div>
+
+                    {/* Icon + name */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className={cn('w-5 h-5', stage.color)} />
+                      <h3 className="font-bold text-base">{stage.name}</h3>
+                    </div>
+                    <p className={cn('text-xs mb-3', stage.color)}>{stage.priceNote}</p>
+
+                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{stage.desc}</p>
+
+                    <ul className="space-y-1.5 mt-auto">
+                      {stage.deliverables.map((d, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <Check className={cn('w-3 h-3 mt-0.5 shrink-0', stage.color)} />
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* How it flows */}
+          <div className="rounded-xl border border-border/50 bg-card/30 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  <ClipboardCheck className="w-4 h-4 text-primary" />
+                  How the journey works
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  Intro and Rapid Review are always free. After your 20–30 min call, Nexum recommends Onsite Lite or Full Engagement based on what we hear. There's no pressure to move further than the stage that makes sense for you.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  Consulting program
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  If you join the Consulting program, every meeting includes a custom questionnaire drawn from your past assessments. You send weekly updates on improvements made or gaps found — we turn those into a formal Analysis to Improve report.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 font-semibold">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  VVFI retainer perks
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  VVFI retainer covers 1 original report + 2 free copies delivered within 72 hours of request, custom SOPs and Checklists generated on demand, and a 20% discount on your first year of the FI Platform license.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center space-y-3">
+            <p className="text-muted-foreground text-sm">Ready to find out which stage is right for your facility?</p>
+            <div className="flex justify-center gap-3 flex-wrap">
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => document.getElementById('enterprise-quote')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Book a Free Rapid Review <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+              <Button variant="outline" onClick={() => window.open('https://www.nexumsuum.com/facility-intelligence', '_blank')}>
+                Learn About the FI Framework
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* Platform Subscriptions heading */}
+        <div className="text-center space-y-2">
+          <Badge className="bg-primary/20 text-primary border-primary/30">FI Platform</Badge>
+          <h2 className="text-3xl font-bold">Platform Subscriptions</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            The software your team uses every day. Choose by sector — facility, retail, or government.
+            VVFI retainer clients receive 20% off their first year.
           </p>
         </div>
 
