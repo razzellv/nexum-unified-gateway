@@ -1,6 +1,40 @@
 import { useEffect, useState } from "react";
 import { setTokens } from "../auth/token";
 
+const ADMIN_DOMAINS = ['nexumsuum.com', 'nexumsuum-facilityintelligence.com'];
+
+function decodeJwt(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+}
+
+/** Determine where to send the user after auth */
+function getPostAuthRoute(idToken: string | null): string {
+  if (!idToken) return '/pricing';
+  const decoded = decodeJwt(idToken);
+  if (!decoded) return '/pricing';
+
+  const email = (decoded.email || '').toLowerCase();
+  const domain = email.split('@')[1] || '';
+  const role   = decoded['custom:role'] || decoded.role || '';
+  const tier   = decoded['custom:tier'] || decoded['custom:subscription'] || '';
+
+  // Admins always go straight to the app
+  if (ADMIN_DOMAINS.includes(domain) || role === 'admin') return '/';
+
+  // No plan yet → pricing / plan selection
+  if (!tier) return '/pricing';
+
+  // Has plan but hasn't completed onboarding
+  const onboardingDone = localStorage.getItem('nexum_onboarding_complete') === 'true';
+  if (!onboardingDone) return '/onboarding';
+
+  return '/';
+}
+
 export default function AuthCallback() {
   const [status, setStatus] = useState("Initializing...");
   
@@ -66,15 +100,16 @@ export default function AuthCallback() {
         
         setTokens(data.access_token, data.id_token, data.refresh_token);
         console.log("✅ Tokens stored in localStorage");
-        
-        const storedToken = localStorage.getItem('nexum_access_token');
-        console.log("✅ Verified token in storage (first 20 chars):", storedToken?.substring(0, 20));
-        setStatus("Success! Redirecting to dashboard...");
-        
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        console.log("🔵 Redirecting to /");
-        window.location.href = "/";
+
+        const idToken = localStorage.getItem('nexum_id_token');
+        const destination = getPostAuthRoute(idToken);
+        console.log("🔵 Post-auth destination:", destination);
+        setStatus(`Success! Redirecting${destination === '/pricing' ? ' to plan selection' : destination === '/onboarding' ? ' to onboarding' : ' to dashboard'}...`);
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        console.log("🔵 Redirecting to", destination);
+        window.location.href = destination;
         
       } catch (error) {
         console.error("❌ Auth error:", error);

@@ -72,7 +72,19 @@ export type TierFeature =
   | 'chain_of_custody'
   | 'response_metrics'
   | 'weapons_inventory'
-  | 'compliance_reporting';
+  | 'compliance_reporting'
+  // Nexum Internal Tools (admin only)
+  | 'fias'
+  | 'energy_baseline'
+  | 'contractor_installs'
+  | 'vvfi_tool'
+  | 'client_accounts'
+  | 'audit_module'
+  | 'doc_generator'
+  | 'cts3_model'
+  | 'nexum_workspace'
+  | 'rapid_review'
+  | 'internal_guide';
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
   // ── Facility tiers ──────────────────────────────────────────────────────────
@@ -104,7 +116,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'violations_tracking', 'basic_dashboards', 'compliance_logging', 'email_alerts',
       'inventory_library', 'inventory_logger', 'retail_inventory',
       'manager_dashboard', 'supervisor_dashboard', 'messages',
-      'energy_dashboard', 'kanban', 'compliance_documents',
+      'energy_dashboard', 'kanban', 'compliance_documents', 'calendar',
     ],
   },
   business: {
@@ -226,6 +238,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'inventory_library', 'compliance_logging', 'email_alerts',
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
       'waste_tracking', 'supplier_management', 'compliance_documents', 'manager_dashboard',
+      'calendar', 'messages', 'kanban',
     ],
   },
 
@@ -258,6 +271,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_library', 'work_orders', 'compliance_logging', 'email_alerts',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'inventory_library', 'compliance_documents',
+      'calendar', 'messages', 'kanban',
     ],
   },
   command_pro: {
@@ -395,7 +409,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   equipment_metrics:     'business',
   workload:              'business',
   vendors:               'business',
-  calendar:              'business',
+  calendar:              'standard',
   advanced_compliance:   'business',
   mpcc:                  'business',
   // Premium facility
@@ -424,4 +438,16 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   response_metrics:      'command_standard',
   weapons_inventory:     'command_standard',
   compliance_reporting:  'command_standard',
+  // Nexum Internal Tools (admin only — gated at route level, not tier)
+  fias:                  'admin',
+  energy_baseline:       'admin',
+  contractor_installs:   'admin',
+  vvfi_tool:             'admin',
+  client_accounts:       'admin',
+  audit_module:          'admin',
+  doc_generator:         'admin',
+  cts3_model:            'admin',
+  nexum_workspace:       'admin',
+  rapid_review:          'admin',
+  internal_guide:        'admin',
 };

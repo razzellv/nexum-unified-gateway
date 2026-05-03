@@ -68,6 +68,15 @@ import ServiceTechAnalytics from "./pages/ServiceTechAnalytics";
 import FacilityIntelligence from "./pages/FacilityIntelligence";
 import NotFound from "./pages/NotFound";
 import FacilityCommandCenter from "./pages/FacilityCommandCenter";
+import VVFI from "./pages/VVFI";
+import ClientAccounts from "./pages/ClientAccounts";
+import AuditModule from "./pages/AuditModule";
+import DocGenerator from "./pages/DocGenerator";
+import EnergyBaseline from "./pages/EnergyBaseline";
+import ContractorInstalls from "./pages/ContractorInstalls";
+import CTS3Model from "./pages/CTS3Model";
+import RapidReview from "./pages/RapidReview";
+import InternalGuide from "./pages/InternalGuide";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -298,6 +307,10 @@ export const router = createBrowserRouter([
             element: <NexumWorkspace />,
           },
           {
+            path: "nexum-workspace",
+            element: <NexumWorkspace />,
+          },
+          {
             path: "platform-guide",
             element: <PlatformGuide />,
           },
@@ -328,6 +341,42 @@ export const router = createBrowserRouter([
           {
             path: "service-tech-analytics",
             element: <ServiceTechAnalytics />,
+          },
+          {
+            path: "vvfi",
+            element: <VVFI />,
+          },
+          {
+            path: "client-accounts",
+            element: <ClientAccounts />,
+          },
+          {
+            path: "audit-module",
+            element: <AuditModule />,
+          },
+          {
+            path: "doc-generator",
+            element: <DocGenerator />,
+          },
+          {
+            path: "energy-baseline",
+            element: <EnergyBaseline />,
+          },
+          {
+            path: "contractor-installs",
+            element: <ContractorInstalls />,
+          },
+          {
+            path: "cts3-model",
+            element: <CTS3Model />,
+          },
+          {
+            path: "rapid-review",
+            element: <RapidReview />,
+          },
+          {
+            path: "internal-guide",
+            element: <InternalGuide />,
           },
         ],
       },
