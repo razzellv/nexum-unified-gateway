@@ -24,7 +24,7 @@ import {
   TrendingUp,
   LogOut,
   GraduationCap, ShoppingCart, Shield,
-  FileOutput, BookOpen, Wrench, Zap, Search,
+  Wrench,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -111,15 +111,7 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
   { name: 'Workspace', href: '/nexum-workspace', icon: LayoutDashboard, access: 'admin_only' },
   { name: 'FIAS Assessment', href: '/fias', icon: Activity, access: 'admin_only' },
-  { name: 'Rapid Review', href: '/rapid-review', icon: Search, access: 'admin_only' },
-  { name: 'VVFI Retainers', href: '/vvfi', icon: TrendingUp, access: 'admin_only' },
-  { name: 'Client Accounts', href: '/client-accounts', icon: Users, access: 'admin_only' },
-  { name: 'Audit Module', href: '/audit-module', icon: ClipboardList, access: 'admin_only' },
-  { name: 'Doc Generator', href: '/doc-generator', icon: FileOutput, access: 'admin_only' },
-  { name: 'Energy Baseline', href: '/energy-baseline', icon: Zap, access: 'admin_only' },
   { name: 'Contractor Installs', href: '/contractor-installs', icon: Wrench, access: 'admin_only' },
-  { name: 'CTS-3 Model', href: '/cts3-model', icon: BarChart3, access: 'admin_only' },
-  { name: 'Internal Guide', href: '/internal-guide', icon: BookOpen, access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────
