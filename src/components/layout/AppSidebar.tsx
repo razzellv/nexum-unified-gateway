@@ -23,8 +23,9 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass, FileText, Wrench, BrainCircuit} from "lucide-react";
-import { externalApps } from '@/config/systeme';
+  GraduationCap, ShoppingCart, Shield,
+  Wrench, BrainCircuit,
+} from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -35,15 +36,13 @@ import type { TierFeature } from '@/config/tiers';
 import { ROLES_BY_ORG_TYPE } from '@/config/roles';
 
 // ── Role sets ────────────────────────────────────────────────────────────────
-const FACILITY_LEADERSHIP    = ROLES_BY_ORG_TYPE.facility.leadership;
-const RETAIL_STAFF           = ROLES_BY_ORG_TYPE.retail.staff;
-const RETAIL_LEADERSHIP      = ROLES_BY_ORG_TYPE.retail.leadership;
-const GOVT_STAFF             = ROLES_BY_ORG_TYPE.government.staff;
-const GOVT_LEADERSHIP        = ROLES_BY_ORG_TYPE.government.leadership;
-const SERVICE_TECH_STAFF     = ROLES_BY_ORG_TYPE.service_tech.staff;
-const SERVICE_TECH_LEADERSHIP = ROLES_BY_ORG_TYPE.service_tech.leadership;
+const FACILITY_LEADERSHIP  = ROLES_BY_ORG_TYPE.facility.leadership;
+const RETAIL_STAFF         = ROLES_BY_ORG_TYPE.retail.staff;
+const RETAIL_LEADERSHIP    = ROLES_BY_ORG_TYPE.retail.leadership;
+const GOVT_STAFF           = ROLES_BY_ORG_TYPE.government.staff;
+const GOVT_LEADERSHIP      = ROLES_BY_ORG_TYPE.government.leadership;
 // Legacy facility staff definition
-const FACILITY_STAFF         = ROLES_BY_ORG_TYPE.facility.staff;
+const FACILITY_STAFF       = ROLES_BY_ORG_TYPE.facility.staff;
 
 type NavItem = {
   name?: string;
@@ -55,6 +54,8 @@ type NavItem = {
   tier?: TierFeature;
   /** Only show for these org types (undefined = all) */
   orgTypes?: string[];
+  /** Set at runtime by getVisibleItems when tier check fails */
+  _locked?: boolean;
 };
 
 const allNavItems: NavItem[] = [
@@ -92,15 +93,13 @@ const allNavItems: NavItem[] = [
   { name: 'Equipment Library', href: '/equipment-library', icon: Package, access: 'all', tier: 'equipment_library' },
   { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
   { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
-  { name: 'Service Tech Intelligence', href: '/retail-dashboard', icon: Wrench, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
-  { name: 'Field Operations Intel', href: '/retail-intelligence', icon: BarChart3, access: 'leadership', tier: 'retail_inventory', orgTypes: ['retail'] },
+  { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
   { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
-  { name: 'Property & Fleet', href: '/property-dashboard', icon: Building2, access: 'all', tier: 'retail_inventory', orgTypes: ['property', 'entrepreneur'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
 
   { type: 'separator', name: 'Dashboards', access: 'all' },
-  { name: 'Unified Dashboard', href: '/dashboard', icon: LayoutDashboard, access: 'leadership', tier: 'basic_dashboards' },
+  { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
   { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
@@ -108,31 +107,13 @@ const allNavItems: NavItem[] = [
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
-  // Leadership tools
-  { name: 'Equipment History',    href: '/historical-data',        icon: BarChart3,    access: 'leadership', tier: 'energy_dashboard' },
-  { name: 'Contractor Installs',  href: '/contractor-installs',    icon: HardHat,      access: 'leadership' },
-  { name: 'Efficiency Report',    href: '/org-efficiency-report',  icon: FileText,     access: 'leadership', tier: 'audit_report' },
   { name: 'OCCAE',                href: '/occae',                  icon: BrainCircuit, access: 'leadership', tier: 'occae' },
 
-  // Vendor portal — vendor role only
-  { type: 'separator', name: 'Vendor Portal', access: 'vendor' },
-  { name: 'My Dashboard', href: '/vendor-dashboard', icon: Wrench, access: 'vendor' },
-
-  // Service Tech portal — service_tech org type
-  { type: 'separator', name: 'Service Operations', access: 'service_tech' },
-  { name: 'Service Dashboard', href: '/service-tech', icon: Wrench, access: 'service_tech' },
-  { name: 'Service Analytics', href: '/service-tech-analytics', icon: BarChart3, access: 'service_tech' },
-  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'service_tech' },
-  { name: 'Vendors', href: '/vendors', icon: Building2, access: 'service_tech' },
-  { name: 'Calendar', href: '/calendar', icon: Calendar, access: 'service_tech' },
-
-  // Nexum Suum internal tools — admin only
+  // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
-  { name: 'FIAS',            href: '/fias',           icon: ClipboardCheck, access: 'admin_only' },
-  { name: 'Policy Guide',    href: '/policy-guide',   icon: BookOpen,       access: 'admin_only' },
-  { name: 'Platform Guide',  href: '/platform-guide', icon: BookOpen,       access: 'all' },
-  { name: 'Workspace',       href: '/workspace',      icon: Briefcase,      access: 'admin_only' },
-  { name: 'Facility Compass', href: '__fc_launch__',  icon: Compass,        access: 'admin_only' },
+  { name: 'Workspace', href: '/nexum-workspace', icon: LayoutDashboard, access: 'admin_only' },
+  { name: 'FIAS Assessment', href: '/fias', icon: Activity, access: 'admin_only' },
+  { name: 'Contractor Installs', href: '/contractor-installs', icon: Wrench, access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────
@@ -141,54 +122,29 @@ function getVisibleItems(
   orgType: string,
   isLeadership: boolean,
   isAdmin: boolean,
+  canFeature: (f: TierFeature) => boolean,
 ): NavItem[] {
-  const isRetailStaff      = orgType === 'retail'       && RETAIL_STAFF.includes(role);
-  const isRetailLeader     = orgType === 'retail'       && RETAIL_LEADERSHIP.includes(role);
-  const isGovtStaff        = orgType === 'government'   && GOVT_STAFF.includes(role);
-  const isGovtLeader       = orgType === 'government'   && GOVT_LEADERSHIP.includes(role);
-  const isServiceTech      = orgType === 'service_tech' || SERVICE_TECH_STAFF.includes(role) || SERVICE_TECH_LEADERSHIP.includes(role);
-
-  // Active purchased add-on modules (persist across tier upgrades)
-  let activeModules: string[] = [];
-  try { activeModules = JSON.parse(localStorage.getItem('nexum_active_modules') || '[]'); } catch { /* ignore */ }
-  const hasRetailModule    = activeModules.includes('addon_retail');
-  const hasGovtModule      = activeModules.includes('addon_govt');
-  const hasPropertyModule  = activeModules.includes('addon_property') || orgType === 'property' || orgType === 'entrepreneur';
-
-  const isVendor = role === 'vendor';
-
-  // Vendor role: only sees vendor portal items + Main Hub
-  if (isVendor) {
-    return allNavItems.filter(item =>
-      item.access === 'vendor' || item.href === '/'
-    );
-  }
-
-  // Service tech org/role: only sees service_tech items + Main Hub
-  if (isServiceTech && !isAdmin) {
-    return allNavItems.filter(item =>
-      item.access === 'service_tech' || item.href === '/'
-    );
-  }
+  const isRetailStaff    = orgType === 'retail'      && RETAIL_STAFF.includes(role);
+  const isRetailLeader   = orgType === 'retail'      && RETAIL_LEADERSHIP.includes(role);
+  const isGovtStaff      = orgType === 'government'  && GOVT_STAFF.includes(role);
+  const isGovtLeader     = orgType === 'government'  && GOVT_LEADERSHIP.includes(role);
 
   return allNavItems.filter(item => {
-    // Vendor-only items — never shown to non-vendors
-    if (item.access === 'vendor') return false;
-
-    // Service-tech-only items — never shown to non-service-tech (except admin)
-    if (item.access === 'service_tech') return isAdmin;
-
     // Admin-only items (e.g. FIAS) — never shown to non-admins
     if (item.access === 'admin_only') return isAdmin;
 
+    // Tier-locked items: keep visible so users see what's available, but mark locked
+    // (TierBadge handles the visual lock; routing guard handles access)
+    // Exception: admin always has full access
+    if (item.tier && !isAdmin && !canFeature(item.tier)) {
+      item._locked = true; // mark for visual treatment
+    } else {
+      item._locked = false;
+    }
+
     // Org-type filter — admin sees all org dashboards; others only see their own
-    // Exception: if user purchased the Retail/Govt add-on module, show those dashboards regardless of org type
     if (item.orgTypes && item.orgTypes.length > 0) {
-      if (isAdmin) { /* admin always sees all */ }
-      else if (item.orgTypes.includes('retail')                         && hasRetailModule)   { /* add-on purchased */ }
-      else if (item.orgTypes.includes('government')                     && hasGovtModule)    { /* add-on purchased */ }
-      else if ((item.orgTypes.includes('property') || item.orgTypes.includes('entrepreneur')) && hasPropertyModule) { /* add-on purchased */ }
-      else if (!item.orgTypes.includes(orgType)) return false;
+      if (!isAdmin && !item.orgTypes.includes(orgType)) return false;
     }
 
     if (item.type === 'separator') {
@@ -242,16 +198,16 @@ export function AppSidebar() {
     ...FACILITY_LEADERSHIP,
     ...RETAIL_LEADERSHIP,
     ...GOVT_LEADERSHIP,
-    ...SERVICE_TECH_LEADERSHIP,
     'admin',
   ];
   const isLeadership = allLeadershipRoles.includes(role);
 
-  const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin);
+  const { can } = useTier();
+  const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin, can);
 
   return (
     <aside className={cn(
-      "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0 h-full",
+      "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
       collapsed ? "w-0 md:w-16 overflow-hidden" : "w-64"
     )}>
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
@@ -280,30 +236,20 @@ export function AppSidebar() {
                 </div>
               );
             }
-            if (item.href === '__fc_launch__') {
+            if (item._locked) {
+              // Show locked items dimmed — click goes to pricing to upgrade
+              const Icon = item.icon!;
               return (
-                <button
-                  key="fc-launch"
-                  onClick={() => {
-                    const app = externalApps.find(a => a.id === 'facility-compass');
-                    const token = localStorage.getItem('nexum_id_token') || '';
-                    const facilityId = localStorage.getItem('nexum_facility_id') || '';
-                    if (app?.url) {
-                      window.open(
-                        `${app.url}?token=${token}&facilityId=${facilityId}&source=nexum-gateway`,
-                        '_blank'
-                      );
-                    }
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-                    "hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                    collapsed && "justify-center px-2"
-                  )}
+                <NavLink
+                  key={item.href || item.name}
+                  to="/pricing"
+                  icon={item.icon!}
+                  collapsed={collapsed}
+                  className="opacity-40 hover:opacity-60"
                 >
-                  <Compass className="w-5 h-5 shrink-0" />
-                  {!collapsed && <span className="truncate">Facility Compass</span>}
-                </button>
+                  {item.name}
+                  {!collapsed && item.tier && <TierBadge feature={item.tier} />}
+                </NavLink>
               );
             }
             return (

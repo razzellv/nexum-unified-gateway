@@ -299,6 +299,10 @@ export const router = createBrowserRouter([
             element: <NexumWorkspace />,
           },
           {
+            path: "nexum-workspace",
+            element: <NexumWorkspace />,
+          },
+          {
             path: "platform-guide",
             element: <PlatformGuide />,
           },

@@ -71,8 +71,8 @@ export const handler = async (event) => {
     }
   }
 
-  // ── PATCH /pilot-applications/{id}/{action} ─────────────────────────────────
-  if (method === "PATCH") {
+  // ── POST|PATCH /pilot-applications/{id}/{action} ────────────────────────────
+  if (method === "POST" || method === "PATCH") {
     try {
       const pathParts = (event?.requestContext?.http?.path || event?.path || "").split("/");
       const appId     = pathParts[pathParts.length - 2];
