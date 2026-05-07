@@ -62,6 +62,7 @@ import HistoricalData from "./pages/HistoricalData";
 import Virtuous from "./pages/Virtuous";
 import VendorDashboard from "./pages/VendorDashboard";
 import NotFound from "./pages/NotFound";
+import OCCAE from "./pages/OCCAE";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -302,6 +303,10 @@ export const router = createBrowserRouter([
           {
             path: "vendor-dashboard",
             element: <VendorDashboard />,
+          },
+          {
+            path: "occae",
+            element: <OCCAE />,
           },
         ],
       },

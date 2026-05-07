@@ -23,7 +23,7 @@ import {
   Gauge,
   TrendingUp,
   LogOut,
-  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass, FileText, Wrench} from "lucide-react";
+  GraduationCap, ShoppingCart, Shield, ClipboardCheck, BookOpen, Briefcase, HardHat, Compass, FileText, Wrench, BrainCircuit} from "lucide-react";
 import { externalApps } from '@/config/systeme';
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -106,9 +106,10 @@ const allNavItems: NavItem[] = [
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
   // Leadership tools
-  { name: 'Equipment History',    href: '/historical-data',        icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
-  { name: 'Contractor Installs',  href: '/contractor-installs',    icon: HardHat,   access: 'leadership' },
-  { name: 'Efficiency Report',    href: '/org-efficiency-report',  icon: FileText,  access: 'leadership', tier: 'audit_report' },
+  { name: 'Equipment History',    href: '/historical-data',        icon: BarChart3,    access: 'leadership', tier: 'energy_dashboard' },
+  { name: 'Contractor Installs',  href: '/contractor-installs',    icon: HardHat,      access: 'leadership' },
+  { name: 'Efficiency Report',    href: '/org-efficiency-report',  icon: FileText,     access: 'leadership', tier: 'audit_report' },
+  { name: 'OCCAE',                href: '/occae',                  icon: BrainCircuit, access: 'leadership', tier: 'occae' },
 
   // Vendor portal — vendor role only
   { type: 'separator', name: 'Vendor Portal', access: 'vendor' },

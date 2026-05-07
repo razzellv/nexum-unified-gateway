@@ -60,6 +60,7 @@ export type TierFeature =
   | 'custom_integrations'
   | 'dedicated_manager'
   | 'custom_sla'
+  | 'occae'
   // Retail
   | 'shelf_life_alerts'
   | 'health_inspection_score'
@@ -168,7 +169,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
-      'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla',
+      'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
     ],
   },
   admin: {
@@ -190,7 +191,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
-      'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla',
+      'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
       'waste_tracking', 'supplier_management',
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
@@ -411,6 +412,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   custom_integrations:   'enterprise',
   dedicated_manager:     'enterprise',
   custom_sla:            'enterprise',
+  occae:                 'enterprise',
   // Retail
   shelf_life_alerts:     'retail_starter',
   health_inspection_score: 'retail_starter',
