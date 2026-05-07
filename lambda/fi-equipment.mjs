@@ -36,6 +36,7 @@ function getMethod(e)  { return e?.requestContext?.http?.method || e?.httpMethod
 function getPath(e)    { return e?.requestContext?.http?.path   || e?.path       || ""; }
 function getClaims(e)  { return e?.requestContext?.authorizer?.jwt?.claims || e?.requestContext?.authorizer?.claims || null; }
 function facilityId(c) { return c?.["custom:facilityId"] || c?.["custom:orgId"] || "facility-001"; }
+function orgId(c)      { return c?.["custom:orgId"] || c?.["custom:facilityId"] || "org-001"; }
 
 function newId(prefix = "equip") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
@@ -267,16 +268,19 @@ export const handler = async (event) => {
   }
 
   // ── GET /equipment ──────────────────────────────────────────────────────────
+  // EquipmentLibrary key: equipmentId (HASH only), GSI: orgId-index (orgId+createdAt)
   if (method === "GET" && (path.endsWith("/equipment") || path.includes("/equipment?"))) {
     try {
       const qs    = event.queryStringParameters || {};
       const limit = Math.min(parseInt(qs.limit || "200"), 500);
       const type  = qs.type || qs.systemType;
+      const oid   = orgId(claims);
 
       let params = {
         TableName:                 EQUIP_TABLE,
-        KeyConditionExpression:    "PK = :pk",
-        ExpressionAttributeValues: { ":pk": `FACILITY#${fid}` },
+        IndexName:                 "orgId-index",
+        KeyConditionExpression:    "orgId = :oid",
+        ExpressionAttributeValues: { ":oid": oid },
         ScanIndexForward:          false,
         Limit:                     limit,
       };
@@ -308,10 +312,10 @@ export const handler = async (event) => {
       const now = new Date().toISOString();
       const id  = newId("equip");
 
+      const oid = orgId(claims);
       const item = {
-        PK:              `FACILITY#${fid}`,
-        SK:              `EQUIP#${id}`,
         equipmentId:     id,
+        orgId:           oid,
         systemId:        body.systemId        || id,
         facilityId:      fid,
         name:            body.name            || body.systemType || "",
@@ -366,7 +370,7 @@ export const handler = async (event) => {
 
       const params = {
         TableName:                 EQUIP_TABLE,
-        Key:                       { PK: `FACILITY#${fid}`, SK: `EQUIP#${id}` },
+        Key:                       { equipmentId: id },
         UpdateExpression:          "SET " + setExprs.join(", "),
         ExpressionAttributeValues: vals,
       };
@@ -386,7 +390,7 @@ export const handler = async (event) => {
       const id = path.split("/equipment/")[1].split("?")[0];
       await ddb.send(new DeleteCommand({
         TableName: EQUIP_TABLE,
-        Key:       { PK: `FACILITY#${fid}`, SK: `EQUIP#${id}` },
+        Key:       { equipmentId: id },
       }));
       return json(200, { success: true });
     } catch (err) {

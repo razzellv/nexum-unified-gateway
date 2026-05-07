@@ -75,6 +75,10 @@ export const handler = async (event) => {
 
   const fid = facilityId(claims);
 
+  // NexumFIASAssessments key: clientId (HASH) + assessedAt (RANGE)
+  // We use facilityId as clientId so each facility queries its own sessions.
+  // PATCH/DELETE use assessedAt (returned in GET) as the path param.
+
   // ── GET /vvfi ────────────────────────────────────────────────────────────────
   if (method === "GET" && (path.endsWith("/vvfi") || path.includes("/vvfi?"))) {
     try {
@@ -84,8 +88,8 @@ export const handler = async (event) => {
 
       let params = {
         TableName:                 TABLE,
-        KeyConditionExpression:    "PK = :pk",
-        ExpressionAttributeValues: { ":pk": `FACILITY#${fid}` },
+        KeyConditionExpression:    "clientId = :cid",
+        ExpressionAttributeValues: { ":cid": fid },
         ScanIndexForward:          false,
         Limit:                     limit,
       };
@@ -116,8 +120,8 @@ export const handler = async (event) => {
       const id   = newId();
 
       const item = {
-        PK:               `FACILITY#${fid}`,
-        SK:               `VVFI#${now}#${id}`,
+        clientId:         fid,          // HASH key
+        assessedAt:       now,          // RANGE key
         sessionId:        id,
         assessmentId:     id,
         facilityId:       fid,
@@ -142,17 +146,18 @@ export const handler = async (event) => {
       };
 
       await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-      return json(200, { success: true, sessionId: id, session: mapItem(item, fid) });
+      return json(200, { success: true, sessionId: id, assessedAt: now, session: mapItem(item, fid) });
     } catch (err) {
       console.error("POST /vvfi:", err);
       return json(500, { message: "Failed to save VVFI session.", detail: err.message });
     }
   }
 
-  // ── PATCH /vvfi/{id} ─────────────────────────────────────────────────────────
+  // ── PATCH /vvfi/{assessedAt} ──────────────────────────────────────────────────
+  // {id} in the route = URL-encoded assessedAt timestamp from the GET response
   if (method === "PATCH" && path.includes("/vvfi/")) {
     try {
-      const id  = path.split("/vvfi/")[1].split("?")[0];
+      const assessedAt = decodeURIComponent(path.split("/vvfi/")[1].split("?")[0]);
       let raw   = event.body || "{}";
       if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
       const body = JSON.parse(raw);
@@ -177,27 +182,27 @@ export const handler = async (event) => {
 
       const params = {
         TableName:                 TABLE,
-        Key:                       { PK: `FACILITY#${fid}`, SK: `VVFI#${id}` },
+        Key:                       { clientId: fid, assessedAt },
         UpdateExpression:          "SET " + setExprs.join(", "),
         ExpressionAttributeValues: vals,
       };
       if (Object.keys(names).length > 0) params.ExpressionAttributeNames = names;
 
       await ddb.send(new UpdateCommand(params));
-      return json(200, { success: true, sessionId: id });
+      return json(200, { success: true, assessedAt });
     } catch (err) {
       console.error("PATCH /vvfi:", err);
       return json(500, { message: "Failed to update VVFI session.", detail: err.message });
     }
   }
 
-  // ── DELETE /vvfi/{id} ────────────────────────────────────────────────────────
+  // ── DELETE /vvfi/{assessedAt} ─────────────────────────────────────────────────
   if (method === "DELETE" && path.includes("/vvfi/")) {
     try {
-      const id = path.split("/vvfi/")[1].split("?")[0];
+      const assessedAt = decodeURIComponent(path.split("/vvfi/")[1].split("?")[0]);
       await ddb.send(new DeleteCommand({
         TableName: TABLE,
-        Key:       { PK: `FACILITY#${fid}`, SK: `VVFI#${id}` },
+        Key:       { clientId: fid, assessedAt },
       }));
       return json(200, { success: true });
     } catch (err) {
