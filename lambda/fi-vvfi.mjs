@@ -79,6 +79,112 @@ export const handler = async (event) => {
   // We use facilityId as clientId so each facility queries its own sessions.
   // PATCH/DELETE use assessedAt (returned in GET) as the path param.
 
+  // ── POST /vvfi — AI chat modes ────────────────────────────────────────────────
+  // Handles text-instructor and ethics-advisor before falling through to CRUD.
+  if (method === "POST" && path.endsWith("/vvfi")) {
+    let raw = event.body || "{}";
+    if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
+    const body = JSON.parse(raw);
+
+    if (body.mode === "text-instructor" || body.mode === "ethics-advisor") {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) return json(500, { message: "ANTHROPIC_API_KEY not configured on Lambda" });
+
+      const history = (body.conversationHistory || []).map(m => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content || ""),
+      }));
+      const messages = [...history, { role: "user", content: String(body.question || "") }];
+
+      const isEthics = body.mode === "ethics-advisor";
+      const systemPrompt = isEthics
+        ? `You are a Facility Ethics Advisor helping facility professionals navigate ethical dilemmas. Consider professional standards, safety obligations, regulatory compliance, and organizational integrity.
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
+{"response":"your advisory text","isCritical":false}
+
+Set isCritical to true ONLY if the situation involves imminent physical danger, serious criminal activity, or life-safety emergencies requiring immediate action.`
+        : `You are VVFI (Virtual Virtuous Facility Instructor), an AI-powered technical mentor for facility professionals. Provide expert guidance on HVAC, boilers, chillers, pumps, building systems, maintenance procedures, compliance, and safety. Give detailed, SOP-style responses with step-by-step guidance when appropriate. Be concise but thorough.`;
+
+      try {
+        const ar = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key":          apiKey,
+            "anthropic-version":   "2023-06-01",
+            "content-type":        "application/json",
+          },
+          body: JSON.stringify({
+            model:      "claude-sonnet-4-6",
+            max_tokens: 1500,
+            system:     systemPrompt,
+            messages,
+          }),
+        });
+
+        if (!ar.ok) {
+          const errText = await ar.text();
+          console.error("Anthropic error:", errText);
+          return json(502, { message: "AI service error", detail: errText });
+        }
+
+        const result = await ar.json();
+        const text   = result.content?.[0]?.text || "";
+
+        if (isEthics) {
+          try {
+            const parsed = JSON.parse(text);
+            return json(200, { response: parsed.response || text, isCritical: parsed.isCritical || false });
+          } catch {
+            return json(200, { response: text, isCritical: false });
+          }
+        }
+        return json(200, { response: text });
+      } catch (err) {
+        console.error("AI chat error:", err);
+        return json(500, { message: "Failed to get AI response.", detail: err.message });
+      }
+    }
+
+    // ── CRUD POST — fall through handled below ───────────────────────────────
+    try {
+      const now = new Date().toISOString();
+      const id  = newId();
+
+      const item = {
+        clientId:         fid,
+        assessedAt:       now,
+        sessionId:        id,
+        assessmentId:     id,
+        facilityId:       fid,
+        facilityName:     body.facilityName     || "",
+        assessorId:       body.assessorId       || claims?.sub || "",
+        assessorName:     body.assessorName     || claims?.name || claims?.email || "",
+        status:           body.status           || "draft",
+        overallScore:     body.overallScore     ?? null,
+        ctsLevel:         body.ctsLevel         ?? null,
+        vvfiTier:         body.vvfiTier         || null,
+        confidenceScore:  body.confidenceScore  ?? null,
+        sections:         body.sections         || {},
+        findings:         body.findings         || [],
+        recommendations:  body.recommendations  || [],
+        systemsAssessed:  body.systemsAssessed  || [],
+        dataPoints:       body.dataPoints       ?? 0,
+        reportUrl:        body.reportUrl        || null,
+        notes:            body.notes            || "",
+        completedAt:      body.completedAt      || null,
+        createdAt:        now,
+        updatedAt:        now,
+      };
+
+      await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+      return json(200, { success: true, sessionId: id, assessedAt: now, session: mapItem(item, fid) });
+    } catch (err) {
+      console.error("POST /vvfi (crud):", err);
+      return json(500, { message: "Failed to save VVFI session.", detail: err.message });
+    }
+  }
+
   // ── GET /vvfi ────────────────────────────────────────────────────────────────
   if (method === "GET" && (path.endsWith("/vvfi") || path.includes("/vvfi?"))) {
     try {
@@ -107,49 +213,6 @@ export const handler = async (event) => {
     } catch (err) {
       console.error("GET /vvfi:", err);
       return json(500, { message: "Failed to fetch VVFI sessions.", detail: err.message });
-    }
-  }
-
-  // ── POST /vvfi ───────────────────────────────────────────────────────────────
-  if (method === "POST" && path.endsWith("/vvfi")) {
-    try {
-      let raw = event.body || "{}";
-      if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
-      const body = JSON.parse(raw);
-      const now  = new Date().toISOString();
-      const id   = newId();
-
-      const item = {
-        clientId:         fid,          // HASH key
-        assessedAt:       now,          // RANGE key
-        sessionId:        id,
-        assessmentId:     id,
-        facilityId:       fid,
-        facilityName:     body.facilityName     || "",
-        assessorId:       body.assessorId       || claims?.sub || "",
-        assessorName:     body.assessorName     || claims?.name || claims?.email || "",
-        status:           body.status           || "draft",
-        overallScore:     body.overallScore     ?? null,
-        ctsLevel:         body.ctsLevel         ?? null,
-        vvfiTier:         body.vvfiTier         || null,
-        confidenceScore:  body.confidenceScore  ?? null,
-        sections:         body.sections         || {},
-        findings:         body.findings         || [],
-        recommendations:  body.recommendations  || [],
-        systemsAssessed:  body.systemsAssessed  || [],
-        dataPoints:       body.dataPoints       ?? 0,
-        reportUrl:        body.reportUrl        || null,
-        notes:            body.notes            || "",
-        completedAt:      body.completedAt      || null,
-        createdAt:        now,
-        updatedAt:        now,
-      };
-
-      await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-      return json(200, { success: true, sessionId: id, assessedAt: now, session: mapItem(item, fid) });
-    } catch (err) {
-      console.error("POST /vvfi:", err);
-      return json(500, { message: "Failed to save VVFI session.", detail: err.message });
     }
   }
 
