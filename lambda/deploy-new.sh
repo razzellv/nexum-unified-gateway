@@ -199,19 +199,19 @@ echo "4/5  API Gateway Routes"
 echo "     (existing routes are updated in-place; new ones created)"
 
 # FIAS Clients — 4 routes
-add_route "GET    /fias/clients"              "nexum-fias-clients" "jwt"
-add_route "POST   /fias/clients"              "nexum-fias-clients" "jwt"
-add_route "PUT    /fias/clients/{clientId}"   "nexum-fias-clients" "jwt"
-add_route "DELETE /fias/clients/{clientId}"   "nexum-fias-clients" "jwt"
+add_route "GET /fias/clients" "nexum-fias-clients" "jwt"
+add_route "POST /fias/clients" "nexum-fias-clients" "jwt"
+add_route "PUT /fias/clients/{clientId}" "nexum-fias-clients" "jwt"
+add_route "DELETE /fias/clients/{clientId}" "nexum-fias-clients" "jwt"
 
 # Leads — 4 routes (JWT)
-add_route "GET    /leads"                     "nexum-leads" "jwt"
-add_route "POST   /leads"                     "nexum-leads" "jwt"
-add_route "PATCH  /leads/{id}"                "nexum-leads" "jwt"
-add_route "DELETE /leads/{id}"                "nexum-leads" "jwt"
+add_route "GET /leads" "nexum-leads" "jwt"
+add_route "POST /leads" "nexum-leads" "jwt"
+add_route "PATCH /leads/{id}" "nexum-leads" "jwt"
+add_route "DELETE /leads/{id}" "nexum-leads" "jwt"
 
 # Calendly webhook — public, no auth
-add_route "POST   /leads/webhook/calendly"    "nexum-leads" "none"
+add_route "POST /leads/webhook/calendly" "nexum-leads" "none"
 
 echo ""
 echo "5/5  Verify routes"
