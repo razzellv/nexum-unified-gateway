@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || process.env.Nexum_Suum_Key });
 
 const SYSTEM_PROMPTS = {
   'text-instructor': `You are VVFI (Virtual Virtuous Facility Instructor), an AI-powered technical mentor for facility professionals. Provide expert guidance on HVAC, boilers, chillers, pumps, building systems, maintenance procedures, compliance, and safety. Give detailed, SOP-style responses with step-by-step guidance when appropriate. Be concise but thorough.`,
