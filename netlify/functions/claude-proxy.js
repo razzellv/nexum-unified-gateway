@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || process.env.Nexum_Suum_Key });
+const apiKey = process.env.ANTHROPIC_API_KEY || process.env.Nexum_Suum_Key || '';
+const client = apiKey ? new Anthropic({ apiKey }) : null;
 
 const SYSTEM_PROMPTS = {
   'text-instructor': `You are VVFI (Virtual Virtuous Facility Instructor), an AI-powered technical mentor for facility professionals. Provide expert guidance on HVAC, boilers, chillers, pumps, building systems, maintenance procedures, compliance, and safety. Give detailed, SOP-style responses with step-by-step guidance when appropriate. Be concise but thorough.`,
@@ -39,6 +40,14 @@ export const handler = async (event) => {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   };
+
+  if (!client) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'API key not configured', detail: 'Set ANTHROPIC_API_KEY in Netlify environment variables' }),
+    };
+  }
 
   try {
     const body = JSON.parse(event.body || '{}');
