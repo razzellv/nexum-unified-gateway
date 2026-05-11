@@ -1,4 +1,4 @@
-// ── NEXUM SUUM SUBSCRIPTION TIERS ────────────────────────────────────────────
+// ── NEXUM SUUM SUBSCRIPTION TIERS ─────────────────────────────────────────────────────────────────────────
 // Central source of truth for all tier-based feature gating
 
 export type SubscriptionTier =
@@ -77,7 +77,7 @@ export type TierFeature =
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
-  // ── Facility tiers ──────────────────────────────────────────────────────────
+  // ── Facility tiers ──────────────────────────────────────────────────────────────────────
   basic: {
     id: 'basic',
     name: 'Basic',
@@ -200,7 +200,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     ],
   },
 
-  // ── Retail tiers ────────────────────────────────────────────────────────────
+  // ── Retail tiers ───────────────────────────────────────────────────────────────────────
   retail_starter: {
     id: 'retail_starter',
     name: 'Retail Starter',
@@ -232,7 +232,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     ],
   },
 
-  // ── Government / Public Safety tiers ────────────────────────────────────────
+  // ── Government / Public Safety tiers ──────────────────────────────────────────────
   command_basic: {
     id: 'command_basic',
     name: 'Command Basic',
@@ -285,7 +285,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
   },
 };
 
-// ── Org-type specific features ────────────────────────────────────────────────
+// ── Org-type specific features ──────────────────────────────────────────────────────────────────
 // Retail/Govt orgs always retain access to their org-specific features,
 // AND they inherit full facility tier features when they upgrade to
 // standard / business / premium / enterprise.
@@ -302,7 +302,7 @@ const FACILITY_UPGRADE_TIERS: SubscriptionTier[] = ['standard', 'business', 'pre
 
 export type OrgType = 'facility' | 'retail' | 'government';
 
-// ── TIER HOOK ─────────────────────────────────────────────────────────────────
+// ── TIER HOOK ───────────────────────────────────────────────────────────────────────────────
 export function hasFeature(
   tier: SubscriptionTier | undefined,
   feature: TierFeature,
