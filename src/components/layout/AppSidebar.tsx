@@ -107,7 +107,7 @@ const allNavItems: NavItem[] = [
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
-  { name: 'OCCAE',                href: '/occae',                  icon: BrainCircuit, access: 'leadership', tier: 'occae' },
+  { name: 'OCCAE', href: '/occae', icon: BrainCircuit, access: 'leadership', tier: 'occae' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
