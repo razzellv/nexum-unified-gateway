@@ -69,6 +69,7 @@ import FacilityIntelligence from "./pages/FacilityIntelligence";
 import NotFound from "./pages/NotFound";
 import FacilityCommandCenter from "./pages/FacilityCommandCenter";
 import OCCAE from "./pages/OCCAE";
+import OperationalIntelligence from "./pages/OperationalIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -337,6 +338,10 @@ export const router = createBrowserRouter([
           {
             path: "occae",
             element: <OCCAE />,
+          },
+          {
+            path: "operational-intelligence",
+            element: <OperationalIntelligence />,
           },
         ],
       },
