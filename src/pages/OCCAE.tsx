@@ -1,6 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { TierGate } from '@/components/global/TierGate';
+import { useTier } from '@/hooks/useTier';
+import { apiRequest } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,7 @@ import {
   Gauge, FileText, Download, Plus, Trash2, RefreshCw,
   Shield, Target, BarChart3, FlameKindling, Droplets,
   Wind, Bolt, ChevronRight, Info, AlertCircle, Eye,
+  Lightbulb, Lock, Sparkles, FlaskConical, Brain,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
@@ -298,6 +301,235 @@ function FindingCard({ finding }: { finding: CorrelationFinding }) {
   );
 }
 
+// ── Probability Feed types + engine ──────────────────────────────────────────
+
+type PFUrgency = 'Critical' | 'High' | 'Medium' | 'Low';
+
+interface PFinding {
+  id: string;
+  title: string;
+  system: string;
+  probability: number;
+  urgency: PFUrgency;
+  confidence: 'High' | 'Medium' | 'Low';
+  signals: string[];
+  rootCauses: string[];
+  recommendation: string;
+  vvfiRecommended: boolean;
+  occaeLink?: string; // which OCCAE tab/finding is related
+}
+
+interface LiveOpsData {
+  openWorkOrders: number;
+  overdueWorkOrders: number;
+  openViolations: number;
+  criticalViolations: number;
+  equipmentInMaintenance: number;
+  equipmentTotal: number;
+  flaggedLogs: number;
+  logsToday: number;
+  activeStaff: number;
+  recentWOs: Array<{ id: string; title: string; status: string; equipmentId: string; priority: string }>;
+}
+
+function buildOCCAEProbabilityFeed(ops: LiveOpsData | null, dataPoints: DataPoint[], analysisResult: AnalysisResult | null): PFinding[] {
+  const findings: PFinding[] = [];
+  const occaeSystems = [...new Set(dataPoints.map(d => d.system))];
+
+  // ── From live ops data ──────────────────────────────────────────────────────
+  if (ops) {
+    // Overdue WOs
+    if (ops.overdueWorkOrders > 0) {
+      const prob = Math.min(95, ops.overdueWorkOrders * 20 + 30);
+      findings.push({
+        id: 'ops-overdue-wos',
+        title: 'Preventive Maintenance Lag',
+        system: 'multiple systems',
+        probability: prob,
+        urgency: ops.overdueWorkOrders >= 3 ? 'Critical' : 'High',
+        confidence: ops.overdueWorkOrders >= 3 ? 'High' : 'Medium',
+        signals: [
+          `${ops.overdueWorkOrders} overdue work orders currently open`,
+          ...(ops.openWorkOrders > 5 ? [`Total WO backlog: ${ops.openWorkOrders} open`] : []),
+        ],
+        rootCauses: [
+          'PM schedule not adhered to — tasks deferred past due dates',
+          'Crew capacity constraints creating a maintenance gap',
+          'Parts or vendor delays extending repair cycles',
+          'Critical WOs deprioritized behind reactive work',
+          'Seasonal demand peak overwhelming maintenance capacity',
+        ],
+        recommendation: 'Review overdue WOs in the Work Orders module. Cross-reference with OCCAE data points to identify if delayed PMs correlate with anomalous readings.',
+        vvfiRecommended: ops.overdueWorkOrders >= 2,
+        occaeLink: 'data-input',
+      });
+    }
+
+    // Critical violations
+    if (ops.criticalViolations > 0 || ops.openViolations >= 3) {
+      const prob = Math.min(90, ops.criticalViolations * 22 + ops.openViolations * 8 + 18);
+      findings.push({
+        id: 'ops-violations',
+        title: 'Compliance Risk Pattern',
+        system: 'compliance',
+        probability: prob,
+        urgency: ops.criticalViolations > 0 ? 'Critical' : 'High',
+        confidence: ops.criticalViolations > 0 ? 'High' : 'Medium',
+        signals: [
+          ...(ops.criticalViolations > 0 ? [`${ops.criticalViolations} critical open violations`] : []),
+          ...(ops.openViolations > 0 ? [`${ops.openViolations} total open violations`] : []),
+          ...(ops.flaggedLogs > 0 ? [`${ops.flaggedLogs} flagged equipment logs`] : []),
+        ],
+        rootCauses: [
+          'SOPs not followed during routine operations',
+          'Staff training gaps on compliance-critical equipment',
+          'Equipment failure creating automatic compliance condition',
+          'Documentation frequency requirements unmet',
+          'Operational changes not yet reflected in procedures',
+        ],
+        recommendation: 'Resolve critical violations immediately. Review whether OCCAE systems have flagged readings that contributed to violation conditions.',
+        vvfiRecommended: true,
+        occaeLink: 'ai-report',
+      });
+    }
+
+    // Equipment maintenance load
+    if (ops.equipmentInMaintenance > 0) {
+      const pct = ops.equipmentTotal > 0 ? (ops.equipmentInMaintenance / ops.equipmentTotal) * 100 : 0;
+      const prob = Math.min(85, Math.round(pct * 1.8 + 20));
+      if (prob > 30) {
+        findings.push({
+          id: 'ops-maintenance-load',
+          title: `Fleet Stress — ${ops.equipmentInMaintenance} Units In Maintenance`,
+          system: occaeSystems.length > 0 ? occaeSystems[0] : 'multiple',
+          probability: prob,
+          urgency: pct > 25 ? 'High' : 'Medium',
+          confidence: pct > 25 ? 'High' : 'Medium',
+          signals: [
+            `${ops.equipmentInMaintenance} of ${ops.equipmentTotal} units currently in maintenance (${Math.round(pct)}%)`,
+            ...(pct > 25 ? ['Fleet maintenance rate exceeds 25% threshold'] : []),
+          ],
+          rootCauses: [
+            'Deferred maintenance compounding into concurrent failures',
+            'Seasonal load peaks stressing equipment beyond rated capacity',
+            'End-of-life equipment reaching simultaneous failure threshold',
+            'Repair crew or parts availability bottleneck',
+          ],
+          recommendation: 'Compare equipment in maintenance against OCCAE data points — look for anomalous metric readings on the same systems during the period leading up to failure.',
+          vvfiRecommended: pct > 20,
+          occaeLink: 'correlation',
+        });
+      }
+    }
+
+    // Flagged logs
+    if (ops.flaggedLogs >= 2) {
+      const prob = Math.min(88, ops.flaggedLogs * 14 + 26);
+      findings.push({
+        id: 'ops-flagged-logs',
+        title: 'Repeated Equipment Flag Pattern',
+        system: occaeSystems.length > 0 ? occaeSystems[0] : 'general',
+        probability: prob,
+        urgency: ops.flaggedLogs >= 4 ? 'High' : 'Medium',
+        confidence: ops.flaggedLogs >= 4 ? 'High' : 'Medium',
+        signals: [
+          `${ops.flaggedLogs} flagged equipment logs in current window`,
+          'Operator-flagged readings suggest anomalous equipment behavior',
+        ],
+        rootCauses: [
+          'Equipment operating outside baseline performance parameters',
+          'Sensor calibration drift producing false flag readings',
+          'Actual equipment degradation approaching service threshold',
+          'Process condition change upstream affecting downstream readings',
+        ],
+        recommendation: 'Compare flagged log timestamps against OCCAE data point timestamps. Overlapping anomalies on the same system increase root cause confidence.',
+        vvfiRecommended: ops.flaggedLogs >= 3,
+        occaeLink: 'data-input',
+      });
+    }
+  }
+
+  // ── From OCCAE data ─────────────────────────────────────────────────────────
+
+  // Anomalous readings in OCCAE data (values that deviate significantly from the set mean)
+  if (dataPoints.length >= 5) {
+    const byMetric: Record<string, number[]> = {};
+    dataPoints.forEach(dp => {
+      if (!byMetric[dp.metric]) byMetric[dp.metric] = [];
+      byMetric[dp.metric].push(dp.value);
+    });
+
+    const anomalies: Array<{ metric: string; system: string; deviation: number }> = [];
+    Object.entries(byMetric).forEach(([metric, values]) => {
+      if (values.length < 3) return;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const stddev = Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length);
+      const maxDev = Math.max(...values.map(v => Math.abs(v - mean)));
+      if (stddev > 0 && maxDev > stddev * 2) {
+        const relDev = maxDev / (Math.abs(mean) || 1) * 100;
+        const dp = dataPoints.find(d => d.metric === metric);
+        anomalies.push({ metric, system: dp?.system || 'unknown', deviation: relDev });
+      }
+    });
+
+    if (anomalies.length > 0) {
+      const worst = anomalies.sort((a, b) => b.deviation - a.deviation)[0];
+      findings.push({
+        id: 'occae-anomaly',
+        title: `Data Anomaly — ${worst.metric} on ${worst.system.replace(/_/g, ' ')}`,
+        system: worst.system,
+        probability: Math.min(85, Math.round(worst.deviation * 0.4 + 35)),
+        urgency: worst.deviation > 50 ? 'High' : 'Medium',
+        confidence: 'Medium',
+        signals: [
+          `${worst.metric} shows ${Math.round(worst.deviation)}% deviation from its mean in OCCAE dataset`,
+          `${anomalies.length} metric${anomalies.length > 1 ? 's' : ''} with significant outlier readings`,
+        ],
+        rootCauses: [
+          'Equipment operating outside its design envelope during observed period',
+          'Manual override or set-point change affecting metric trajectory',
+          'Sensor drift or calibration error producing outlier readings',
+          'Load transient event (startup surge, demand spike) captured in dataset',
+          'Upstream process variable (supply pressure, temperature) influencing readings',
+        ],
+        recommendation: 'Review the data input set for this metric. Check timestamp — was there a known maintenance event, override, or demand surge at that time?',
+        vvfiRecommended: worst.deviation > 40,
+        occaeLink: 'correlation',
+      });
+    }
+  }
+
+  // OCCAE correlation findings → probability signals
+  if (analysisResult?.findings && analysisResult.findings.length > 0) {
+    const highConfidenceFindings = analysisResult.findings.filter(f => f.confidence >= 75);
+    if (highConfidenceFindings.length > 0) {
+      const topFinding = highConfidenceFindings[0];
+      findings.push({
+        id: 'occae-correlation',
+        title: `Correlation Engine: ${topFinding.pattern.slice(0, 60)}${topFinding.pattern.length > 60 ? '…' : ''}`,
+        system: topFinding.systems.join(' / '),
+        probability: Math.round(topFinding.confidence * 0.9),
+        urgency: topFinding.severity === 'critical' ? 'Critical' : topFinding.severity === 'high' ? 'High' : 'Medium',
+        confidence: topFinding.confidence >= 80 ? 'High' : 'Medium',
+        signals: [
+          `OCCAE correlation confidence: ${topFinding.confidence}%`,
+          `Systems involved: ${topFinding.systems.join(', ')}`,
+          `Severity classification: ${topFinding.severity}`,
+        ],
+        rootCauses: topFinding.potentialCauses.slice(0, 4),
+        recommendation: `This pattern was identified by the OCCAE correlation engine. Review the AI Report tab for full analysis. ${topFinding.confidence >= 80 ? 'High confidence warrants immediate investigation.' : 'Collect more data points to increase confidence before acting.'}`,
+        vvfiRecommended: topFinding.confidence >= 70,
+        occaeLink: 'ai-report',
+      });
+    }
+  }
+
+  const urgencyOrder: Record<PFUrgency, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+  return findings.sort((a, b) =>
+    urgencyOrder[a.urgency] - urgencyOrder[b.urgency] || b.probability - a.probability
+  );
+}
+
 function ObservationErrorCard({ error }: { error: ObservationError }) {
   return (
     <Card className="bg-card/50 border-border/40">
@@ -323,7 +555,9 @@ function ObservationErrorCard({ error }: { error: ObservationError }) {
 
 export default function OCCAE() {
   const { toast } = useToast();
+  const { can } = useTier();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasVVFI = can('vvfi');
 
   // Data state
   const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
@@ -335,6 +569,48 @@ export default function OCCAE() {
   const [isAnalyzing, setIsAnalyzing]   = useState(false);
   const [activeTab, setActiveTab]       = useState('overview');
   const [reportNotes, setReportNotes]   = useState('');
+
+  // Live ops data for Probability Feed
+  const [liveOps, setLiveOps]           = useState<LiveOpsData | null>(null);
+  const [liveOpsLoading, setLiveOpsLoading] = useState(false);
+  const [liveOpsAt, setLiveOpsAt]       = useState<Date | null>(null);
+  const [expandedPF, setExpandedPF]     = useState<string | null>(null);
+
+  const fetchLiveOps = useCallback(async () => {
+    setLiveOpsLoading(true);
+    try {
+      const d = await apiRequest('/dashboard/manager');
+      setLiveOps({
+        openWorkOrders:        d.kpis?.openWorkOrders        ?? 0,
+        overdueWorkOrders:     d.kpis?.overdueWorkOrders     ?? 0,
+        openViolations:        d.kpis?.openViolations        ?? 0,
+        criticalViolations:    d.complianceSummary?.criticalViolations ?? 0,
+        equipmentInMaintenance: d.equipmentStatus?.maintenance ?? 0,
+        equipmentTotal:        d.equipmentStatus?.total      ?? 0,
+        flaggedLogs:           (d.recentLogsFeed || []).filter((l: any) => l.flagged).length,
+        logsToday:             d.kpis?.logsToday             ?? 0,
+        activeStaff:           d.kpis?.activeStaffToday      ?? 0,
+        recentWOs:             (d.workOrdersSummary?.recent || []).slice(0, 20),
+      });
+      setLiveOpsAt(new Date());
+    } catch {
+      // Non-critical; probability feed still works from OCCAE data alone
+    } finally {
+      setLiveOpsLoading(false);
+    }
+  }, []);
+
+  // Fetch live ops when user opens the Probability Feed tab
+  useEffect(() => {
+    if (activeTab === 'probability' && !liveOps && !liveOpsLoading) {
+      fetchLiveOps();
+    }
+  }, [activeTab, liveOps, liveOpsLoading, fetchLiveOps]);
+
+  const probabilityFindings = useMemo(
+    () => buildOCCAEProbabilityFeed(liveOps, dataPoints, analysisResult),
+    [liveOps, dataPoints, analysisResult]
+  );
 
   // CSV upload
   const handleCsvUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -673,6 +949,14 @@ export default function OCCAE() {
               <TabsTrigger value="correlation"  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Correlation Engine</TabsTrigger>
               <TabsTrigger value="ai-report"    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">AI Report</TabsTrigger>
               <TabsTrigger value="decision"     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Decision Layer</TabsTrigger>
+              <TabsTrigger value="probability"  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs flex items-center gap-1">
+                <Brain className="h-3 w-3" />Probability Feed
+                {probabilityFindings.filter(f => f.urgency === 'Critical' || f.urgency === 'High').length > 0 && (
+                  <span className="ml-0.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center">
+                    {probabilityFindings.filter(f => f.urgency === 'Critical' || f.urgency === 'High').length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             {/* ── OVERVIEW ── */}
@@ -1288,6 +1572,223 @@ export default function OCCAE() {
                   ]).map((e, i) => <ObservationErrorCard key={i} error={e} />)}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* ── PROBABILITY FEED ── */}
+            <TabsContent value="probability" className="space-y-6 mt-4">
+
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold flex items-center gap-2 text-foreground">
+                    <Brain className="h-4 w-4 text-primary" />
+                    OCCAE Probability Feed
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Correlates live work orders, PMs, violations, equipment metrics, and OCCAE dataset anomalies into daily probability-ranked findings.
+                    {liveOpsAt && <> Live data as of {liveOpsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</>}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {probabilityFindings.length > 0 && (
+                    <>
+                      {probabilityFindings.filter(f => f.urgency === 'Critical').length > 0 && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-destructive/20 text-destructive border border-destructive/30 font-medium">
+                          {probabilityFindings.filter(f => f.urgency === 'Critical').length} Critical
+                        </span>
+                      )}
+                      {probabilityFindings.filter(f => f.urgency === 'High').length > 0 && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 font-medium">
+                          {probabilityFindings.filter(f => f.urgency === 'High').length} High
+                        </span>
+                      )}
+                    </>
+                  )}
+                  <Button variant="outline" size="sm" className="text-xs h-7 border-border/40" onClick={fetchLiveOps} disabled={liveOpsLoading}>
+                    <RefreshCw className={`h-3 w-3 mr-1 ${liveOpsLoading ? 'animate-spin' : ''}`} />
+                    {liveOpsLoading ? 'Loading…' : 'Refresh'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* No data callout */}
+              {!liveOps && dataPoints.length === 0 && (
+                <Card className="bg-card/50 border-border/40">
+                  <CardContent className="py-10 text-center">
+                    <FlaskConical className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                    <p className="text-sm font-medium mb-1">No data to analyze yet</p>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      Add data points in the Data Input tab, or wait for live operational data to load. The probability engine activates once signals are available.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* All clear */}
+              {(liveOps || dataPoints.length > 0) && probabilityFindings.length === 0 && (
+                <Card className="bg-card/50 border-border/40">
+                  <CardContent className="py-10 text-center">
+                    <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-green-400 opacity-70" />
+                    <p className="text-sm font-medium mb-1">No significant signals detected</p>
+                    <p className="text-xs text-muted-foreground">
+                      No overdue WOs, critical violations, flagged logs, or OCCAE dataset anomalies above threshold.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Findings */}
+              {probabilityFindings.map(finding => {
+                const isExpanded = expandedPF === finding.id;
+                const urgencyBorder: Record<PFUrgency, string> = {
+                  Critical: 'border-destructive/40 bg-destructive/5',
+                  High:     'border-orange-500/40 bg-orange-500/5',
+                  Medium:   'border-yellow-500/30 bg-yellow-500/5',
+                  Low:      'border-border/40 bg-card/50',
+                };
+                const urgencyBadge: Record<PFUrgency, string> = {
+                  Critical: 'bg-destructive/20 text-destructive border-destructive/30',
+                  High:     'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                  Medium:   'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                  Low:      'bg-muted/50 text-muted-foreground border-border/30',
+                };
+                const probColor = finding.probability >= 75 ? 'text-destructive' : finding.probability >= 50 ? 'text-orange-400' : 'text-yellow-400';
+
+                return (
+                  <Card key={finding.id} className={`border transition-all ${urgencyBorder[finding.urgency]}`}>
+                    <CardContent className="p-0">
+                      <button
+                        className="w-full text-left p-4 flex items-start gap-4"
+                        onClick={() => setExpandedPF(isExpanded ? null : finding.id)}
+                      >
+                        <FlaskConical className={`h-5 w-5 shrink-0 mt-0.5 ${probColor}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <span className="text-sm font-semibold text-foreground">{finding.title}</span>
+                            <Badge className={`text-[10px] px-1.5 py-0 border ${urgencyBadge[finding.urgency]}`}>{finding.urgency}</Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">{finding.system.replace(/_/g, ' ')}</Badge>
+                            {finding.vvfiRecommended && (
+                              <Badge className="text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">VVFI Candidate</Badge>
+                            )}
+                            {finding.occaeLink && (
+                              <button
+                                className="text-[10px] text-primary/70 hover:text-primary underline underline-offset-2 transition-colors"
+                                onClick={e => { e.stopPropagation(); setActiveTab(finding.occaeLink!); }}
+                              >
+                                → See {finding.occaeLink.replace('-', ' ')} tab
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 max-w-48">
+                              <Progress value={finding.probability} className="h-1.5" />
+                            </div>
+                            <span className={`text-xs font-bold tabular-nums shrink-0 ${probColor}`}>{finding.probability}% probable</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{finding.confidence} confidence</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {finding.signals.map((sig, i) => (
+                              <span key={i} className="text-[10px] bg-muted/40 border border-border/30 rounded px-1.5 py-0.5 text-muted-foreground">{sig}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <ChevronRight className={`h-4 w-4 text-muted-foreground shrink-0 mt-0.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-border/30 px-4 pb-4 pt-4 space-y-4">
+                          {/* Root causes */}
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <Lightbulb className="h-3.5 w-3.5" />What may be causing this
+                            </p>
+                            <div className="space-y-1.5">
+                              {finding.rootCauses.map((cause, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  <div className="w-4 h-4 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[9px] font-bold text-primary shrink-0 mt-0.5">{i + 1}</div>
+                                  <span className="text-muted-foreground leading-snug">{cause}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Recommendation */}
+                          <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <TrendingUp className="h-3.5 w-3.5" />Recommended Action
+                            </p>
+                            <p className="text-sm text-foreground">{finding.recommendation}</p>
+                          </div>
+
+                          {/* VVFI CTA */}
+                          {finding.vvfiRecommended && (
+                            hasVVFI ? (
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-primary">Deep Diagnostic — VVFI Retainer</p>
+                                    <p className="text-xs text-muted-foreground">Your retainer includes a dedicated consultant who can run the 30-question analysis on this pattern.</p>
+                                  </div>
+                                </div>
+                                <Button size="sm" className="shrink-0 ml-3" onClick={() => window.location.href = '/vvfi'}>
+                                  Open VVFI <ChevronRight className="h-3 w-3 ml-1" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/40">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium flex items-center gap-1.5">
+                                      VVFI Retainer — Deeper Diagnosis
+                                      <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Premium+</Badge>
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      The VVFI retainer gives you a quarterly 30-question operational assessment and dedicated consultant time to diagnose patterns like this one. Includes weekly reports, custom docs, and 20% off year-1 FI Platform.
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button size="sm" variant="outline" className="shrink-0 ml-3 border-primary/30 hover:border-primary" onClick={() => window.location.href = '/pricing'}>
+                                  Upgrade <ChevronRight className="h-3 w-3 ml-1" />
+                                </Button>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+              {/* How it works */}
+              <Card className="bg-card/50 border-border/30">
+                <CardContent className="p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <BrainCircuit className="h-3.5 w-3.5" />How OCCAE Probability Feed Works
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
+                    {[
+                      { icon: Activity,      label: 'Live Ops Data',       desc: 'Pulls work orders, violations, equipment status, and flagged logs from the FI platform API' },
+                      { icon: FlaskConical,  label: 'OCCAE Dataset',       desc: 'Detects metric anomalies and outliers in your uploaded or manually entered data points' },
+                      { icon: BarChart3,     label: 'Correlation Signals', desc: 'High-confidence OCCAE correlation findings feed directly into probability rankings' },
+                      { icon: AlertTriangle, label: 'Overdue PMs',         desc: 'Overdue and high-backlog work orders signal maintenance lag probability' },
+                      { icon: TrendingUp,    label: 'Probability Scoring', desc: 'Each finding scored 0–100 based on combined signal weight and deviation magnitude' },
+                      { icon: Sparkles,      label: 'VVFI Integration',    desc: 'Premium+ users can escalate high-probability findings to VVFI for 30-question deep diagnosis' },
+                    ].map(({ icon: Icon, label, desc }) => (
+                      <div key={label} className="flex gap-2">
+                        <Icon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
+                        <div>
+                          <p className="font-medium text-foreground/70">{label}</p>
+                          <p className="leading-snug">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
             </TabsContent>
 
           </Tabs>
