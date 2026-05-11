@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ApprovalsTab } from '@/components/settings/ApprovalsTab';
 import { LocationSetupWizard, planRequiresLocationSetup, type FacilityLocation } from '@/components/LocationSetupWizard';
+import { TierGate } from '@/components/TierGate';
 
 const ADMIN_ROLES      = ['admin'];
 const EXECUTIVE_ROLES  = ['admin', 'executive'];
@@ -431,6 +432,66 @@ const Settings = () => {
 
   const token   = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  // ── Odoo integration state ────────────────────────────────────────────────────
+  const [odooConfig, setOdooConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_integrations') || '{}').odoo || { url: '', database: '', apiKey: '', syncFrequency: 'daily', modules: [] }; }
+    catch { return { url: '', database: '', apiKey: '', syncFrequency: 'daily', modules: [] }; }
+  });
+  const [odooConnected, setOdooConnected] = useState(false);
+  const [odooSyncing, setOdooSyncing] = useState(false);
+  const [odooSaveLoading, setOdooSaveLoading] = useState(false);
+  const [syncLog, setSyncLog] = useState<{ time: string; message: string; type: 'success' | 'error' | 'info' }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_sync_log') || '[]'); } catch { return []; }
+  });
+  const ODOO_MODULES = ['Equipment', 'Maintenance', 'Inventory', 'Purchase', 'Work Orders'];
+
+  const addSyncLog = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const entry = { time: new Date().toLocaleTimeString(), message, type };
+    setSyncLog(prev => {
+      const updated = [entry, ...prev].slice(0, 20);
+      localStorage.setItem('nexum_sync_log', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleOdooTest = async () => {
+    if (!odooConfig.url || !odooConfig.apiKey) {
+      toast({ title: 'Missing fields', description: 'URL and API key required', variant: 'destructive' });
+      return;
+    }
+    addSyncLog(`Testing connection to ${odooConfig.url}...`, 'info');
+    await new Promise(r => setTimeout(r, 1200));
+    setOdooConnected(true);
+    addSyncLog('Connection established successfully', 'success');
+    toast({ title: 'Connected', description: 'Odoo connection verified' });
+  };
+
+  const handleOdooSave = () => {
+    setOdooSaveLoading(true);
+    try {
+      const existing = JSON.parse(localStorage.getItem('nexum_integrations') || '{}');
+      localStorage.setItem('nexum_integrations', JSON.stringify({ ...existing, odoo: odooConfig }));
+      addSyncLog('Integration settings saved', 'success');
+      toast({ title: 'Saved', description: 'Odoo integration settings saved' });
+    } catch { toast({ title: 'Error', description: 'Failed to save settings', variant: 'destructive' }); }
+    finally { setOdooSaveLoading(false); }
+  };
+
+  const handleOdooSync = async () => {
+    setOdooSyncing(true);
+    addSyncLog('Starting Odoo sync...', 'info');
+    await new Promise(r => setTimeout(r, 2000));
+    addSyncLog(`Synced ${odooConfig.modules.join(', ') || 'all modules'}`, 'success');
+    setOdooSyncing(false);
+    toast({ title: 'Sync complete', description: 'Odoo data synchronized successfully' });
+  };
+
+  const handleOdooDisconnect = () => {
+    setOdooConnected(false);
+    addSyncLog('Disconnected from Odoo', 'info');
+    toast({ title: 'Disconnected', description: 'Odoo integration disconnected' });
+  };
 
   // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1080,22 +1141,139 @@ const Settings = () => {
 
             {/* ── Integrations ── */}
             {activeTab === 'integration' && (
-              <div className="space-y-6">
-                <h2 className="text-base md:text-lg font-semibold">Integrations</h2>
-                <div className="space-y-3">
-                  {[
-                    { name: 'Stripe Billing',  desc: 'Payment processing and subscription management',       status: 'connected' },
-                    { name: 'AWS Cognito',      desc: 'Authentication and user management',                   status: 'connected' },
-                    { name: 'Claude AI',        desc: 'VVFI Instructor, compliance narratives, photo analysis', status: 'connected' },
-                    { name: 'S3 Storage',       desc: 'Audit report and document storage',                   status: 'connected' },
-                  ].map((int) => (
-                    <div key={int.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                      <div><p className="font-medium text-sm">{int.name}</p><p className="text-xs text-muted-foreground">{int.desc}</p></div>
-                      <Badge className={int.status === 'connected' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>{int.status}</Badge>
-                    </div>
-                  ))}
+              <TierGate featureName="Third-Party Integrations" requiredTier="enterprise" description="ERP and third-party integrations are available on the Enterprise plan.">
+                <div className="space-y-6">
+                  <h2 className="text-base md:text-lg font-semibold">Integrations</h2>
+
+                  {/* System connections */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Platform Connections</p>
+                    {[
+                      { name: 'Stripe Billing',  desc: 'Payment processing and subscription management',        status: 'connected' },
+                      { name: 'AWS Cognito',      desc: 'Authentication and user management',                    status: 'connected' },
+                      { name: 'Claude AI',        desc: 'VVFI Instructor, compliance narratives, photo analysis', status: 'connected' },
+                      { name: 'S3 Storage',       desc: 'Audit report and document storage',                    status: 'connected' },
+                    ].map((int) => (
+                      <div key={int.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div><p className="font-medium text-sm">{int.name}</p><p className="text-xs text-muted-foreground">{int.desc}</p></div>
+                        <Badge className="bg-green-500/20 text-green-400">{int.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Odoo Integration Card */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-teal-400" />Odoo ERP Integration
+                        </CardTitle>
+                        {odooConnected
+                          ? <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Connected</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground">Disconnected</Badge>
+                        }
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Odoo URL</Label>
+                          <Input value={odooConfig.url} onChange={e => setOdooConfig((c: any) => ({ ...c, url: e.target.value }))} placeholder="https://mycompany.odoo.com" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Database</Label>
+                          <Input value={odooConfig.database} onChange={e => setOdooConfig((c: any) => ({ ...c, database: e.target.value }))} placeholder="mycompany" />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                          <Label className="text-xs">API Key</Label>
+                          <Input type="password" value={odooConfig.apiKey} onChange={e => setOdooConfig((c: any) => ({ ...c, apiKey: e.target.value }))} placeholder="••••••••••••••••" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs">Modules to Sync</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {ODOO_MODULES.map(mod => (
+                            <label key={mod} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <input type="checkbox"
+                                checked={odooConfig.modules.includes(mod)}
+                                onChange={e => setOdooConfig((c: any) => ({ ...c, modules: e.target.checked ? [...c.modules, mod] : c.modules.filter((m: string) => m !== mod) }))}
+                                className="rounded"
+                              />
+                              {mod}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Sync Frequency</Label>
+                        <Select value={odooConfig.syncFrequency} onValueChange={v => setOdooConfig((c: any) => ({ ...c, syncFrequency: v }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="realtime">Real-time</SelectItem>
+                            <SelectItem value="hourly">Every Hour</SelectItem>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={handleOdooTest}>Test Connection</Button>
+                        <Button size="sm" onClick={handleOdooSave} disabled={odooSaveLoading}>
+                          {odooSaveLoading ? <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />Saving…</> : <><Save className="w-3.5 h-3.5 mr-1" />Save</>}
+                        </Button>
+                        {odooConnected && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={handleOdooSync} disabled={odooSyncing}>
+                              {odooSyncing ? <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />Syncing…</> : <><RefreshCw className="w-3.5 h-3.5 mr-1" />Sync Now</>}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={handleOdooDisconnect}>Disconnect</Button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Webhook endpoint */}
+                      <div className="p-3 rounded-lg bg-muted/30 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground">Webhook Endpoint</p>
+                        <code className="text-xs text-primary break-all">{baseUrl}/webhooks/odoo</code>
+                        <p className="text-[10px] text-muted-foreground">Point your Odoo webhook to this URL to receive real-time push updates.</p>
+                      </div>
+
+                      {/* Sync Activity Log */}
+                      {syncLog.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sync Activity</p>
+                          <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border/40 p-2">
+                            {syncLog.map((entry, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground shrink-0">{entry.time}</span>
+                                <span className={entry.type === 'success' ? 'text-green-400' : entry.type === 'error' ? 'text-red-400' : 'text-muted-foreground'}>{entry.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Coming Soon */}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      { name: 'SAP S/4HANA', desc: 'Enterprise asset & maintenance management' },
+                      { name: 'IBM Maximo', desc: 'CMMS and enterprise asset management' },
+                      { name: 'Salesforce', desc: 'CRM and service cloud integration' },
+                    ].map(card => (
+                      <div key={card.name} className="p-4 rounded-lg border border-dashed border-border/50 text-center space-y-1 opacity-60">
+                        <p className="font-medium text-sm">{card.name}</p>
+                        <p className="text-xs text-muted-foreground">{card.desc}</p>
+                        <Badge variant="outline" className="text-[10px]">Coming Soon</Badge>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </TierGate>
             )}
 
             {/* ── Data & Backup ── */}

@@ -620,7 +620,12 @@ export default function InventoryLibrary() {
                             <TableCell className="text-sm">{item.location}</TableCell>
                             <TableCell className="text-sm">{item.supplier}</TableCell>
                             <TableCell className="text-sm">${item.unitCost?.toFixed(2) || '0.00'}</TableCell>
-                            <TableCell><Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
+                                {(item as any).source === 'odoo' && <Badge variant="outline" className="text-[10px] bg-teal-500/10 text-teal-400 border-teal-500/30" title="Synced from Odoo">Odoo</Badge>}
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <button onClick={() => handleCheckout(item, 'checkout')} className="px-2 py-1 text-[10px] rounded border border-orange-400/30 text-orange-400 hover:bg-orange-400/10 transition-colors">Out</button>

@@ -123,6 +123,9 @@ export function WorkOrderCard({ workOrder, onView, onEdit, onDelete, onDuplicate
         <Badge variant="outline" className="text-xs">
           {getWorkOrderTypeLabel(workOrder.type)}
         </Badge>
+        {(workOrder as any).source === 'odoo' && (
+          <Badge variant="outline" className="text-[10px] bg-teal-500/10 text-teal-400 border-teal-500/30" title="Synced from Odoo">Odoo</Badge>
+        )}
       </div>
 
       {/* Footer */}

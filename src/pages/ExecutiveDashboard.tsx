@@ -20,7 +20,8 @@ import {
 } from 'recharts';
 import {
   Flame, DollarSign, AlertTriangle, Clock,
-  TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity
+  TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity,
+  CalendarClock, Cpu
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -343,6 +344,7 @@ export default function ExecutiveDashboard() {
   const [selectedBuilding, setSelectedBuilding]  = useState('all');
   const [selectedSystem,   setSelectedSystem]    = useState('all');
   const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryValue: 0, inventoryItems: 0 });
+  const [capitalPlan, setCapitalPlan] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -439,9 +441,16 @@ export default function ExecutiveDashboard() {
     }
   }, [isAuthenticated, fetchData]);
 
-  // Re-fetch asset stats when equipment is updated from EquipmentLibrary
+  // Load capital plan and local equipment from localStorage
   useEffect(() => {
-    const handler = () => setAssetStats(prev => ({ ...prev })); // trigger re-render via new ref
+    const loadCapitalData = () => {
+      try {
+        const plan = JSON.parse(localStorage.getItem('nexum_capital_plan') || '[]');
+        setCapitalPlan(Array.isArray(plan) ? plan : []);
+      } catch { /* ignore */ }
+    };
+    loadCapitalData();
+    const handler = () => { setAssetStats(prev => ({ ...prev })); loadCapitalData(); };
     window.addEventListener('equipment-updated', handler);
     return () => window.removeEventListener('equipment-updated', handler);
   }, []);
@@ -564,6 +573,37 @@ export default function ExecutiveDashboard() {
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
                 </div>
+                {/* Capital KPI cards */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {(() => {
+                    const operationalValue = assetStats.totalValue;
+                    const riskCount = capitalPlan.filter(p => p.score >= 71).length;
+                    return (
+                      <>
+                        <Card className="executive-card neon-border p-4">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                              <Cpu className="h-5 w-5 text-emerald-400" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">Operational Asset Value</p>
+                          </div>
+                          <p className="text-3xl font-bold text-emerald-400">${Math.round(operationalValue / 1000)}K</p>
+                          <p className="text-xs text-muted-foreground mt-1">Total replacement value on record</p>
+                        </Card>
+                        <Card className="executive-card neon-border p-4">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                              <CalendarClock className="h-5 w-5 text-orange-400" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">Replacement Risk</p>
+                          </div>
+                          <p className="text-3xl font-bold text-orange-400">{riskCount}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Assets in replacement window (score ≥71)</p>
+                        </Card>
+                      </>
+                    );
+                  })()}
+                </div>
                 {/* Interpretation layer: data integrity notice */}
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-400/80">
                   <Shield className="w-3.5 h-3.5 shrink-0" />
@@ -644,6 +684,74 @@ export default function ExecutiveDashboard() {
                     );
                   })()}
                 </Card>
+
+                {/* ── Asset Replacement Intelligence ── */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarClock className="h-5 w-5 text-orange-400" />Asset Replacement Intelligence
+                  </h3>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {/* Replacement Candidates */}
+                    <Card className="executive-card neon-border p-5">
+                      <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wide">Approaching Replacement (Score ≥70)</h4>
+                      {capitalPlan.filter(p => p.score >= 70).length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">No assets currently flagged for replacement. Use Asset Intelligence in Equipment Library to queue assets.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {capitalPlan.filter(p => p.score >= 70).sort((a, b) => b.score - a.score).slice(0, 6).map((asset: any) => {
+                            const scoreColor = asset.score >= 86 ? 'text-red-400' : asset.score >= 71 ? 'text-orange-400' : 'text-yellow-400';
+                            const scoreBg = asset.score >= 86 ? 'bg-red-500/10' : asset.score >= 71 ? 'bg-orange-500/10' : 'bg-yellow-500/10';
+                            return (
+                              <div key={asset.equipmentId} className={`flex items-center justify-between p-2 rounded-lg ${scoreBg}`}>
+                                <div>
+                                  <p className="text-sm font-medium">{asset.equipmentName}</p>
+                                  <p className="text-xs text-muted-foreground">Window: {asset.windowMonths} months · Cost: ${(asset.replacementCost / 1000).toFixed(0)}K</p>
+                                </div>
+                                <span className={`text-lg font-bold ${scoreColor}`}>{asset.score}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Capital Forecast */}
+                    <Card className="executive-card neon-border p-5">
+                      <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wide">Capital Forecast by Horizon</h4>
+                      {(() => {
+                        const buckets = [
+                          { label: '0–12 Months',  months: 12,  color: 'text-red-400',    bg: 'bg-red-500/10' },
+                          { label: '1–3 Years',    months: 36,  color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                          { label: '3–5 Years',    months: 60,  color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                          { label: '5+ Years',     months: 999, color: 'text-green-400',  bg: 'bg-green-500/10' },
+                        ];
+                        let prev = 0;
+                        return (
+                          <div className="space-y-3">
+                            {buckets.map(b => {
+                              const assets = capitalPlan.filter(p => p.windowMonths > prev && p.windowMonths <= b.months);
+                              const cost = assets.reduce((s: number, a: any) => s + (a.replacementCost || 0), 0);
+                              prev = b.months;
+                              return (
+                                <div key={b.label} className={`flex items-center justify-between p-3 rounded-lg ${b.bg}`}>
+                                  <div>
+                                    <p className="text-sm font-medium">{b.label}</p>
+                                    <p className="text-xs text-muted-foreground">{assets.length} asset{assets.length !== 1 ? 's' : ''}</p>
+                                  </div>
+                                  <p className={`text-lg font-bold ${b.color}`}>${(cost / 1000).toFixed(0)}K</p>
+                                </div>
+                              );
+                            })}
+                            <div className="pt-2 border-t border-border flex justify-between text-sm">
+                              <span className="text-muted-foreground">Total Capital Plan</span>
+                              <span className="font-bold">${(capitalPlan.reduce((s: number, a: any) => s + (a.replacementCost || 0), 0) / 1000).toFixed(0)}K</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </Card>
+                  </div>
+                </div>
 
                 <div className="flex justify-center">
                   <Card className="executive-card neon-border p-6" style={{ animationDelay: '400ms' }}>

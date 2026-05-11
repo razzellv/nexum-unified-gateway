@@ -12,10 +12,11 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, Shield, FileText, CalendarClock } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
+import { calculateOperationalDepreciation } from '@/lib/depreciationEngine';
 
 interface Equipment {
   equipmentId: string;
@@ -41,6 +42,19 @@ interface Equipment {
   certificationExpiry?: string;
   lastPMDate?: string;
   dataPlateNotes?: string;
+  // Financial & lifecycle
+  purchaseDate?: string;
+  usefulLifeYears?: number;
+  residualValue?: number;
+  depreciationMethod?: string;
+  currentEfficiency?: number;
+  efficiencyBaseline?: number;
+  maintenanceCostAccumulated?: number;
+  laborCostAccumulated?: number;
+  partsConsumedValue?: number;
+  contractorCostAccumulated?: number;
+  maintenanceCostTrend?: string;
+  source?: string;
 }
 
 function assetHealthPct(eq: Equipment): number | null {
@@ -163,6 +177,7 @@ export default function EquipmentLibrary() {
   const [showSummary, setShowSummary] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
+  const [expandedIntelligence, setExpandedIntelligence] = useState<Record<string, boolean>>({});
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -177,6 +192,11 @@ export default function EquipmentLibrary() {
     purchasePrice: '', replacementCost: '', warrantyExpiry: '',
     currentRuntimeHours: '', designLifeHours: '',
     lastInspectionDate: '', certificationExpiry: '', lastPMDate: '', dataPlateNotes: '',
+    // Financial & lifecycle
+    purchaseDate: '', usefulLifeYears: '', residualValue: '', depreciationMethod: 'straight-line',
+    currentEfficiency: '', efficiencyBaseline: '100',
+    maintenanceCostAccumulated: '', laborCostAccumulated: '', partsConsumedValue: '', contractorCostAccumulated: '',
+    maintenanceCostTrend: 'stable',
   });
   const [requestReason, setRequestReason] = useState('');
 
@@ -247,6 +267,14 @@ export default function EquipmentLibrary() {
         assetHealthPct: (formData.designLifeHours && formData.currentRuntimeHours)
           ? Math.max(0, Math.round((1 - parseFloat(formData.currentRuntimeHours) / parseFloat(formData.designLifeHours)) * 100))
           : undefined,
+        usefulLifeYears: formData.usefulLifeYears ? parseFloat(formData.usefulLifeYears) : undefined,
+        residualValue: formData.residualValue ? parseFloat(formData.residualValue) : undefined,
+        currentEfficiency: formData.currentEfficiency ? parseFloat(formData.currentEfficiency) : undefined,
+        efficiencyBaseline: formData.efficiencyBaseline ? parseFloat(formData.efficiencyBaseline) : 100,
+        maintenanceCostAccumulated: formData.maintenanceCostAccumulated ? parseFloat(formData.maintenanceCostAccumulated) : undefined,
+        laborCostAccumulated: formData.laborCostAccumulated ? parseFloat(formData.laborCostAccumulated) : undefined,
+        partsConsumedValue: formData.partsConsumedValue ? parseFloat(formData.partsConsumedValue) : undefined,
+        contractorCostAccumulated: formData.contractorCostAccumulated ? parseFloat(formData.contractorCostAccumulated) : undefined,
         dataType: 'asset_health',
       }) });
       toast({ title: 'Success', description: 'Equipment added successfully' });
@@ -346,6 +374,14 @@ export default function EquipmentLibrary() {
           count: parseInt(formData.count) || 1,
           purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
           replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
+          usefulLifeYears: formData.usefulLifeYears ? parseFloat(formData.usefulLifeYears) : undefined,
+          residualValue: formData.residualValue ? parseFloat(formData.residualValue) : undefined,
+          currentEfficiency: formData.currentEfficiency ? parseFloat(formData.currentEfficiency) : undefined,
+          efficiencyBaseline: formData.efficiencyBaseline ? parseFloat(formData.efficiencyBaseline) : 100,
+          maintenanceCostAccumulated: formData.maintenanceCostAccumulated ? parseFloat(formData.maintenanceCostAccumulated) : undefined,
+          laborCostAccumulated: formData.laborCostAccumulated ? parseFloat(formData.laborCostAccumulated) : undefined,
+          partsConsumedValue: formData.partsConsumedValue ? parseFloat(formData.partsConsumedValue) : undefined,
+          contractorCostAccumulated: formData.contractorCostAccumulated ? parseFloat(formData.contractorCostAccumulated) : undefined,
         }),
       });
 
@@ -407,7 +443,29 @@ export default function EquipmentLibrary() {
 
   const openEditDialog = (eq: Equipment) => {
     setSelectedEquipment(eq);
-    setFormData({ equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model, serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '', manufactureDate: eq.manufactureDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active', equipmentName: eq.equipmentName || '', count: String(eq.count || 1), purchasePrice: eq.purchasePrice ? String(eq.purchasePrice) : '', replacementCost: eq.replacementCost ? String(eq.replacementCost) : '', warrantyExpiry: eq.warrantyExpiry || '', currentRuntimeHours: eq.currentRuntimeHours ? String(eq.currentRuntimeHours) : '', designLifeHours: eq.designLifeHours ? String(eq.designLifeHours) : '', lastInspectionDate: eq.lastInspectionDate || '', certificationExpiry: eq.certificationExpiry || '', lastPMDate: eq.lastPMDate || '', dataPlateNotes: eq.dataPlateNotes || '' });
+    setFormData({
+      equipmentType: eq.equipmentType, manufacturer: eq.manufacturer, model: eq.model,
+      serialNumber: eq.serialNumber || '', location: eq.location || '', installDate: eq.installDate || '',
+      manufactureDate: eq.manufactureDate || '', buildingId: eq.buildingId || '', status: eq.status || 'active',
+      equipmentName: eq.equipmentName || '', count: String(eq.count || 1),
+      purchasePrice: eq.purchasePrice ? String(eq.purchasePrice) : '',
+      replacementCost: eq.replacementCost ? String(eq.replacementCost) : '',
+      warrantyExpiry: eq.warrantyExpiry || '',
+      currentRuntimeHours: eq.currentRuntimeHours ? String(eq.currentRuntimeHours) : '',
+      designLifeHours: eq.designLifeHours ? String(eq.designLifeHours) : '',
+      lastInspectionDate: eq.lastInspectionDate || '', certificationExpiry: eq.certificationExpiry || '',
+      lastPMDate: eq.lastPMDate || '', dataPlateNotes: eq.dataPlateNotes || '',
+      purchaseDate: eq.purchaseDate || '', usefulLifeYears: eq.usefulLifeYears ? String(eq.usefulLifeYears) : '',
+      residualValue: eq.residualValue ? String(eq.residualValue) : '',
+      depreciationMethod: eq.depreciationMethod || 'straight-line',
+      currentEfficiency: eq.currentEfficiency ? String(eq.currentEfficiency) : '',
+      efficiencyBaseline: eq.efficiencyBaseline ? String(eq.efficiencyBaseline) : '100',
+      maintenanceCostAccumulated: eq.maintenanceCostAccumulated ? String(eq.maintenanceCostAccumulated) : '',
+      laborCostAccumulated: eq.laborCostAccumulated ? String(eq.laborCostAccumulated) : '',
+      partsConsumedValue: eq.partsConsumedValue ? String(eq.partsConsumedValue) : '',
+      contractorCostAccumulated: eq.contractorCostAccumulated ? String(eq.contractorCostAccumulated) : '',
+      maintenanceCostTrend: eq.maintenanceCostTrend || 'stable',
+    });
     setEditDialogOpen(true);
   };
 
@@ -419,7 +477,17 @@ export default function EquipmentLibrary() {
     setBaselineDialogOpen(true);
   };
 
-  const resetForm = () => setFormData({ equipmentType: '', manufacturer: '', model: '', serialNumber: '', location: '', installDate: '', manufactureDate: '', buildingId: '', status: 'active', equipmentName: '', count: '1', purchasePrice: '', replacementCost: '', warrantyExpiry: '', currentRuntimeHours: '', designLifeHours: '', lastInspectionDate: '', certificationExpiry: '', lastPMDate: '', dataPlateNotes: '' });
+  const resetForm = () => setFormData({
+    equipmentType: '', manufacturer: '', model: '', serialNumber: '',
+    location: '', installDate: '', manufactureDate: '', buildingId: '', status: 'active',
+    equipmentName: '', count: '1', purchasePrice: '', replacementCost: '', warrantyExpiry: '',
+    currentRuntimeHours: '', designLifeHours: '',
+    lastInspectionDate: '', certificationExpiry: '', lastPMDate: '', dataPlateNotes: '',
+    purchaseDate: '', usefulLifeYears: '', residualValue: '', depreciationMethod: 'straight-line',
+    currentEfficiency: '', efficiencyBaseline: '100',
+    maintenanceCostAccumulated: '', laborCostAccumulated: '', partsConsumedValue: '', contractorCostAccumulated: '',
+    maintenanceCostTrend: 'stable',
+  });
 
   const filteredEquipment = equipment.filter(eq =>
     eq.equipmentId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -487,6 +555,45 @@ export default function EquipmentLibrary() {
         <div className="space-y-2"><Label>Purchase Price ($)</Label><Input type="number" value={formData.purchasePrice} onChange={e => setFormData(f => ({ ...f, purchasePrice: e.target.value }))} placeholder="125000" /></div>
         <div className="space-y-2"><Label>Replacement Cost ($)</Label><Input type="number" value={formData.replacementCost} onChange={e => setFormData(f => ({ ...f, replacementCost: e.target.value }))} placeholder="180000" /></div>
         <div className="space-y-2"><Label>Warranty Expiry</Label><Input type="date" value={formData.warrantyExpiry} onChange={e => setFormData(f => ({ ...f, warrantyExpiry: e.target.value }))} /></div>
+      </div>
+
+      {/* Financial & Lifecycle */}
+      <div className="pt-2 border-t border-border/30">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial & Lifecycle Intelligence</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>Purchase Date</Label><Input type="date" value={formData.purchaseDate} onChange={e => setFormData(f => ({ ...f, purchaseDate: e.target.value }))} /></div>
+          <div className="space-y-2"><Label>Useful Life (Years)</Label><Input type="number" value={formData.usefulLifeYears} onChange={e => setFormData(f => ({ ...f, usefulLifeYears: e.target.value }))} placeholder="20" /></div>
+          <div className="space-y-2"><Label>Residual Value ($)</Label><Input type="number" value={formData.residualValue} onChange={e => setFormData(f => ({ ...f, residualValue: e.target.value }))} placeholder="0" /></div>
+          <div className="space-y-2">
+            <Label>Depreciation Method</Label>
+            <Select value={formData.depreciationMethod} onValueChange={v => setFormData(f => ({ ...f, depreciationMethod: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="straight-line">Straight-Line</SelectItem>
+                <SelectItem value="accelerated">Accelerated</SelectItem>
+                <SelectItem value="units-of-production">Units of Production</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2"><Label>Current Efficiency (%)</Label><Input type="number" min="0" max="100" value={formData.currentEfficiency} onChange={e => setFormData(f => ({ ...f, currentEfficiency: e.target.value }))} placeholder="85" /></div>
+          <div className="space-y-2"><Label>Efficiency Baseline (%)</Label><Input type="number" min="0" max="100" value={formData.efficiencyBaseline} onChange={e => setFormData(f => ({ ...f, efficiencyBaseline: e.target.value }))} placeholder="100" /></div>
+          <div className="space-y-2"><Label>Maintenance Cost Accumulated ($)</Label><Input type="number" value={formData.maintenanceCostAccumulated} onChange={e => setFormData(f => ({ ...f, maintenanceCostAccumulated: e.target.value }))} placeholder="12500" /></div>
+          <div className="space-y-2"><Label>Labor Cost Accumulated ($)</Label><Input type="number" value={formData.laborCostAccumulated} onChange={e => setFormData(f => ({ ...f, laborCostAccumulated: e.target.value }))} placeholder="5000" /></div>
+          <div className="space-y-2"><Label>Parts Consumed Value ($)</Label><Input type="number" value={formData.partsConsumedValue} onChange={e => setFormData(f => ({ ...f, partsConsumedValue: e.target.value }))} placeholder="3200" /></div>
+          <div className="space-y-2"><Label>Contractor Cost Accumulated ($)</Label><Input type="number" value={formData.contractorCostAccumulated} onChange={e => setFormData(f => ({ ...f, contractorCostAccumulated: e.target.value }))} placeholder="8000" /></div>
+          <div className="col-span-2 space-y-2">
+            <Label>Maintenance Cost Trend</Label>
+            <Select value={formData.maintenanceCostTrend} onValueChange={v => setFormData(f => ({ ...f, maintenanceCostTrend: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stable">Stable</SelectItem>
+                <SelectItem value="increasing">Increasing</SelectItem>
+                <SelectItem value="accelerating">Accelerating</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       {/* Asset Health / Runtime */}
@@ -727,6 +834,9 @@ export default function EquipmentLibrary() {
                           <Badge>{formatTypeName(eq.equipmentType)}</Badge>
                           {eq.status && <Badge variant={eq.status === 'active' ? 'default' : 'secondary'}>{eq.status}</Badge>}
                           {eq.baseline && <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">Baseline Set</Badge>}
+                          {eq.source === 'odoo' && (
+                            <Badge variant="outline" className="bg-teal-500/10 text-teal-400 border-teal-500/30 text-[10px]" title="Synced from Odoo">Odoo</Badge>
+                          )}
                         </div>
                         {eq.equipmentName && <p className="text-xs text-muted-foreground font-mono mb-1">ID: {eq.equipmentId}</p>}
                         <div className="space-y-1 text-sm text-muted-foreground">
@@ -760,6 +870,110 @@ export default function EquipmentLibrary() {
                             </div>
                           );
                         })()}
+
+                        {/* Asset Intelligence Panel */}
+                        {eq.purchaseDate && (
+                          <div className="mt-3">
+                            <button
+                              onClick={() => setExpandedIntelligence(prev => ({ ...prev, [eq.equipmentId]: !prev[eq.equipmentId] }))}
+                              className="flex items-center gap-2 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              Asset Intelligence
+                              {expandedIntelligence[eq.equipmentId] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+
+                            {expandedIntelligence[eq.equipmentId] && (() => {
+                              const dep = calculateOperationalDepreciation(eq);
+                              const scoreColor = dep.replacementJustificationScore >= 86 ? 'text-red-400' :
+                                dep.replacementJustificationScore >= 71 ? 'text-orange-400' :
+                                dep.replacementJustificationScore >= 41 ? 'text-yellow-400' : 'text-green-400';
+                              const scoreBg = dep.replacementJustificationScore >= 86 ? 'bg-red-500/10 border-red-500/30' :
+                                dep.replacementJustificationScore >= 71 ? 'bg-orange-500/10 border-orange-500/30' :
+                                dep.replacementJustificationScore >= 41 ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-green-500/10 border-green-500/30';
+                              const scoreLabel = dep.replacementJustificationScore >= 86 ? 'Replace Now' :
+                                dep.replacementJustificationScore >= 71 ? 'Replacement Window' :
+                                dep.replacementJustificationScore >= 41 ? 'Monitor Closely' : 'Healthy Investment';
+
+                              return (
+                                <div className="mt-2 space-y-3">
+                                  {/* Score */}
+                                  <div className={`p-3 rounded-lg border ${scoreBg}`}>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-semibold text-muted-foreground">Replacement Justification Score</span>
+                                      <span className={`text-2xl font-bold ${scoreColor}`}>{dep.replacementJustificationScore}</span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-1">
+                                      <div className={`h-full rounded-full ${dep.replacementJustificationScore >= 86 ? 'bg-red-500' : dep.replacementJustificationScore >= 71 ? 'bg-orange-500' : dep.replacementJustificationScore >= 41 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${dep.replacementJustificationScore}%` }} />
+                                    </div>
+                                    <span className={`text-[10px] font-bold ${scoreColor}`}>{scoreLabel}</span>
+                                  </div>
+
+                                  {/* Financial */}
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Accounting Book Value</p>
+                                      <p className="font-bold">${dep.accountingBookValue.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Operational Book Value</p>
+                                      <p className="font-bold">${dep.operationalBookValue.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Annual Depreciation</p>
+                                      <p className="font-bold">${dep.annualDepreciation.toLocaleString()}/yr</p>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Total Lifetime Cost</p>
+                                      <p className="font-bold">${dep.totalLifetimeCost.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Asset Age</p>
+                                      <p className="font-bold">{dep.ageYears} yrs</p>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/30">
+                                      <p className="text-muted-foreground">Est. Remaining Life</p>
+                                      <p className="font-bold">{dep.estimatedRemainingLifeYears} yrs</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Decision Intelligence */}
+                                  <div className="p-3 rounded-lg bg-muted/20 border border-border/30 space-y-1">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold mb-2">
+                                      <Shield className="w-3.5 h-3.5 text-primary" />
+                                      Decision Defensibility: <span className="text-primary">{dep.decisionDefensibilityRating}</span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">{dep.boardReadyJustification}</p>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
+                                      const text = `ASSET INTELLIGENCE REPORT\n${eq.equipmentName || eq.equipmentId}\n\nReplacement Score: ${dep.replacementJustificationScore}/100 (${scoreLabel})\nDecision Defensibility: ${dep.decisionDefensibilityRating}\n\nAccounting Book Value: $${dep.accountingBookValue.toLocaleString()}\nOperational Book Value: $${dep.operationalBookValue.toLocaleString()}\nTotal Lifetime Cost: $${dep.totalLifetimeCost.toLocaleString()}\nAnnual Depreciation: $${dep.annualDepreciation.toLocaleString()}/yr\nAsset Age: ${dep.ageYears} years\nEstimated Remaining Life: ${dep.estimatedRemainingLifeYears} years\n\nBoard-Ready Justification:\n${dep.boardReadyJustification}`;
+                                      navigator.clipboard.writeText(text);
+                                      toast({ title: 'Copied to clipboard', description: 'Asset intelligence report ready to paste.' });
+                                    }}>
+                                      <FileText className="w-3 h-3 mr-1" />Export
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => {
+                                      const plan = JSON.parse(localStorage.getItem('nexum_capital_plan') || '[]');
+                                      const entry = { equipmentId: eq.equipmentId, equipmentName: eq.equipmentName || eq.equipmentId, score: dep.replacementJustificationScore, replacementCost: eq.replacementCost || 0, windowMonths: dep.replacementWindowMonths, addedAt: new Date().toISOString() };
+                                      if (!plan.find((p: any) => p.equipmentId === eq.equipmentId)) {
+                                        plan.push(entry);
+                                        localStorage.setItem('nexum_capital_plan', JSON.stringify(plan));
+                                        toast({ title: 'Added to Capital Plan', description: `${entry.equipmentName} queued for capital planning.` });
+                                      } else {
+                                        toast({ title: 'Already in plan', description: 'This asset is already in your capital plan.' });
+                                      }
+                                    }}>
+                                      <CalendarClock className="w-3 h-3 mr-1" />Capital Plan
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-col items-end gap-3 shrink-0">
