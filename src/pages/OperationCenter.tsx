@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTier } from '@/hooks/useTier';
 import { NexumBranding } from "@/components/NexumBranding";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
@@ -18,6 +19,7 @@ import {
   Wrench, Shield, Users, Gauge, Flame, Snowflake, Wind,
   Droplets, Waves, ClipboardList, TrendingUp, Clock, BarChart3,
   Building2, Radio, Zap, HardHat, UserCog, GitBranch, Eye, Lock,
+  Brain, Lightbulb, TrendingDown, ChevronRight, Sparkles, FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +39,213 @@ interface OperationCenterData {
   equipmentStatus: { total: number; active: number; maintenance: number; decommissioned: number; withBaseline: number; byType: Array<{ type: string; total: number; active: number; maintenance: number }> };
   complianceSummary: { totalViolations30d: number; openViolations: number; criticalViolations: number; flaggedLogs7d: number; events: Array<{ id: string; type: string; description: string; timestamp: string; severity: number; status: string; equipmentId: string; source: string }> };
   personnelSummary: { totalFieldStaff: number; activeToday: number; byRole: Record<string, number>; staff: Array<{ id: string; name: string; role: string; shift: string; logsLast30Days: number; openWorkOrders: number; lastActive: string | null }> };
+}
+
+// ─── Probability Feed types + engine ──────────────────────────────────────────
+
+type ProbabilityUrgency = 'Critical' | 'High' | 'Medium' | 'Low';
+type ProbabilityConfidence = 'High' | 'Medium' | 'Low';
+
+interface ProbabilitySignal {
+  label: string;
+  weight: number;
+}
+
+interface ProbabilityFinding {
+  id: string;
+  title: string;
+  equipmentType: string;
+  probability: number;
+  confidence: ProbabilityConfidence;
+  signals: ProbabilitySignal[];
+  rootCauses: string[];
+  recommendation: string;
+  urgency: ProbabilityUrgency;
+  vvfiRecommended: boolean;
+}
+
+function buildProbabilityFeed(data: OperationCenterData): ProbabilityFinding[] {
+  const findings: ProbabilityFinding[] = [];
+
+  // ── Signal 1: Overdue Work Orders → PM Lag ─────────────────────────────────
+  const overdue = data.workOrdersSummary?.overdue ?? 0;
+  const totalWOs = data.workOrdersSummary?.total ?? 1;
+  if (overdue > 0) {
+    const overdueRatio = overdue / totalWOs;
+    const prob = Math.min(95, Math.round(overdueRatio * 60 + (overdue >= 3 ? 35 : 20)));
+    findings.push({
+      id: 'overdue-wos',
+      title: 'Preventive Maintenance Lag Detected',
+      equipmentType: 'multiple systems',
+      probability: prob,
+      confidence: overdue >= 3 ? 'High' : 'Medium',
+      signals: [
+        { label: `${overdue} overdue work order${overdue > 1 ? 's' : ''}`, weight: 40 },
+        ...(data.kpis?.openWorkOrders > 5 ? [{ label: 'High open WO backlog overall', weight: 20 }] : []),
+      ],
+      rootCauses: [
+        'PM schedule not adhered to — tasks deferred past due dates',
+        'Staff capacity constraints preventing timely completion',
+        'Parts or vendor availability creating repair bottlenecks',
+        'Work order prioritization gaps — critical items buried',
+        'Seasonal demand peak stretching maintenance crew thin',
+      ],
+      recommendation: 'Review WO backlog with your supervisor. Identify which systems are most overdue and prioritize by operational risk.',
+      urgency: overdue >= 3 ? 'Critical' : 'High',
+      vvfiRecommended: overdue >= 2,
+    });
+  }
+
+  // ── Signal 2: Flagged Logs → Equipment Distress Pattern ────────────────────
+  const flaggedLogs = (data.recentLogsFeed || []).filter(l => l.flagged);
+  if (flaggedLogs.length > 0) {
+    const byType: Record<string, number> = {};
+    flaggedLogs.forEach(l => { byType[l.equipmentType] = (byType[l.equipmentType] ?? 0) + 1; });
+    const [topType, topCount] = Object.entries(byType).sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+    const prob = Math.min(92, flaggedLogs.length * 16 + 28);
+    findings.push({
+      id: 'flagged-logs',
+      title: `Repeated Flag Pattern${topType ? ` — ${topType.replace(/_/g, ' ')} System` : ''}`,
+      equipmentType: topType || 'general',
+      probability: prob,
+      confidence: flaggedLogs.length >= 3 ? 'High' : 'Medium',
+      signals: [
+        { label: `${flaggedLogs.length} flagged log${flaggedLogs.length > 1 ? 's' : ''} in current window`, weight: 35 },
+        ...(topCount >= 2 ? [{ label: `${topCount} flags concentrated on ${topType.replace(/_/g, ' ')}`, weight: 25 }] : []),
+      ],
+      rootCauses: [
+        'Equipment operating outside baseline performance parameters',
+        'Sensor or meter calibration drift — readings may be inaccurate',
+        'Operator noting anomalous behavior during routine checks',
+        'System approaching end-of-life or scheduled maintenance interval',
+        'Process condition change upstream affecting downstream readings',
+      ],
+      recommendation: `Inspect ${topType ? topType.replace(/_/g, ' ') : 'flagged equipment'} logs for recurring patterns. Cross-reference with recent WOs and PM history.`,
+      urgency: flaggedLogs.length >= 3 ? 'High' : 'Medium',
+      vvfiRecommended: flaggedLogs.length >= 2,
+    });
+  }
+
+  // ── Signal 3: Open / Critical Violations → Compliance Risk ─────────────────
+  const criticalViolations = data.complianceSummary?.criticalViolations ?? 0;
+  const openViolations = data.complianceSummary?.openViolations ?? 0;
+  if (criticalViolations > 0 || openViolations >= 3) {
+    const prob = Math.min(90, criticalViolations * 25 + openViolations * 8 + 20);
+    findings.push({
+      id: 'compliance-risk',
+      title: 'Compliance Risk — Unresolved Violation Pattern',
+      equipmentType: 'compliance',
+      probability: prob,
+      confidence: criticalViolations > 0 ? 'High' : 'Medium',
+      signals: [
+        ...(criticalViolations > 0 ? [{ label: `${criticalViolations} critical violation${criticalViolations > 1 ? 's' : ''}`, weight: 50 }] : []),
+        ...(openViolations > 0 ? [{ label: `${openViolations} total open violations`, weight: 20 }] : []),
+        ...(data.complianceSummary?.flaggedLogs7d > 0 ? [{ label: `${data.complianceSummary.flaggedLogs7d} flagged logs in past 7 days`, weight: 15 }] : []),
+      ],
+      rootCauses: [
+        'SOPs not being followed during routine operations',
+        'Staff training gaps on specific equipment or procedures',
+        'Equipment failure creating compliance conditions',
+        'Documentation frequency requirements not met',
+        'Recent operational changes not yet reflected in procedures',
+      ],
+      recommendation: 'Review all open violations in the Compliance tab. Critical violations require immediate corrective action and documented resolution.',
+      urgency: criticalViolations > 0 ? 'Critical' : 'High',
+      vvfiRecommended: true,
+    });
+  }
+
+  // ── Signal 4: Equipment in Maintenance → Fleet Stress ──────────────────────
+  const inMaint = data.equipmentStatus?.maintenance ?? 0;
+  const totalEquip = Math.max(data.equipmentStatus?.total ?? 1, 1);
+  if (inMaint > 0) {
+    const maintPct = (inMaint / totalEquip) * 100;
+    const prob = Math.min(85, Math.round(maintPct * 1.8 + 22));
+    findings.push({
+      id: 'maintenance-load',
+      title: `Equipment Fleet Stress — ${inMaint} Unit${inMaint > 1 ? 's' : ''} In Maintenance`,
+      equipmentType: 'multiple',
+      probability: prob,
+      confidence: maintPct > 20 ? 'High' : 'Medium',
+      signals: [
+        { label: `${inMaint} of ${data.equipmentStatus?.total} units in maintenance (${Math.round(maintPct)}%)`, weight: 40 },
+        ...(maintPct > 25 ? [{ label: 'Fleet maintenance rate exceeds 25% threshold', weight: 20 }] : []),
+      ],
+      rootCauses: [
+        'Deferred maintenance compounding into concurrent failures',
+        'Seasonal load peaks stressing equipment beyond rated capacity',
+        'End-of-life equipment reaching failure threshold simultaneously',
+        'Repair crew or parts availability creating a maintenance backlog',
+        'Incorrect operating procedures accelerating equipment wear',
+      ],
+      recommendation: `${maintPct > 25 ? 'Urgent: high fleet maintenance rate. ' : ''}Review units in maintenance — identify shared root causes or common vendor.`,
+      urgency: maintPct > 25 ? 'High' : 'Medium',
+      vvfiRecommended: maintPct > 20,
+    });
+  }
+
+  // ── Signal 5: Repeat Work Orders on Same Equipment → Chronic Issue ─────────
+  const recentWOs = data.workOrdersSummary?.recent ?? [];
+  const openWOs = recentWOs.filter(wo =>
+    ['open', 'in progress', 'in_progress'].includes(wo.status?.toLowerCase() ?? '')
+  );
+  const byEquip: Record<string, number> = {};
+  openWOs.forEach(wo => { if (wo.equipmentId) byEquip[wo.equipmentId] = (byEquip[wo.equipmentId] ?? 0) + 1; });
+  const repeatEquip = Object.entries(byEquip).filter(([, count]) => count >= 2);
+  if (repeatEquip.length > 0) {
+    findings.push({
+      id: 'repeat-wos',
+      title: `Chronic Issue — ${repeatEquip.length} Unit${repeatEquip.length > 1 ? 's' : ''} with Repeat Open WOs`,
+      equipmentType: 'multiple',
+      probability: Math.min(88, repeatEquip.length * 18 + 42),
+      confidence: 'High',
+      signals: [
+        { label: `${repeatEquip.length} equipment ID${repeatEquip.length > 1 ? 's' : ''} with 2+ concurrent open work orders`, weight: 55 },
+      ],
+      rootCauses: [
+        'Underlying root cause not addressed — surface repairs only',
+        'Worn components not replaced during previous service visits',
+        'Operating conditions exceeding equipment design parameters',
+        'Incorrect repair procedure or wrong parts specified',
+        'Systemic issue affecting a family of similar units',
+      ],
+      recommendation: `Investigate ${repeatEquip.slice(0, 3).map(([id]) => id).join(', ')}${repeatEquip.length > 3 ? ' and others' : ''} — multiple open WOs indicate a chronic failure, not isolated incidents.`,
+      urgency: 'High',
+      vvfiRecommended: true,
+    });
+  }
+
+  // ── Signal 6: Low Log Activity → Operational Visibility Gap ────────────────
+  const logsToday = data.kpis?.logsToday ?? 0;
+  const activeStaff = data.kpis?.activeStaffToday ?? 1;
+  const logRatio = logsToday / Math.max(activeStaff, 1);
+  if (logRatio < 1 && activeStaff > 0) {
+    findings.push({
+      id: 'low-log-activity',
+      title: 'Operational Visibility Gap — Low Log Activity',
+      equipmentType: 'operations',
+      probability: Math.min(70, Math.round((1 - logRatio) * 50 + 20)),
+      confidence: 'Medium',
+      signals: [
+        { label: `Only ${logsToday} logs submitted today with ${activeStaff} active staff`, weight: 30 },
+        { label: 'Log-to-staff ratio below 1:1 threshold', weight: 20 },
+      ],
+      rootCauses: [
+        'Staff not completing required daily log rounds',
+        'Equipment logging skipped due to perceived non-issues',
+        'Staff unfamiliar with logging requirements or system',
+        'High workload causing documentation to be deprioritized',
+      ],
+      recommendation: 'Remind active operators to complete their equipment log rounds. Low log activity reduces the system\'s ability to detect emerging issues.',
+      urgency: 'Medium',
+      vvfiRecommended: false,
+    });
+  }
+
+  const urgencyOrder: Record<ProbabilityUrgency, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+  return findings.sort((a, b) =>
+    urgencyOrder[a.urgency] - urgencyOrder[b.urgency] || b.probability - a.probability
+  );
 }
 
 // ─── Workflow templates (mirrors Workflows page) ───────────────────────────────
@@ -167,16 +376,24 @@ const KPICard = ({ label, value, icon: Icon, accent, sub }: { label: string; val
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function OperationCenter() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { toast } = useToast();
+  const { can } = useTier();
   const [data, setData] = useState<OperationCenterData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'workorders' | 'compliance' | 'personnel' | 'workflows'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'equipment' | 'workorders' | 'compliance' | 'personnel' | 'workflows' | 'probability'>('overview');
   const [recentWOs, setRecentWOs] = useState<any[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<typeof WORKFLOW_TEMPLATES[0] | null>(null);
   const [dateRange, setDateRange] = useState<'24h' | '7d' | '1m' | '3m' | 'all'>('7d');
-  const { user } = useAuth();
+  const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
+
+  const hasVVFI = can('vvfi');
+
+  const probabilityFindings = useMemo(
+    () => data ? buildProbabilityFeed(data) : [],
+    [data]
+  );
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -261,12 +478,13 @@ export default function OperationCenter() {
   };
 
   const tabs = [
-    { key: 'overview',   label: 'Overview',    icon: Radio },
-    { key: 'equipment',  label: 'Equipment',   icon: Gauge },
-    { key: 'workorders', label: 'Work Orders', icon: ClipboardList },
-    { key: 'compliance', label: 'Compliance',  icon: Shield },
-    { key: 'personnel',  label: 'Personnel',   icon: Users },
-    { key: 'workflows',  label: 'Workflows',   icon: GitBranch },
+    { key: 'overview',     label: 'Overview',          icon: Radio },
+    { key: 'equipment',    label: 'Equipment',         icon: Gauge },
+    { key: 'workorders',   label: 'Work Orders',       icon: ClipboardList },
+    { key: 'compliance',   label: 'Compliance',        icon: Shield },
+    { key: 'personnel',    label: 'Personnel',         icon: Users },
+    { key: 'workflows',    label: 'Workflows',         icon: GitBranch },
+    { key: 'probability',  label: 'Probability Feed',  icon: Brain },
   ] as const;
 
   return (
@@ -747,6 +965,219 @@ export default function OperationCenter() {
                     )}
                   </CardContent>
                 </Card>
+              </div>
+            )}
+            {/* ── PROBABILITY FEED ── */}
+            {activeTab === 'probability' && (
+              <div className="space-y-6">
+
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-primary" />
+                      Daily Probability Feed
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Correlating work orders, PMs, flagged logs, violations, and equipment metrics to surface likely root causes.
+                      Updated {data?.generatedAt ? new Date(data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'}.
+                    </p>
+                  </div>
+                  {probabilityFindings.length > 0 && (
+                    <div className="flex gap-2 shrink-0">
+                      <Badge className="bg-destructive/20 text-destructive border-destructive/30">
+                        {probabilityFindings.filter(f => f.urgency === 'Critical').length} Critical
+                      </Badge>
+                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                        {probabilityFindings.filter(f => f.urgency === 'High').length} High
+                      </Badge>
+                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                        {probabilityFindings.filter(f => f.urgency === 'Medium').length} Medium
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Empty state */}
+                {probabilityFindings.length === 0 && (
+                  <Card className="neon-border">
+                    <CardContent className="py-16 text-center">
+                      <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-400 opacity-70" />
+                      <h3 className="text-lg font-semibold mb-1">All Clear</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                        No probability signals detected. No overdue WOs, flagged logs, open violations, or maintenance anomalies in your current data window.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Findings */}
+                {probabilityFindings.map((finding) => {
+                  const isExpanded = expandedFinding === finding.id;
+                  const urgencyStyles: Record<string, string> = {
+                    Critical: 'border-destructive/40 bg-destructive/5',
+                    High:     'border-orange-500/40 bg-orange-500/5',
+                    Medium:   'border-yellow-500/30 bg-yellow-500/5',
+                    Low:      'border-border/40 bg-muted/20',
+                  };
+                  const urgencyBadge: Record<string, string> = {
+                    Critical: 'bg-destructive/20 text-destructive border-destructive/30',
+                    High:     'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                    Medium:   'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                    Low:      'bg-muted/50 text-muted-foreground border-border/30',
+                  };
+                  const probColor = finding.probability >= 75 ? 'text-destructive' : finding.probability >= 50 ? 'text-orange-400' : 'text-yellow-400';
+
+                  return (
+                    <Card key={finding.id} className={cn('border transition-all', urgencyStyles[finding.urgency])}>
+                      <CardContent className="p-0">
+                        {/* Summary row — always visible */}
+                        <button
+                          className="w-full text-left p-4 flex items-start gap-4"
+                          onClick={() => setExpandedFinding(isExpanded ? null : finding.id)}
+                        >
+                          <div className="shrink-0 mt-0.5">
+                            <FlaskConical className={cn('w-5 h-5', probColor)} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-semibold text-sm">{finding.title}</span>
+                              <Badge className={cn('text-[10px] px-1.5 py-0 border', urgencyBadge[finding.urgency])}>
+                                {finding.urgency}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize hidden sm:inline-flex">
+                                {finding.equipmentType.replace(/_/g, ' ')}
+                              </Badge>
+                              {finding.vvfiRecommended && (
+                                <Badge className="text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
+                                  VVFI Candidate
+                                </Badge>
+                              )}
+                            </div>
+                            {/* Probability bar */}
+                            <div className="flex items-center gap-3 mt-2">
+                              <div className="flex-1 max-w-48">
+                                <Progress value={finding.probability} className="h-1.5" />
+                              </div>
+                              <span className={cn('text-xs font-bold tabular-nums shrink-0', probColor)}>
+                                {finding.probability}% probable
+                              </span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {finding.confidence} confidence
+                              </span>
+                            </div>
+                            {/* Signals summary */}
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {finding.signals.map((sig, i) => (
+                                <span key={i} className="text-[10px] bg-muted/40 border border-border/30 rounded px-1.5 py-0.5 text-muted-foreground">
+                                  {sig.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <ChevronRight className={cn('w-4 h-4 text-muted-foreground shrink-0 mt-0.5 transition-transform', isExpanded && 'rotate-90')} />
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="border-t border-border/30 px-4 pb-4 pt-4 space-y-4">
+                            {/* Root Causes */}
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5" />
+                                What may be causing this
+                              </p>
+                              <div className="space-y-1.5">
+                                {finding.rootCauses.map((cause, i) => (
+                                  <div key={i} className="flex items-start gap-2 text-sm">
+                                    <div className="w-4 h-4 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[9px] font-bold text-primary shrink-0 mt-0.5">
+                                      {i + 1}
+                                    </div>
+                                    <span className="text-muted-foreground leading-snug">{cause}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Recommendation */}
+                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                Recommended Action
+                              </p>
+                              <p className="text-sm text-foreground">{finding.recommendation}</p>
+                            </div>
+
+                            {/* VVFI CTA */}
+                            {finding.vvfiRecommended && (
+                              hasVVFI ? (
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+                                  <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-medium text-primary">Deep Diagnostic Available</p>
+                                      <p className="text-xs text-muted-foreground">Your VVFI retainer includes full root cause analysis for this pattern.</p>
+                                    </div>
+                                  </div>
+                                  <Button size="sm" className="shrink-0 ml-3" onClick={() => window.location.href = '/vvfi'}>
+                                    Open VVFI <ChevronRight className="w-3 h-3 ml-1" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/40">
+                                  <div className="flex items-center gap-2">
+                                    <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-medium flex items-center gap-1.5">
+                                        VVFI Retainer — Deeper Diagnosis
+                                        <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Premium+</Badge>
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        The VVFI retainer includes quarterly analysis, a 30-question operational assessment, and a dedicated consultant to diagnose patterns like this one.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button size="sm" variant="outline" className="shrink-0 ml-3 border-primary/30 hover:border-primary" onClick={() => window.location.href = '/pricing'}>
+                                    Upgrade <ChevronRight className="w-3 h-3 ml-1" />
+                                  </Button>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {/* How the feed works */}
+                <Card className="neon-border border-border/30">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      How the Probability Feed Works
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
+                      {[
+                        { icon: ClipboardList, label: 'Work Orders', desc: 'Open, overdue, and repeat WOs signal PM gaps or chronic failures' },
+                        { icon: AlertTriangle, label: 'Violations', desc: 'Critical and open violations indicate compliance or operational risk' },
+                        { icon: Activity,      label: 'Flagged Logs', desc: 'Repeated equipment flags in the log feed suggest distress patterns' },
+                        { icon: Wrench,        label: 'Maintenance Status', desc: 'High fleet maintenance rates indicate systemic stress' },
+                        { icon: TrendingUp,    label: 'Log Activity', desc: 'Low log-to-staff ratios flag operational visibility gaps' },
+                        { icon: Brain,         label: 'Correlation', desc: 'Findings are ranked by urgency and probability score derived from combined signal weight' },
+                      ].map(({ icon: Icon, label, desc }) => (
+                        <div key={label} className="flex gap-2">
+                          <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary/60" />
+                          <div>
+                            <p className="font-medium text-foreground/70">{label}</p>
+                            <p className="leading-snug">{desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
               </div>
             )}
           </>
