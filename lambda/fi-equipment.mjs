@@ -102,6 +102,81 @@ export const handler = async (event) => {
 
   const fid = facilityId(claims);
 
+  // ── GET /facility-logs — frontend canonical path ─────────────────────────────
+  // Handles: /facility-logs?facilityId=&limit=&flagged=true
+  if (method === "GET" && path.includes("/facility-logs")) {
+    try {
+      const qs      = event.queryStringParameters || {};
+      const limit   = Math.min(parseInt(qs.limit || "50"), 500);
+      const flagged = qs.flagged === "true";
+
+      let params = {
+        TableName:                 LOGS_TABLE,
+        KeyConditionExpression:    "PK = :pk",
+        ExpressionAttributeValues: { ":pk": `FACILITY#${fid}` },
+        ScanIndexForward:          false,
+        Limit:                     limit,
+      };
+
+      if (flagged) {
+        params.FilterExpression = "flagged = :f";
+        params.ExpressionAttributeValues[":f"] = true;
+      }
+
+      const result = await ddb.send(new QueryCommand(params));
+      const logs   = (result.Items || []).map(mapLog);
+      return json(200, { logs, count: logs.length });
+    } catch (err) {
+      console.error("GET /facility-logs:", err);
+      return json(500, { message: "Failed to fetch facility logs.", detail: err.message });
+    }
+  }
+
+  // ── POST /facility-log-ingest — batch ingest from EquipmentLibrary / SDK ────
+  if (method === "POST" && path.includes("/facility-log-ingest")) {
+    try {
+      const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body || {};
+      const entries = Array.isArray(body) ? body : [body];
+      const now     = new Date().toISOString();
+      const written = [];
+
+      for (const entry of entries) {
+        const ts  = entry.timestamp || now;
+        const id  = `${ts}-${Math.random().toString(36).slice(2, 8)}`;
+        const item = {
+          PK:          `FACILITY#${fid}`,
+          SK:          `LOG#${ts}#${id}`,
+          logId:       id,
+          facilityId:  fid,
+          timestamp:   ts,
+          operator:    entry.operator || claims.sub || "system",
+          equipmentId: entry.equipmentId || null,
+          action:      entry.action || entry.logType || "log",
+          notes:       entry.notes  || null,
+          severity:    entry.severity || "info",
+          metric:      entry.metric  || null,
+          value:       entry.value   != null ? Number(entry.value) : null,
+          kw:          entry.kw      != null ? Number(entry.kw) : null,
+          kwPerTon:    entry.kwPerTon != null ? Number(entry.kwPerTon) : null,
+          tons:        entry.tons    != null ? Number(entry.tons) : null,
+          ampDraw:     entry.ampDraw != null ? Number(entry.ampDraw) : null,
+          efficiency:  entry.efficiency != null ? Number(entry.efficiency) : null,
+          alarmCode:   entry.alarmCode || null,
+          overrideFlag: !!entry.overrideFlag,
+          flagged:     !!entry.flagged,
+          source:      entry.source || "manual",
+          ttl:         Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 90, // 90d TTL
+        };
+        await ddb.send(new PutCommand({ TableName: LOGS_TABLE, Item: item }));
+        written.push(id);
+      }
+      return json(201, { written: written.length, ids: written });
+    } catch (err) {
+      console.error("POST /facility-log-ingest:", err);
+      return json(500, { message: "Ingest failed.", detail: err.message });
+    }
+  }
+
   // ── GET /logs/latest ────────────────────────────────────────────────────────
   if (method === "GET" && path.includes("/logs/latest")) {
     try {
