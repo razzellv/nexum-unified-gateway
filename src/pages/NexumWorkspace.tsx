@@ -15,7 +15,8 @@ import {
   TrendingUp, Wrench, Zap, Search, StickyNote, ExternalLink,
   ChevronRight, Activity, AlertCircle, CheckCircle2, Clock,
   PhoneCall, Plus, Trash2, RefreshCw, MailCheck, Trophy,
-  XCircle, CalendarClock, Filter,
+  XCircle, CalendarClock, Filter, ShieldCheck, Copy, ChevronDown,
+  ChevronUp, Crown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -493,6 +494,289 @@ function LeadPipeline() {
   );
 }
 
+// ── Pilot Applications ────────────────────────────────────────────────────────
+
+type PilotStatus = 'pending' | 'in_progress' | 'approved' | 'active' | 'declined' | 'discarded';
+
+interface PilotApp {
+  appId:       string;
+  PK:          string;
+  name:        string;
+  email:       string;
+  company:     string;
+  role:        string;
+  facilities:  string;
+  useCase:     string;
+  status:      PilotStatus;
+  pilotCode?:  string;
+  pilotTier?:  string;
+  adminNotes?: string;
+  createdAt:   string;
+  approvedAt?: string;
+}
+
+const PILOT_STATUS_META: Record<PilotStatus, { label: string; color: string }> = {
+  pending:     { label: 'Pending Review', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  in_progress: { label: 'In Review',      color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  approved:    { label: 'Approved',       color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  active:      { label: 'Active',         color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  declined:    { label: 'Declined',       color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  discarded:   { label: 'Discarded',      color: 'bg-muted/40 text-muted-foreground border-border' },
+};
+
+function PilotApplications() {
+  const [apps, setApps]           = useState<PilotApp[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [actioning, setActioning] = useState<string | null>(null);
+  const [notes, setNotes]         = useState<Record<string, string>>({});
+  const [expanded, setExpanded]   = useState<Record<string, boolean>>({});
+  const [filter, setFilter]       = useState<PilotStatus | 'all'>('all');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const fetchApps = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/pilot-applications`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setApps(data.applications || []);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchApps(); }, [fetchApps]);
+
+  const doAction = async (app: PilotApp, action: string) => {
+    setActioning(app.appId);
+    try {
+      const res = await fetch(`${API_BASE}/pilot-applications/${app.appId}/${action}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body:    JSON.stringify({ notes: notes[app.appId] || undefined }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(
+          action === 'approve'
+            ? `Approved — code: ${data.pilotCode} · Business tier ${data.cognitoTierSet ? 'provisioned' : 'queued for registration'}`
+            : action === 'decline'
+            ? 'Application declined.'
+            : `Status → ${data.newStatus}`
+        );
+        fetchApps();
+      } else {
+        toast.error('Action failed — check console.');
+      }
+    } catch {
+      toast.error('Network error.');
+    }
+    setActioning(null);
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  };
+
+  const visible = filter === 'all' ? apps : apps.filter(a => a.status === filter);
+  const counts  = Object.fromEntries(
+    (Object.keys(PILOT_STATUS_META) as PilotStatus[]).map(s => [s, apps.filter(a => a.status === s).length])
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Crown className="w-4 h-4 text-purple-400" />
+            Pilot Applications
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Approve to grant Business tier access · Approval email + Cognito provisioning automated
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={fetchApps} disabled={loading} className="text-muted-foreground">
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
+        </Button>
+      </div>
+
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {(['all', ...Object.keys(PILOT_STATUS_META)] as (PilotStatus | 'all')[]).map(s => {
+          const count = s === 'all' ? apps.length : (counts[s] ?? 0);
+          const meta  = s !== 'all' ? PILOT_STATUS_META[s] : null;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                filter === s
+                  ? meta ? meta.color : 'bg-primary/20 text-primary border-primary/30'
+                  : 'bg-muted/20 text-muted-foreground border-border hover:border-primary/40'
+              }`}
+            >
+              {s === 'all' ? 'All' : PILOT_STATUS_META[s].label} {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && apps.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Loading applications…</p>
+      )}
+
+      {!loading && visible.length === 0 && (
+        <Card className="border border-border">
+          <CardContent className="py-12 text-center">
+            <ShieldCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-semibold text-foreground">No applications</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filter === 'all' ? 'No pilot applications have been submitted yet.' : `No ${PILOT_STATUS_META[filter as PilotStatus]?.label.toLowerCase()} applications.`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-3">
+        {visible.map(app => {
+          const meta    = PILOT_STATUS_META[app.status];
+          const isOpen  = expanded[app.appId];
+          const working = actioning === app.appId;
+
+          return (
+            <Card key={app.appId} className={`border ${app.status === 'pending' || app.status === 'in_progress' ? 'border-yellow-500/20' : 'border-border'} bg-card/60`}>
+              <CardContent className="p-4 space-y-3">
+                {/* Row 1: Name + status + expand */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                      <Badge className={`text-[10px] border ${meta.color}`}>{meta.label}</Badge>
+                      {(app.status === 'approved' || app.status === 'active') && (
+                        <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
+                          <Crown className="w-2.5 h-2.5 mr-1" />Business Tier
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{app.name}</p>
+                    <p className="text-xs text-muted-foreground">{app.email} · {app.company || 'No company'}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button
+                      onClick={() => setExpanded(e => ({ ...e, [app.appId]: !e[app.appId] }))}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pilot code display */}
+                {app.pilotCode && (
+                  <div className="flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Code</span>
+                    <code className="text-sm font-bold text-purple-400 font-mono flex-1">{app.pilotCode}</code>
+                    <button
+                      onClick={() => copyCode(app.pilotCode!)}
+                      className="text-muted-foreground hover:text-foreground"
+                      title="Copy code"
+                    >
+                      {copiedCode === app.pilotCode
+                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* Expanded details */}
+                {isOpen && (
+                  <div className="space-y-3 pt-2 border-t border-border/50">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      {[
+                        { label: 'Role',        value: app.role       },
+                        { label: 'Facilities',  value: app.facilities },
+                        { label: 'Use Case',    value: app.useCase    },
+                        { label: 'Approved At', value: app.approvedAt ? new Date(app.approvedAt).toLocaleDateString() : '—' },
+                      ].map(({ label, value }) => value ? (
+                        <div key={label}>
+                          <span className="text-muted-foreground">{label}: </span>
+                          <span className="text-foreground">{value}</span>
+                        </div>
+                      ) : null)}
+                    </div>
+
+                    {app.adminNotes && (
+                      <div className="bg-muted/20 rounded p-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Notes: </span>{app.adminNotes}
+                      </div>
+                    )}
+
+                    {/* Notes input for actions */}
+                    {(app.status === 'pending' || app.status === 'in_progress') && (
+                      <Textarea
+                        placeholder="Optional note to applicant…"
+                        value={notes[app.appId] || ''}
+                        onChange={e => setNotes(n => ({ ...n, [app.appId]: e.target.value }))}
+                        className="text-xs h-16 resize-none"
+                      />
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      {(app.status === 'pending' || app.status === 'in_progress') && (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={working}
+                            onClick={() => doAction(app, 'approve')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {working ? 'Approving…' : 'Approve → Business Tier'}
+                          </Button>
+                          {app.status === 'pending' && (
+                            <Button size="sm" variant="outline" disabled={working} onClick={() => doAction(app, 'in_progress')} className="text-xs">
+                              Mark In Review
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" disabled={working} onClick={() => doAction(app, 'decline')} className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10">
+                            Decline
+                          </Button>
+                          <Button size="sm" variant="ghost" disabled={working} onClick={() => doAction(app, 'discard')} className="text-xs text-muted-foreground">
+                            Discard
+                          </Button>
+                        </>
+                      )}
+                      {app.status === 'approved' && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />Waiting for applicant to activate with code
+                        </p>
+                      )}
+                      {app.status === 'active' && (
+                        <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />Active — Business tier provisioned
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function NexumWorkspace() {
@@ -545,6 +829,7 @@ export default function NexumWorkspace() {
 
   const sorted = [...notes].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -564,6 +849,7 @@ export default function NexumWorkspace() {
           <TabsList className="bg-muted/50 border border-border/40">
             <TabsTrigger value="tools"    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Internal Tools</TabsTrigger>
             <TabsTrigger value="pipeline" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Lead Pipeline</TabsTrigger>
+            <TabsTrigger value="pilots"   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Pilot Applications</TabsTrigger>
             <TabsTrigger value="notes"    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes & Links</TabsTrigger>
           </TabsList>
 
@@ -595,6 +881,11 @@ export default function NexumWorkspace() {
           {/* ── Lead Pipeline tab ── */}
           <TabsContent value="pipeline" className="mt-4">
             <LeadPipeline />
+          </TabsContent>
+
+          {/* ── Pilot Applications tab ── */}
+          <TabsContent value="pilots" className="mt-4">
+            <PilotApplications />
           </TabsContent>
 
           {/* ── Notes & Links tab ── */}
