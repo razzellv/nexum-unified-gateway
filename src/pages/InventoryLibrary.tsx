@@ -18,6 +18,7 @@ import {
   Download, ArrowUpDown, Wrench, Zap, Wind, Hammer, Droplets, Cylinder, Box,
   ClipboardList, CheckCircle, User, Clock, Plus, X, History,
   Thermometer, ShoppingCart, Shield, Truck, Lock, AlertOctagon, Upload,
+  FlaskConical, AlertCircle, FileText, CheckCircle2, Trash2,
 } from 'lucide-react';
 import { ImportModal } from '@/components/ImportModal';
 import { Textarea } from '@/components/ui/textarea';
@@ -161,6 +162,63 @@ interface GovItem {
   createdAt: string;
 }
 
+type ChemicalType = 'corrosive' | 'flammable' | 'toxic' | 'oxidizer' | 'compressed_gas' | 'reactive' | 'biohazard' | 'radiation' | 'other';
+interface HazmatItem {
+  id: string;
+  chemicalName: string;
+  casNumber: string;
+  sdsNumber: string;
+  chemicalType: ChemicalType;
+  hazardClass: string;
+  unNumber: string;
+  currentQuantity: number;
+  maxAllowableQuantity: number;
+  reorderPoint: number;
+  unit: 'gallons' | 'liters' | 'pounds' | 'kg' | 'units';
+  location: string;
+  storageRequirements: string;
+  supplier: string;
+  supplierPhone: string;
+  sdsLastReviewed: string;
+  sdsNextReview: string;
+  primaryHazard: string;
+  secondaryHazards: string[];
+  ppe: string[];
+  emergencyProcedure: string;
+  spillProcedure: string;
+  disposalMethod: string;
+  requiresPermit: boolean;
+  permitNumber: string;
+  permitExpiry: string;
+  isReportable: boolean;
+  reportingThreshold: number;
+  lastInspectionDate: string;
+  nextInspectionDue: string;
+  assignedResponsible: string;
+  notes: string;
+  createdAt: string;
+}
+
+const CHEM_TYPE_META: Record<ChemicalType, { label: string; color: string }> = {
+  corrosive:     { label: 'Corrosive',     color: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
+  flammable:     { label: 'Flammable',     color: 'bg-red-500/15 text-red-400 border-red-500/30'         },
+  toxic:         { label: 'Toxic',         color: 'bg-purple-500/15 text-purple-400 border-purple-500/30'},
+  oxidizer:      { label: 'Oxidizer',      color: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'},
+  compressed_gas:{ label: 'Comp. Gas',     color: 'bg-blue-500/15 text-blue-400 border-blue-500/30'      },
+  reactive:      { label: 'Reactive',      color: 'bg-pink-500/15 text-pink-400 border-pink-500/30'      },
+  biohazard:     { label: 'Biohazard',     color: 'bg-green-500/15 text-green-400 border-green-500/30'   },
+  radiation:     { label: 'Radiation',     color: 'bg-teal-500/15 text-teal-400 border-teal-500/30'      },
+  other:         { label: 'Other',         color: 'bg-muted/40 text-muted-foreground border-border'       },
+};
+
+const MOCK_HAZMAT: HazmatItem[] = [
+  { id: 'hm1', chemicalName: 'Muriatic Acid (HCl 31.5%)', casNumber: '7647-01-0', sdsNumber: 'SDS-001', chemicalType: 'corrosive', hazardClass: '8', unNumber: 'UN1789', currentQuantity: 5, maxAllowableQuantity: 25, reorderPoint: 2, unit: 'gallons', location: 'Chemical Storage Rm A', storageRequirements: 'Ventilated, away from bases', supplier: 'Univar Solutions', supplierPhone: '800-555-0100', sdsLastReviewed: '2025-03-01', sdsNextReview: '2026-03-01', primaryHazard: 'Corrosive — burns skin and eyes', secondaryHazards: ['Inhalation'], ppe: ['Chemical gloves', 'Face shield', 'Apron'], emergencyProcedure: 'Neutralize with sodium bicarbonate', spillProcedure: 'Absorb with dry sand', disposalMethod: 'Neutralize; dispose per RCRA', requiresPermit: false, permitNumber: '', permitExpiry: '', isReportable: true, reportingThreshold: 500, lastInspectionDate: '2026-04-01', nextInspectionDue: '2026-07-01', assignedResponsible: 'J. Smith', notes: '', createdAt: '2025-01-15' },
+  { id: 'hm2', chemicalName: 'Diesel Fuel #2', casNumber: '68476-34-6', sdsNumber: 'SDS-002', chemicalType: 'flammable', hazardClass: '3', unNumber: 'UN1993', currentQuantity: 200, maxAllowableQuantity: 500, reorderPoint: 50, unit: 'gallons', location: 'Fuel Storage Pad', storageRequirements: 'Grounded containers, no ignition sources', supplier: 'Fleet Fuels Inc', supplierPhone: '800-555-0200', sdsLastReviewed: '2025-01-10', sdsNextReview: '2026-01-10', primaryHazard: 'Flammable liquid', secondaryHazards: ['Inhalation of vapors'], ppe: ['Chemical gloves', 'Safety glasses'], emergencyProcedure: 'Remove ignition sources', spillProcedure: 'Contain with absorbent boom', disposalMethod: 'Hazardous waste contractor', requiresPermit: true, permitNumber: 'SPCC-2024-001', permitExpiry: '2027-12-31', isReportable: true, reportingThreshold: 1320, lastInspectionDate: '2026-03-15', nextInspectionDue: '2026-06-15', assignedResponsible: 'M. Torres', notes: 'SPCC plan on file', createdAt: '2024-06-01' },
+  { id: 'hm3', chemicalName: 'Sodium Hypochlorite 12.5%', casNumber: '7681-52-9', sdsNumber: 'SDS-003', chemicalType: 'corrosive', hazardClass: '8', unNumber: 'UN1791', currentQuantity: 30, maxAllowableQuantity: 100, reorderPoint: 10, unit: 'gallons', location: 'Treatment Plant Storage', storageRequirements: 'Cool, dark area; away from acids', supplier: 'Univar Solutions', supplierPhone: '800-555-0100', sdsLastReviewed: '2024-09-01', sdsNextReview: '2025-09-01', primaryHazard: 'Oxidizer / Corrosive', secondaryHazards: ['Chlorine gas generation if mixed with acid'], ppe: ['Chemical gloves', 'Safety glasses', 'Apron'], emergencyProcedure: 'Dilute with water', spillProcedure: 'Absorb with vermiculite', disposalMethod: 'Dilute and neutralize', requiresPermit: false, permitNumber: '', permitExpiry: '', isReportable: false, reportingThreshold: 0, lastInspectionDate: '2026-02-01', nextInspectionDue: '2026-08-01', assignedResponsible: 'R. Patel', notes: 'SDS review overdue', createdAt: '2024-03-10' },
+];
+
+const EMPTY_HAZMAT_FORM = { chemicalName: '', casNumber: '', sdsNumber: '', chemicalType: 'other' as ChemicalType, hazardClass: '', unNumber: '', currentQuantity: '', maxAllowableQuantity: '', reorderPoint: '', unit: 'gallons' as HazmatItem['unit'], location: '', storageRequirements: '', supplier: '', supplierPhone: '', sdsLastReviewed: '', sdsNextReview: '', primaryHazard: '', secondaryHazards: '', ppe: '', emergencyProcedure: '', spillProcedure: '', disposalMethod: '', requiresPermit: false, permitNumber: '', permitExpiry: '', isReportable: false, reportingThreshold: '', assignedResponsible: '', notes: '' };
+
 type AddItemType = 'parts' | 'food' | 'apparel' | 'retail' | 'pharmacy';
 
 const EMPTY_PARTS_FORM = { name: '', partNumber: '', category: '', quantity: '', minQuantity: '', location: '', supplier: '', unitCost: '', compatibleEquipment: '' };
@@ -231,6 +289,65 @@ export default function InventoryLibrary() {
   const [retailForm, setRetailForm] = useState({ ...EMPTY_RETAIL_FORM });
   const [pharmacyForm, setPharmacyForm] = useState({ ...EMPTY_PHARMACY_FORM });
   const [addSubmitting, setAddSubmitting] = useState(false);
+
+  // Chemical / Hazmat — facility-scoped
+  const HAZMAT_KEY = `nexum_hazmat_inventory`;
+  const [hazmatItems, setHazmatItems] = useState<HazmatItem[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(HAZMAT_KEY) || '[]');
+      return saved.length > 0 ? saved : MOCK_HAZMAT;
+    } catch { return MOCK_HAZMAT; }
+  });
+  const [hazmatTypeFilter, setHazmatTypeFilter] = useState<ChemicalType | 'all'>('all');
+  const [hazmatSearch, setHazmatSearch] = useState('');
+  const [showAddHazmat, setShowAddHazmat] = useState(false);
+  const [hazmatForm, setHazmatForm] = useState({ ...EMPTY_HAZMAT_FORM });
+  const [hazmatStep, setHazmatStep] = useState(1);
+  const [hazmatSubmitting, setHazmatSubmitting] = useState(false);
+
+  const saveHazmat = (items: HazmatItem[]) => {
+    setHazmatItems(items);
+    localStorage.setItem(HAZMAT_KEY, JSON.stringify(items));
+  };
+
+  const addHazmatItem = () => {
+    const item: HazmatItem = {
+      id: `hm-${Date.now()}`,
+      ...hazmatForm,
+      currentQuantity:     parseFloat(hazmatForm.currentQuantity as any) || 0,
+      maxAllowableQuantity:parseFloat(hazmatForm.maxAllowableQuantity as any) || 0,
+      reorderPoint:        parseFloat(hazmatForm.reorderPoint as any) || 0,
+      reportingThreshold:  parseFloat(hazmatForm.reportingThreshold as any) || 0,
+      secondaryHazards:    String(hazmatForm.secondaryHazards).split(',').map(s => s.trim()).filter(Boolean),
+      ppe:                 String(hazmatForm.ppe).split(',').map(s => s.trim()).filter(Boolean),
+      createdAt: new Date().toISOString(),
+    };
+    saveHazmat([item, ...hazmatItems]);
+    setHazmatForm({ ...EMPTY_HAZMAT_FORM });
+    setHazmatStep(1);
+    setShowAddHazmat(false);
+    toast.success(`Chemical added — ${item.chemicalName}`);
+  };
+
+  const deleteHazmat = (id: string) => saveHazmat(hazmatItems.filter(h => h.id !== id));
+
+  const visibleHazmat = hazmatItems.filter(h => {
+    if (hazmatTypeFilter !== 'all' && h.chemicalType !== hazmatTypeFilter) return false;
+    if (hazmatSearch) {
+      const q = hazmatSearch.toLowerCase();
+      if (!h.chemicalName.toLowerCase().includes(q) && !h.casNumber.includes(q) && !h.location.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const today = new Date();
+  const hazmatStats = {
+    total:       hazmatItems.length,
+    hazmat:      hazmatItems.filter(h => ['corrosive','flammable','toxic','oxidizer','reactive','biohazard','radiation'].includes(h.chemicalType)).length,
+    sdsDue:      hazmatItems.filter(h => h.sdsNextReview && new Date(h.sdsNextReview) <= today).length,
+    permitExp:   hazmatItems.filter(h => h.requiresPermit && h.permitExpiry && Math.ceil((new Date(h.permitExpiry).getTime() - today.getTime()) / 86400000) <= 30).length,
+    reportable:  hazmatItems.filter(h => h.isReportable && h.currentQuantity >= h.reportingThreshold).length,
+  };
 
   // Gov / Public Safety — facility-scoped
   const [govItems, setGovItems] = useState<GovItem[]>(() => {
@@ -533,6 +650,7 @@ export default function InventoryLibrary() {
               { value: 'logger',      label: 'Inventory Logger',     icon: ClipboardList },
               { value: 'gov',         label: 'Gov / Public Safety',  icon: Shield },
               { value: 'retail',      label: 'Retail',               icon: ShoppingCart },
+              { value: 'hazmat',      label: 'Chemical & Hazmat',    icon: FlaskConical },
             ] as const).map(({ value, label, icon: Icon }) => (
               <button key={value} onClick={() => setActiveTab(value)}
                 className={cn(
@@ -881,8 +999,305 @@ export default function InventoryLibrary() {
               </CardContent>
             </Card>
           </div>}
+
+          {/* ── Tab: Chemical & Hazmat ────────────────────────────────────────── */}
+          {activeTab === 'hazmat' && <div className="space-y-5">
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: 'Total Chemicals',      value: hazmatStats.total,      color: 'text-foreground' },
+                { label: 'Hazmat Items',          value: hazmatStats.hazmat,     color: 'text-orange-400' },
+                { label: 'SDS Reviews Due',       value: hazmatStats.sdsDue,     color: hazmatStats.sdsDue > 0 ? 'text-red-400' : 'text-green-400' },
+                { label: 'Permit Expiring Soon',  value: hazmatStats.permitExp,  color: hazmatStats.permitExp > 0 ? 'text-yellow-400' : 'text-green-400' },
+                { label: 'Above Report Threshold',value: hazmatStats.reportable, color: hazmatStats.reportable > 0 ? 'text-purple-400' : 'text-green-400' },
+              ].map(({ label, value, color }) => (
+                <Card key={label} className="glass-panel">
+                  <CardContent className="p-3 text-center">
+                    <p className={cn('text-2xl font-bold', color)}>{value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[180px] max-w-xs">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input value={hazmatSearch} onChange={e => setHazmatSearch(e.target.value)}
+                  placeholder="Search name, CAS #, location…" className="pl-8 h-8 text-xs" />
+              </div>
+              <Select value={hazmatTypeFilter} onValueChange={v => setHazmatTypeFilter(v as any)}>
+                <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="All types" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All types</SelectItem>
+                  {(Object.entries(CHEM_TYPE_META) as [ChemicalType, any][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={() => { setShowAddHazmat(true); setHazmatStep(1); }} className="ml-auto bg-orange-600 hover:bg-orange-700 text-white gap-1.5 text-xs">
+                <Plus className="w-3.5 h-3.5" />Add Chemical
+              </Button>
+            </div>
+
+            {/* Chemical inventory table */}
+            <Card className="glass-panel overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/40 bg-muted/20">
+                      {['Chemical Name', 'CAS #', 'Type', 'Quantity', 'Location', 'SDS Status', 'Permit', 'Actions'].map(h => (
+                        <th key={h} className="text-left px-3 py-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleHazmat.length === 0 ? (
+                      <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">No chemicals found.</td></tr>
+                    ) : visibleHazmat.map(h => {
+                      const typeMeta = CHEM_TYPE_META[h.chemicalType];
+                      const sdsDue = h.sdsNextReview && new Date(h.sdsNextReview) <= today;
+                      const overQty = h.currentQuantity > h.maxAllowableQuantity && h.maxAllowableQuantity > 0;
+                      const permitExpiring = h.requiresPermit && h.permitExpiry &&
+                        Math.ceil((new Date(h.permitExpiry).getTime() - today.getTime()) / 86400000) <= 30;
+                      return (
+                        <tr key={h.id} className={cn('border-b border-border/20 hover:bg-muted/10 transition-colors', overQty && 'bg-red-500/5')}>
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-foreground">{h.chemicalName}</p>
+                            {h.unNumber && <p className="text-[10px] text-muted-foreground">UN{h.unNumber}</p>}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-muted-foreground">{h.casNumber || '—'}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold border', typeMeta.color)}>{typeMeta.label}</span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={cn('font-semibold', overQty ? 'text-red-400' : 'text-foreground')}>{h.currentQuantity} {h.unit}</span>
+                            {overQty && <p className="text-[10px] text-red-400">Exceeds max {h.maxAllowableQuantity}</p>}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground">{h.location || '—'}</td>
+                          <td className="px-3 py-2.5">
+                            {sdsDue
+                              ? <span className="flex items-center gap-1 text-red-400"><AlertCircle className="w-3 h-3" />Overdue</span>
+                              : <span className="flex items-center gap-1 text-green-400"><CheckCircle2 className="w-3 h-3" />Current</span>}
+                            {h.sdsNextReview && <p className="text-[10px] text-muted-foreground">Due {h.sdsNextReview}</p>}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {h.requiresPermit
+                              ? permitExpiring
+                                ? <span className="text-yellow-400 text-[10px]">⚠ Exp. {h.permitExpiry}</span>
+                                : <span className="text-green-400 text-[10px]">✓ {h.permitNumber || 'Permit on file'}</span>
+                              : <span className="text-muted-foreground text-[10px]">Not required</span>}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <button onClick={() => deleteHazmat(h.id)} className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* SDS compliance tracker */}
+            {hazmatStats.sdsDue > 0 && (
+              <Card className="glass-panel border-orange-500/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-orange-400">
+                    <FileText className="w-4 h-4" />SDS Reviews Overdue ({hazmatStats.sdsDue})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {hazmatItems.filter(h => h.sdsNextReview && new Date(h.sdsNextReview) <= today).map(h => (
+                    <div key={h.id} className="flex items-center justify-between p-2 rounded-lg border border-orange-500/20 bg-orange-500/5">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{h.chemicalName}</p>
+                        <p className="text-[10px] text-muted-foreground">Due: {h.sdsNextReview} · {h.assignedResponsible || 'Unassigned'}</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="text-xs border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                        onClick={() => {
+                          const next = new Date();
+                          next.setFullYear(next.getFullYear() + 1);
+                          const updated = hazmatItems.map(x => x.id === h.id
+                            ? { ...x, sdsLastReviewed: new Date().toISOString().slice(0, 10), sdsNextReview: next.toISOString().slice(0, 10) }
+                            : x);
+                          saveHazmat(updated);
+                          toast.success(`SDS marked reviewed — ${h.chemicalName}`);
+                        }}>
+                        Mark Reviewed
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tier II / SARA reporting */}
+            {hazmatStats.reportable > 0 && (
+              <Card className="glass-panel border-purple-500/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-purple-400">
+                    <AlertTriangle className="w-4 h-4" />SARA Title III / Tier II Reportable Chemicals ({hazmatStats.reportable})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Chemicals where current quantity exceeds the reporting threshold. Annual Tier II report due March 1.</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="border-b border-border/30"><th className="text-left px-2 py-1.5 text-muted-foreground">Chemical</th><th className="text-left px-2 py-1.5 text-muted-foreground">CAS #</th><th className="text-right px-2 py-1.5 text-muted-foreground">Quantity</th><th className="text-right px-2 py-1.5 text-muted-foreground">Threshold</th><th className="text-left px-2 py-1.5 text-muted-foreground">Location</th></tr></thead>
+                      <tbody>
+                        {hazmatItems.filter(h => h.isReportable && h.currentQuantity >= h.reportingThreshold).map(h => (
+                          <tr key={h.id} className="border-b border-border/20">
+                            <td className="px-2 py-2 font-medium text-foreground">{h.chemicalName}</td>
+                            <td className="px-2 py-2 font-mono text-muted-foreground">{h.casNumber}</td>
+                            <td className="px-2 py-2 text-right text-purple-400 font-semibold">{h.currentQuantity} {h.unit}</td>
+                            <td className="px-2 py-2 text-right text-muted-foreground">{h.reportingThreshold} {h.unit}</td>
+                            <td className="px-2 py-2 text-muted-foreground">{h.location}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Button size="sm" variant="outline" className="text-xs gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                    onClick={() => {
+                      const rows = hazmatItems.filter(h => h.isReportable && h.currentQuantity >= h.reportingThreshold);
+                      const csv = ['Chemical Name,CAS Number,Hazard Class,UN Number,Quantity,Unit,Threshold,Location,Supplier', ...rows.map(h => `"${h.chemicalName}",${h.casNumber},${h.hazardClass},${h.unNumber},${h.currentQuantity},${h.unit},${h.reportingThreshold},"${h.location}","${h.supplier}"`)].join('\n');
+                      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `tier2-report-${new Date().getFullYear()}.csv`; a.click();
+                      toast.success('Tier II CSV exported');
+                    }}>
+                    <AlertTriangle className="w-3.5 h-3.5" />Generate Tier II Report (CSV)
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+          </div>}
         </div>
       </div>
+
+      {/* ── Add Chemical Modal ────────────────────────────────────────────────── */}
+      {showAddHazmat && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowAddHazmat(false)}>
+          <div className="glass-panel rounded-2xl border border-orange-500/30 p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg flex items-center gap-2"><FlaskConical className="w-5 h-5 text-orange-400" />Add Chemical / Hazmat</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Step {hazmatStep} of 4</p>
+              </div>
+              <button onClick={() => setShowAddHazmat(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* Step progress */}
+            <div className="flex gap-1">
+              {[1,2,3,4].map(s => (
+                <div key={s} className={cn('h-1 flex-1 rounded-full transition-colors', s <= hazmatStep ? 'bg-orange-400' : 'bg-muted/40')} />
+              ))}
+            </div>
+
+            {/* Step 1: Chemical Identity */}
+            {hazmatStep === 1 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Step 1 — Chemical Identity</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Chemical Name *</Label><Input value={hazmatForm.chemicalName} onChange={e => setHazmatForm(p => ({...p, chemicalName: e.target.value}))} placeholder="e.g. Muriatic Acid 31.5%" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">CAS Number</Label><Input value={hazmatForm.casNumber} onChange={e => setHazmatForm(p => ({...p, casNumber: e.target.value}))} placeholder="e.g. 7647-01-0" className="h-9 text-sm font-mono" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">SDS Number</Label><Input value={hazmatForm.sdsNumber} onChange={e => setHazmatForm(p => ({...p, sdsNumber: e.target.value}))} placeholder="SDS-001" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Chemical Type</Label>
+                    <Select value={hazmatForm.chemicalType} onValueChange={v => setHazmatForm(p => ({...p, chemicalType: v as ChemicalType}))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>{(Object.entries(CHEM_TYPE_META) as [ChemicalType, any][]).map(([k, v]) => <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5"><Label className="text-xs">DOT Hazard Class (1-9)</Label><Input value={hazmatForm.hazardClass} onChange={e => setHazmatForm(p => ({...p, hazardClass: e.target.value}))} placeholder="8" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">UN/NA Number</Label><Input value={hazmatForm.unNumber} onChange={e => setHazmatForm(p => ({...p, unNumber: e.target.value}))} placeholder="1789" className="h-9 text-sm font-mono" /></div>
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Primary Hazard</Label><Input value={hazmatForm.primaryHazard} onChange={e => setHazmatForm(p => ({...p, primaryHazard: e.target.value}))} placeholder="Corrosive — burns skin and eyes" className="h-9 text-sm" /></div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Inventory & Storage */}
+            {hazmatStep === 2 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Step 2 — Inventory & Storage</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label className="text-xs">Current Quantity</Label><Input type="number" min={0} value={hazmatForm.currentQuantity} onChange={e => setHazmatForm(p => ({...p, currentQuantity: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Unit</Label>
+                    <Select value={hazmatForm.unit} onValueChange={v => setHazmatForm(p => ({...p, unit: v as HazmatItem['unit']}))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>{['gallons','liters','pounds','kg','units'].map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5"><Label className="text-xs">Max Allowable Qty</Label><Input type="number" min={0} value={hazmatForm.maxAllowableQuantity} onChange={e => setHazmatForm(p => ({...p, maxAllowableQuantity: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Reorder Point</Label><Input type="number" min={0} value={hazmatForm.reorderPoint} onChange={e => setHazmatForm(p => ({...p, reorderPoint: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Storage Location</Label><Input value={hazmatForm.location} onChange={e => setHazmatForm(p => ({...p, location: e.target.value}))} placeholder="Chemical Storage Rm A, Shelf 2" className="h-9 text-sm" /></div>
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Storage Requirements</Label><Input value={hazmatForm.storageRequirements} onChange={e => setHazmatForm(p => ({...p, storageRequirements: e.target.value}))} placeholder="Ventilated, away from bases" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Supplier</Label><Input value={hazmatForm.supplier} onChange={e => setHazmatForm(p => ({...p, supplier: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Supplier Phone</Label><Input value={hazmatForm.supplierPhone} onChange={e => setHazmatForm(p => ({...p, supplierPhone: e.target.value}))} className="h-9 text-sm" /></div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Safety & Compliance */}
+            {hazmatStep === 3 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Step 3 — Safety & Compliance</p>
+                <div className="space-y-3">
+                  <div className="space-y-1.5"><Label className="text-xs">Required PPE (comma-separated)</Label><Input value={hazmatForm.ppe} onChange={e => setHazmatForm(p => ({...p, ppe: e.target.value}))} placeholder="Chemical gloves, Face shield, Apron" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Secondary Hazards (comma-separated)</Label><Input value={hazmatForm.secondaryHazards} onChange={e => setHazmatForm(p => ({...p, secondaryHazards: e.target.value}))} placeholder="Inhalation, Reactivity" className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Emergency Procedure</Label><textarea value={hazmatForm.emergencyProcedure} onChange={e => setHazmatForm(p => ({...p, emergencyProcedure: e.target.value}))} rows={2} className="w-full text-sm bg-muted/30 border border-border rounded-md px-3 py-2 resize-none" placeholder="Neutralize with sodium bicarbonate…" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Spill Procedure</Label><textarea value={hazmatForm.spillProcedure} onChange={e => setHazmatForm(p => ({...p, spillProcedure: e.target.value}))} rows={2} className="w-full text-sm bg-muted/30 border border-border rounded-md px-3 py-2 resize-none" placeholder="Absorb with dry sand…" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Disposal Method</Label><Input value={hazmatForm.disposalMethod} onChange={e => setHazmatForm(p => ({...p, disposalMethod: e.target.value}))} placeholder="Neutralize; dispose per RCRA" className="h-9 text-sm" /></div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-muted/10">
+                    <input type="checkbox" id="reportable" checked={hazmatForm.isReportable} onChange={e => setHazmatForm(p => ({...p, isReportable: e.target.checked}))} className="w-4 h-4" />
+                    <Label htmlFor="reportable" className="text-xs cursor-pointer">Reportable under SARA Title III / Tier II</Label>
+                  </div>
+                  {hazmatForm.isReportable && (
+                    <div className="space-y-1.5"><Label className="text-xs">Reporting Threshold ({hazmatForm.unit})</Label><Input type="number" min={0} value={hazmatForm.reportingThreshold} onChange={e => setHazmatForm(p => ({...p, reportingThreshold: e.target.value}))} className="h-9 text-sm" /></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: SDS & Permits */}
+            {hazmatStep === 4 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Step 4 — SDS & Permits</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label className="text-xs">SDS Last Reviewed</Label><Input type="date" value={hazmatForm.sdsLastReviewed} onChange={e => setHazmatForm(p => ({...p, sdsLastReviewed: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">SDS Next Review Due</Label><Input type="date" value={hazmatForm.sdsNextReview} onChange={e => setHazmatForm(p => ({...p, sdsNextReview: e.target.value}))} className="h-9 text-sm" /></div>
+                  <div className="col-span-2">
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-muted/10">
+                      <input type="checkbox" id="permit" checked={hazmatForm.requiresPermit} onChange={e => setHazmatForm(p => ({...p, requiresPermit: e.target.checked}))} className="w-4 h-4" />
+                      <Label htmlFor="permit" className="text-xs cursor-pointer">Requires permit (SPCC, storage permit, etc.)</Label>
+                    </div>
+                  </div>
+                  {hazmatForm.requiresPermit && <>
+                    <div className="space-y-1.5"><Label className="text-xs">Permit Number</Label><Input value={hazmatForm.permitNumber} onChange={e => setHazmatForm(p => ({...p, permitNumber: e.target.value}))} placeholder="SPCC-2024-001" className="h-9 text-sm" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs">Permit Expiry</Label><Input type="date" value={hazmatForm.permitExpiry} onChange={e => setHazmatForm(p => ({...p, permitExpiry: e.target.value}))} className="h-9 text-sm" /></div>
+                  </>}
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Assigned Responsible Person</Label><Input value={hazmatForm.assignedResponsible} onChange={e => setHazmatForm(p => ({...p, assignedResponsible: e.target.value}))} placeholder="J. Smith" className="h-9 text-sm" /></div>
+                  <div className="col-span-2 space-y-1.5"><Label className="text-xs">Notes</Label><textarea value={hazmatForm.notes} onChange={e => setHazmatForm(p => ({...p, notes: e.target.value}))} rows={2} className="w-full text-sm bg-muted/30 border border-border rounded-md px-3 py-2 resize-none" /></div>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between pt-2">
+              <Button variant="ghost" size="sm" onClick={() => hazmatStep > 1 ? setHazmatStep(s => s - 1) : setShowAddHazmat(false)} className="text-xs">
+                {hazmatStep === 1 ? 'Cancel' : '← Back'}
+              </Button>
+              {hazmatStep < 4
+                ? <Button size="sm" onClick={() => setHazmatStep(s => s + 1)} disabled={hazmatStep === 1 && !hazmatForm.chemicalName} className="bg-orange-600 hover:bg-orange-700 text-white text-xs">Next →</Button>
+                : <Button size="sm" onClick={addHazmatItem} disabled={hazmatSubmitting} className="bg-orange-600 hover:bg-orange-700 text-white text-xs">Save Chemical</Button>
+              }
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add Inventory Modal ──────────────────────────────────────────────── */}
       {showAddModal && (

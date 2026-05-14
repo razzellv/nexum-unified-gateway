@@ -372,6 +372,43 @@ export const violationTypeConfigs: ViolationTypeConfig[] = [
   { value: 'uniform-gear-not-accounted',   label: 'Uniform / Gear Not Accounted For',        defaultSeverity: 5,  defaultCategory: 'operational',weightFactor: 1.5, sector: 'government', subcategory: 'Facility' },
   { value: 'radio-equipment-failure',      label: 'Radio / Communication Equipment Failure', defaultSeverity: 7,  defaultCategory: 'operational',weightFactor: 2.0, sector: 'government', subcategory: 'Facility' },
   { value: 'station-safety-issue',         label: 'Station Facility Safety Issue',           defaultSeverity: 7,  defaultCategory: 'safety',     weightFactor: 2.0, sector: 'government', subcategory: 'Facility' },
+
+  // ── EH&S — Safety & Health (facility + government) ─────────────────────────
+  { value: 'osha-recordable-days-away',    label: 'OSHA Recordable Injury — Days Away from Work',   defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 3.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'osha-recordable-restricted',  label: 'OSHA Recordable Injury — Restricted Duty',        defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.5, subcategory: 'EH&S — Safety & Health' },
+  { value: 'near-miss-incident',          label: 'Near Miss Incident — No Injury',                  defaultSeverity: 6,  defaultCategory: 'safety',       weightFactor: 2.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'first-aid-non-recordable',    label: 'First Aid Incident — Non-Recordable',              defaultSeverity: 3,  defaultCategory: 'safety',       weightFactor: 1.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'slip-trip-fall',              label: 'Slip/Trip/Fall — Investigation Required',         defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'ergonomic-hazard',            label: 'Ergonomic Hazard Identified',                     defaultSeverity: 5,  defaultCategory: 'safety',       weightFactor: 1.5, subcategory: 'EH&S — Safety & Health' },
+  { value: 'electrical-hazard',          label: 'Electrical Hazard — Unsafe Condition',            defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 2.5, subcategory: 'EH&S — Safety & Health' },
+  { value: 'fall-protection-violation',   label: 'Fall Protection Violation',                       defaultSeverity: 9,  defaultCategory: 'regulatory',   weightFactor: 3.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'lockout-tagout-violation',    label: 'Lockout/Tagout Violation',                        defaultSeverity: 10, defaultCategory: 'regulatory',   weightFactor: 3.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'confined-space-no-permit',    label: 'Confined Space Entry Without Permit',             defaultSeverity: 9,  defaultCategory: 'regulatory',   weightFactor: 3.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'ppe-not-worn',                label: 'PPE Not Worn in Required Area',                   defaultSeverity: 7,  defaultCategory: 'safety',       weightFactor: 2.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'chemical-exposure-incident',  label: 'Chemical Exposure Incident',                      defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 3.0, subcategory: 'EH&S — Safety & Health' },
+  { value: 'hazmat-spill-contained',      label: 'Hazmat Spill — Contained',                       defaultSeverity: 7,  defaultCategory: 'environmental',weightFactor: 2.5, subcategory: 'EH&S — Safety & Health' },
+  { value: 'hazmat-spill-release',        label: 'Hazmat Spill — Environmental Release',            defaultSeverity: 10, defaultCategory: 'environmental',weightFactor: 3.5, subcategory: 'EH&S — Safety & Health' },
+
+  // ── EH&S — Environmental (facility + government) ────────────────────────────
+  { value: 'air-quality-permit-exceeded', label: 'Air Quality Reading Exceeded Permit Limit',       defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 3.0, subcategory: 'EH&S — Environmental' },
+  { value: 'water-quality-violation',     label: 'Water Quality Parameter Out of Compliance',       defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 3.0, subcategory: 'EH&S — Environmental' },
+  { value: 'storm-drain-discharge',       label: 'Unauthorized Discharge to Storm Drain',           defaultSeverity: 10, defaultCategory: 'environmental',weightFactor: 3.5, subcategory: 'EH&S — Environmental' },
+  { value: 'hazwaste-not-labeled',        label: 'Hazardous Waste Not Properly Labeled',            defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+  { value: 'hazwaste-storage-violation',  label: 'Hazardous Waste Storage Violation',               defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+  { value: 'spcc-plan-deviation',         label: 'SPCC Plan Deviation',                             defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+  { value: 'spill-prevention-failure',    label: 'Spill Prevention Control Failure',                defaultSeverity: 8,  defaultCategory: 'environmental',weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+  { value: 'sds-unavailable',             label: 'SDS Not Available for Chemical in Use',           defaultSeverity: 7,  defaultCategory: 'regulatory',   weightFactor: 2.0, subcategory: 'EH&S — Environmental' },
+  { value: 'chemical-incompatibility',    label: 'Chemical Storage Incompatibility',                defaultSeverity: 8,  defaultCategory: 'safety',       weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+  { value: 'tier2-threshold-exceeded',    label: 'Tier II Reporting Threshold Exceeded',            defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, subcategory: 'EH&S — Environmental' },
+
+  // ── EH&S — Utility-Specific (government) ───────────────────────────────────
+  { value: 'drinking-water-exceedance',   label: 'Drinking Water Quality Exceedance',              defaultSeverity: 10, defaultCategory: 'regulatory',   weightFactor: 3.5, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'wastewater-limit-exceeded',   label: 'Wastewater Effluent Limit Exceeded',             defaultSeverity: 9,  defaultCategory: 'regulatory',   weightFactor: 3.0, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'stormwater-permit-violation', label: 'Stormwater Permit Violation',                    defaultSeverity: 8,  defaultCategory: 'regulatory',   weightFactor: 2.5, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'cross-connection-failure',    label: 'Cross-Connection Control Failure',               defaultSeverity: 9,  defaultCategory: 'safety',       weightFactor: 3.0, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'backflow-not-tested',         label: 'Backflow Preventer Not Tested',                  defaultSeverity: 7,  defaultCategory: 'regulatory',   weightFactor: 2.0, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'water-main-break-env',        label: 'Water Main Break — Environmental Impact',        defaultSeverity: 8,  defaultCategory: 'environmental',weightFactor: 2.5, sector: 'government', subcategory: 'EH&S — Utility' },
+  { value: 'sewer-overflow-event',        label: 'Sewer Overflow Event',                           defaultSeverity: 9,  defaultCategory: 'environmental',weightFactor: 3.0, sector: 'government', subcategory: 'EH&S — Utility' },
 ];
 
 // Mock Employees
