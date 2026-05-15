@@ -177,6 +177,13 @@ create_table NexumSettings \
   --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST
 
+# NexumLeads
+create_table NexumLeads \
+  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S AttributeName=GSI2PK,AttributeType=S \
+  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},{"IndexName":"GSI2","KeySchema":[{"AttributeName":"GSI2PK","KeyType":"HASH"}],"Projection":{"ProjectionType":"ALL"}}]'
+
 # NexumProspectBuyers
 create_table NexumProspectBuyers \
   --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
@@ -187,7 +194,7 @@ create_table NexumProspectBuyers \
 echo ""
 echo "2/6  IAM Roles"
 
-for ROLE in vendor-invite-role fias-session-role fias-clients-role pilot-lambda-role email-settings-role prospect-buyers-role stripe-webhook-role; do
+for ROLE in vendor-invite-role fias-session-role fias-clients-role pilot-lambda-role email-settings-role prospect-buyers-role stripe-webhook-role nexum-leads-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -234,6 +241,9 @@ aws iam put-role-policy --role-name prospect-buyers-role --policy-name policy \
 aws iam put-role-policy --role-name stripe-webhook-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"},{\"Effect\":\"Allow\",\"Action\":[\"lambda:InvokeFunction\"],\"Resource\":\"arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:nexum-prospect-buyers\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name nexum-leads-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumLeads\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumLeads/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
+
 echo "  ✓ Policies attached"
 
 echo ""
@@ -252,6 +262,7 @@ deploy_lambda "nexum-post-confirmation" "cognito-post-confirmation.mjs" "cognito
 deploy_lambda "email-settings"          "email-settings.mjs"       "email-settings-role"   "SETTINGS_TABLE=NexumSettings"
 deploy_lambda "nexum-prospect-buyers"   "prospect-buyers.mjs"      "prospect-buyers-role"  "PROSPECTS_TABLE=NexumProspectBuyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},FRONTEND_URL=${FRONTEND_URL},PORTAL_URL=${PORTAL_URL},SHEETS_SCRIPT_URL=${SHEETS_SCRIPT_URL}"
 deploy_lambda "nexum-stripe-webhook"    "stripe-webhook.mjs"       "stripe-webhook-role"   "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY},STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET},PROSPECTS_LAMBDA_NAME=nexum-prospect-buyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},PORTAL_URL=${PORTAL_URL},FRONTEND_URL=${FRONTEND_URL}"
+deploy_lambda "nexum-leads"             "leads.mjs"                "nexum-leads-role"      "LEADS_TABLE=NexumLeads,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL}"
 
 echo ""
 echo "4/6  API Gateway Routes"
@@ -271,6 +282,10 @@ add_route "GET /email-settings"                         "email-settings"        
 add_route "GET /prospect-buyers"                        "nexum-prospect-buyers" "jwt"
 add_route "POST /prospect-buyers/{id}/{action}"         "nexum-prospect-buyers" "jwt"
 add_route "POST /stripe-webhook"                        "nexum-stripe-webhook"  "none"
+add_route "GET /leads"                                  "nexum-leads"           "jwt"
+add_route "POST /leads"                                 "nexum-leads"           "none"
+add_route "PATCH /leads/{leadId}"                       "nexum-leads"           "jwt"
+add_route "DELETE /leads/{leadId}"                      "nexum-leads"           "jwt"
 
 echo ""
 echo "5/6  Cognito Post-Confirmation Trigger"
@@ -319,5 +334,5 @@ aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  Deploy complete."
-echo "  All 7 Lambdas live on API: $API_ID"
+echo "  All 9 Lambdas live on API: $API_ID"
 echo "═══════════════════════════════════════════════"
