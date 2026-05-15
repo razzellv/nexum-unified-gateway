@@ -125,7 +125,7 @@ add_route() {
 # ══════════════════════════════════════════════════════════════════════════════
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -153,6 +153,18 @@ aws iam put-role-policy --role-name fi-equipment-role --policy-name policy \
 aws iam put-role-policy --role-name fi-vvfi-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIASAssessments\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name fi-messages-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages/index/*\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-audit-reports-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports/index/*\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-users-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminGetUser\",\"cognito-idp:AdminUpdateUserAttributes\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-intake-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumLeads\"},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
@@ -175,6 +187,18 @@ deploy_lambda "nexum-fi-equipment" "fi-equipment.mjs" "fi-equipment-role" \
 
 deploy_lambda "nexum-fi-vvfi" "fi-vvfi.mjs" "fi-vvfi-role" \
   "VVFI_TABLE=NexumFIASAssessments"
+
+deploy_lambda "nexum-fi-messages" "fi-messages.mjs" "fi-messages-role" \
+  "MESSAGES_TABLE=NexumMessages"
+
+deploy_lambda "nexum-fi-audit-reports" "fi-audit-reports.mjs" "fi-audit-reports-role" \
+  "AUDIT_TABLE=AuditReports"
+
+deploy_lambda "nexum-fi-users" "fi-users.mjs" "fi-users-role" \
+  "USER_POOL_ID=us-east-2_mKMqaRq70,USERS_TABLE=NexumUsers"
+
+deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
+  "LEADS_TABLE=NexumLeads,SES_FROM_EMAIL=info@nexumsuum-facilityintelligence.com,ADMIN_EMAIL=razzellv@nexumsuum.com"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -217,25 +241,54 @@ add_route "POST /vvfi"               "nexum-fi-vvfi"        "jwt"
 add_route "PATCH /vvfi/{id}"         "nexum-fi-vvfi"        "jwt"
 add_route "DELETE /vvfi/{id}"        "nexum-fi-vvfi"        "jwt"
 
+# Facility Logs canonical FE paths (handled by equipment Lambda)
+add_route "GET /facility-logs"           "nexum-fi-equipment"       "jwt"
+add_route "POST /facility-log-ingest"    "nexum-fi-equipment"       "jwt"
+
+# Messages — 4 routes
+add_route "GET /messages"                "nexum-fi-messages"        "jwt"
+add_route "POST /messages"               "nexum-fi-messages"        "jwt"
+add_route "PATCH /messages/{id}"         "nexum-fi-messages"        "jwt"
+add_route "DELETE /messages/{id}"        "nexum-fi-messages"        "jwt"
+
+# Audit Reports — 4 routes
+add_route "GET /audit-reports"           "nexum-fi-audit-reports"   "jwt"
+add_route "POST /audit-reports"          "nexum-fi-audit-reports"   "jwt"
+add_route "PATCH /audit-reports/{id}"    "nexum-fi-audit-reports"   "jwt"
+add_route "DELETE /audit-reports/{id}"   "nexum-fi-audit-reports"   "jwt"
+
+# Users — 3 routes (Cognito-backed, leadership only)
+add_route "GET /users"                   "nexum-fi-users"           "jwt"
+add_route "GET /users/{userId}"          "nexum-fi-users"           "jwt"
+add_route "PATCH /users/{userId}"        "nexum-fi-users"           "jwt"
+
+# Intake — public, no JWT
+add_route "POST /intake"                 "nexum-fi-intake"          "none"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
-  --query 'Items[?contains(RouteKey,`violations`) || contains(RouteKey,`work-orders`) || contains(RouteKey,`inventory`) || contains(RouteKey,`equipment`) || contains(RouteKey,`vvfi`) || contains(RouteKey,`logs`) || contains(RouteKey,`metrics`)].[RouteKey,AuthorizationType]' \
+  --query 'Items[?contains(RouteKey,`violations`) || contains(RouteKey,`work-orders`) || contains(RouteKey,`inventory`) || contains(RouteKey,`equipment`) || contains(RouteKey,`vvfi`) || contains(RouteKey,`logs`) || contains(RouteKey,`metrics`) || contains(RouteKey,`messages`) || contains(RouteKey,`audit-reports`) || contains(RouteKey,`users`) || contains(RouteKey,`intake`)].[RouteKey,AuthorizationType]' \
   --output table
 
 echo ""
 echo "═══════════════════════════════════════════════════"
 echo "  Deploy complete."
 echo ""
-echo "  FI Platform Endpoints (all JWT-protected):"
-echo "  GET    /violations    /work-orders    /inventory"
-echo "  GET    /equipment     /metrics        /vvfi"
-echo "  GET    /logs/latest   /logs/query"
-echo "  POST   /violations    /work-orders    /inventory"
-echo "  POST   /equipment     /logs           /vvfi"
-echo "  PATCH  /violations/{id}  /work-orders/{id}  /inventory/{id}"
-echo "  PATCH  /equipment/{id}   /vvfi/{id}"
-echo "  DELETE /violations/{id}  /work-orders/{id}  /inventory/{id}"
-echo "  DELETE /equipment/{id}   /vvfi/{id}"
+echo "  FI Platform Endpoints (JWT unless noted):"
+echo "  GET    /violations     /work-orders    /inventory"
+echo "  GET    /equipment      /metrics        /vvfi"
+echo "  GET    /facility-logs  /logs/latest    /logs/query"
+echo "  GET    /messages       /audit-reports  /users"
+echo "  POST   /violations     /work-orders    /inventory"
+echo "  POST   /equipment      /logs           /vvfi"
+echo "  POST   /facility-log-ingest  /messages  /audit-reports"
+echo "  POST   /intake (PUBLIC — no JWT)"
+echo "  PATCH  /violations/{id}   /work-orders/{id}  /inventory/{id}"
+echo "  PATCH  /equipment/{id}    /vvfi/{id}          /messages/{id}"
+echo "  PATCH  /audit-reports/{id} /users/{userId}"
+echo "  DELETE /violations/{id}   /work-orders/{id}  /inventory/{id}"
+echo "  DELETE /equipment/{id}    /vvfi/{id}          /messages/{id}"
+echo "  DELETE /audit-reports/{id}"
 echo "  POST   /work-orders/{id}/notes"
 echo "═══════════════════════════════════════════════════"

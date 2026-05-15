@@ -210,7 +210,20 @@ aws iam put-role-policy --role-name fias-session-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIAS\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIAS/index/*\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name pilot-lambda-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"},{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminUpdateUserAttributes\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"}]}" > /dev/null
+
+# Post-confirmation trigger role (separate — needs Cognito + DynamoDB read)
+if aws iam get-role --role-name cognito-post-confirm-role > /dev/null 2>&1; then
+  echo "  ✓ Role cognito-post-confirm-role already exists"
+else
+  aws iam create-role --role-name cognito-post-confirm-role \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name cognito-post-confirm-role \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role cognito-post-confirm-role created"
+fi
+aws iam put-role-policy --role-name cognito-post-confirm-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumPilots/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:AdminUpdateUserAttributes\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name email-settings-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSettings\"}]}" > /dev/null
@@ -233,8 +246,9 @@ echo "3/6  Lambda Functions"
 deploy_lambda "fias-clients"            "fias-clients.mjs"         "fias-clients-role"     "FIAS_CLIENTS_TABLE=NexumFIASClients"
 deploy_lambda "vendor-invite"           "vendor-invite.mjs"        "vendor-invite-role"    "VENDORS_TABLE=NexumVendors,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
 deploy_lambda "fias-session"            "fias-session.mjs"         "fias-session-role"     "FIAS_TABLE=NexumFIAS"
-deploy_lambda "pilot-submit"            "pilot-submit.mjs"         "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},ADMIN_EMAIL=${ADMIN_EMAIL}"
-deploy_lambda "pilot-admin"             "pilot-admin.mjs"          "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL}"
+deploy_lambda "pilot-submit"            "pilot-submit.mjs"         "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},ADMIN_EMAIL=${ADMIN_EMAIL},USER_POOL_ID=us-east-2_mKMqaRq70"
+deploy_lambda "pilot-admin"             "pilot-admin.mjs"          "pilot-lambda-role"     "PILOTS_TABLE=NexumPilots,SES_FROM_EMAIL=${FROM_EMAIL},FRONTEND_URL=${FRONTEND_URL},USER_POOL_ID=us-east-2_mKMqaRq70"
+deploy_lambda "nexum-post-confirmation" "cognito-post-confirmation.mjs" "cognito-post-confirm-role" "PILOTS_TABLE=NexumPilots"
 deploy_lambda "email-settings"          "email-settings.mjs"       "email-settings-role"   "SETTINGS_TABLE=NexumSettings"
 deploy_lambda "nexum-prospect-buyers"   "prospect-buyers.mjs"      "prospect-buyers-role"  "PROSPECTS_TABLE=NexumProspectBuyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},FRONTEND_URL=${FRONTEND_URL},PORTAL_URL=${PORTAL_URL},SHEETS_SCRIPT_URL=${SHEETS_SCRIPT_URL}"
 deploy_lambda "nexum-stripe-webhook"    "stripe-webhook.mjs"       "stripe-webhook-role"   "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY},STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET},PROSPECTS_LAMBDA_NAME=nexum-prospect-buyers,SES_FROM_EMAIL=${FROM_EMAIL},ADMIN_EMAIL=${ADMIN_EMAIL},PORTAL_URL=${PORTAL_URL},FRONTEND_URL=${FRONTEND_URL}"
@@ -259,7 +273,36 @@ add_route "POST /prospect-buyers/{id}/{action}"         "nexum-prospect-buyers" 
 add_route "POST /stripe-webhook"                        "nexum-stripe-webhook"  "none"
 
 echo ""
-echo "5/6  Stripe Webhook registration reminder"
+echo "5/6  Cognito Post-Confirmation Trigger"
+echo "  ─────────────────────────────────────────────────"
+POST_CONFIRM_ARN=$(aws lambda get-function --function-name "nexum-post-confirmation" --region $REGION \
+  --query 'Configuration.FunctionArn' --output text 2>/dev/null)
+
+if [ -n "$POST_CONFIRM_ARN" ] && [ "$POST_CONFIRM_ARN" != "None" ]; then
+  # Add permission for Cognito to invoke
+  aws lambda add-permission \
+    --function-name "nexum-post-confirmation" \
+    --statement-id "cognito-trigger" \
+    --action lambda:InvokeFunction \
+    --principal cognito-idp.amazonaws.com \
+    --source-arn "arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70" \
+    --region $REGION > /dev/null 2>&1 || true
+
+  # Wire as Post Confirmation trigger
+  aws cognito-idp update-user-pool \
+    --user-pool-id "us-east-2_mKMqaRq70" \
+    --region $REGION \
+    --lambda-config "PostConfirmation=${POST_CONFIRM_ARN}" > /dev/null 2>&1 && \
+    echo "  ✓ PostConfirmation trigger wired → nexum-post-confirmation" || \
+    echo "  ⚠ Could not auto-wire trigger — set manually in Cognito Console:"
+  echo "    User Pool → Triggers → Post confirmation → nexum-post-confirmation"
+else
+  echo "  ⚠ nexum-post-confirmation Lambda not found — deploy may have failed"
+fi
+echo "  ─────────────────────────────────────────────────"
+
+echo ""
+echo "6/6  Stripe Webhook registration reminder"
 echo "  ─────────────────────────────────────────────────"
 echo "  After deploy, register this URL in Stripe Dashboard:"
 echo "  https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod/stripe-webhook"

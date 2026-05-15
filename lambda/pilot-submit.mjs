@@ -1,6 +1,11 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import {
+  CognitoIdentityProviderClient,
+  ListUsersCommand,
+  AdminUpdateUserAttributesCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
 import { randomUUID } from "crypto";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
@@ -8,8 +13,33 @@ const ses = new SESClient({ region: "us-east-1" });
 
 const TABLE        = process.env.PILOTS_TABLE   || "NexumPilots";
 const FROM_EMAIL   = process.env.SES_FROM_EMAIL || "noreply@nexumsuum.com";
-const FRONTEND_URL = process.env.FRONTEND_URL   || "https://nexumsuum.com";
+const FRONTEND_URL = process.env.FRONTEND_URL   || "https://portal.nexumsuum-facilityintelligence.com";
 const ADMIN_EMAIL  = process.env.ADMIN_EMAIL    || "razzellv@nexumsuum.com";
+const USER_POOL_ID = process.env.USER_POOL_ID   || "us-east-2_mKMqaRq70";
+const PILOT_TIER   = "business";
+
+const cognito = new CognitoIdentityProviderClient({ region: "us-east-2" });
+
+// Provision Business tier in Cognito if user is already registered
+async function provisionCognitoTier(email) {
+  try {
+    const res = await cognito.send(new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+      Filter:     `email = "${email.toLowerCase()}"`,
+      Limit:      1,
+    }));
+    if (!res.Users || res.Users.length === 0) return false;
+    await cognito.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId:     USER_POOL_ID,
+      Username:       res.Users[0].Username,
+      UserAttributes: [{ Name: "custom:tier", Value: PILOT_TIER }],
+    }));
+    return true;
+  } catch (err) {
+    console.warn("provisionCognitoTier:", err.message);
+    return false;
+  }
+}
 
 function json(statusCode, body) {
   return {
@@ -66,16 +96,26 @@ export const handler = async (event) => {
       await ddb.send(new UpdateCommand({
         TableName:                 TABLE,
         Key:                       { PK: app.PK, SK: "META" },
-        UpdateExpression:          "SET #st = :active, activatedAt = :now, GSI1PK = :gsi",
+        UpdateExpression:          "SET #st = :active, activatedAt = :now, GSI1PK = :gsi, pilotTier = :tier",
         ExpressionAttributeNames:  { "#st": "status" },
         ExpressionAttributeValues: {
           ":active": "active",
           ":now":    new Date().toISOString(),
           ":gsi":    "STATUS#active",
+          ":tier":   PILOT_TIER,
         },
       }));
 
-      return json(200, { success: true, appId: app.appId, tier: app.tier || "Business" });
+      // Provision Business tier in Cognito if the user already has an account.
+      // If they don't yet, the cognito-post-confirmation trigger handles it on registration.
+      const tierProvisioned = await provisionCognitoTier(app.email);
+
+      return json(200, {
+        success:        true,
+        appId:          app.appId,
+        tier:           PILOT_TIER,
+        tierProvisioned,
+      });
 
     } catch (err) {
       console.error("pilot-verify error:", err);

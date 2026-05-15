@@ -24,7 +24,7 @@ import {
   TrendingUp,
   LogOut,
   GraduationCap, ShoppingCart, Shield,
-  Wrench, BrainCircuit,
+  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -97,6 +97,10 @@ const allNavItems: NavItem[] = [
   { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
+  { name: 'Chemical & Hazmat', href: '/inventory-library', icon: FlaskConical, access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
+  { name: 'OSHA 300 Log', href: '/osha-300', icon: ClipboardList, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
+  { name: 'Environmental', href: '/environmental', icon: Leaf, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
+  { name: 'Consulting Services', href: '/consulting', icon: Briefcase, access: 'leadership' },
 
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
@@ -108,6 +112,7 @@ const allNavItems: NavItem[] = [
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
   { name: 'OCCAE', href: '/occae', icon: BrainCircuit, access: 'leadership', tier: 'occae' },
+  { name: 'Operational Intelligence', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },

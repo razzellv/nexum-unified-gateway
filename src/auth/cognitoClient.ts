@@ -25,14 +25,18 @@ export function cognitoSignUp(params: {
   name: string;
   orgName: string;
   phone?: string;
+  orgType?: string;
 }): Promise<void> {
   return new Promise((resolve, reject) => {
     const orgId = `org-${Date.now()}`;
     const attrs: CognitoUserAttribute[] = [
-      new CognitoUserAttribute({ Name: 'email',         Value: params.email }),
-      new CognitoUserAttribute({ Name: 'name',          Value: params.name }),
-      new CognitoUserAttribute({ Name: 'custom:orgId',  Value: orgId }),
+      new CognitoUserAttribute({ Name: 'email',            Value: params.email }),
+      new CognitoUserAttribute({ Name: 'name',             Value: params.name }),
+      new CognitoUserAttribute({ Name: 'custom:orgId',     Value: orgId }),
     ];
+    if (params.orgType) {
+      attrs.push(new CognitoUserAttribute({ Name: 'custom:orgType', Value: params.orgType }));
+    }
     if (params.phone) {
       attrs.push(new CognitoUserAttribute({ Name: 'phone_number', Value: params.phone }));
     }

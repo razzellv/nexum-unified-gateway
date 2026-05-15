@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -15,11 +14,13 @@ import {
   TrendingUp, Wrench, Zap, Search, StickyNote, ExternalLink,
   ChevronRight, Activity, AlertCircle, CheckCircle2, Clock,
   PhoneCall, Plus, Trash2, RefreshCw, MailCheck, Trophy,
-  XCircle, CalendarClock, Filter,
+  XCircle, CalendarClock, Filter, ShieldCheck, Copy, ChevronDown,
+  ChevronUp, Crown, Globe, Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const API_BASE  = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+const FC_BASE   = 'https://internal.nexumsuum-facilityintelligence.com';
 const facilityId = localStorage.getItem('nexum_facility_id') || 'default';
 
 function getToken() {
@@ -28,66 +29,105 @@ function getToken() {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface WorkspaceNote {
-  id: string;
-  text: string;
-  createdAt: string;
-  pinned: boolean;
-}
+interface WorkspaceNote { id: string; text: string; createdAt: string; pinned: boolean; }
 
 type LeadStatus = 'pending' | 'contacted' | 'qualified' | 'won' | 'lost' | 'canceled';
-
 interface Lead {
-  leadId:       string;
-  source:       string;
-  status:       LeadStatus;
-  name:         string;
-  email:        string;
-  phone:        string;
-  company:      string;
-  role:         string;
-  meetingType:  string;
-  scheduledAt:  string | null;
-  notes:        string;
-  callbackDate: string | null;
-  followUpDate: string | null;
-  convertedAt:  string | null;
-  wonValue:     number | null;
-  utmSource:    string;
-  createdAt:    string;
-  updatedAt:    string;
+  leadId: string; source: string; status: LeadStatus; name: string; email: string;
+  phone: string; company: string; role: string; meetingType: string;
+  scheduledAt: string | null; notes: string; callbackDate: string | null;
+  followUpDate: string | null; convertedAt: string | null; wonValue: number | null;
+  utmSource: string; createdAt: string; updatedAt: string;
+}
+
+type PilotStatus = 'pending' | 'in_progress' | 'approved' | 'active' | 'declined' | 'discarded';
+interface PilotApp {
+  appId: string; PK: string; name: string; email: string; company: string;
+  role: string; facilities: string; useCase: string; status: PilotStatus;
+  pilotCode?: string; pilotTier?: string; adminNotes?: string;
+  createdAt: string; approvedAt?: string;
+}
+
+interface ClientUser {
+  username?: string; email: string; name?: string; tier?: string; role?: string;
+  orgType?: string; facilityId?: string; orgId?: string; status?: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const INTERNAL_TOOLS = [
-  { label: 'FIAS Assessment',    path: '/fias',              icon: Activity,      desc: 'Run facility assessments & score clients',      color: 'text-blue-400' },
-  { label: 'VVFI Retainers',     path: '/vvfi',              icon: TrendingUp,    desc: 'Manage ongoing retainer engagements',           color: 'text-green-400' },
-  { label: 'Client Accounts',    path: '/client-accounts',   icon: Users,         desc: 'CRM — accounts, notes, churn flags',            color: 'text-purple-400' },
-  { label: 'Audit Module',       path: '/audit-module',      icon: ClipboardList, desc: 'Run facility audits with pass/fail tracking',   color: 'text-orange-400' },
-  { label: 'Doc Generator',      path: '/doc-generator',     icon: FileOutput,    desc: 'Build client-facing reports & proposals',       color: 'text-yellow-400' },
-  { label: 'Energy Baseline',    path: '/energy-baseline',   icon: Zap,           desc: 'Baseline energy data & CTS integration',        color: 'text-cyan-400' },
-  { label: 'Contractor Installs',path: '/contractor-installs',icon: Wrench,       desc: 'Track installs, callbacks & job performance',   color: 'text-red-400' },
-  { label: 'CTS-3 Model',        path: '/cts3-model',        icon: LayoutDashboard,desc: 'Correlation tracking spreadsheet model',       color: 'text-indigo-400' },
-  { label: 'Rapid Review',       path: '/rapid-review',      icon: Search,        desc: 'FI Rapid Review — bill upload & AI analysis',   color: 'text-pink-400' },
-  { label: 'Internal Guide',     path: '/internal-guide',    icon: BookOpen,      desc: 'SOPs, scoring guides & workflow reference',     color: 'text-teal-400' },
+  { label: 'FIAS Assessment',        href: '/fias',                         icon: Activity,      desc: 'Run facility intelligence assessments & score clients',        color: 'text-blue-400',   external: false },
+  { label: 'VVFI Retainers',         href: '/virtuous',                     icon: TrendingUp,    desc: 'Manage ongoing VVFI retainer engagements',                     color: 'text-green-400',  external: false },
+  { label: 'Contractor Installs',    href: '/contractor-installs',          icon: Wrench,        desc: 'Track installs, callbacks & job performance',                  color: 'text-red-400',    external: false },
+  { label: 'OIG Dashboard',          href: '/operational-intelligence',     icon: Gauge,         desc: 'Operational Intelligence & Governance scoring',                color: 'text-indigo-400', external: false },
+  { label: 'Facility Intelligence',  href: '/facility-intelligence',        icon: Zap,           desc: 'AI-powered facility diagnostics & benchmarks',                 color: 'text-cyan-400',   external: false },
+  { label: 'Policy Guide',           href: '/policy-guide',                 icon: BookOpen,      desc: 'SOPs, scoring guides & workflow reference',                    color: 'text-teal-400',   external: false },
+  { label: 'Work Orders',            href: '/work-orders',                  icon: ClipboardList, desc: 'Client facility work order management',                        color: 'text-orange-400', external: false },
+  { label: 'Violations',             href: '/violations',                   icon: AlertCircle,   desc: 'Violations tracking & compliance enforcement',                 color: 'text-rose-400',   external: false },
+  { label: 'Audit Module',           href: `${FC_BASE}/audit-module`,       icon: ClipboardList, desc: 'Facility audits with pass/fail tracking — Facility Compass',   color: 'text-orange-400', external: true  },
+  { label: 'Doc Generator',          href: `${FC_BASE}/doc-generator`,      icon: FileOutput,    desc: 'Build client-facing reports & proposals — Facility Compass',   color: 'text-yellow-400', external: true  },
+  { label: 'Energy Baseline',        href: `${FC_BASE}/energy-baseline`,    icon: Zap,           desc: 'Baseline energy data & CTS integration — Facility Compass',    color: 'text-amber-400',  external: true  },
+  { label: 'Rapid Review',           href: `${FC_BASE}/rapid-review`,       icon: Search,        desc: 'FI Rapid Review — bill upload & AI analysis — Facility Compass', color: 'text-pink-400', external: true  },
 ];
 
-const STAT_KEYS = [
-  { key: 'nexum_client_accounts', label: 'Client Accounts', icon: Users },
-  { key: 'nexum_vvfi_clients',    label: 'VVFI Retainers',  icon: TrendingUp },
-  { key: 'nexum_audits',          label: 'Audits',          icon: ClipboardList },
-  { key: 'nexum_generated_docs',  label: 'Documents',       icon: FileOutput },
-];
+const TIER_META: Record<string, { label: string; color: string }> = {
+  basic:      { label: 'Basic',      color: 'bg-muted/40 text-muted-foreground border-border' },
+  standard:   { label: 'Standard',   color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
+  business:   { label: 'Business',   color: 'bg-purple-500/15 text-purple-400 border-purple-500/30' },
+  premium:    { label: 'Premium',    color: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  enterprise: { label: 'Enterprise', color: 'bg-pink-500/15 text-pink-400 border-pink-500/30' },
+  admin:      { label: 'Admin',      color: 'bg-red-500/15 text-red-400 border-red-500/30' },
+};
 
 const STATUS_META: Record<LeadStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  pending:   { label: 'Pending',   color: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',  icon: <Clock className="h-3 w-3" /> },
-  contacted: { label: 'Contacted', color: 'bg-blue-500/15 text-blue-300 border-blue-500/30',        icon: <MailCheck className="h-3 w-3" /> },
-  qualified: { label: 'Qualified', color: 'bg-purple-500/15 text-purple-300 border-purple-500/30',  icon: <CheckCircle2 className="h-3 w-3" /> },
-  won:       { label: 'Won',       color: 'bg-green-500/15 text-green-300 border-green-500/30',     icon: <Trophy className="h-3 w-3" /> },
-  lost:      { label: 'Lost',      color: 'bg-red-500/15 text-red-300 border-red-500/30',           icon: <XCircle className="h-3 w-3" /> },
-  canceled:  { label: 'Canceled',  color: 'bg-muted/40 text-muted-foreground border-border/40',     icon: <XCircle className="h-3 w-3" /> },
+  pending:   { label: 'Pending',   color: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30', icon: <Clock className="h-3 w-3" /> },
+  contacted: { label: 'Contacted', color: 'bg-blue-500/15 text-blue-300 border-blue-500/30',       icon: <MailCheck className="h-3 w-3" /> },
+  qualified: { label: 'Qualified', color: 'bg-purple-500/15 text-purple-300 border-purple-500/30', icon: <CheckCircle2 className="h-3 w-3" /> },
+  won:       { label: 'Won',       color: 'bg-green-500/15 text-green-300 border-green-500/30',    icon: <Trophy className="h-3 w-3" /> },
+  lost:      { label: 'Lost',      color: 'bg-red-500/15 text-red-300 border-red-500/30',          icon: <XCircle className="h-3 w-3" /> },
+  canceled:  { label: 'Canceled',  color: 'bg-muted/40 text-muted-foreground border-border/40',    icon: <XCircle className="h-3 w-3" /> },
 };
+
+const PILOT_STATUS_META: Record<PilotStatus, { label: string; color: string }> = {
+  pending:     { label: 'Pending Review', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  in_progress: { label: 'In Review',      color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  approved:    { label: 'Approved',       color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  active:      { label: 'Active',         color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  declined:    { label: 'Declined',       color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  discarded:   { label: 'Discarded',      color: 'bg-muted/40 text-muted-foreground border-border' },
+};
+
+// ── Hooks ─────────────────────────────────────────────────────────────────────
+
+interface WSStats { leads: number; pilots: number; users: number; }
+
+function useWorkspaceStats() {
+  const [stats, setStats] = useState<WSStats>({ leads: 0, pilots: 0, users: 0 });
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const hdrs = { Authorization: `Bearer ${getToken()}` };
+    const next: WSStats = { leads: 0, pilots: 0, users: 0 };
+    try {
+      const [l, p, u] = await Promise.allSettled([
+        fetch(`${API_BASE}/leads`, { headers: hdrs }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/pilot-applications`, { headers: hdrs }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/users`, { headers: hdrs }).then(r => r.ok ? r.json() : null),
+      ]);
+      if (l.status === 'fulfilled' && l.value) next.leads  = (l.value.leads         || []).length;
+      if (p.status === 'fulfilled' && p.value) next.pilots = (p.value.applications  || []).length;
+      if (u.status === 'fulfilled' && u.value) next.users  = (u.value.users         || []).length;
+    } catch { /* silent */ }
+    setStats(next);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  return { stats, loading, refresh };
+}
+
+// ── Small shared components ───────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: LeadStatus }) {
   const m = STATUS_META[status] || STATUS_META.pending;
@@ -98,32 +138,26 @@ function StatusBadge({ status }: { status: LeadStatus }) {
   );
 }
 
-// ── Hooks ─────────────────────────────────────────────────────────────────────
+// ── Stats Row ─────────────────────────────────────────────────────────────────
 
-function useStorageCount(key: string): number {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) setCount((JSON.parse(raw) as unknown[]).length);
-    } catch { /* noop */ }
-  }, []);
-  return count;
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function StatsRow() {
-  const counts = STAT_KEYS.map(s => ({ ...s, count: useStorageCount(s.key) }));
+function StatsRow({ stats, loading, onTabChange }: { stats: WSStats; loading: boolean; onTabChange: (t: string) => void }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {counts.map(({ key, label, icon: Icon, count }) => (
-        <Card key={key}>
+      {[
+        { label: 'Registered Users', value: stats.users,  icon: Users,        color: 'text-blue-400',   tab: 'clients' },
+        { label: 'Leads',            value: stats.leads,  icon: TrendingUp,   color: 'text-green-400',  tab: 'pipeline' },
+        { label: 'Pilot Apps',       value: stats.pilots, icon: Crown,        color: 'text-purple-400', tab: 'pilots'  },
+        { label: 'Facility Compass', value: '↗',          icon: Globe,        color: 'text-cyan-400',   href: FC_BASE  },
+      ].map(({ label, value, icon: Icon, color, tab, href }) => (
+        <Card key={label} className="bg-card/60 border-border/40 hover:border-primary/40 transition-colors cursor-pointer"
+          onClick={() => href ? window.open(href, '_blank') : tab && onTabChange(tab)}>
           <CardContent className="py-4 px-4 flex items-center gap-3">
-            <Icon className="w-5 h-5 text-primary shrink-0" />
+            <Icon className={cn('w-5 h-5 shrink-0', color)} />
             <div>
-              <p className="text-2xl font-bold">{count}</p>
-              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className={cn('text-2xl font-bold leading-none', loading && typeof value === 'number' ? 'text-muted-foreground' : 'text-foreground')}>
+                {loading && typeof value === 'number' ? '…' : value}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
             </div>
           </CardContent>
         </Card>
@@ -132,17 +166,240 @@ function StatsRow() {
   );
 }
 
-// ── Lead Pipeline Panel ───────────────────────────────────────────────────────
+// ── Client Accounts ───────────────────────────────────────────────────────────
+
+function ClientAccounts() {
+  const [users, setUsers]         = useState<ClientUser[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [search, setSearch]       = useState('');
+  const [tierFilter, setTierFilter] = useState('all');
+  const [updatingTier, setUpdatingTier] = useState<string | null>(null);
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/users`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const updateTier = async (user: ClientUser, newTier: string) => {
+    const key = user.username || user.email;
+    setUpdatingTier(key);
+    try {
+      const res = await fetch(`${API_BASE}/users/${encodeURIComponent(key)}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body:    JSON.stringify({ tier: newTier }),
+      });
+      if (res.ok) {
+        setUsers(prev => prev.map(u => (u.username || u.email) === key ? { ...u, tier: newTier } : u));
+        toast.success(`Tier updated → ${newTier}`);
+      } else {
+        toast.error('Tier update failed.');
+      }
+    } catch { toast.error('Network error.'); }
+    setUpdatingTier(null);
+  };
+
+  const visible = users.filter(u => {
+    if (tierFilter !== 'all' && (u.tier || 'basic').toLowerCase() !== tierFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!u.email?.toLowerCase().includes(q) && !u.name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-400" />Client Accounts
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Registered FI Platform users — manage tiers & roles</p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={fetchUsers} disabled={loading} className="text-muted-foreground">
+          <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', loading && 'animate-spin')} />Refresh
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search name or email…" className="pl-8 h-8 text-xs bg-muted/30 border-border/40" />
+        </div>
+        <Select value={tierFilter} onValueChange={setTierFilter}>
+          <SelectTrigger className="h-8 text-xs bg-muted/30 border-border/40 w-36">
+            <SelectValue placeholder="All tiers" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All tiers</SelectItem>
+            {Object.entries(TIER_META).map(([k, v]) => (
+              <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {loading && users.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Loading users…</p>
+      ) : visible.length === 0 ? (
+        <Card className="bg-card/40 border-border/30">
+          <CardContent className="p-8 text-center">
+            <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {users.length === 0 ? 'No registered users found.' : 'No users match the current filters.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border/40">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border/40 bg-muted/20">
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">User</th>
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Tier</th>
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Role</th>
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Org Type</th>
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Facility ID</th>
+                <th className="text-right px-3 py-2 text-muted-foreground font-medium">Change Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map(user => {
+                const key  = user.username || user.email;
+                const tier = (user.tier || 'basic').toLowerCase();
+                const tierM = TIER_META[tier] || TIER_META.basic;
+                return (
+                  <tr key={key} className="border-b border-border/30 hover:bg-muted/10 transition-colors">
+                    <td className="px-3 py-2.5">
+                      <p className="font-medium text-foreground">{user.name || user.email}</p>
+                      {user.name && <p className="text-muted-foreground text-[10px]">{user.email}</p>}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold border', tierM.color)}>{tierM.label}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{user.role || '—'}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground capitalize">{user.orgType || '—'}</td>
+                    <td className="px-3 py-2.5">
+                      {user.facilityId
+                        ? <code className="text-[10px] text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded">{user.facilityId}</code>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Select value={tier} onValueChange={v => updateTier(user, v)} disabled={updatingTier === key}>
+                        <SelectTrigger className="h-6 text-[10px] bg-muted/30 border-border/40 w-28 ml-auto">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TIER_META).map(([k, v]) => (
+                            <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FIAS Quick ────────────────────────────────────────────────────────────────
+
+function FIASQuick() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-400" />FIAS Assessments
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Facility Intelligence Assessment System — run assessments, score clients</p>
+        </div>
+        <a href="/fias">
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5">
+            <Activity className="w-3.5 h-3.5" />Open FIAS
+          </Button>
+        </a>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-400 shrink-0" />
+              <p className="text-sm font-medium">Run New Assessment</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Start a new FIAS session for a client facility. Score equipment reliability,
+              compliance, energy efficiency, and operational maturity to justify retainer proposals.
+            </p>
+            <a href="/fias">
+              <Button size="sm" variant="outline" className="w-full text-xs gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-500/10">
+                <Plus className="w-3.5 h-3.5" />Start Assessment
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-green-400 shrink-0" />
+              <p className="text-sm font-medium">Facility Compass</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Access the full internal workspace including FIAS history, client records,
+              doc generator, audit module, and retainer management.
+            </p>
+            <a href={`${FC_BASE}/fias`} target="_blank" rel="noreferrer">
+              <Button size="sm" variant="outline" className="w-full text-xs gap-1.5 border-green-500/30 text-green-400 hover:bg-green-500/10">
+                <ExternalLink className="w-3.5 h-3.5" />Open in Facility Compass
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
+        <p className="text-xs text-blue-300 font-medium mb-2">About FIAS</p>
+        <p className="text-xs text-blue-200/70 leading-relaxed">
+          The Facility Intelligence Assessment System (FIAS) is a structured scoring methodology
+          evaluating operations across equipment reliability, compliance posture, energy efficiency,
+          and operational maturity. Results justify retainer proposals and build the VVFI client base.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Lead Pipeline ─────────────────────────────────────────────────────────────
 
 function LeadPipeline() {
-  const [leads, setLeads]           = useState<Lead[]>([]);
-  const [loading, setLoading]       = useState(false);
-  const [saving, setSaving]         = useState<string | null>(null);
+  const [leads, setLeads]               = useState<Lead[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [saving, setSaving]             = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [showAdd, setShowAdd]       = useState(false);
-  const [newLead, setNewLead]       = useState({
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
+  const [showAdd, setShowAdd]           = useState(false);
+  const [newLead, setNewLead]           = useState({
     name: '', email: '', phone: '', company: '', role: '', meetingType: '', notes: '', source: 'manual',
   });
 
@@ -160,16 +417,13 @@ function LeadPipeline() {
         setLeads(fetched);
         localStorage.setItem(LEADS_KEY, JSON.stringify(fetched));
       } else {
-        // Fallback to cache
         const cached = localStorage.getItem(LEADS_KEY);
         if (cached) setLeads(JSON.parse(cached));
       }
     } catch {
       const cached = localStorage.getItem(LEADS_KEY);
       if (cached) setLeads(JSON.parse(cached));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
@@ -178,15 +432,12 @@ function LeadPipeline() {
     setSaving(leadId);
     const patch: Record<string, unknown> = { status };
     if (status === 'won') patch.convertedAt = new Date().toISOString();
-
-    // Optimistic update
     setLeads(prev => prev.map(l => l.leadId === leadId ? { ...l, status, updatedAt: new Date().toISOString() } : l));
-
     try {
       await fetch(`${API_BASE}/leads/${leadId}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body:    JSON.stringify(patch),
+        body: JSON.stringify(patch),
       });
     } catch { /* optimistic already applied */ }
     setSaving(null);
@@ -197,9 +448,9 @@ function LeadPipeline() {
     setLeads(prev => prev.map(l => l.leadId === leadId ? { ...l, [field]: value } : l));
     try {
       await fetch(`${API_BASE}/leads/${leadId}`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body:    JSON.stringify({ [field]: value }),
+        body: JSON.stringify({ [field]: value }),
       });
     } catch { /* noop */ }
     setSaving(null);
@@ -209,35 +460,27 @@ function LeadPipeline() {
     setLeads(prev => prev.filter(l => l.leadId !== leadId));
     try {
       await fetch(`${API_BASE}/leads/${leadId}`, {
-        method:  'DELETE',
-        headers: { Authorization: `Bearer ${getToken()}` },
+        method: 'DELETE', headers: { Authorization: `Bearer ${getToken()}` },
       });
     } catch { /* noop */ }
   };
 
   const addLead = async () => {
-    if (!newLead.name || !newLead.email) {
-      toast.error('Name and email are required.');
-      return;
-    }
+    if (!newLead.name || !newLead.email) { toast.error('Name and email are required.'); return; }
     setSaving('new');
     try {
       const res = await fetch(`${API_BASE}/leads`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body:    JSON.stringify({ ...newLead, notify: false }),
+        body: JSON.stringify({ ...newLead, notify: false }),
       });
       if (res.ok) {
         toast.success(`Lead added — ${newLead.name}`);
         setNewLead({ name: '', email: '', phone: '', company: '', role: '', meetingType: '', notes: '', source: 'manual' });
         setShowAdd(false);
         fetchLeads();
-      } else {
-        toast.error('Failed to add lead.');
-      }
-    } catch {
-      toast.error('Network error — lead not saved.');
-    }
+      } else { toast.error('Failed to add lead.'); }
+    } catch { toast.error('Network error — lead not saved.'); }
     setSaving(null);
   };
 
@@ -257,14 +500,13 @@ function LeadPipeline() {
 
   return (
     <div className="space-y-5">
-      {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total',     value: stats.total,     color: 'text-foreground',   icon: <Users className="h-4 w-4" /> },
-          { label: 'Pending',   value: stats.pending,   color: 'text-yellow-400',   icon: <Clock className="h-4 w-4" /> },
-          { label: 'Contacted', value: stats.contacted, color: 'text-blue-400',     icon: <MailCheck className="h-4 w-4" /> },
-          { label: 'Won',       value: stats.won,       color: 'text-green-400',    icon: <Trophy className="h-4 w-4" /> },
-          { label: 'Callbacks', value: stats.callbacks, color: 'text-orange-400',   icon: <PhoneCall className="h-4 w-4" /> },
+          { label: 'Total',     value: stats.total,     color: 'text-foreground', icon: <Users className="h-4 w-4" /> },
+          { label: 'Pending',   value: stats.pending,   color: 'text-yellow-400', icon: <Clock className="h-4 w-4" /> },
+          { label: 'Contacted', value: stats.contacted, color: 'text-blue-400',   icon: <MailCheck className="h-4 w-4" /> },
+          { label: 'Won',       value: stats.won,       color: 'text-green-400',  icon: <Trophy className="h-4 w-4" /> },
+          { label: 'Callbacks', value: stats.callbacks, color: 'text-orange-400', icon: <PhoneCall className="h-4 w-4" /> },
         ].map(s => (
           <Card key={s.label} className="bg-card/60 border-border/40">
             <CardContent className="p-3 flex items-center gap-2">
@@ -278,7 +520,6 @@ function LeadPipeline() {
         ))}
       </div>
 
-      {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <Button size="sm" onClick={() => setShowAdd(v => !v)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
           <Plus className="h-3.5 w-3.5 mr-1.5" />Add Lead
@@ -289,9 +530,7 @@ function LeadPipeline() {
         <div className="flex items-center gap-2 ml-auto">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-7 text-xs bg-muted/30 border-border/40 w-32">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-7 text-xs bg-muted/30 border-border/40 w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All statuses</SelectItem>
               {Object.entries(STATUS_META).map(([k, v]) => (
@@ -300,9 +539,7 @@ function LeadPipeline() {
             </SelectContent>
           </Select>
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="h-7 text-xs bg-muted/30 border-border/40 w-32">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-7 text-xs bg-muted/30 border-border/40 w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All sources</SelectItem>
               <SelectItem value="calendly" className="text-xs">Calendly</SelectItem>
@@ -312,7 +549,6 @@ function LeadPipeline() {
         </div>
       </div>
 
-      {/* Add lead form */}
       {showAdd && (
         <Card className="bg-card/60 border-primary/20">
           <CardHeader className="pb-2">
@@ -322,34 +558,29 @@ function LeadPipeline() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Name *</label>
-                <Input value={newLead.name} onChange={e => setNewLead(p => ({ ...p, name: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="Full name" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Email *</label>
-                <Input value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="email@example.com" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Phone</label>
-                <Input value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="Phone" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Company / Facility</label>
-                <Input value={newLead.company} onChange={e => setNewLead(p => ({ ...p, company: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="Organization" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Role / Title</label>
-                <Input value={newLead.role} onChange={e => setNewLead(p => ({ ...p, role: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="Title" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Meeting Type</label>
-                <Input value={newLead.meetingType} onChange={e => setNewLead(p => ({ ...p, meetingType: e.target.value }))} className="h-8 text-xs bg-muted/30 border-border/40" placeholder="Discovery Call, Demo…" />
-              </div>
+              {[
+                { key: 'name',        label: 'Name *',             placeholder: 'Full name'           },
+                { key: 'email',       label: 'Email *',            placeholder: 'email@example.com'   },
+                { key: 'phone',       label: 'Phone',              placeholder: 'Phone'               },
+                { key: 'company',     label: 'Company / Facility', placeholder: 'Organization'        },
+                { key: 'role',        label: 'Role / Title',       placeholder: 'Title'               },
+                { key: 'meetingType', label: 'Meeting Type',       placeholder: 'Discovery Call, Demo…'},
+              ].map(({ key, label, placeholder }) => (
+                <div key={key}>
+                  <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+                  <Input
+                    value={newLead[key as keyof typeof newLead]}
+                    onChange={e => setNewLead(p => ({ ...p, [key]: e.target.value }))}
+                    className="h-8 text-xs bg-muted/30 border-border/40"
+                    placeholder={placeholder}
+                  />
+                </div>
+              ))}
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
-              <Textarea value={newLead.notes} onChange={e => setNewLead(p => ({ ...p, notes: e.target.value }))} rows={2} className="text-xs bg-muted/30 border-border/40 resize-none" placeholder="Any context about this lead…" />
+              <Textarea value={newLead.notes} onChange={e => setNewLead(p => ({ ...p, notes: e.target.value }))}
+                rows={2} className="text-xs bg-muted/30 border-border/40 resize-none" placeholder="Any context about this lead…" />
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={addLead} disabled={saving === 'new'} className="bg-primary text-primary-foreground">
@@ -361,7 +592,6 @@ function LeadPipeline() {
         </Card>
       )}
 
-      {/* Calendly webhook notice */}
       <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-300">
         <CalendarClock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         <div>
@@ -371,7 +601,6 @@ function LeadPipeline() {
         </div>
       </div>
 
-      {/* Leads list */}
       {loading && leads.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">Loading leads…</p>
       ) : visible.length === 0 ? (
@@ -411,73 +640,49 @@ function LeadPipeline() {
                         {lead.scheduledAt && <span>· {new Date(lead.scheduledAt).toLocaleDateString()}</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground" onClick={() => setExpandedId(expanded ? null : lead.leadId)}>
-                        {expanded ? 'Less' : 'More'}
-                      </Button>
-                    </div>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                      onClick={() => setExpandedId(expanded ? null : lead.leadId)}>
+                      {expanded ? 'Less' : 'More'}
+                    </Button>
                   </div>
 
-                  {/* Expanded row */}
                   {expanded && (
                     <div className="mt-3 pt-3 border-t border-border/40 space-y-3">
-                      {/* Quick status buttons */}
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">Change Status</p>
                         <div className="flex gap-1.5 flex-wrap">
                           {(['pending', 'contacted', 'qualified', 'won', 'lost'] as LeadStatus[]).map(s => (
-                            <button
-                              key={s}
-                              onClick={() => updateStatus(lead.leadId, s)}
-                              className={cn(
-                                'px-2 py-1 rounded text-xs border transition-colors',
-                                lead.status === s
-                                  ? STATUS_META[s].color
-                                  : 'border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                              )}
-                            >
+                            <button key={s} onClick={() => updateStatus(lead.leadId, s)}
+                              className={cn('px-2 py-1 rounded text-xs border transition-colors',
+                                lead.status === s ? STATUS_META[s].color : 'border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground')}>
                               {STATUS_META[s].label}
                             </button>
                           ))}
                         </div>
                       </div>
-
-                      {/* Notes + callback */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Callback Date</p>
-                          <Input
-                            type="date"
-                            defaultValue={lead.callbackDate?.slice(0, 10) || ''}
+                          <Input type="date" defaultValue={lead.callbackDate?.slice(0, 10) || ''}
                             onBlur={e => updateField(lead.leadId, 'callbackDate', e.target.value || null)}
-                            className="h-7 text-xs bg-muted/30 border-border/40"
-                          />
+                            className="h-7 text-xs bg-muted/30 border-border/40" />
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Follow-up Date</p>
-                          <Input
-                            type="date"
-                            defaultValue={lead.followUpDate?.slice(0, 10) || ''}
+                          <Input type="date" defaultValue={lead.followUpDate?.slice(0, 10) || ''}
                             onBlur={e => updateField(lead.leadId, 'followUpDate', e.target.value || null)}
-                            className="h-7 text-xs bg-muted/30 border-border/40"
-                          />
+                            className="h-7 text-xs bg-muted/30 border-border/40" />
                         </div>
                       </div>
-
                       {lead.notes && (
-                        <div className="text-xs bg-muted/20 rounded p-2 text-foreground/80 leading-relaxed">
-                          {lead.notes}
-                        </div>
+                        <div className="text-xs bg-muted/20 rounded p-2 text-foreground/80 leading-relaxed">{lead.notes}</div>
                       )}
-
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {lead.phone && <span>📞 {lead.phone}</span>}
                         {lead.role  && <span>· {lead.role}</span>}
                         {lead.utmSource && <span>· src: {lead.utmSource}</span>}
-                        <button
-                          onClick={() => { if (confirm(`Delete lead for ${lead.name}?`)) deleteLead(lead.leadId); }}
-                          className="ml-auto text-red-400 hover:text-red-300 flex items-center gap-1"
-                        >
+                        <button onClick={() => { if (confirm(`Delete lead for ${lead.name}?`)) deleteLead(lead.leadId); }}
+                          className="ml-auto text-red-400 hover:text-red-300 flex items-center gap-1">
                           <Trash2 className="h-3 w-3" />Delete
                         </button>
                       </div>
@@ -493,9 +698,243 @@ function LeadPipeline() {
   );
 }
 
+// ── Pilot Applications ────────────────────────────────────────────────────────
+
+function PilotApplications() {
+  const [apps, setApps]             = useState<PilotApp[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [actioning, setActioning]   = useState<string | null>(null);
+  const [notes, setNotes]           = useState<Record<string, string>>({});
+  const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
+  const [filter, setFilter]         = useState<PilotStatus | 'all'>('all');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const fetchApps = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/pilot-applications`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setApps(data.applications || []);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchApps(); }, [fetchApps]);
+
+  const doAction = async (app: PilotApp, action: string) => {
+    setActioning(app.appId);
+    try {
+      const res = await fetch(`${API_BASE}/pilot-applications/${app.appId}/${action}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body:    JSON.stringify({ notes: notes[app.appId] || undefined }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(
+          action === 'approve'
+            ? `Approved — code: ${data.pilotCode} · Business tier ${data.cognitoTierSet ? 'provisioned' : 'queued for registration'}`
+            : action === 'decline' ? 'Application declined.' : `Status → ${data.newStatus}`
+        );
+        fetchApps();
+      } else { toast.error('Action failed — check console.'); }
+    } catch { toast.error('Network error.'); }
+    setActioning(null);
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  };
+
+  const visible = filter === 'all' ? apps : apps.filter(a => a.status === filter);
+  const counts  = Object.fromEntries(
+    (Object.keys(PILOT_STATUS_META) as PilotStatus[]).map(s => [s, apps.filter(a => a.status === s).length])
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Crown className="w-4 h-4 text-purple-400" />Pilot Applications
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Approve to grant Business tier access · Approval email + Cognito provisioning automated
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={fetchApps} disabled={loading} className="text-muted-foreground">
+          <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', loading && 'animate-spin')} />Refresh
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(['all', ...Object.keys(PILOT_STATUS_META)] as (PilotStatus | 'all')[]).map(s => {
+          const count = s === 'all' ? apps.length : (counts[s] ?? 0);
+          const meta  = s !== 'all' ? PILOT_STATUS_META[s] : null;
+          return (
+            <button key={s} onClick={() => setFilter(s)}
+              className={cn('px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                filter === s
+                  ? meta ? meta.color : 'bg-primary/20 text-primary border-primary/30'
+                  : 'bg-muted/20 text-muted-foreground border-border hover:border-primary/40')}>
+              {s === 'all' ? 'All' : PILOT_STATUS_META[s].label}
+              {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && apps.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Loading applications…</p>
+      )}
+
+      {!loading && visible.length === 0 && (
+        <Card className="border border-border">
+          <CardContent className="py-12 text-center">
+            <ShieldCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-semibold text-foreground">No applications</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filter === 'all'
+                ? 'No pilot applications have been submitted yet.'
+                : `No ${PILOT_STATUS_META[filter as PilotStatus]?.label.toLowerCase()} applications.`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-3">
+        {visible.map(app => {
+          const meta    = PILOT_STATUS_META[app.status];
+          const isOpen  = expanded[app.appId];
+          const working = actioning === app.appId;
+
+          return (
+            <Card key={app.appId}
+              className={cn('border bg-card/60', app.status === 'pending' || app.status === 'in_progress' ? 'border-yellow-500/20' : 'border-border')}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                      <Badge className={cn('text-[10px] border', meta.color)}>{meta.label}</Badge>
+                      {(app.status === 'approved' || app.status === 'active') && (
+                        <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
+                          <Crown className="w-2.5 h-2.5 mr-1" />Business Tier
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{app.name}</p>
+                    <p className="text-xs text-muted-foreground">{app.email} · {app.company || 'No company'}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button onClick={() => setExpanded(e => ({ ...e, [app.appId]: !e[app.appId] }))}
+                      className="text-muted-foreground hover:text-foreground">
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {app.pilotCode && (
+                  <div className="flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Code</span>
+                    <code className="text-sm font-bold text-purple-400 font-mono flex-1">{app.pilotCode}</code>
+                    <button onClick={() => copyCode(app.pilotCode!)} className="text-muted-foreground hover:text-foreground" title="Copy code">
+                      {copiedCode === app.pilotCode
+                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                )}
+
+                {isOpen && (
+                  <div className="space-y-3 pt-2 border-t border-border/50">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      {[
+                        { label: 'Role',        value: app.role       },
+                        { label: 'Facilities',  value: app.facilities },
+                        { label: 'Use Case',    value: app.useCase    },
+                        { label: 'Approved At', value: app.approvedAt ? new Date(app.approvedAt).toLocaleDateString() : '—' },
+                      ].map(({ label, value }) => value ? (
+                        <div key={label}>
+                          <span className="text-muted-foreground">{label}: </span>
+                          <span className="text-foreground">{value}</span>
+                        </div>
+                      ) : null)}
+                    </div>
+
+                    {app.adminNotes && (
+                      <div className="bg-muted/20 rounded p-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Notes: </span>{app.adminNotes}
+                      </div>
+                    )}
+
+                    {(app.status === 'pending' || app.status === 'in_progress') && (
+                      <Textarea
+                        placeholder="Optional note to applicant…"
+                        value={notes[app.appId] || ''}
+                        onChange={e => setNotes(n => ({ ...n, [app.appId]: e.target.value }))}
+                        className="text-xs h-16 resize-none"
+                      />
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {(app.status === 'pending' || app.status === 'in_progress') && (
+                        <>
+                          <Button size="sm" disabled={working} onClick={() => doAction(app, 'approve')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {working ? 'Approving…' : 'Approve → Business Tier'}
+                          </Button>
+                          {app.status === 'pending' && (
+                            <Button size="sm" variant="outline" disabled={working} onClick={() => doAction(app, 'in_progress')} className="text-xs">
+                              Mark In Review
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" disabled={working} onClick={() => doAction(app, 'decline')}
+                            className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10">
+                            Decline
+                          </Button>
+                          <Button size="sm" variant="ghost" disabled={working} onClick={() => doAction(app, 'discard')} className="text-xs text-muted-foreground">
+                            Discard
+                          </Button>
+                        </>
+                      )}
+                      {app.status === 'approved' && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />Waiting for applicant to activate with code
+                        </p>
+                      )}
+                      {app.status === 'active' && (
+                        <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />Active — Business tier provisioned
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function NexumWorkspace() {
+  const [activeTab, setActiveTab]       = useState('overview');
+  const { stats, loading: statsLoading, refresh: refreshStats } = useWorkspaceStats();
   const [notes, setNotes]               = useState<WorkspaceNote[]>([]);
   const [newNote, setNewNote]           = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -514,10 +953,8 @@ export default function NexumWorkspace() {
   const addNote = () => {
     if (!newNote.trim()) return;
     const note: WorkspaceNote = {
-      id: `note-${Date.now()}`,
-      text: newNote.trim(),
-      createdAt: new Date().toISOString(),
-      pinned: false,
+      id: `note-${Date.now()}`, text: newNote.trim(),
+      createdAt: new Date().toISOString(), pinned: false,
     };
     saveNotes([note, ...notes]);
     setNewNote('');
@@ -549,114 +986,225 @@ export default function NexumWorkspace() {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <LayoutDashboard className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold">Nexum Workspace</h1>
-            <Badge variant="outline" className="text-orange-400 border-orange-400/40">Admin Only</Badge>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <LayoutDashboard className="w-6 h-6 text-primary" />
+              <h1 className="text-2xl font-bold">Nexum Workspace</h1>
+              <Badge variant="outline" className="text-orange-400 border-orange-400/40">Admin Only</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">Internal operations hub — client accounts, leads, pilots, FIAS & all Nexum tools.</p>
           </div>
-          <p className="text-sm text-muted-foreground">Internal operations hub — all Nexum tools in one place.</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="ghost" onClick={refreshStats} disabled={statsLoading} className="text-muted-foreground text-xs">
+              <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', statsLoading && 'animate-spin')} />Refresh
+            </Button>
+            <a href={FC_BASE} target="_blank" rel="noreferrer">
+              <Button size="sm" className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-xs gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" />Facility Compass
+              </Button>
+            </a>
+          </div>
         </div>
 
-        <StatsRow />
+        <StatsRow stats={stats} loading={statsLoading} onTabChange={setActiveTab} />
 
-        <Tabs defaultValue="tools">
-          <TabsList className="bg-muted/50 border border-border/40">
-            <TabsTrigger value="tools"    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Internal Tools</TabsTrigger>
-            <TabsTrigger value="pipeline" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Lead Pipeline</TabsTrigger>
-            <TabsTrigger value="notes"    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">Notes & Links</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="bg-muted/50 border border-border/40 h-auto flex-wrap gap-0.5 p-1">
+            {[
+              { value: 'overview',  label: 'Overview'          },
+              { value: 'clients',   label: 'Client Accounts'   },
+              { value: 'fias',      label: 'FIAS Assessments'  },
+              { value: 'pipeline',  label: 'Lead Pipeline'     },
+              { value: 'pilots',    label: 'Pilot Applications'},
+              { value: 'tools',     label: 'Tools & Resources' },
+              { value: 'notes',     label: 'Notes'             },
+            ].map(t => (
+              <TabsTrigger key={t.value} value={t.value}
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
+                {t.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          {/* ── Internal Tools tab ── */}
-          <TabsContent value="tools" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {INTERNAL_TOOLS.map(tool => {
-                const Icon = tool.icon;
-                return (
-                  <a key={tool.path} href={tool.path} className="block">
-                    <Card className="hover:border-primary/40 transition-colors cursor-pointer h-full">
-                      <CardContent className="py-4 px-4 flex items-start gap-3">
-                        <div className={cn('mt-0.5 shrink-0', tool.color)}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{tool.label}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{tool.desc}</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-auto mt-0.5" />
-                      </CardContent>
-                    </Card>
-                  </a>
-                );
-              })}
+          {/* ── Overview ── */}
+          <TabsContent value="overview" className="mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="bg-card/60 border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {[
+                    { label: 'Client Accounts',         icon: Users,        color: 'text-blue-400',   tab: 'clients'  },
+                    { label: 'FIAS Assessment',          icon: Activity,     color: 'text-teal-400',   tab: 'fias'     },
+                    { label: 'Lead Pipeline',            icon: TrendingUp,   color: 'text-green-400',  tab: 'pipeline' },
+                    { label: 'Pilot Applications',       icon: Crown,        color: 'text-purple-400', tab: 'pilots'   },
+                    { label: 'VVFI Retainers',           icon: TrendingUp,   color: 'text-emerald-400',href: '/virtuous' },
+                    { label: 'OIG Dashboard',            icon: Gauge,        color: 'text-indigo-400', href: '/operational-intelligence' },
+                  ].map(({ label, icon: Icon, color, tab, href }) => (
+                    tab ? (
+                      <button key={label} onClick={() => setActiveTab(tab)}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors w-full group text-left">
+                        <Icon className={cn('w-4 h-4 shrink-0', color)} />
+                        <span className="text-sm text-foreground group-hover:text-primary transition-colors flex-1">{label}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    ) : (
+                      <a key={label} href={href}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors group">
+                        <Icon className={cn('w-4 h-4 shrink-0', color)} />
+                        <span className="text-sm text-foreground group-hover:text-primary transition-colors flex-1">{label}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      </a>
+                    )
+                  ))}
+                </CardContent>
+              </Card>
+
+              <div className="space-y-4">
+                <Card className="bg-card/60 border-border/40">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">System Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5">
+                    {[
+                      { label: 'FI Platform Portal',  status: 'Online',            ok: true  },
+                      { label: 'API Gateway',          status: 'Healthy',           ok: true  },
+                      { label: 'Cognito Auth',         status: 'Healthy',           ok: true  },
+                      { label: 'SES Email',            status: 'Verify Identities', ok: false },
+                      { label: 'Facility Compass',     status: 'External',          ok: true  },
+                    ].map(({ label, status, ok }) => (
+                      <div key={label} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className={cn('flex items-center gap-1.5 font-medium', ok ? 'text-green-400' : 'text-yellow-400')}>
+                          {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                          {status}
+                        </span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-card/60 border-border/40">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold">Nexum Links</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {[
+                      { label: 'FI Platform Portal',   href: 'https://portal.nexumsuum-facilityintelligence.com' },
+                      { label: 'Facility Compass',      href: FC_BASE },
+                      { label: 'Admin View (Portal)',   href: 'https://portal.nexumsuum-facilityintelligence.com?adminView=1' },
+                      { label: 'FC — FIAS',             href: `${FC_BASE}/fias` },
+                      { label: 'FC — Doc Generator',    href: `${FC_BASE}/doc-generator` },
+                    ].map(({ label, href }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-2 text-xs text-primary hover:underline">
+                        <ExternalLink className="w-3 h-3" />{label}
+                      </a>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
-          {/* ── Lead Pipeline tab ── */}
+          {/* ── Client Accounts ── */}
+          <TabsContent value="clients" className="mt-4">
+            <ClientAccounts />
+          </TabsContent>
+
+          {/* ── FIAS ── */}
+          <TabsContent value="fias" className="mt-4">
+            <FIASQuick />
+          </TabsContent>
+
+          {/* ── Lead Pipeline ── */}
           <TabsContent value="pipeline" className="mt-4">
             <LeadPipeline />
           </TabsContent>
 
-          {/* ── Notes & Links tab ── */}
+          {/* ── Pilot Applications ── */}
+          <TabsContent value="pilots" className="mt-4">
+            <PilotApplications />
+          </TabsContent>
+
+          {/* ── Tools & Resources ── */}
+          <TabsContent value="tools" className="mt-4">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground mb-1">Internal Tools</h2>
+                <p className="text-xs text-muted-foreground">
+                  FI Platform tools open in this app. <ExternalLink className="inline w-3 h-3 mx-0.5" /> tools open in Facility Compass.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {INTERNAL_TOOLS.map(tool => {
+                  const Icon = tool.icon;
+                  return (
+                    <a key={tool.href} href={tool.href}
+                      target={tool.external ? '_blank' : undefined}
+                      rel={tool.external ? 'noreferrer' : undefined}
+                      className="block">
+                      <Card className="hover:border-primary/40 transition-colors cursor-pointer h-full">
+                        <CardContent className="py-4 px-4 flex items-start gap-3">
+                          <div className={cn('mt-0.5 shrink-0', tool.color)}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm">{tool.label}</p>
+                              {tool.external && <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{tool.desc}</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-auto mt-0.5" />
+                        </CardContent>
+                      </Card>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── Notes ── */}
           <TabsContent value="notes" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Client Lookup */}
               <Card>
                 <CardHeader><CardTitle className="text-sm">Quick Client Lookup</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex gap-2">
-                    <Input
-                      value={clientSearch}
-                      onChange={e => setClientSearch(e.target.value)}
+                    <Input value={clientSearch} onChange={e => setClientSearch(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && lookupClient()}
-                      placeholder="Name or facilityId…"
-                      className="flex-1"
-                    />
+                      placeholder="Name or facilityId…" className="flex-1" />
                     <Button size="sm" onClick={lookupClient}><Search className="w-4 h-4" /></Button>
                   </div>
-                  {clientResult && (
-                    <div className="text-xs bg-muted/40 rounded p-2 font-mono">{clientResult}</div>
-                  )}
-                  <Separator />
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">FI Platform links</p>
-                    <a href="https://portal.nexumsuum-facilityintelligence.com" target="_blank" rel="noreferrer"
-                      className="flex items-center gap-2 text-xs text-primary hover:underline">
-                      <ExternalLink className="w-3 h-3" /> Customer Portal
-                    </a>
-                    <a href="https://portal.nexumsuum-facilityintelligence.com?adminView=1" target="_blank" rel="noreferrer"
-                      className="flex items-center gap-2 text-xs text-primary hover:underline">
-                      <ExternalLink className="w-3 h-3" /> Admin View
-                    </a>
-                  </div>
+                  {clientResult && <div className="text-xs bg-muted/40 rounded p-2 font-mono">{clientResult}</div>}
                 </CardContent>
               </Card>
 
-              {/* Notes */}
               <Card>
                 <CardHeader><CardTitle className="text-sm">Workspace Notes</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex gap-2">
-                    <Textarea
-                      value={newNote}
-                      onChange={e => setNewNote(e.target.value)}
-                      placeholder="Quick note…"
-                      rows={2}
-                      className="flex-1 text-sm resize-none"
-                    />
+                    <Textarea value={newNote} onChange={e => setNewNote(e.target.value)}
+                      placeholder="Quick note…" rows={2} className="flex-1 text-sm resize-none" />
                     <Button size="sm" onClick={addNote} className="self-end">
                       <StickyNote className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                     {sorted.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-4">No notes yet.</p>
                     )}
                     {sorted.map(n => (
-                      <div key={n.id} className={cn('flex items-start gap-2 text-xs rounded p-2 border', n.pinned ? 'border-primary/40 bg-primary/5' : 'border-border/50')}>
+                      <div key={n.id} className={cn('flex items-start gap-2 text-xs rounded p-2 border',
+                        n.pinned ? 'border-primary/40 bg-primary/5' : 'border-border/50')}>
                         <p className="flex-1 text-foreground whitespace-pre-wrap">{n.text}</p>
                         <div className="flex gap-1 shrink-0">
-                          <button onClick={() => togglePin(n.id)} title="Pin" className={cn('text-muted-foreground hover:text-primary', n.pinned && 'text-primary')}>📌</button>
+                          <button onClick={() => togglePin(n.id)} title="Pin"
+                            className={cn('text-muted-foreground hover:text-primary', n.pinned && 'text-primary')}>📌</button>
                           <button onClick={() => deleteNote(n.id)} className="text-muted-foreground hover:text-destructive">✕</button>
                         </div>
                       </div>
@@ -665,27 +1213,6 @@ export default function NexumWorkspace() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* System Status */}
-            <Card className="mt-6">
-              <CardHeader><CardTitle className="text-sm">System Status</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    <span>FI Platform — <span className="text-green-500 font-medium">Online</span></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    <span>API Gateway — <span className="text-green-500 font-medium">Healthy</span></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <AlertCircle className="w-4 h-4 text-yellow-500 shrink-0" />
-                    <span>SES Email — <span className="text-yellow-500 font-medium">Verify Identities</span></span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>

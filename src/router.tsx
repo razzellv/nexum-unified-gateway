@@ -69,6 +69,10 @@ import FacilityIntelligence from "./pages/FacilityIntelligence";
 import NotFound from "./pages/NotFound";
 import FacilityCommandCenter from "./pages/FacilityCommandCenter";
 import OCCAE from "./pages/OCCAE";
+import OperationalIntelligence from "./pages/OperationalIntelligence";
+import OSHA300Log from "./pages/OSHA300Log";
+import EnvironmentalMonitoring from "./pages/EnvironmentalMonitoring";
+import ConsultingServices from "./pages/ConsultingServices";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -337,6 +341,22 @@ export const router = createBrowserRouter([
           {
             path: "occae",
             element: <OCCAE />,
+          },
+          {
+            path: "operational-intelligence",
+            element: <OperationalIntelligence />,
+          },
+          {
+            path: "osha-300",
+            element: <OSHA300Log />,
+          },
+          {
+            path: "environmental",
+            element: <EnvironmentalMonitoring />,
+          },
+          {
+            path: "consulting",
+            element: <ConsultingServices />,
           },
         ],
       },

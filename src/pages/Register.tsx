@@ -5,7 +5,7 @@ import { cognitoSignUp } from '@/auth/cognitoClient';
 
 function validate(form: {
   name: string; email: string; password: string; confirm: string;
-  orgName: string; phone: string; agreed: boolean;
+  orgName: string; orgType: string; phone: string; agreed: boolean;
 }): string | null {
   if (!form.name.trim())    return 'Full name is required.';
   if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
@@ -15,8 +15,23 @@ function validate(form: {
   if (!/[0-9]/.test(form.password)) return 'Password must include at least one number.';
   if (form.password !== form.confirm) return 'Passwords do not match.';
   if (!form.orgName.trim()) return 'Organization name is required.';
+  if (!form.orgType) return 'Please select an organization type.';
   if (!form.agreed) return 'You must agree to the Terms of Service and Privacy Policy.';
   return null;
+}
+
+function passwordStrength(pw: string): { score: number; label: string; color: string } {
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (score <= 1) return { score, label: 'Weak',   color: '#ef4444' };
+  if (score <= 2) return { score, label: 'Fair',   color: '#f97316' };
+  if (score <= 3) return { score, label: 'Good',   color: '#eab308' };
+  if (score <= 4) return { score, label: 'Strong', color: '#22c55e' };
+  return { score, label: 'Very Strong', color: '#00ffe1' };
 }
 
 export default function Register() {
@@ -29,7 +44,7 @@ export default function Register() {
   const isPilot   = params.get('pilot')   === 'true';
 
   const [form, setForm] = useState({
-    name: '', email: '', password: '', confirm: '', orgName: '', phone: '', agreed: false,
+    name: '', email: '', password: '', confirm: '', orgName: '', orgType: '', phone: '', agreed: false,
   });
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -110,7 +125,9 @@ export default function Register() {
         name:     form.name.trim(),
         orgName:  form.orgName.trim(),
         phone:    form.phone.trim() || undefined,
+        orgType:  form.orgType || undefined,
       });
+      if (form.orgType) sessionStorage.setItem('nexum_org_type', form.orgType);
       // Preserve plan / pilot context for after verification
       if (planName)  sessionStorage.setItem('nexum_pending_plan',    planName);
       if (priceId)   sessionStorage.setItem('nexum_pending_price_id', priceId);
@@ -258,6 +275,19 @@ export default function Register() {
                     {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {form.password && (() => {
+                  const s = passwordStrength(form.password);
+                  return (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+                        {[1,2,3,4,5].map(i => (
+                          <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= s.score ? s.color : 'rgba(255,255,255,0.1)', transition: 'background 0.2s' }} />
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: s.color }}>{s.label}</p>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="reg-field">
@@ -287,6 +317,20 @@ export default function Register() {
                   value={form.orgName} onChange={e => set('orgName', e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="reg-field">
+                <label className="reg-label">Organization Type *</label>
+                <select
+                  style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
+                  value={form.orgType} onChange={e => set('orgType', e.target.value)}
+                  required
+                >
+                  <option value="">Select your sector…</option>
+                  <option value="facility">Facility / Industrial</option>
+                  <option value="retail">Retail / Service</option>
+                  <option value="government">Government / Public Safety</option>
+                </select>
               </div>
 
               <div className="reg-field">

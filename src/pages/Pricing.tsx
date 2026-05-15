@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { IntakeFormWidget } from '@/components/intake/IntakeFormWidget';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -800,6 +802,7 @@ const PILOT_SPOTS_TOTAL = 10;
 
 function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stage, setStage] = useState<'overview' | 'apply' | 'submitted' | 'verify'>('overview');
   const [applying, setApplying] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -838,10 +841,16 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
       });
       const cur = parseInt(localStorage.getItem('nexum_pilot_apps') || '0');
       localStorage.setItem('nexum_pilot_apps', String(cur + 1));
-    } catch { /* show submitted regardless */ }
-    finally {
-      setApplying(false);
       setStage('submitted');
+    } catch (err: any) {
+      toast({
+        title: 'Submission failed',
+        description: err?.message || 'Failed to submit application. Please try again.',
+        variant: 'destructive',
+      });
+      setStage('form');
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -2233,6 +2242,17 @@ export default function Pricing() {
               {selectedAddons.length} add-on{selectedAddons.length > 1 ? 's' : ''} selected — will be included in checkout
             </p>
           )}
+        </div>
+
+        {/* Intake Form */}
+        <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8 space-y-4">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold">Not ready to commit?</h2>
+            <p className="text-muted-foreground mt-1 text-sm">Tell us about your facility — we'll reach out within 1 business day.</p>
+          </div>
+          <div className="max-w-lg mx-auto">
+            <IntakeFormWidget />
+          </div>
         </div>
 
         {/* Trust badges */}

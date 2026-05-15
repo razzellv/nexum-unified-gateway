@@ -138,6 +138,7 @@ export default function GovernmentDashboard() {
   const facilityId = user?.facilityId || (user as any)?.['custom:facilityId'] || 'facility-001';
 
   const [loading, setLoading] = useState(true);
+  const [govDashTab, setGovDashTab] = useState<'ops' | 'ehs'>('ops');
   const [units, setUnits] = useState<any[]>(MOCK_UNITS);
   const [personnel, setPersonnel] = useState<any[]>(MOCK_PERSONNEL);
   const [incidents, setIncidents] = useState<any[]>(MOCK_INCIDENTS);
@@ -387,6 +388,24 @@ export default function GovernmentDashboard() {
             </Card>
           ))}
         </div>
+
+        {/* Tab bar */}
+        <div className="inline-flex h-10 items-center rounded-md bg-muted/30 border border-border/30 p-1 gap-1">
+          {([
+            { value: 'ops', label: 'Operations'                   },
+            { value: 'ehs', label: 'Environmental Health & Safety' },
+          ] as const).map(({ value, label }) => (
+            <button key={value} onClick={() => setGovDashTab(value)}
+              className={cn(
+                'inline-flex items-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
+                govDashTab === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {govDashTab === 'ops' && <>
 
         {/* Unit Availability + Response Metrics */}
         <div className="grid md:grid-cols-2 gap-6">
@@ -999,6 +1018,119 @@ export default function GovernmentDashboard() {
             </Card>
           )}
         </div>
+
+        </> /* end govDashTab === 'ops' */}
+
+        {govDashTab === 'ehs' && (
+          <div className="space-y-6">
+            {/* EH&S KPI cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'OSHA Cases YTD',          value: (JSON.parse(localStorage.getItem('nexum_osha300_cases') || '[]') as any[]).filter((c: any) => c.year === new Date().getFullYear()).length, color: 'text-orange-400', icon: AlertTriangle },
+                { label: 'Env. Violations',          value: (JSON.parse(localStorage.getItem('nexum_env_monitoring') || '[]') as any[]).filter((r: any) => r.status === 'violation').length, color: 'text-red-400', icon: AlertOctagon },
+                { label: 'Env. Tests This Month',    value: (JSON.parse(localStorage.getItem('nexum_env_monitoring') || '[]') as any[]).filter((r: any) => new Date(r.sampleDate).getMonth() === new Date().getMonth()).length, color: 'text-blue-400', icon: Activity },
+                { label: 'SDS Reviews Due',          value: (JSON.parse(localStorage.getItem('nexum_hazmat_inventory') || '[]') as any[]).filter((c: any) => c.sdsNextReview && new Date(c.sdsNextReview) <= new Date()).length, color: 'text-yellow-400', icon: FileText },
+              ].map(({ label, value, color, icon: Icon }) => (
+                <Card key={label} className="neon-border">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <Icon className={cn('w-4 h-4', color)} />
+                    </div>
+                    <p className={cn('text-2xl font-bold', color)}>{value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Quick links */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card className="neon-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />EH&S Quick Links
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { label: 'OSHA 300 Log',           href: '/osha-300',                    desc: 'Work-related injury & illness log'         },
+                    { label: 'Chemical Inventory',      href: '/inventory-library',            desc: 'Hazmat & chemical tracking'                },
+                    { label: 'Environmental Monitoring',href: '/environmental',                desc: 'Air, water, soil readings & compliance'    },
+                    { label: 'Compliance Logger',       href: '/compliance-logger',            desc: 'Log EH&S violations & incidents'          },
+                  ].map(({ label, href, desc }) => (
+                    <a key={label} href={href}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 hover:border-primary/40 hover:bg-muted/30 transition-colors group">
+                      <div>
+                        <p className="text-sm font-medium group-hover:text-primary transition-colors">{label}</p>
+                        <p className="text-[10px] text-muted-foreground">{desc}</p>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                    </a>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Compliance Calendar */}
+              <Card className="neon-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />Upcoming EH&S Deadlines
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { label: 'OSHA 300A Annual Summary',   date: `${new Date().getFullYear()}-02-01`, type: 'OSHA'        },
+                    { label: 'SARA Tier II Report Due',     date: `${new Date().getFullYear()}-03-01`, type: 'EPA'         },
+                    { label: 'NPDES Quarterly Report',      date: `${new Date().getFullYear()}-04-30`, type: 'NPDES'       },
+                    { label: 'Air Permit Annual Report',    date: `${new Date().getFullYear()}-06-30`, type: 'Air Permit'  },
+                    { label: 'Chemical Inventory Audit',    date: `${new Date().getFullYear()}-12-31`, type: 'Internal'    },
+                  ].map(({ label, date, type }) => {
+                    const days = Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
+                    const cls = days < 0 ? 'text-red-400' : days <= 30 ? 'text-orange-400' : days <= 90 ? 'text-yellow-400' : 'text-green-400';
+                    return (
+                      <div key={label} className="flex items-center justify-between text-xs py-1.5 border-b border-border/20 last:border-0">
+                        <div>
+                          <p className="text-foreground">{label}</p>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground">{type}</span>
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          <p className={cn('font-medium', cls)}>{date}</p>
+                          <p className={cn('text-[10px]', cls)}>{days < 0 ? `${Math.abs(days)}d overdue` : `${days}d away`}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent EH&S violations from compliance log */}
+            {(() => {
+              const ehsKeys = ['osha-recordable-days-away','osha-recordable-restricted','near-miss-incident','hazmat-spill-contained','hazmat-spill-release','air-quality-permit-exceeded','water-quality-violation','storm-drain-discharge','chemical-exposure-incident','lockout-tagout-violation','fall-protection-violation'];
+              const allV: any[] = [];
+              try { allV.push(...JSON.parse(localStorage.getItem('nexum_violations') || '[]')); } catch { /* noop */ }
+              const recent = allV.filter((v: any) => ehsKeys.includes(v.violationType || v.type || '')).slice(0, 5);
+              if (!recent.length) return null;
+              return (
+                <Card className="neon-border border-orange-500/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2 text-orange-400">
+                      <AlertTriangle className="w-4 h-4" />Recent EH&S Incidents
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {recent.map((v: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 text-xs border-b border-border/20 last:border-0">
+                        <span className="text-foreground">{v.description || v.violationType || 'EH&S Incident'}</span>
+                        <span className="text-muted-foreground shrink-0 ml-2">{v.date ? new Date(v.date).toLocaleDateString() : '—'}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Upgrade CTA */}
         <div className="glass-panel rounded-2xl p-6 border border-primary/20 bg-primary/5">
