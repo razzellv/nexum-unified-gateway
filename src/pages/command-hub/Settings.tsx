@@ -412,6 +412,9 @@ const Settings = () => {
   const [utilities, setUtilities] = useState({ electricRate: '0.18', gasRate: '1.52', waterRate: '15.07' });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: '', department: '' });
+  const [inviteSending, setInviteSending] = useState(false);
   const [utilitiesLoading, setUtilitiesLoading] = useState(false);
 
   // ── Documents state ──────────────────────────────────────────────────────────
@@ -752,8 +755,8 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold">Team & Roles</h2>
                   {can(userRole, ADMIN_ROLES) && (
-                    <Button size="sm" onClick={() => toast({ title: 'Invite via Onboarding', description: 'Use the onboarding wizard to invite new staff.' })}>
-                      <Plus className="w-4 h-4 mr-1.5" />Add Member
+                    <Button size="sm" onClick={() => setShowInviteModal(true)}>
+                      <Plus className="w-4 h-4 mr-1.5" />Invite Staff
                     </Button>
                   )}
                 </div>
@@ -765,7 +768,7 @@ const Settings = () => {
                 {teamLoading ? (
                   <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                 ) : teamMembers.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">No team members found. Add staff through the onboarding wizard.</div>
+                  <div className="text-center py-8 text-muted-foreground text-sm">No team members yet — use <button className="text-primary underline" onClick={() => setShowInviteModal(true)}>Invite Staff</button> to add your first member.</div>
                 ) : (
                   <div className="space-y-2">
                     {teamMembers.map((member: any) => (
@@ -1299,6 +1302,93 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Invite Staff Modal ── */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md border border-border">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <div>
+                <h2 className="font-semibold text-base">Invite Staff Member</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">They'll receive an email with a secure sign-up link.</p>
+              </div>
+              <button onClick={() => { setShowInviteModal(false); setInviteForm({ name: '', email: '', role: '', department: '' }); }}
+                className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Full Name *</Label>
+                <Input placeholder="Jane Smith" value={inviteForm.name}
+                  onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Work Email *</Label>
+                <Input type="email" placeholder="jane@yourorg.com" value={inviteForm.email}
+                  onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Role *</Label>
+                  <Select value={inviteForm.role} onValueChange={v => setInviteForm(f => ({ ...f, role: v }))}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select role…" /></SelectTrigger>
+                    <SelectContent>
+                      {['engineer','operator','technician','custodian','supervisor','manager',
+                        'officer','firefighter','dispatcher','ems_tech','personnel',
+                        'associate','clerk','cook','cashier'].map(r => (
+                        <SelectItem key={r} value={r} className="text-xs capitalize">{r.replace('_',' ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Department</Label>
+                  <Select value={inviteForm.department} onValueChange={v => setInviteForm(f => ({ ...f, department: v }))}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Optional…" /></SelectTrigger>
+                    <SelectContent>
+                      {['Operations','Maintenance','Utilities','Compliance','Training','Security','Fleet','Dispatch','EMS','Patrol'].map(d => (
+                        <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-5 border-t border-border">
+              <Button variant="outline" size="sm" onClick={() => { setShowInviteModal(false); setInviteForm({ name: '', email: '', role: '', department: '' }); }}>
+                Cancel
+              </Button>
+              <Button size="sm" disabled={!inviteForm.name || !inviteForm.email || !inviteForm.role || inviteSending}
+                onClick={async () => {
+                  setInviteSending(true);
+                  try {
+                    const res = await fetch(`${baseUrl}/onboarding/invite`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ ...inviteForm, orgType: localStorage.getItem('nexum_org_type') || 'facility' }),
+                    });
+                    if (res.ok) {
+                      toast({ title: 'Invite sent!', description: `${inviteForm.name} will receive an email shortly.` });
+                      setShowInviteModal(false);
+                      setInviteForm({ name: '', email: '', role: '', department: '' });
+                      fetchTeam();
+                    } else {
+                      const d = await res.json();
+                      toast({ title: 'Failed to send invite', description: d.message || 'Try again.', variant: 'destructive' });
+                    }
+                  } catch {
+                    toast({ title: 'Network error', description: 'Could not reach the server.', variant: 'destructive' });
+                  } finally {
+                    setInviteSending(false);
+                  }
+                }}>
+                {inviteSending ? 'Sending…' : 'Send Invite'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

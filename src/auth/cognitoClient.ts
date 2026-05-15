@@ -26,20 +26,26 @@ export function cognitoSignUp(params: {
   orgName: string;
   phone?: string;
   orgType?: string;
+  // Invite-mode: pre-assigned from invitation record
+  facilityId?: string;
+  role?: string;
+  department?: string;
+  orgId?: string;
+  inviteId?: string;
 }): Promise<void> {
   return new Promise((resolve, reject) => {
-    const orgId = `org-${Date.now()}`;
+    const orgId = params.orgId || `org-${Date.now()}`;
     const attrs: CognitoUserAttribute[] = [
       new CognitoUserAttribute({ Name: 'email',            Value: params.email }),
       new CognitoUserAttribute({ Name: 'name',             Value: params.name }),
       new CognitoUserAttribute({ Name: 'custom:orgId',     Value: orgId }),
     ];
-    if (params.orgType) {
-      attrs.push(new CognitoUserAttribute({ Name: 'custom:orgType', Value: params.orgType }));
-    }
-    if (params.phone) {
-      attrs.push(new CognitoUserAttribute({ Name: 'phone_number', Value: params.phone }));
-    }
+    if (params.orgType)    attrs.push(new CognitoUserAttribute({ Name: 'custom:orgType',    Value: params.orgType }));
+    if (params.phone)      attrs.push(new CognitoUserAttribute({ Name: 'phone_number',      Value: params.phone }));
+    if (params.facilityId) attrs.push(new CognitoUserAttribute({ Name: 'custom:facilityId', Value: params.facilityId }));
+    if (params.role)       attrs.push(new CognitoUserAttribute({ Name: 'custom:role',       Value: params.role }));
+    if (params.department) attrs.push(new CognitoUserAttribute({ Name: 'custom:department', Value: params.department }));
+    if (params.inviteId)   attrs.push(new CognitoUserAttribute({ Name: 'custom:inviteId',   Value: params.inviteId }));
 
     userPool.signUp(params.email, params.password, attrs, [], (err) => {
       if (err) reject(err);
