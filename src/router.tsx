@@ -36,6 +36,7 @@ import EngineerDashboard from "./pages/EngineerDashboard";
 import CustodianDashboard from "./pages/CustodianDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import FirefighterDashboard from "./pages/FirefighterDashboard";
+import OfficerDashboard from "./pages/OfficerDashboard";
 
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
@@ -198,6 +199,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/firefighter",
             element: <FirefighterDashboard />,
+          },
+          {
+            path: "dashboard/officer",
+            element: <OfficerDashboard />,
           },
           {
             path: "dashboard/executive",
