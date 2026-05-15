@@ -155,7 +155,7 @@ export default function ComplianceDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/ehs')}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/osha-300')}>
               <Leaf className="w-4 h-4 mr-1.5" /> EHS Module
             </Button>
             <Button size="sm" onClick={() => setShowAddModal(true)}>
@@ -239,7 +239,7 @@ export default function ComplianceDashboard() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 text-primary" /> Training Compliance
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => navigate('/lms')}>
+                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => navigate('/optimize-learn')}>
                   View LMS <ChevronRight className="w-3 h-3 ml-0.5" />
                 </Button>
               </div>
@@ -267,9 +267,9 @@ export default function ComplianceDashboard() {
 
         {/* Quick Actions Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <QuickAction icon={<BookOpen className="w-4 h-4" />} label="OSHA 300 Log" onClick={() => navigate('/ehs?tab=osha300')} />
-          <QuickAction icon={<FlaskConical className="w-4 h-4" />} label="Tier II / SARA" onClick={() => navigate('/ehs?tab=tier2')} />
-          <QuickAction icon={<Leaf className="w-4 h-4" />} label="Environmental" onClick={() => navigate('/ehs?tab=environmental')} />
+          <QuickAction icon={<BookOpen className="w-4 h-4" />} label="OSHA 300 Log" onClick={() => navigate('/osha-300')} />
+          <QuickAction icon={<FlaskConical className="w-4 h-4" />} label="Tier II / SARA" onClick={() => navigate('/osha-300')} />
+          <QuickAction icon={<Leaf className="w-4 h-4" />} label="Environmental" onClick={() => navigate('/environmental')} />
           <QuickAction icon={<Users className="w-4 h-4" />} label="Consulting" onClick={() => navigate('/consulting')} />
         </div>
 
