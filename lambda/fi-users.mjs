@@ -8,7 +8,8 @@
 
 import { DynamoDBClient }                   from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand,
-         GetCommand, UpdateCommand }        from "@aws-sdk/lib-dynamodb";
+         GetCommand, PutCommand,
+         UpdateCommand }                   from "@aws-sdk/lib-dynamodb";
 import {
   CognitoIdentityProviderClient,
   ListUsersCommand,
@@ -21,6 +22,20 @@ const cognito = new CognitoIdentityProviderClient({ region: "us-east-2" });
 
 const USER_POOL_ID = process.env.USER_POOL_ID || "us-east-2_mKMqaRq70";
 const USERS_TABLE  = process.env.USERS_TABLE  || "NexumUsers";
+
+const TIER_LIMITS = {
+  basic:            { maxUsers: 10,  maxEquipment: 50   },
+  standard:         { maxUsers: 25,  maxEquipment: 200  },
+  business:         { maxUsers: 50,  maxEquipment: null },
+  premium:          { maxUsers: null, maxEquipment: null },
+  enterprise:       { maxUsers: null, maxEquipment: null },
+  admin:            { maxUsers: null, maxEquipment: null },
+  retail_starter:   { maxUsers: 5,   maxEquipment: 100  },
+  retail_pro:       { maxUsers: 10,  maxEquipment: 500  },
+  command_basic:    { maxUsers: 15,  maxEquipment: 200  },
+  command_standard: { maxUsers: 30,  maxEquipment: null },
+  command_pro:      { maxUsers: null, maxEquipment: null },
+};
 
 const LEADERSHIP_ROLES = ["admin", "executive", "director", "manager", "supervisor", "chief", "owner"];
 
@@ -119,6 +134,71 @@ export const handler = async (event) => {
       } catch (dbErr) {
         return json(500, { message: "Failed to fetch users.", detail: err.message });
       }
+    }
+  }
+
+  // ── POST /users ───────────────────────────────────────────────────────────
+  if (method === "POST" && (path.endsWith("/users") || path.includes("/users?"))) {
+    if (!isAdmin && !["admin","manager","director","executive","chief","owner"].some(r => role.includes(r))) {
+      return json(403, { message: "Only managers and above can create users." });
+    }
+    try {
+      const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body || {};
+      if (!body.userId && !body.email) return json(400, { message: "userId or email is required." });
+
+      const tier = claims["custom:tier"] || "basic";
+
+      if (tier !== "admin") {
+        const limits = TIER_LIMITS[tier] || TIER_LIMITS["basic"];
+        const limit  = limits.maxUsers;
+        if (limit !== null) {
+          try {
+            const countResult = await ddb.send(new QueryCommand({
+              TableName:                 USERS_TABLE,
+              KeyConditionExpression:    "PK = :pk",
+              ExpressionAttributeValues: { ":pk": `ORG#${orgId}` },
+              Select:                    "COUNT",
+            }));
+            const currentCount = countResult.Count || 0;
+            if (currentCount >= limit) {
+              return json(403, {
+                error:   "LIMIT_REACHED",
+                code:    "user_limit",
+                current: currentCount,
+                limit:   limit,
+                tier:    tier,
+                message: `User limit reached (${currentCount}/${limit}). Upgrade your plan to add more.`,
+              });
+            }
+          } catch (countErr) {
+            console.error("User limit count check failed (allowing write):", countErr);
+          }
+        }
+      }
+
+      const now    = new Date().toISOString();
+      const userId = body.userId || body.email;
+      const item   = {
+        PK:         `ORG#${orgId}`,
+        SK:         `USER#${userId}`,
+        userId,
+        email:      body.email      || "",
+        name:       body.name       || "",
+        role:       body.role       || "staff",
+        department: body.department || "",
+        tier:       body.tier       || tier,
+        orgId,
+        facilityId: fid,
+        status:     body.status     || "active",
+        createdAt:  now,
+        updatedAt:  now,
+      };
+
+      await ddb.send(new PutCommand({ TableName: USERS_TABLE, Item: item }));
+      return json(201, { success: true, userId, user: item });
+    } catch (err) {
+      console.error("POST /users:", err);
+      return json(500, { message: "Failed to create user.", detail: err.message });
     }
   }
 

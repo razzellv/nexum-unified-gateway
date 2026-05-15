@@ -99,7 +99,12 @@ export async function apiRequest<T = any>(
       if (response.status === 401) {
         console.warn(`🔒 Authentication required for ${endpoint}`);
       }
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      let body: any = null;
+      try { body = await response.json(); } catch { /* ignore parse failure */ }
+      const err: any = new Error(body?.message || `API request failed: ${response.status} ${response.statusText}`);
+      err.status = response.status;
+      err.body = body;
+      throw err;
     }
 
     const rawData = await response.json();

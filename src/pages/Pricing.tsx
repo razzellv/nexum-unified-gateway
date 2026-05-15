@@ -1151,6 +1151,10 @@ export default function Pricing() {
     phone: '',
     estimatedLocations: '',
     teamSize: '',
+    estimatedEquipment: '',
+    estimatedInventoryItems: '',
+    historicalDataYears: '',
+    complianceDocsCount: '',
     orgType: '',
     notes: '',
   });
@@ -2089,6 +2093,50 @@ export default function Pricing() {
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      {/* Storage / Usage Estimator */}
+                      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 space-y-3">
+                        <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Usage Estimator — Helps Us Quote Accurately</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Equipment Assets</label>
+                            <Input value={quoteForm.estimatedEquipment} onChange={e => setQuoteForm(f => ({ ...f, estimatedEquipment: e.target.value }))} placeholder="e.g. 2,400" className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Staff / Users</label>
+                            <Input value={quoteForm.teamSize} onChange={e => setQuoteForm(f => ({ ...f, teamSize: e.target.value }))} placeholder="e.g. 85" className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Inventory SKUs</label>
+                            <Input value={quoteForm.estimatedInventoryItems} onChange={e => setQuoteForm(f => ({ ...f, estimatedInventoryItems: e.target.value }))} placeholder="e.g. 500" className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Compliance Docs</label>
+                            <Input value={quoteForm.complianceDocsCount} onChange={e => setQuoteForm(f => ({ ...f, complianceDocsCount: e.target.value }))} placeholder="e.g. 120" className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                            <label className="text-xs text-muted-foreground">Historical Data — Years to Import</label>
+                            <Input value={quoteForm.historicalDataYears} onChange={e => setQuoteForm(f => ({ ...f, historicalDataYears: e.target.value }))} placeholder="e.g. 3 years" className="h-8 text-xs" />
+                          </div>
+                        </div>
+                        {/* Live storage estimate */}
+                        {(quoteForm.estimatedEquipment || quoteForm.teamSize) && (() => {
+                          const eq  = parseInt(quoteForm.estimatedEquipment?.replace(/,/g,'') || '0') || 0;
+                          const inv = parseInt(quoteForm.estimatedInventoryItems?.replace(/,/g,'') || '0') || 0;
+                          const docs = parseInt(quoteForm.complianceDocsCount?.replace(/,/g,'') || '0') || 0;
+                          const yrs = parseInt(quoteForm.historicalDataYears || '1') || 1;
+                          // Rough DynamoDB storage estimate: equipment ~3KB, log ~1KB/day/asset, inventory ~2KB, docs ~50KB
+                          const eqMB   = (eq * 3) / 1024;
+                          const logsMB = (eq * 365 * yrs * 1) / 1024;
+                          const invMB  = (inv * 2) / 1024;
+                          const docsMB = (docs * 50) / 1024;
+                          const totalGB = ((eqMB + logsMB + invMB + docsMB) / 1024).toFixed(1);
+                          return (
+                            <div className="bg-black/20 rounded p-2 text-xs text-yellow-400/80">
+                              Est. data volume: ~<strong>{totalGB} GB</strong> · {eq.toLocaleString()} assets · {yrs}yr history
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="space-y-1"><label className="text-xs text-muted-foreground">Notes / Integration requirements</label>
                         <Textarea value={quoteForm.notes} onChange={e => setQuoteForm(f => ({ ...f, notes: e.target.value }))} placeholder="BMS system used, white-label needs, custom integrations..." rows={3} />

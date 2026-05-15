@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { UsageSummaryCard, LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -415,6 +416,7 @@ const Settings = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: '', department: '' });
   const [inviteSending, setInviteSending] = useState(false);
+  const [limitBanner, setLimitBanner] = useState<{ type: 'equipment' | 'users'; current: number; limit: number; tier: string } | null>(null);
   const [utilitiesLoading, setUtilitiesLoading] = useState(false);
 
   // ── Documents state ──────────────────────────────────────────────────────────
@@ -752,6 +754,7 @@ const Settings = () => {
             {/* ── Team & Roles ── */}
             {activeTab === 'team' && (
               <div className="space-y-6">
+                <UsageSummaryCard />
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold">Team & Roles</h2>
                   {can(userRole, ADMIN_ROLES) && (
@@ -1375,7 +1378,9 @@ const Settings = () => {
                       fetchTeam();
                     } else {
                       const d = await res.json();
-                      toast({ title: 'Failed to send invite', description: d.message || 'Try again.', variant: 'destructive' });
+                      const limitErr = parseLimitError(d);
+                      if (limitErr) { setLimitBanner(limitErr); setShowInviteModal(false); }
+                      else toast({ title: 'Failed to send invite', description: d.message || 'Try again.', variant: 'destructive' });
                     }
                   } catch {
                     toast({ title: 'Network error', description: 'Could not reach the server.', variant: 'destructive' });
@@ -1388,6 +1393,15 @@ const Settings = () => {
             </div>
           </div>
         </div>
+      )}
+      {limitBanner && (
+        <LimitBanner
+          type={limitBanner.type}
+          current={limitBanner.current}
+          limit={limitBanner.limit}
+          tier={limitBanner.tier}
+          onDismiss={() => setLimitBanner(null)}
+        />
       )}
     </MainLayout>
   );

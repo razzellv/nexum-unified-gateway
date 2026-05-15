@@ -21,6 +21,7 @@ function getPostLoginRoute(role: string, orgType: string): string | null {
     return '/government-dashboard';
   }
   if (role === 'executive' || role === 'director') return '/dashboard/executive';
+  if (role === 'compliance_officer') return '/dashboard/compliance';
   if (role === 'manager')    return '/dashboard/manager';
   if (role === 'supervisor') return '/dashboard/supervisor';
   if (role === 'engineer')   return '/dashboard/engineer';

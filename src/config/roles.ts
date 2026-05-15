@@ -1,6 +1,6 @@
 export const ROLES_BY_ORG_TYPE = {
   facility: {
-    leadership: ['executive', 'director', 'manager', 'supervisor'],
+    leadership: ['executive', 'director', 'manager', 'supervisor', 'compliance_officer'],
     staff: ['engineer', 'operator', 'technician', 'custodian', 'employee'],
   },
   retail: {
@@ -31,6 +31,7 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
   operator:    'Operator',
   technician:  'Technician',
   custodian:   'Custodian',
+  compliance_officer: 'Compliance / EHS Officer',
   employee:    'Employee',
   owner:       'Owner',
   shift_lead:  'Shift Lead',

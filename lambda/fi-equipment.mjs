@@ -19,6 +19,20 @@ const ddb        = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-
 const EQUIP_TABLE = process.env.EQUIPMENT_TABLE || "EquipmentLibrary";
 const LOGS_TABLE  = process.env.LOGS_TABLE      || "FacilityLogs-v2";
 
+const TIER_LIMITS = {
+  basic:            { maxUsers: 10,  maxEquipment: 50   },
+  standard:         { maxUsers: 25,  maxEquipment: 200  },
+  business:         { maxUsers: 50,  maxEquipment: null },
+  premium:          { maxUsers: null, maxEquipment: null },
+  enterprise:       { maxUsers: null, maxEquipment: null },
+  admin:            { maxUsers: null, maxEquipment: null },
+  retail_starter:   { maxUsers: 5,   maxEquipment: 100  },
+  retail_pro:       { maxUsers: 10,  maxEquipment: 500  },
+  command_basic:    { maxUsers: 15,  maxEquipment: 200  },
+  command_standard: { maxUsers: 30,  maxEquipment: null },
+  command_pro:      { maxUsers: null, maxEquipment: null },
+};
+
 function json(statusCode, body) {
   return {
     statusCode,
@@ -387,7 +401,38 @@ export const handler = async (event) => {
       const now = new Date().toISOString();
       const id  = newId("equip");
 
-      const oid = orgId(claims);
+      const oid  = orgId(claims);
+      const tier = claims["custom:tier"] || "basic";
+
+      if (tier !== "admin") {
+        const limits = TIER_LIMITS[tier] || TIER_LIMITS["basic"];
+        const limit  = limits.maxEquipment;
+        if (limit !== null) {
+          try {
+            const countResult = await ddb.send(new QueryCommand({
+              TableName:                 EQUIP_TABLE,
+              IndexName:                 "orgId-index",
+              KeyConditionExpression:    "orgId = :oid",
+              ExpressionAttributeValues: { ":oid": oid },
+              Select:                    "COUNT",
+            }));
+            const currentCount = countResult.Count || 0;
+            if (currentCount >= limit) {
+              return json(403, {
+                error:   "LIMIT_REACHED",
+                code:    "equipment_limit",
+                current: currentCount,
+                limit:   limit,
+                tier:    tier,
+                message: `Equipment limit reached (${currentCount}/${limit}). Upgrade your plan to add more.`,
+              });
+            }
+          } catch (countErr) {
+            console.error("Equipment limit count check failed (allowing write):", countErr);
+          }
+        }
+      }
+
       const item = {
         equipmentId:     id,
         orgId:           oid,

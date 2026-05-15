@@ -17,6 +17,7 @@ import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
 import { calculateOperationalDepreciation } from '@/lib/depreciationEngine';
+import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 
 interface Equipment {
   equipmentId: string;
@@ -176,6 +177,7 @@ export default function EquipmentLibrary() {
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [limitBanner, setLimitBanner] = useState<{ type: 'equipment' | 'users'; current: number; limit: number; tier: string } | null>(null);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
   const [expandedIntelligence, setExpandedIntelligence] = useState<Record<string, boolean>>({});
 
@@ -283,7 +285,9 @@ export default function EquipmentLibrary() {
       loadEquipment();
       window.dispatchEvent(new CustomEvent('equipment-updated'));
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to add equipment', variant: 'destructive' });
+      const limitErr = parseLimitError(error?.body);
+      if (limitErr) { setLimitBanner(limitErr); setAddDialogOpen(false); }
+      else toast({ title: 'Error', description: error.message || 'Failed to add equipment', variant: 'destructive' });
     } finally { setSubmitting(false); }
   };
 
@@ -1085,30 +1089,45 @@ export default function EquipmentLibrary() {
           { key: 'notes', label: 'Notes' },
         ]}
         onImportRow={async (row) => {
-          await apiRequest('/equipment', {
-            method: 'POST',
-            body: JSON.stringify({
-              equipmentName: row.equipmentName,
-              equipmentType: row.equipmentType,
-              manufacturer: row.manufacturer || '',
-              model: row.model || '',
-              serialNumber: row.serialNumber || undefined,
-              assetTag: row.assetTag || undefined,
-              assetNumber: row.assetNumber || undefined,
-              location: row.location || undefined,
-              buildingId: row.building || undefined,
-              installDate: row.installDate || undefined,
-              purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : undefined,
-              replacementCost: row.replacementCost ? parseFloat(row.replacementCost) : undefined,
-              warrantyExpiry: row.warrantyExpiry || undefined,
-              status: row.status || 'active',
-              notes: row.notes || undefined,
-              facilityId: user?.facilityId,
-            }),
-          });
-          loadEquipment();
+          try {
+            await apiRequest('/equipment', {
+              method: 'POST',
+              body: JSON.stringify({
+                equipmentName: row.equipmentName,
+                equipmentType: row.equipmentType,
+                manufacturer: row.manufacturer || '',
+                model: row.model || '',
+                serialNumber: row.serialNumber || undefined,
+                assetTag: row.assetTag || undefined,
+                assetNumber: row.assetNumber || undefined,
+                location: row.location || undefined,
+                buildingId: row.building || undefined,
+                installDate: row.installDate || undefined,
+                purchasePrice: row.purchasePrice ? parseFloat(row.purchasePrice) : undefined,
+                replacementCost: row.replacementCost ? parseFloat(row.replacementCost) : undefined,
+                warrantyExpiry: row.warrantyExpiry || undefined,
+                status: row.status || 'active',
+                notes: row.notes || undefined,
+                facilityId: user?.facilityId,
+              }),
+            });
+            loadEquipment();
+          } catch (error: any) {
+            const limitErr = parseLimitError(error?.body);
+            if (limitErr) { setLimitBanner(limitErr); setImportOpen(false); }
+            throw error;
+          }
         }}
       />
+      {limitBanner && (
+        <LimitBanner
+          type={limitBanner.type}
+          current={limitBanner.current}
+          limit={limitBanner.limit}
+          tier={limitBanner.tier}
+          onDismiss={() => setLimitBanner(null)}
+        />
+      )}
     </MainLayout>
   );
 }

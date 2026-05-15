@@ -37,6 +37,7 @@ import CustodianDashboard from "./pages/CustodianDashboard";
 import DispatcherDashboard from "./pages/DispatcherDashboard";
 import FirefighterDashboard from "./pages/FirefighterDashboard";
 import OfficerDashboard from "./pages/OfficerDashboard";
+import ComplianceDashboard from "./pages/ComplianceDashboard";
 
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import StaffPerformanceCompass from "./pages/StaffPerformanceCompass";
@@ -203,6 +204,10 @@ export const router = createBrowserRouter([
           {
             path: "dashboard/officer",
             element: <OfficerDashboard />,
+          },
+          {
+            path: "dashboard/compliance",
+            element: <ComplianceDashboard />,
           },
           {
             path: "dashboard/executive",
