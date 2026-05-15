@@ -14,11 +14,19 @@ function getPostLoginRoute(role: string, orgType: string): string | null {
     if ([...retail.staff, ...retail.leadership].includes(role)) return '/retail-dashboard';
   }
   if (orgType === 'government') {
-    if ([...govt.staff, ...govt.leadership].includes(role)) return '/government-dashboard';
+    if (govt.leadership.includes(role)) return '/government-dashboard';
+    if (role === 'dispatcher')                        return '/dashboard/dispatcher';
+    if (role === 'firefighter' || role === 'ems_tech') return '/dashboard/firefighter';
+    if (role === 'officer' || role === 'personnel')   return '/dashboard/officer';
+    return '/government-dashboard';
   }
   if (role === 'executive' || role === 'director') return '/dashboard/executive';
   if (role === 'manager')    return '/dashboard/manager';
   if (role === 'supervisor') return '/dashboard/supervisor';
+  if (role === 'engineer')   return '/dashboard/engineer';
+  if (role === 'technician') return '/dashboard/tech';
+  if (role === 'operator')   return '/dashboard/operator';
+  if (role === 'custodian')  return '/dashboard/custodian';
   if (facility.staff.includes(role) || role === 'admin' || role === 'employee') return null;
   return null;
 }
