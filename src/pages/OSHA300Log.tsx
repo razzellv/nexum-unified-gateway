@@ -10,7 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { ClipboardList, Plus, Printer, AlertTriangle, Users, Clock, CheckSquare, FileText, Trash2, Eye } from 'lucide-react';
+import { ClipboardList, Plus, Printer, AlertTriangle, Users, Clock, CheckSquare, FileText, Trash2, Eye, Briefcase, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 type InjuryType = 'injury' | 'skin_disorder' | 'respiratory' | 'poisoning' | 'hearing_loss' | 'all_other_illness';
 
@@ -73,6 +74,7 @@ const BLANK_FORM: Omit<OSHA300Case, 'id' | 'caseNumber' | 'year'> = {
 };
 
 export default function OSHA300Log() {
+  const navigate = useNavigate();
   const [cases, setCases] = useState<OSHA300Case[]>([]);
   const [year, setYear] = useState(2026);
   const [activeTab, setActiveTab] = useState<'log' | 'summary'>('log');
@@ -394,6 +396,25 @@ export default function OSHA300Log() {
           </div>
         </div>
       )}
+
+      {/* Consulting Services Banner */}
+      <div className="no-print mx-1 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Briefcase className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-orange-900">Need help staying OSHA-compliant year-round?</p>
+            <p className="text-xs text-orange-700 mt-0.5">
+              Our OSHA recordkeeping review + Tier II / SARA chemical audit bundle covers your February deadlines — starting at $1,800.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/consulting')}
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium transition-colors"
+        >
+          View Services <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
 
       {/* OSHA 301 Incident Report Modal */}
       {viewCase && (

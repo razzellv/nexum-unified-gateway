@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
-import { Leaf, Plus, Download, AlertTriangle, CheckCircle2, Clock, AlertCircle, FlaskConical, FileText } from 'lucide-react';
+import { Leaf, Plus, Download, AlertTriangle, CheckCircle2, Clock, AlertCircle, FlaskConical, FileText, Briefcase, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,7 @@ const BLANK: Omit<MonitoringRecord, 'monitoringId' | 'status'> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EnvironmentalMonitoring() {
+  const navigate = useNavigate();
   const [records, setRecords] = useState<MonitoringRecord[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [showModal, setShowModal] = useState(false);
@@ -361,6 +363,25 @@ export default function EnvironmentalMonitoring() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Consulting Services Banner */}
+      <div className="mx-1 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Briefcase className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-900">Need expert help with NPDES permits or stormwater compliance?</p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              Our Industrial Stormwater Compliance Audit delivers a corrective action report in 5 business days — starting at $2,400.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/consulting')}
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+        >
+          View Services <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Add / Edit Modal */}

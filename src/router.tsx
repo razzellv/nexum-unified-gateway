@@ -72,6 +72,7 @@ import OCCAE from "./pages/OCCAE";
 import OperationalIntelligence from "./pages/OperationalIntelligence";
 import OSHA300Log from "./pages/OSHA300Log";
 import EnvironmentalMonitoring from "./pages/EnvironmentalMonitoring";
+import ConsultingServices from "./pages/ConsultingServices";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -352,6 +353,10 @@ export const router = createBrowserRouter([
           {
             path: "environmental",
             element: <EnvironmentalMonitoring />,
+          },
+          {
+            path: "consulting",
+            element: <ConsultingServices />,
           },
         ],
       },

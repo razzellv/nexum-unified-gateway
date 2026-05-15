@@ -24,7 +24,7 @@ import {
   TrendingUp,
   LogOut,
   GraduationCap, ShoppingCart, Shield,
-  Wrench, BrainCircuit, FlaskConical, Leaf,
+  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -100,6 +100,7 @@ const allNavItems: NavItem[] = [
   { name: 'Chemical & Hazmat', href: '/inventory-library', icon: FlaskConical, access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
   { name: 'OSHA 300 Log', href: '/osha-300', icon: ClipboardList, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Environmental', href: '/environmental', icon: Leaf, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
+  { name: 'Consulting Services', href: '/consulting', icon: Briefcase, access: 'leadership' },
 
   { type: 'separator', name: 'Dashboards', access: 'all' },
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
