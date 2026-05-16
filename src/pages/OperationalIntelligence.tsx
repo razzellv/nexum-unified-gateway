@@ -755,13 +755,5 @@ function OIGContent() {
 // ── Exported Page ─────────────────────────────────────────────────────────────
 
 export default function OperationalIntelligence() {
-  return (
-    <TierGate
-      featureName="Operational Intelligence & Governance"
-      requiredTier="STANDARD"
-      description="Sequence-aware, correlated facility analysis is available on the Standard plan and above. Upgrade to unlock full OIG access."
-    >
-      <OIGContent />
-    </TierGate>
-  );
+  return <OIGContent />;
 }

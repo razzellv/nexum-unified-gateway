@@ -1,0 +1,58 @@
+import { Module } from "@/types/lms/course";
+
+export const thermodynamicsModules: Module[] = [
+  {
+    id: 1,
+    title: "Introduction to Thermodynamics in HVAC",
+    description: "Fundamental principles of thermodynamics and their application in heating, ventilation, and air conditioning systems",
+    duration: "45 min",
+    objective: "Understand the basic laws of thermodynamics and how they govern HVAC system operation",
+    completed: false,
+    locked: false,
+  },
+  {
+    id: 2,
+    title: "Heat Transfer: Conduction, Convection, and Radiation",
+    description: "Deep dive into the three modes of heat transfer and their role in HVAC efficiency",
+    duration: "50 min",
+    objective: "Master heat transfer mechanisms and apply them to optimize HVAC performance",
+    completed: false,
+    locked: true,
+  },
+  {
+    id: 3,
+    title: "Purpose and Principles of HVAC Systems",
+    description: "Understanding why HVAC systems exist and the core principles that drive their design",
+    duration: "40 min",
+    objective: "Identify the primary functions of HVAC systems and their impact on building environments",
+    completed: false,
+    locked: true,
+  },
+  {
+    id: 4,
+    title: "History of HVAC: From Ancient Methods to Modern Era",
+    description: "Evolution of climate control from ancient civilizations to the rise of modern HVAC technology",
+    duration: "35 min",
+    objective: "Trace the development of HVAC technology and understand when it became mainstream",
+    completed: false,
+    locked: true,
+  },
+  {
+    id: 5,
+    title: "AI and IoT Integration in Modern HVAC",
+    description: "Exploring artificial intelligence, machine learning, and Internet of Things applications in HVAC",
+    duration: "55 min",
+    objective: "Understand how AI and IoT are revolutionizing HVAC efficiency and predictive maintenance",
+    completed: false,
+    locked: true,
+  },
+  {
+    id: 6,
+    title: "Smart Buildings and Future HVAC Technology",
+    description: "Advanced technologies shaping the future of HVAC: automation, data analytics, and sustainability",
+    duration: "50 min",
+    objective: "Explore emerging technologies and their potential impact on next-generation HVAC systems",
+    completed: false,
+    locked: true,
+  },
+];

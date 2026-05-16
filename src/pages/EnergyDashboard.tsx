@@ -77,23 +77,69 @@ interface EnergyData {
   }>;
 }
 
+const DEMO_ENERGY_DATA: EnergyData = {
+  facility_id: 'demo',
+  generated_at: new Date().toISOString(),
+  period_days: 30,
+  rates: { electric: 0.12, gas: 0.85, water: 0.004 },
+  summary: {
+    total_kwh_consumed: 42800,
+    estimated_electric_cost: 5136,
+    total_therms_consumed: 620,
+    total_ccf_consumed: 620,
+    total_btus_consumed: 62000000,
+    estimated_gas_cost: 527,
+    gas_equivalent_kwh: 18172,
+    total_gallons_consumed: 185000,
+    estimated_water_cost: 740,
+    total_energy_equivalent_kwh: 60972,
+    estimated_total_utility_cost: 6403,
+    total_runtime_hours: 712,
+    average_kwh_per_day: 1427,
+  },
+  by_utility: {
+    electric: [
+      { system_type: 'Chiller', kwh: 18200, estimated_cost: 2184, runtime_hours: 310, percentage_of_electric: 42.5 },
+      { system_type: 'AHU', kwh: 9400, estimated_cost: 1128, runtime_hours: 720, percentage_of_electric: 22.0 },
+      { system_type: 'Pump', kwh: 7600, estimated_cost: 912, runtime_hours: 690, percentage_of_electric: 17.8 },
+      { system_type: 'Lighting', kwh: 4200, estimated_cost: 504, runtime_hours: 720, percentage_of_electric: 9.8 },
+      { system_type: 'Other', kwh: 3400, estimated_cost: 408, runtime_hours: 680, percentage_of_electric: 7.9 },
+    ],
+    gas: [
+      { system_type: 'Boiler', therms: 480, btus: 48000000, estimated_cost: 408, percentage_of_gas: 77.4 },
+      { system_type: 'Hot Water Heater', therms: 140, btus: 14000000, estimated_cost: 119, percentage_of_gas: 22.6 },
+    ],
+    water: [
+      { system_type: 'Cooling Tower', gallons: 95000, estimated_cost: 380, percentage_of_water: 51.4 },
+      { system_type: 'Boiler Makeup', gallons: 52000, estimated_cost: 208, percentage_of_water: 28.1 },
+      { system_type: 'Domestic', gallons: 38000, estimated_cost: 152, percentage_of_water: 20.5 },
+    ],
+  },
+  equipment_breakdown: [
+    { equipment_id: 'eq1', type: 'Chiller', name: 'Chiller-01', total_kwh: 18200, estimated_cost: 2184 },
+    { equipment_id: 'eq2', type: 'AHU',    name: 'AHU-North',   total_kwh: 5200,  estimated_cost: 624  },
+    { equipment_id: 'eq3', type: 'AHU',    name: 'AHU-South',   total_kwh: 4200,  estimated_cost: 504  },
+    { equipment_id: 'eq4', type: 'Pump',   name: 'CWP-01',      total_kwh: 4100,  estimated_cost: 492  },
+    { equipment_id: 'eq5', type: 'Boiler', name: 'Boiler-01',   total_kwh: 3600,  estimated_cost: 432  },
+  ],
+};
+
 export default function EnergyDashboard() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [data, setData] = useState<EnergyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [usingDemo, setUsingDemo] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
-    
     try {
       const apiData = await getEnergyDashboard();
-      console.log('✅ Energy data from API:', apiData);
       setData(apiData);
-    } catch (err: any) {
-      console.error('Error loading energy data:', err);
-      setError(err.message || 'Unable to load energy data');
+      setUsingDemo(false);
+    } catch {
+      // API endpoint not yet live — show demo data so the dashboard is usable
+      setData(DEMO_ENERGY_DATA);
+      setUsingDemo(true);
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +193,12 @@ export default function EnergyDashboard() {
           </div>
         </div>
 
-        {error && <NexumError message={error} onRetry={fetchData} />}
+        {usingDemo && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-400">
+            <Zap className="w-3.5 h-3.5 shrink-0" />
+            Showing demo data — connect your utility meters or log energy readings to populate live figures.
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-20">

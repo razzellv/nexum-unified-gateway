@@ -59,6 +59,7 @@ import Workload from "./pages/command-hub/Workload";
 
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Courses from "./pages/Courses";
+import ApprenticeLMSPage from "./pages/ApprenticeLMS";
 import FIAS from "./pages/FIAS";
 import PolicyGuide from "./pages/PolicyGuide";
 import NexumWorkspace from "./pages/NexumWorkspace";
@@ -309,6 +310,10 @@ export const router = createBrowserRouter([
           {
             path: "optimize-learn",
             element: <Courses />,
+          },
+          {
+            path: "apprentice",
+            element: <ApprenticeLMSPage />,
           },
           {
             path: "fias",

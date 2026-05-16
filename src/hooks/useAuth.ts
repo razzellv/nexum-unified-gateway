@@ -147,17 +147,13 @@ export const useAuth = () => {
         'facility';
 
       return {
+        ...payload,
         sub: payload.sub,
         email: payload.email,
         name: payload.name || payload.email,
-        role: effectiveRole,
-        department: payload["custom:department"] || "Operations",
-        orgType,
         facilityId: payload["custom:facilityId"] || "facility-001",
         orgId: payload["custom:orgId"] || "org-001",
         tier: payload["custom:tier"] || payload["custom:subscription"],
-        ...payload,
-        // These always win over whatever ...payload spread set
         role: effectiveRole,
         orgType,
         department: payload["custom:department"] || "Operations",
@@ -181,3 +177,34 @@ export const useAuth = () => {
     userRole,
   };
 };
+
+// ── LMS auth adapter — used by optimize-learn components ────────────────────
+export function useLMSAuth() {
+  const auth = useAuth();
+  const u = auth.user;
+
+  const role = (u?.role || null) as string | null;
+  const DEFAULT_ACCESS = ['admin', 'executive', 'director', 'manager', 'supervisor', 'engineer', 'compliance_officer'];
+  const hasLMSAccess = !!u;
+  const isReadOnly = !!u && !DEFAULT_ACCESS.includes(role || '');
+  const canManageEnrollments = ['admin', 'executive', 'director', 'manager'].includes(role || '');
+  const canEnrollManagers    = ['admin', 'executive', 'director'].includes(role || '');
+
+  return {
+    user: u ? { sub: u.sub || u.email || '', name: u.name || '', email: u.email || '', role: role as any, facilityId: u.facilityId || 'facility-001', orgId: u.orgId } : null,
+    loading: auth.loading,
+    isAuthenticated: auth.isAuthenticated,
+    isAdmin: role === 'admin',
+    isExecutive: role === 'executive' || role === 'director',
+    isManager: role === 'manager',
+    isSupervisor: role === 'supervisor',
+    isEngineer: role === 'engineer',
+    isNexumAdmin: role === 'admin',
+    hasLMSAccess,
+    canManageEnrollments,
+    canEnrollManagers,
+    isReadOnly,
+    enrolledCourses: [] as string[],
+    canAccessCourse: (_courseId: string) => !!u,
+  };
+}
