@@ -22,6 +22,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { logComplianceEvent } from '@/lib/nexum-api';
 import { violationTypeConfigs } from '@/data/mockData';
+import { loadCustomViolations, customToConfig } from '@/lib/customViolations';
 
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
 
@@ -758,12 +759,22 @@ export default function Compliance() {
   const pmForm = useForm({ defaultValues: { operatorId: '' } });
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
 
-  // Build orgType-filtered, subcategory-grouped violation types
+  const [otherTypeNotes, setOtherTypeNotes] = useState('');
+
+  // Build orgType-filtered, subcategory-grouped violation types (built-in + custom)
   const orgViolationGroups = useMemo(() => {
     const filtered = violationTypeConfigs.filter(c => !c.sector || c.sector === orgType);
     const groups: Record<string, typeof violationTypeConfigs> = {};
     for (const cfg of filtered) {
       const sub = cfg.subcategory ?? 'General';
+      if (!groups[sub]) groups[sub] = [];
+      groups[sub].push(cfg);
+    }
+    // Merge in organization-defined custom violation types
+    const customs = loadCustomViolations();
+    for (const cv of customs) {
+      const cfg = customToConfig(cv) as any;
+      const sub = cfg.subcategory ?? 'Custom';
       if (!groups[sub]) groups[sub] = [];
       groups[sub].push(cfg);
     }
@@ -789,7 +800,9 @@ export default function Compliance() {
           severityScore,
           operatorId:       data.operatorId,
           operator:         data.operator || data.operatorId,
-          description:      data.description,
+          description:      data.violationType === 'other_custom' && otherTypeNotes
+            ? `[${otherTypeNotes}] ${data.description}`.trim()
+            : data.description,
           equipmentId:      data.equipmentId,
           equipmentType:    data.equipmentType,
           location:         data.location,
@@ -806,7 +819,9 @@ export default function Compliance() {
         type:             data.violationType,
         operatorId:       data.operatorId,
         operator:         data.operator || data.operatorId,
-        description:      data.description,
+        description:      data.violationType === 'other_custom' && otherTypeNotes
+          ? `[${otherTypeNotes}] ${data.description}`.trim()
+          : data.description,
         equipmentId:      data.equipmentId,
         equipmentType:    data.equipmentType,
         notes:            data.notes,
@@ -935,7 +950,10 @@ export default function Compliance() {
                       {/* Violation Type — org-filtered & grouped */}
                       <div className="space-y-2">
                         <Label>Violation Type *</Label>
-                        <Select onValueChange={(v) => violationForm.setValue('violationType', v)}>
+                        <Select onValueChange={(v) => {
+                          violationForm.setValue('violationType', v);
+                          if (v !== 'other_custom') setOtherTypeNotes('');
+                        }}>
                           <SelectTrigger><SelectValue placeholder="Select violation type" /></SelectTrigger>
                           <SelectContent className="max-h-[400px] bg-popover border-border">
                             {Object.entries(orgViolationGroups).map(([subcategory, configs]) => (
@@ -950,8 +968,21 @@ export default function Compliance() {
                             {POSITIVE_BEHAVIORS.map(({ value, label }) => (
                               <SelectItem key={value} value={value} className="text-green-500">{label}</SelectItem>
                             ))}
+                            <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 mt-1">Other</div>
+                            <SelectItem value="other_custom" className="italic text-muted-foreground">Other — specify below</SelectItem>
                           </SelectContent>
                         </Select>
+                        {violationForm.watch('violationType') === 'other_custom' && (
+                          <div className="pt-1 space-y-1">
+                            <label className="text-xs text-muted-foreground">Specify violation type *</label>
+                            <input
+                              value={otherTypeNotes}
+                              onChange={e => setOtherTypeNotes(e.target.value)}
+                              placeholder="e.g. Unauthorized bypass, Label non-compliance…"
+                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Severity */}

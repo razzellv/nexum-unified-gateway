@@ -164,7 +164,9 @@ export type ViolationType =
   // ── Government › Facility ──
   | 'evidence-storage-protocol' | 'weapons-inventory-discrepancy'
   | 'uniform-gear-not-accounted' | 'radio-equipment-failure'
-  | 'station-safety-issue';
+  | 'station-safety-issue'
+  // ── Special ──
+  | 'other_custom';
 
 // Compliance categories
 export type ComplianceCategory = 'safety' | 'operational' | 'regulatory' | 'environmental' | 'quality';

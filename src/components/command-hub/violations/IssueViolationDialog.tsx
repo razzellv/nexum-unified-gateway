@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { ViolationType, ViolationTypeConfig, ComplianceCategory, Violation } from '@/types/facility';
 import { mockEmployees, mockTasks } from '@/data/mockData';
+import { loadCustomViolations } from '@/lib/customViolations';
 import { ViolationTypeSelect } from './ViolationTypeSelect';
 import { cn } from '@/lib/utils';
 import { getSeverityColor, getSeverityBgColor } from '@/lib/command-hub/violationService';
@@ -49,7 +50,8 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
   const { user } = useAuth();
 
   const [employeeId,      setEmployeeId]      = useState('');
-  const [violationType,   setViolationType]   = useState<ViolationType | ''>('');
+  const [violationType,   setViolationType]   = useState<string>('');
+  const [otherNotes,      setOtherNotes]      = useState('');
   const [category,        setCategory]        = useState<ComplianceCategory>('operational');
   const [severityScore,   setSeverityScore]   = useState(5);
   const [weightFactor,    setWeightFactor]    = useState('1');
@@ -60,15 +62,24 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
   const [workOrderId,     setWorkOrderId]     = useState('');
   const [submitting,      setSubmitting]      = useState(false);
 
-  const handleTypeChange = (type: ViolationType, config: ViolationTypeConfig) => {
+  const isOther  = violationType === 'other_custom';
+  const isCustom = violationType.startsWith('custom_');
+
+  const handleTypeChange = (type: string, config: ViolationTypeConfig) => {
     setViolationType(type);
     setCategory(config.defaultCategory);
     setSeverityScore(config.defaultSeverity);
     setWeightFactor(config.weightFactor.toString());
+    // Pre-fill description with custom type's description if available
+    if (type.startsWith('custom_')) {
+      const id = type.replace('custom_', '');
+      const cv = loadCustomViolations().find(c => c.id === id);
+      if (cv?.description) setDescription(cv.description);
+    }
   };
 
   const resetForm = () => {
-    setEmployeeId(''); setViolationType(''); setCategory('operational');
+    setEmployeeId(''); setViolationType(''); setOtherNotes(''); setCategory('operational');
     setSeverityScore(5); setWeightFactor('1'); setDescription('');
     setLocation(''); setStaffInvolved(''); setCorrectiveAction(''); setWorkOrderId('');
   };
@@ -117,24 +128,29 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
     }
 
     // Always call local onSubmit for optimistic UI update
+    const finalDescription = isOther && otherNotes
+      ? `[${otherNotes}] ${description}`.trim()
+      : description;
+
     onSubmit({
       employeeId,
-      employeeName:     employee.name,
-      type:             violationType,
+      employeeName:       employee.name,
+      type:               (isOther ? 'other_custom' : violationType) as ViolationType,
       complianceCategory: category,
       severityScore,
-      weightFactor:     parseFloat(weightFactor),
-      description,
-      workOrderId:      workOrderId || undefined,
-      issuedBy:         user?.email || 'Current User',
-      issuedByRole:     'supervisor',
+      weightFactor:       parseFloat(weightFactor),
+      description:        finalDescription,
+      workOrderId:        workOrderId || undefined,
+      issuedBy:           user?.email || 'Current User',
+      issuedByRole:       'supervisor',
     });
 
     resetForm();
     onOpenChange(false);
   };
 
-  const isValid = employeeId && violationType && description.length > 0;
+  const isValid = employeeId && violationType && description.length > 0 &&
+    (!isOther || otherNotes.trim().length > 0);
   const locationLabel = LOCATION_LABEL[orgType] ?? 'Equipment / Location';
 
   return (
@@ -170,6 +186,22 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
               onValueChange={handleTypeChange}
               filterSector={orgType}
             />
+            {isOther && (
+              <div className="space-y-1 pt-1">
+                <Label className="text-xs text-muted-foreground">Specify violation type *</Label>
+                <input
+                  value={otherNotes}
+                  onChange={e => setOtherNotes(e.target.value)}
+                  placeholder="e.g. Unauthorized equipment modification, Label mislabeling…"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            )}
+            {isCustom && (
+              <p className="text-xs text-primary/70 mt-1">
+                Custom violation type — description pre-filled from your organization's definition.
+              </p>
+            )}
           </div>
 
           {/* Compliance Category */}

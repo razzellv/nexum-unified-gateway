@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { Slider } from '@/components/ui/slider';
+import {
+  loadCustomViolations, saveCustomViolations, addCustomViolation,
+  deleteCustomViolation, type CustomViolationType,
+} from '@/lib/customViolations';
 import { UsageSummaryCard, LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -41,6 +46,7 @@ const ALL_TABS = [
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
   { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard, access: EXECUTIVE_ROLES },
+  { id: 'compliance',    label: 'Compliance Types',  icon: Shield,     access: MANAGER_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];
@@ -425,6 +431,35 @@ const Settings = () => {
   const [staffImportDefaultRole, setStaffImportDefaultRole] = useState('operator');
   const staffImportRef = useRef<HTMLInputElement>(null);
   const [utilitiesLoading, setUtilitiesLoading] = useState(false);
+
+  // ── Custom violation types state ─────────────────────────────────────────────
+  const [customViolations, setCustomViolations] = useState<CustomViolationType[]>(() => loadCustomViolations());
+  const emptyViolationForm = () => ({ title: '', description: '', severity: 5, agency: '', category: 'safety' as const });
+  const [violationForm, setViolationForm] = useState(emptyViolationForm());
+  const [violationFormSaving, setViolationFormSaving] = useState(false);
+
+  const handleSaveCustomViolation = () => {
+    if (!violationForm.title.trim()) return;
+    setViolationFormSaving(true);
+    const added = addCustomViolation({
+      title: violationForm.title.trim(),
+      description: violationForm.description.trim(),
+      severity: violationForm.severity,
+      agency: violationForm.agency.trim(),
+      category: violationForm.category,
+    });
+    const updated = [...customViolations, added];
+    setCustomViolations(updated);
+    setViolationForm(emptyViolationForm());
+    setViolationFormSaving(false);
+    toast({ title: 'Violation type saved', description: `"${added.title}" added to your compliance dropdowns.` });
+  };
+
+  const handleDeleteCustomViolation = (id: string) => {
+    deleteCustomViolation(id);
+    setCustomViolations(loadCustomViolations());
+    toast({ title: 'Violation type removed' });
+  };
 
   // ── Documents state ──────────────────────────────────────────────────────────
   const [complianceDocs, setComplianceDocs] = useState<ComplianceDoc[]>([]);
@@ -1376,6 +1411,172 @@ const Settings = () => {
             )}
 
             {/* ── Data & Backup ── */}
+            {activeTab === 'compliance' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-base md:text-lg font-semibold">Custom Violation & Compliance Types</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Define organization-specific violation types. They appear in the Compliance Logger and Violations dropdowns under "Custom".
+                  </p>
+                </div>
+
+                {/* Builder form */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-primary" />
+                      Add New Violation Type
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label>Title *</Label>
+                        <Input
+                          value={violationForm.title}
+                          onChange={e => setViolationForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="e.g. Unauthorized Equipment Bypass"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label>Short Description</Label>
+                        <Textarea
+                          value={violationForm.description}
+                          onChange={e => setViolationForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="Brief explanation — pre-fills the violation description field when selected"
+                          rows={2}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Agency / Authority</Label>
+                        <Select
+                          value={violationForm.agency}
+                          onValueChange={v => setViolationForm(f => ({ ...f, agency: v }))}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select or type agency" /></SelectTrigger>
+                          <SelectContent>
+                            {['OSHA', 'EPA', 'FDA', 'NFPA', 'ANSI', 'ASHRAE', 'NEC', 'State Regulatory', 'Internal Policy'].map(a => (
+                              <SelectItem key={a} value={a}>{a}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={violationForm.agency}
+                          onChange={e => setViolationForm(f => ({ ...f, agency: e.target.value }))}
+                          placeholder="Or type a custom agency / authority…"
+                          className="text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select
+                          value={violationForm.category}
+                          onValueChange={v => setViolationForm(f => ({ ...f, category: v as any }))}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="safety">Safety</SelectItem>
+                            <SelectItem value="operational">Operational</SelectItem>
+                            <SelectItem value="regulatory">Regulatory</SelectItem>
+                            <SelectItem value="environmental">Environmental</SelectItem>
+                            <SelectItem value="quality">Quality</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Default Severity Score</Label>
+                          <span className={cn(
+                            'text-sm font-semibold px-2 py-0.5 rounded',
+                            violationForm.severity >= 8 ? 'text-red-400 bg-red-500/10' :
+                            violationForm.severity >= 5 ? 'text-yellow-400 bg-yellow-500/10' :
+                            'text-green-400 bg-green-500/10',
+                          )}>
+                            {violationForm.severity}/10 — {
+                              violationForm.severity >= 8 ? 'High / Critical' :
+                              violationForm.severity >= 5 ? 'Medium' : 'Low'
+                            }
+                          </span>
+                        </div>
+                        <Slider
+                          value={[violationForm.severity]}
+                          onValueChange={([v]) => setViolationForm(f => ({ ...f, severity: v }))}
+                          min={1} max={10} step={1}
+                          className="py-1"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                          <span>Low (1–3)</span><span>Medium (4–6)</span><span>High (7–9)</span><span>Critical (10)</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleSaveCustomViolation}
+                      disabled={violationFormSaving || !violationForm.title.trim()}
+                      className="w-full sm:w-auto"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {violationFormSaving ? 'Saving…' : 'Add Violation Type'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Existing custom violation types */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Saved Custom Types ({customViolations.length})
+                  </h3>
+                  {customViolations.length === 0 ? (
+                    <div className="text-center py-10 text-sm text-muted-foreground border border-dashed rounded-xl">
+                      No custom violation types yet. Add one above — it will appear in all compliance dropdowns.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {customViolations.map(cv => (
+                        <div key={cv.id} className="flex items-start justify-between gap-3 p-4 rounded-xl border border-border bg-card/40">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">{cv.title}</span>
+                              {cv.agency && (
+                                <Badge variant="outline" className="text-xs border-primary/30 text-primary">{cv.agency}</Badge>
+                              )}
+                              <Badge variant="outline" className={cn(
+                                'text-xs',
+                                cv.category === 'safety' ? 'border-red-500/30 text-red-400' :
+                                cv.category === 'environmental' ? 'border-green-500/30 text-green-400' :
+                                cv.category === 'regulatory' ? 'border-blue-500/30 text-blue-400' :
+                                'border-muted text-muted-foreground',
+                              )}>
+                                {cv.category}
+                              </Badge>
+                              <Badge variant="outline" className={cn(
+                                'text-xs',
+                                cv.severity >= 8 ? 'border-red-500/30 text-red-400' :
+                                cv.severity >= 5 ? 'border-yellow-500/30 text-yellow-400' :
+                                'border-green-500/30 text-green-400',
+                              )}>
+                                Sev {cv.severity}/10
+                              </Badge>
+                            </div>
+                            {cv.description && (
+                              <p className="text-xs text-muted-foreground">{cv.description}</p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteCustomViolation(cv.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'data' && (
               <div className="space-y-6">
                 <h2 className="text-base md:text-lg font-semibold">Data & Backup</h2>
