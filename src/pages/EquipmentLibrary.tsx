@@ -17,6 +17,7 @@ import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
 import { calculateOperationalDepreciation } from '@/lib/depreciationEngine';
+import { deriveBaseline } from '@/lib/engineeringCalcs';
 import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 
 interface Equipment {
@@ -56,6 +57,22 @@ interface Equipment {
   contractorCostAccumulated?: number;
   maintenanceCostTrend?: string;
   source?: string;
+}
+
+function BaselineDerivedStrip({ derived, show, labels }: { derived: Record<string, string>; show: string[]; labels: Record<string, string> }) {
+  const visible = show.filter(k => derived[k]);
+  if (!visible.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {visible.map(k => (
+        <div key={k} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/20 text-xs" title={`Auto: ${labels[k] || k}`}>
+          <TrendingUp className="w-3 h-3 text-blue-400 shrink-0" />
+          <span className="text-muted-foreground">{labels[k] || k}</span>
+          <span className="font-semibold text-blue-400">{Number(derived[k]).toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function assetHealthPct(eq: Equipment): number | null {
@@ -534,7 +551,19 @@ export default function EquipmentLibrary() {
   );
 
   const bd = baselineData;
-  const setBD = (k: string, v: string) => setBaselineData((prev: any) => ({ ...prev, [k]: v }));
+  const setBD = (k: string, v: string) => setBaselineData((prev: any) => {
+    const next = { ...prev, [k]: v };
+    const eqType = selectedEquipment?.equipmentType || '';
+    const derived = deriveBaseline(next, k, eqType);
+    // Apply only editable auto-fills (non-underscore keys), never overwrite what user just typed
+    Object.entries(derived).forEach(([dk, dv]) => {
+      if (!dk.startsWith('_') && dk !== k && dv) next[dk] = dv;
+    });
+    return next;
+  });
+
+  // Display-only derived values for the baseline form
+  const bdDerived = deriveBaseline(bd, '', selectedEquipment?.equipmentType || '');
 
   const EquipmentTypeSelect = () => (
     <Select value={formData.equipmentType} onValueChange={v => setFormData(f => ({ ...f, equipmentType: v }))}>
@@ -726,32 +755,41 @@ export default function EquipmentLibrary() {
       </div>
     );
     if (type === 'boiler') return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>MAWP (PSI) *</Label><Input type="number" step="0.1" value={bd.mawp} onChange={e => setBD('mawp', e.target.value)} placeholder="150" /></div>
-        <div className="space-y-2"><Label>Capacity (MBH)</Label><Input type="number" value={bd.capacity} onChange={e => setBD('capacity', e.target.value)} placeholder="5000" /></div>
-        <div className="space-y-2"><Label>Min Operating Temp (°F)</Label><Input type="number" value={bd.minTemp} onChange={e => setBD('minTemp', e.target.value)} placeholder="140" /></div>
-        <div className="space-y-2"><Label>Max Operating Temp (°F)</Label><Input type="number" value={bd.maxTemp} onChange={e => setBD('maxTemp', e.target.value)} placeholder="200" /></div>
-        <div className="space-y-2"><Label>Combustion Efficiency (%)</Label><Input type="number" step="0.1" value={bd.efficiency} onChange={e => setBD('efficiency', e.target.value)} placeholder="82.5" /></div>
-        <div className="space-y-2"><Label>Max Firing Rate (MBH)</Label><Input type="number" value={bd.firingRate} onChange={e => setBD('firingRate', e.target.value)} placeholder="5500" /></div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>MAWP (PSI) *</Label><Input type="number" step="0.1" value={bd.mawp} onChange={e => setBD('mawp', e.target.value)} placeholder="150" /></div>
+          <div className="space-y-2"><Label>Capacity (MBH)</Label><Input type="number" value={bd.capacity} onChange={e => setBD('capacity', e.target.value)} placeholder="5000" /></div>
+          <div className="space-y-2"><Label>Min Operating Temp (°F)</Label><Input type="number" value={bd.minTemp} onChange={e => setBD('minTemp', e.target.value)} placeholder="140" /></div>
+          <div className="space-y-2"><Label>Max Operating Temp (°F)</Label><Input type="number" value={bd.maxTemp} onChange={e => setBD('maxTemp', e.target.value)} placeholder="200" /></div>
+          <div className="space-y-2"><Label>Combustion Efficiency (%)</Label><Input type="number" step="0.1" value={bd.efficiency} onChange={e => setBD('efficiency', e.target.value)} placeholder="82.5" /></div>
+          <div className="space-y-2"><Label>Max Firing Rate (MBH)</Label><Input type="number" value={bd.firingRate} onChange={e => setBD('firingRate', e.target.value)} placeholder="5500" /></div>
+        </div>
+        <BaselineDerivedStrip derived={bdDerived} show={['_inputBtuHr']} labels={{ _inputBtuHr: 'Input BTU/hr (MBH × 1,000)' }} />
       </div>
     );
     if (type === 'chiller') return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Capacity (Tons) *</Label><Input type="number" step="0.1" value={bd.tons} onChange={e => setBD('tons', e.target.value)} placeholder="400" /></div>
-        <div className="space-y-2"><Label>kW/Ton</Label><Input type="number" step="0.01" value={bd.kwPerTon} onChange={e => setBD('kwPerTon', e.target.value)} placeholder="0.58" /></div>
-        <div className="space-y-2"><Label>Min Chilled Water Temp (°F)</Label><Input type="number" step="0.1" value={bd.minChilledTemp} onChange={e => setBD('minChilledTemp', e.target.value)} placeholder="42" /></div>
-        <div className="space-y-2"><Label>Max Chilled Water Temp (°F)</Label><Input type="number" step="0.1" value={bd.maxChilledTemp} onChange={e => setBD('maxChilledTemp', e.target.value)} placeholder="54" /></div>
-        <div className="space-y-2"><Label>Min Condenser Temp (°F)</Label><Input type="number" step="0.1" value={bd.minCondenserTemp} onChange={e => setBD('minCondenserTemp', e.target.value)} placeholder="75" /></div>
-        <div className="space-y-2"><Label>Max Condenser Temp (°F)</Label><Input type="number" step="0.1" value={bd.maxCondenserTemp} onChange={e => setBD('maxCondenserTemp', e.target.value)} placeholder="95" /></div>
-        <div className="col-span-2 space-y-2"><Label>Refrigerant Type</Label><Input value={bd.refrigerant} onChange={e => setBD('refrigerant', e.target.value)} placeholder="e.g., R-134a" /></div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>Capacity (Tons) *</Label><Input type="number" step="0.1" value={bd.tons} onChange={e => setBD('tons', e.target.value)} placeholder="400" /></div>
+          <div className="space-y-2"><Label>kW/Ton</Label><Input type="number" step="0.01" value={bd.kwPerTon} onChange={e => setBD('kwPerTon', e.target.value)} placeholder="0.58" /></div>
+          <div className="space-y-2"><Label>Min Chilled Water Temp (°F)</Label><Input type="number" step="0.1" value={bd.minChilledTemp} onChange={e => setBD('minChilledTemp', e.target.value)} placeholder="42" /></div>
+          <div className="space-y-2"><Label>Max Chilled Water Temp (°F)</Label><Input type="number" step="0.1" value={bd.maxChilledTemp} onChange={e => setBD('maxChilledTemp', e.target.value)} placeholder="54" /></div>
+          <div className="space-y-2"><Label>Min Condenser Temp (°F)</Label><Input type="number" step="0.1" value={bd.minCondenserTemp} onChange={e => setBD('minCondenserTemp', e.target.value)} placeholder="75" /></div>
+          <div className="space-y-2"><Label>Max Condenser Temp (°F)</Label><Input type="number" step="0.1" value={bd.maxCondenserTemp} onChange={e => setBD('maxCondenserTemp', e.target.value)} placeholder="95" /></div>
+          <div className="col-span-2 space-y-2"><Label>Refrigerant Type</Label><Input value={bd.refrigerant} onChange={e => setBD('refrigerant', e.target.value)} placeholder="e.g., R-134a" /></div>
+        </div>
+        <BaselineDerivedStrip derived={bdDerived} show={['ratedKW', '_btuHr']} labels={{ ratedKW: 'Total kW (tons × kW/ton)', _btuHr: 'BTU/hr (tons × 12,000)' }} />
       </div>
     );
     if (type === 'pump') return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Flow Rate (GPM) *</Label><Input type="number" value={bd.gpm} onChange={e => setBD('gpm', e.target.value)} placeholder="500" /></div>
-        <div className="space-y-2"><Label>Head (Feet)</Label><Input type="number" step="0.1" value={bd.head} onChange={e => setBD('head', e.target.value)} placeholder="100" /></div>
-        <div className="space-y-2"><Label>Motor HP</Label><Input type="number" step="0.1" value={bd.motorHp} onChange={e => setBD('motorHp', e.target.value)} placeholder="15" /></div>
-        <div className="space-y-2"><Label>Operating Pressure (PSI)</Label><Input type="number" step="0.1" value={bd.operatingPressure} onChange={e => setBD('operatingPressure', e.target.value)} placeholder="50" /></div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>Flow Rate (GPM) *</Label><Input type="number" value={bd.gpm} onChange={e => setBD('gpm', e.target.value)} placeholder="500" /></div>
+          <div className="space-y-2"><Label>Head (Feet)</Label><Input type="number" step="0.1" value={bd.head} onChange={e => setBD('head', e.target.value)} placeholder="100" /></div>
+          <div className="space-y-2"><Label>Motor HP</Label><Input type="number" step="0.1" value={bd.motorHp} onChange={e => setBD('motorHp', e.target.value)} placeholder="15" /></div>
+          <div className="space-y-2"><Label>Operating Pressure (PSI)</Label><Input type="number" step="0.1" value={bd.operatingPressure} onChange={e => setBD('operatingPressure', e.target.value)} placeholder="50" /></div>
+        </div>
+        <BaselineDerivedStrip derived={bdDerived} show={['ratedKW', '_motorKw', '_flaFromKw']} labels={{ ratedKW: 'kW (HP × 0.746)', _motorKw: 'Est. Motor kW', _flaFromKw: 'FLA (A) @ 480V 3φ' }} />
       </div>
     );
     if (['ahu', 'air_handler'].includes(type)) return (

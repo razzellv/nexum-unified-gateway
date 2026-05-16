@@ -5,6 +5,7 @@ import { Snowflake, Droplets, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PumpSelector } from '@/components/equipment/PumpSelector';
 import { ConnectedToBanner } from '@/components/equipment/ConnectedToBanner';
+import { deriveChiller } from '@/lib/engineeringCalcs';
 
 interface ChillerFormData {
   chillerType: string;
@@ -51,14 +52,25 @@ const isWaterCooled = (type: string) => {
 
 export function ChillerForm({ data, onChange, errors, equipmentId, facilityId }: ChillerFormProps) {
   const updateField = (field: keyof ChillerFormData, value: string | string[]) => {
-    onChange({ ...data, [field]: value });
+    const next = { ...data, [field]: value };
+    if (typeof value === 'string') {
+      const derived = deriveChiller(next as Record<string, string>, field);
+      // Only auto-fill editable fields the user hasn't just set
+      if (derived.motorKw !== undefined && field !== 'motorKw') (next as any).motorKw = derived.motorKw;
+    }
+    onChange(next);
   };
 
-  // Calculate condenser water delta T
-  const condenserDeltaT = 
-    data.enteringCondenserWaterTemp && data.leavingCondenserWaterTemp
+  // Live-derived display values (never stored — shown as read-only badges)
+  const derived = deriveChiller(data as Record<string, string>, '');
+  const chilledDeltaT   = derived._chilledDeltaT || null;
+  const condenserDeltaT = derived._condenserDeltaT ||
+    (data.enteringCondenserWaterTemp && data.leavingCondenserWaterTemp
       ? (Number(data.leavingCondenserWaterTemp) - Number(data.enteringCondenserWaterTemp)).toFixed(1)
-      : null;
+      : null);
+  const btuHr    = derived._btuHr    || null;
+  const kwPerTon = derived._kwPerTon  || null;
+  const copVal   = derived._cop       || null;
 
   return (
     <div className="form-section animate-fade-in">
@@ -140,6 +152,16 @@ export function ChillerForm({ data, onChange, errors, equipmentId, facilityId }:
           placeholder="44"
         />
       </div>
+
+      {/* Auto-derived metrics strip */}
+      {(chilledDeltaT || btuHr || kwPerTon || copVal) && (
+        <div className="flex flex-wrap gap-2 px-1">
+          {chilledDeltaT && <AutoBadge label="Chilled ΔT" value={`${chilledDeltaT} °F`} hint="EWT − LWT" />}
+          {btuHr        && <AutoBadge label="BTU/hr"     value={Number(btuHr).toLocaleString()} hint="tons × 12,000" />}
+          {kwPerTon     && <AutoBadge label="kW/Ton"     value={kwPerTon} hint="kW ÷ tons" />}
+          {copVal       && <AutoBadge label="COP"        value={copVal}   hint="tons × 3.517 ÷ kW" />}
+        </div>
+      )}
 
       {/* Condenser Water Section - Only for water-cooled chillers */}
       {isWaterCooled(data.chillerType) && (
@@ -391,6 +413,16 @@ export function ChillerForm({ data, onChange, errors, equipmentId, facilityId }:
           <p className="text-xs text-destructive">{errors.alarmStatus}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function AutoBadge({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/20 text-xs" title={hint ? `Auto-calculated: ${hint}` : undefined}>
+      <Zap className="w-3 h-3 text-blue-400 shrink-0" />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold text-blue-400">{value}</span>
     </div>
   );
 }

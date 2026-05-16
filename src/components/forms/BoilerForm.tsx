@@ -7,6 +7,7 @@ import { Flame, Shield, Zap, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PumpSelector } from '@/components/equipment/PumpSelector';
 import { ConnectedToBanner } from '@/components/equipment/ConnectedToBanner';
+import { deriveBoiler } from '@/lib/engineeringCalcs';
 
 interface BoilerFormData {
   operatingMode: string;
@@ -49,6 +50,11 @@ export function BoilerForm({ data, onChange, errors, equipmentId, facilityId }: 
   const updateField = (field: keyof BoilerFormData, value: string | boolean | string[]) => {
     onChange({ ...data, [field]: value });
   };
+
+  // Live-derived display values
+  const derived = deriveBoiler(data as Record<string, string>, '');
+  const deltaT     = derived._deltaT     || null;
+  const inputBtuHr = derived._inputBtuHr || null;
 
   return (
     <div className="form-section animate-fade-in">
@@ -132,6 +138,15 @@ export function BoilerForm({ data, onChange, errors, equipmentId, facilityId }: 
           placeholder="160"
         />
 
+        {/* Auto ΔT */}
+        {deltaT && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/20 text-xs self-end mb-1" title="Supply − Return temperature difference">
+            <Zap className="w-3 h-3 text-blue-400 shrink-0" />
+            <span className="text-muted-foreground">ΔT</span>
+            <span className="font-semibold text-blue-400">{deltaT} °F</span>
+          </div>
+        )}
+
         <FormField
           label="Stack Temp"
           name="stackTemp"
@@ -188,6 +203,17 @@ export function BoilerForm({ data, onChange, errors, equipmentId, facilityId }: 
           placeholder="75"
         />
       </div>
+
+      {/* Auto BTU/hr from firing rate (MBH) or derived metrics */}
+      {inputBtuHr && (
+        <div className="flex flex-wrap gap-2 px-1">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/20 text-xs" title="MBH × 1,000">
+            <Zap className="w-3 h-3 text-blue-400 shrink-0" />
+            <span className="text-muted-foreground">Input BTU/hr</span>
+            <span className="font-semibold text-blue-400">{Number(inputBtuHr).toLocaleString()}</span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField

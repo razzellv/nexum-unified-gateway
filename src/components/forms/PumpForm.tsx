@@ -2,6 +2,7 @@ import { FormField } from './FormField';
 import { Label } from '@/components/ui/label';
 import { Gauge, Timer, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { derivePump } from '@/lib/engineeringCalcs';
 
 interface PumpFormData {
   vfdFrequency: string;
@@ -37,8 +38,16 @@ const sealColors = {
 
 export function PumpForm({ data, onChange, errors }: PumpFormProps) {
   const updateField = (field: keyof PumpFormData, value: string) => {
-    onChange({ ...data, [field]: value });
+    const next = { ...data, [field]: value };
+    const derived = derivePump(next as Record<string, string>, field);
+    // Auto-fill kW from amps+volts (or amps from kW+volts) only if user didn't just type the target
+    if (derived.motorKw     && field !== 'motorKw')     next.motorKw     = derived.motorKw;
+    if (derived.motorCurrent && field !== 'motorCurrent') next.motorCurrent = derived.motorCurrent;
+    onChange(next);
   };
+
+  // Display-only derived values
+  const derived = derivePump(data as Record<string, string>, '');
 
   return (
     <div className="form-section animate-fade-in">
@@ -124,6 +133,14 @@ export function PumpForm({ data, onChange, errors }: PumpFormProps) {
           placeholder="75"
         />
       </div>
+
+      {/* Auto-derived electrical strip */}
+      {(data.motorCurrent && data.motorVoltage) && (
+        <div className="flex flex-wrap gap-2 px-1">
+          <AutoBadge label="Est. kW (3φ)" value={`${derived.motorKw || data.motorKw} kW`} hint="√3 × V × I × 0.85 ÷ 1000" />
+          <AutoBadge label="Basis" value="480V 3φ, PF 0.85" />
+        </div>
+      )}
 
       {/* ✅ NEW: Energy & Performance Section */}
       <div className="mt-6 pt-6 border-t border-border/50">
@@ -245,6 +262,16 @@ export function PumpForm({ data, onChange, errors }: PumpFormProps) {
           <p className="text-xs text-destructive">{errors.sealLeakIndicator}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function AutoBadge({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/8 border border-blue-500/20 text-xs" title={hint}>
+      <Zap className="w-3 h-3 text-blue-400 shrink-0" />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold text-blue-400">{value}</span>
     </div>
   );
 }
