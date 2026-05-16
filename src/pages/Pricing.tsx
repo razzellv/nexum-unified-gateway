@@ -1160,6 +1160,14 @@ export default function Pricing() {
   });
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
+  // ── Request-based consulting modals ──────────────────────────────────────────
+  const [consultModal, setConsultModal] = useState<'stormwater' | 'tier2' | 'blueprint' | null>(null);
+  const [consultForm, setConsultForm] = useState<Record<string, string>>({});
+  const [consultSubmitting, setConsultSubmitting] = useState(false);
+  const [consultSuccess, setConsultSuccess] = useState<string | null>(null);
+  const [inquiryForm, setInquiryForm] = useState({ name: '', email: '', org: '', facilityType: '', concern: '', referral: '' });
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState(false);
   // Standard module add-ons
   const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
   // Enterprise configurator
@@ -1332,6 +1340,39 @@ export default function Pricing() {
     return '';
   };
 
+  // ── Consulting service handlers ───────────────────────────────────────────────
+  const openConsultModal = (svc: 'stormwater' | 'tier2' | 'blueprint') => {
+    setConsultForm({});
+    setConsultSuccess(null);
+    setConsultModal(svc);
+  };
+  const submitConsulting = async (service: string, successMsg: string, e: React.FormEvent) => {
+    e.preventDefault();
+    setConsultSubmitting(true);
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service, ...consultForm }),
+      });
+    } catch { /* swallow — success message still shown */ }
+    setConsultSuccess(successMsg);
+    setConsultSubmitting(false);
+  };
+  const submitInquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInquirySubmitting(true);
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: 'general_inquiry', ...inquiryForm }),
+      });
+    } catch { /* swallow */ }
+    setInquirySuccess(true);
+    setInquirySubmitting(false);
+  };
+
   // Build expansion line items for checkout
   const expansionLineItems = EXPANSION_ADDONS
     .filter(a => a.sectors.includes(sector) && (expandQty[a.id] || 0) > 0)
@@ -1372,6 +1413,259 @@ export default function Pricing() {
 
         {/* Pilot Program Modal */}
         <PilotModal open={showPilot} onClose={() => setShowPilot(false)} />
+
+        {/* ── Stormwater Audit Modal ──────────────────────────────────────────── */}
+        <Dialog open={consultModal === 'stormwater'} onOpenChange={open => !open && setConsultModal(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background border-border">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <MapPin className="w-5 h-5 text-blue-400" />
+                Industrial Stormwater Compliance Audit — $2,400
+              </DialogTitle>
+            </DialogHeader>
+            {consultSuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Request Submitted</p>
+                <p className="text-sm text-muted-foreground">{consultSuccess}</p>
+                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+              </div>
+            ) : (
+              <form onSubmit={e => submitConsulting('stormwater_audit', "We'll reach out within 2 business days to confirm site details and schedule.", e)} className="space-y-3 mt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization name *</label>
+                    <Input required value={consultForm.orgName || ''} onChange={e => setConsultForm(f => ({ ...f, orgName: e.target.value }))} placeholder="Company or facility name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Contact name *</label>
+                    <Input required value={consultForm.contactName || ''} onChange={e => setConsultForm(f => ({ ...f, contactName: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={consultForm.email || ''} onChange={e => setConsultForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Facility address / state</label>
+                    <Input value={consultForm.facilityAddress || ''} onChange={e => setConsultForm(f => ({ ...f, facilityAddress: e.target.value }))} placeholder="City, State or full address" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">SIC code or industry type</label>
+                    <Select value={consultForm.industry || ''} onValueChange={v => setConsultForm(f => ({ ...f, industry: v }))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select industry" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                        <SelectItem value="transportation">Transportation</SelectItem>
+                        <SelectItem value="construction">Construction</SelectItem>
+                        <SelectItem value="mining">Mining</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Existing SWPPP?</label>
+                    <Select value={consultForm.hasSwppp || ''} onValueChange={v => setConsultForm(f => ({ ...f, hasSwppp: v }))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select one" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Last NPDES permit review</label>
+                    <Input value={consultForm.lastPermitReview || ''} onChange={e => setConsultForm(f => ({ ...f, lastPermitReview: e.target.value }))} placeholder="e.g. 2022 or Never" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Primary concern</label>
+                    <Textarea value={consultForm.concern || ''} onChange={e => setConsultForm(f => ({ ...f, concern: e.target.value }))} placeholder="What's your biggest stormwater compliance concern?" rows={2} />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Preferred timeline</label>
+                    <Input value={consultForm.timeline || ''} onChange={e => setConsultForm(f => ({ ...f, timeline: e.target.value }))} placeholder="e.g. Within 30 days, Q3 2026" />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={consultSubmitting}>
+                  {consultSubmitting ? 'Submitting…' : 'Request This Service'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Tier II Audit Modal ─────────────────────────────────────────────── */}
+        <Dialog open={consultModal === 'tier2'} onOpenChange={open => !open && setConsultModal(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background border-border">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Package className="w-5 h-5 text-orange-400" />
+                Tier II / SARA Chemical Inventory Audit — $1,800
+              </DialogTitle>
+            </DialogHeader>
+            {consultSuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Request Submitted</p>
+                <p className="text-sm text-muted-foreground">{consultSuccess}</p>
+                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+              </div>
+            ) : (
+              <form onSubmit={e => submitConsulting('tier2_audit', "We'll review your facility state requirements and contact you within 2 business days.", e)} className="space-y-3 mt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization name *</label>
+                    <Input required value={consultForm.orgName || ''} onChange={e => setConsultForm(f => ({ ...f, orgName: e.target.value }))} placeholder="Company or facility name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Contact name *</label>
+                    <Input required value={consultForm.contactName || ''} onChange={e => setConsultForm(f => ({ ...f, contactName: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={consultForm.email || ''} onChange={e => setConsultForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Facility state *</label>
+                    <Input required value={consultForm.facilityState || ''} onChange={e => setConsultForm(f => ({ ...f, facilityState: e.target.value }))} placeholder="e.g. Ohio, Texas" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Approx. # of chemicals on-site</label>
+                    <Input value={consultForm.chemicalCount || ''} onChange={e => setConsultForm(f => ({ ...f, chemicalCount: e.target.value }))} placeholder="e.g. 15" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">SDS records tracked digitally?</label>
+                    <Select value={consultForm.sdsDigital || ''} onValueChange={v => setConsultForm(f => ({ ...f, sdsDigital: v }))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select one" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="partial">Partial</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Reporting year needed</label>
+                    <Input value={consultForm.reportingYear || ''} onChange={e => setConsultForm(f => ({ ...f, reportingYear: e.target.value }))} placeholder="e.g. 2025" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Prior Tier II filings?</label>
+                    <Select value={consultForm.priorFilings || ''} onValueChange={v => setConsultForm(f => ({ ...f, priorFilings: v }))}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Yes / No" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Primary concern</label>
+                    <Textarea value={consultForm.concern || ''} onChange={e => setConsultForm(f => ({ ...f, concern: e.target.value }))} placeholder="What's driving this request?" rows={2} />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={consultSubmitting}>
+                  {consultSubmitting ? 'Submitting…' : 'Request This Service'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ── FI Blueprint Modal ──────────────────────────────────────────────── */}
+        <Dialog open={consultModal === 'blueprint'} onOpenChange={open => !open && setConsultModal(null)}>
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-background border-border">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="w-5 h-5 text-purple-400" />
+                FI Integration Blueprint™ — Enterprise Engagement
+              </DialogTitle>
+            </DialogHeader>
+            {consultSuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Request Submitted</p>
+                <p className="text-sm text-muted-foreground">{consultSuccess}</p>
+                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+              </div>
+            ) : (
+              <form onSubmit={e => submitConsulting('fi_blueprint', "We'll contact you within 24 hours to confirm scope and timeline.", e)} className="space-y-3 mt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization name *</label>
+                    <Input required value={consultForm.orgName || ''} onChange={e => setConsultForm(f => ({ ...f, orgName: e.target.value }))} placeholder="Company name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Contact name *</label>
+                    <Input required value={consultForm.contactName || ''} onChange={e => setConsultForm(f => ({ ...f, contactName: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={consultForm.email || ''} onChange={e => setConsultForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Current systems (BMS, CMMS, ERP, spreadsheets…)</label>
+                    <Input value={consultForm.currentSystems || ''} onChange={e => setConsultForm(f => ({ ...f, currentSystems: e.target.value }))} placeholder="List all systems in use" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Target ERP / CMMS platform</label>
+                    <Input value={consultForm.targetPlatform || ''} onChange={e => setConsultForm(f => ({ ...f, targetPlatform: e.target.value }))} placeholder="SAP, Infor, Workday, ServiceNow, etc." />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Go-live timeline</label>
+                    <Input value={consultForm.goLive || ''} onChange={e => setConsultForm(f => ({ ...f, goLive: e.target.value }))} placeholder="e.g. Q4 2026" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Asset count in scope</label>
+                    <Input value={consultForm.assetCount || ''} onChange={e => setConsultForm(f => ({ ...f, assetCount: e.target.value }))} placeholder="e.g. 1,200" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Current PM compliance rate (%)</label>
+                    <Input
+                      type="number" min="0" max="100"
+                      value={consultForm.pmCompliance || ''}
+                      onChange={e => setConsultForm(f => ({ ...f, pmCompliance: e.target.value }))}
+                      placeholder="e.g. 65"
+                    />
+                    {consultForm.pmCompliance && parseInt(consultForm.pmCompliance) < 70 && (
+                      <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2 text-xs text-yellow-400 mt-1">
+                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                        PM compliance below threshold — this is a Yellow Flag item that will be prioritized in your Blueprint.
+                      </div>
+                    )}
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Regulatory / compliance context</label>
+                    <Input value={consultForm.compliance || ''} onChange={e => setConsultForm(f => ({ ...f, compliance: e.target.value }))} placeholder="EPA, OSHA, state energy code, etc." />
+                    {(consultForm.compliance || '').toUpperCase().includes('EPA') || (consultForm.compliance || '').toUpperCase().includes('OSHA') ? (
+                      <p className="text-xs text-blue-400 mt-1">Compliance documentation continuity will be a required Blueprint component.</p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Available data formats</label>
+                    <Input value={consultForm.dataFormats || ''} onChange={e => setConsultForm(f => ({ ...f, dataFormats: e.target.value }))} placeholder="CSV, Excel, PDF, API…" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">IT integration partner (if any)</label>
+                    <Input value={consultForm.itPartner || ''} onChange={e => setConsultForm(f => ({ ...f, itPartner: e.target.value }))} placeholder="Partner name or TBD" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Top operational concerns</label>
+                    <Textarea value={consultForm.concerns || ''} onChange={e => setConsultForm(f => ({ ...f, concerns: e.target.value }))} placeholder="What are the biggest risks or gaps you're trying to solve?" rows={3} />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white" disabled={consultSubmitting}>
+                  {consultSubmitting ? 'Submitting…' : 'Request Blueprint Engagement'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* ── Consulting Services Sequence ────────────────────────────────────── */}
         <div className="space-y-8">
@@ -2290,6 +2584,207 @@ export default function Pricing() {
               {selectedAddons.length} add-on{selectedAddons.length > 1 ? 's' : ''} selected — will be included in checkout
             </p>
           )}
+        </div>
+
+        {/* ── Request-Based Consulting Services ──────────────────────────────────── */}
+        <div className="space-y-8">
+          <div className="text-center space-y-2">
+            <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30">Professional Services</Badge>
+            <h2 className="text-3xl font-bold">Request-Based Consulting Services</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Targeted regulatory and integration engagements — not a subscription, just the service you need, delivered and documented.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* ── Stormwater Audit ── */}
+            <Card className="flex flex-col border-2 border-blue-400/30 bg-blue-400/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-blue-400/20 flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">Request-Based</Badge>
+                </div>
+                <CardTitle className="text-base leading-tight">Industrial Stormwater Compliance Audit</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Clean water compliance — documented, defensible, and filed.</p>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold">$2,400</span>
+                  <span className="text-sm text-muted-foreground ml-1">one-time engagement</span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  A complete NPDES permit review and SWPPP gap analysis against your state's Multi-Sector General Permit. We walk your site, map your discharge points, identify your exposure, and deliver a corrective action report with a quarterly inspection checklist.
+                </p>
+                <ul className="space-y-1.5 mb-6 flex-1">
+                  {[
+                    'NPDES permit review and permit limit mapping',
+                    'Site walkthrough protocol (discharge points, BMPs, housekeeping)',
+                    'SWPPP gap analysis vs. MSGP',
+                    'Quarterly visual inspection checklist (MSGP Table D-1 format)',
+                    'Corrective action report with prioritized findings',
+                    '30-day follow-up check-in call',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Check className="w-3 h-3 mt-0.5 shrink-0 text-blue-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+                <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white mt-auto" onClick={() => openConsultModal('stormwater')}>
+                  Request This Service <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── Tier II Audit ── */}
+            <Card className="flex flex-col border-2 border-orange-400/30 bg-orange-400/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-orange-400/20 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">Request-Based</Badge>
+                </div>
+                <CardTitle className="text-base leading-tight">Tier II / SARA Chemical Inventory Audit</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Know exactly what you're holding — before a regulator asks.</p>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold">$1,800</span>
+                  <span className="text-sm text-muted-foreground ml-1">one-time engagement</span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  A complete chemical inventory review against SARA Title III reporting thresholds. We verify your SDS records, calculate threshold quantities, and generate your state Tier II report — filed on your behalf or handed off ready to submit.
+                </p>
+                <ul className="space-y-1.5 mb-6 flex-1">
+                  {[
+                    'On-site or remote chemical inventory review',
+                    'SDS verification and threshold calculations',
+                    'Tier II report generated and reviewed',
+                    'Filed on your behalf (or handed off ready to submit)',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Check className="w-3 h-3 mt-0.5 shrink-0 text-orange-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+                <Button className="w-full bg-orange-600 hover:bg-orange-500 text-white mt-auto" onClick={() => openConsultModal('tier2')}>
+                  Request This Service <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── FI Blueprint ── */}
+            <Card className="flex flex-col border-2 border-purple-400/30 bg-purple-400/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-purple-400/20 flex items-center justify-center">
+                    <BarChart3 className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">Enterprise</Badge>
+                </div>
+                <CardTitle className="text-base leading-tight">FI Integration Blueprint™</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Before you spend millions on a new ERP, know exactly what it must capture — or watch your operational defensibility disappear.</p>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold">$25K–$45K</span>
+                  <span className="text-sm text-muted-foreground ml-1">· 30-day fixed engagement</span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  IT consultants will tell you it takes 6 months and $150,000 to clean and migrate your data. Nexum Suum breaks that bottleneck: your team drops historical plant logs, maintenance records, and equipment data into our platform via CSV or API. In 30 days you get a fully structured data model, risk gap analysis, and the exact API mapping schemas to push clean operational data into your new ERP.
+                </p>
+                <ul className="space-y-1.5 mb-6 flex-1">
+                  {[
+                    'Fully structured operational data model',
+                    'Decision Defensibility parameter map',
+                    'Risk gap analysis (Red / Yellow / Green flags)',
+                    'API mapping schemas for your ERP integrator',
+                    'Data field requirements spec (handed to IT team)',
+                    '90-day post-go-live monitoring checklist',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Check className="w-3 h-3 mt-0.5 shrink-0 text-purple-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+                <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white mt-auto" onClick={() => openConsultModal('blueprint')}>
+                  Request Blueprint Engagement <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── General Service Inquiry ── */}
+          <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold">Not sure which service fits?</h3>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Describe your situation and we'll point you in the right direction. We'll reach out within 1 business day.
+              </p>
+            </div>
+            {inquirySuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Message received!</p>
+                <p className="text-sm text-muted-foreground">We'll reach out within 1 business day.</p>
+              </div>
+            ) : (
+              <form onSubmit={submitInquiry} className="max-w-2xl mx-auto space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Name *</label>
+                    <Input required value={inquiryForm.name} onChange={e => setInquiryForm(f => ({ ...f, name: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={inquiryForm.email} onChange={e => setInquiryForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization</label>
+                    <Input value={inquiryForm.org} onChange={e => setInquiryForm(f => ({ ...f, org: e.target.value }))} placeholder="Company or facility name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Facility type</label>
+                    <Select value={inquiryForm.facilityType} onValueChange={v => setInquiryForm(f => ({ ...f, facilityType: v }))}>
+                      <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                        <SelectItem value="healthcare">Healthcare</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="government">Government</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Primary concern *</label>
+                  <Textarea required value={inquiryForm.concern} onChange={e => setInquiryForm(f => ({ ...f, concern: e.target.value }))} placeholder="Describe your main operational challenge or compliance concern…" rows={3} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">How did you hear about us?</label>
+                  <Select value={inquiryForm.referral} onValueChange={v => setInquiryForm(f => ({ ...f, referral: v }))}>
+                    <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select one" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="calendly">Calendly booking</SelectItem>
+                      <SelectItem value="colleague">Colleague referral</SelectItem>
+                      <SelectItem value="linkedin">LinkedIn</SelectItem>
+                      <SelectItem value="google">Google</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full" disabled={inquirySubmitting}>
+                  {inquirySubmitting ? 'Sending…' : 'Send Inquiry'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Intake Form */}
