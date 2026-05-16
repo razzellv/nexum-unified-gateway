@@ -417,6 +417,13 @@ const Settings = () => {
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: '', department: '' });
   const [inviteSending, setInviteSending] = useState(false);
   const [limitBanner, setLimitBanner] = useState<{ type: 'equipment' | 'users'; current: number; limit: number; tier: string } | null>(null);
+  const [showStaffImport, setShowStaffImport] = useState(false);
+  const [staffImportStep, setStaffImportStep] = useState<'upload' | 'preview' | 'result'>('upload');
+  const [staffImportRows, setStaffImportRows] = useState<Record<string, string>[]>([]);
+  const [staffImportProgress, setStaffImportProgress] = useState(0);
+  const [staffImportResult, setStaffImportResult] = useState<{ sent: number; failed: { row: number; email: string; reason: string }[] } | null>(null);
+  const [staffImportDefaultRole, setStaffImportDefaultRole] = useState('operator');
+  const staffImportRef = useRef<HTMLInputElement>(null);
   const [utilitiesLoading, setUtilitiesLoading] = useState(false);
 
   // ── Documents state ──────────────────────────────────────────────────────────
@@ -529,6 +536,87 @@ const Settings = () => {
       const res = await fetch(`${baseUrl}/users`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const data = await res.json(); setTeamMembers(data.users || []); }
     } catch { /* ignore */ } finally { setTeamLoading(false); }
+  };
+
+  // Staff CSV import helpers
+  const STAFF_ALIASES: Record<string, string[]> = {
+    name:       ['full name', 'fullname', 'employee name', 'staff name', 'first last', 'display name'],
+    email:      ['email address', 'e-mail', 'work email', 'employee email'],
+    role:       ['job role', 'position', 'title', 'job title', 'access level', 'user role'],
+    department: ['dept', 'department name', 'team', 'division', 'group'],
+  };
+
+  const parseStaffCSV = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = (e.target?.result as string) || '';
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return;
+      const rawHeaders = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+
+      // Map raw CSV headers to our field keys
+      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, '');
+      const fieldMap: Record<string, number> = {};
+      (['name', 'email', 'role', 'department'] as const).forEach(field => {
+        const candidates = [field, ...STAFF_ALIASES[field]].map(norm);
+        const idx = rawHeaders.findIndex(h => candidates.includes(norm(h)));
+        if (idx !== -1) fieldMap[field] = idx;
+      });
+
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        if (cols.every(c => !c)) continue;
+        rows.push({
+          name:       fieldMap.name       !== undefined ? (cols[fieldMap.name]       || '') : '',
+          email:      fieldMap.email      !== undefined ? (cols[fieldMap.email]      || '') : '',
+          role:       fieldMap.role       !== undefined ? (cols[fieldMap.role]       || '') : '',
+          department: fieldMap.department !== undefined ? (cols[fieldMap.department] || '') : '',
+        });
+      }
+      setStaffImportRows(rows);
+      setStaffImportStep('preview');
+    };
+    reader.readAsText(file);
+  };
+
+  const runStaffImport = async () => {
+    setStaffImportStep('result');
+    setStaffImportProgress(0);
+    const eligible = staffImportRows.filter(r => r.email?.trim());
+    const result = { sent: 0, failed: [] as { row: number; email: string; reason: string }[] };
+    for (let i = 0; i < staffImportRows.length; i++) {
+      const r = staffImportRows[i];
+      if (!r.email?.trim()) {
+        result.failed.push({ row: i + 2, email: '', reason: 'Missing email — skipped' });
+        setStaffImportProgress(Math.round(((i + 1) / staffImportRows.length) * 100));
+        continue;
+      }
+      try {
+        const res = await fetch(`${baseUrl}/onboarding/invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            name:       r.name || r.email.split('@')[0],
+            email:      r.email.trim(),
+            role:       r.role || staffImportDefaultRole,
+            department: r.department || '',
+            orgType:    localStorage.getItem('nexum_org_type') || 'facility',
+          }),
+        });
+        if (res.ok) { result.sent++; }
+        else {
+          const d = await res.json().catch(() => ({}));
+          result.failed.push({ row: i + 2, email: r.email, reason: d.message || `HTTP ${res.status}` });
+        }
+      } catch (err: any) {
+        result.failed.push({ row: i + 2, email: r.email, reason: err.message || 'Network error' });
+      }
+      setStaffImportProgress(Math.round(((i + 1) / staffImportRows.length) * 100));
+      await new Promise(res => setTimeout(res, 100));
+    }
+    setStaffImportResult(result);
+    setStaffImportProgress(100);
   };
 
   const saveUtilities = async () => {
@@ -758,9 +846,14 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold">Team & Roles</h2>
                   {can(userRole, ADMIN_ROLES) && (
-                    <Button size="sm" onClick={() => setShowInviteModal(true)}>
-                      <Plus className="w-4 h-4 mr-1.5" />Invite Staff
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setShowStaffImport(true)}>
+                        <Upload className="w-4 h-4 mr-1.5" />Import CSV
+                      </Button>
+                      <Button size="sm" onClick={() => setShowInviteModal(true)}>
+                        <Plus className="w-4 h-4 mr-1.5" />Invite Staff
+                      </Button>
+                    </div>
                   )}
                 </div>
                 {!can(userRole, ADMIN_ROLES) && (
@@ -1394,6 +1487,152 @@ const Settings = () => {
           </div>
         </div>
       )}
+      {/* ── Staff CSV Import Modal ── */}
+      {showStaffImport && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-background border border-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+              <div>
+                <h2 className="font-semibold text-base">Import Staff from CSV</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Each row becomes an invite email. <span className="text-red-400 font-medium">Email column is required.</span>
+                </p>
+              </div>
+              <button onClick={() => { setShowStaffImport(false); setStaffImportStep('upload'); setStaffImportRows([]); setStaffImportResult(null); }} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Upload step */}
+            {staffImportStep === 'upload' && (
+              <div className="p-6 space-y-4">
+                {/* Template download */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/40">
+                  <div>
+                    <p className="text-sm font-medium">Download template</p>
+                    <p className="text-xs text-muted-foreground">name, email, role, department, title</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const csv = 'name,email,role,department,title\nJane Smith,jane@company.com,engineer,Maintenance,\nJohn Doe,john@company.com,operator,Operations,\n';
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'staff-import-template.csv'; a.click();
+                  }}>
+                    <Download className="w-4 h-4 mr-1.5" /> Template
+                  </Button>
+                </div>
+
+                {/* Default role for rows missing role */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-muted-foreground shrink-0">Default role for rows missing role:</label>
+                  <select className="flex-1 px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={staffImportDefaultRole} onChange={e => setStaffImportDefaultRole(e.target.value)}>
+                    {['manager','supervisor','engineer','technician','operator','custodian','compliance_officer','employee'].map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  className="border-2 border-dashed border-border/40 rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/20 transition-colors"
+                  onClick={() => staffImportRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file) parseStaffCSV(file);
+                  }}
+                >
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Drop CSV here or <span className="text-primary underline">browse</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">Accepts .csv — any column order</p>
+                  <input ref={staffImportRef} type="file" accept=".csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) parseStaffCSV(f); }} />
+                </div>
+              </div>
+            )}
+
+            {/* Preview step */}
+            {staffImportStep === 'preview' && (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-4 border-b border-border/40 shrink-0">
+                  <p className="text-sm font-medium">{staffImportRows.length} staff records detected</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Red rows are missing email and will be skipped. Review before sending.</p>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-muted/50">
+                      <tr>{['Row','Name','Email','Role','Dept','Status'].map(h => <th key={h} className="text-left px-3 py-2 text-muted-foreground font-medium">{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {staffImportRows.map((r, i) => {
+                        const hasEmail = !!r.email?.trim();
+                        return (
+                          <tr key={i} className={cn('border-t border-border/20', !hasEmail && 'bg-red-500/5')}>
+                            <td className="px-3 py-2 text-muted-foreground">{i + 2}</td>
+                            <td className="px-3 py-2 font-medium">{r.name || <span className="text-muted-foreground italic">blank</span>}</td>
+                            <td className={cn('px-3 py-2', !hasEmail && 'text-red-500 font-semibold')}>{r.email || 'MISSING'}</td>
+                            <td className="px-3 py-2">{r.role || <span className="text-yellow-500">{staffImportDefaultRole} (default)</span>}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{r.department || '—'}</td>
+                            <td className="px-3 py-2">{hasEmail ? <span className="text-green-500">Ready</span> : <span className="text-red-500">Skip</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between gap-3 p-4 border-t border-border shrink-0">
+                  <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setStaffImportStep('upload')}>← Back</button>
+                  <Button size="sm" onClick={runStaffImport}>
+                    Send {staffImportRows.filter(r => r.email?.trim()).length} Invites
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Result step */}
+            {staffImportStep === 'result' && staffImportResult && (
+              <div className="p-6 space-y-4">
+                {staffImportProgress < 100 && (
+                  <div className="space-y-2">
+                    <p className="text-sm">Sending invites…</p>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${staffImportProgress}%` }} />
+                    </div>
+                  </div>
+                )}
+                {staffImportProgress === 100 && (
+                  <>
+                    <div className="flex gap-4">
+                      <div className="flex-1 text-center p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                        <p className="text-2xl font-bold text-green-500">{staffImportResult.sent}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Invites Sent</p>
+                      </div>
+                      <div className="flex-1 text-center p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                        <p className="text-2xl font-bold text-red-500">{staffImportResult.failed.length}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Failed / Skipped</p>
+                      </div>
+                    </div>
+                    {staffImportResult.failed.length > 0 && (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {staffImportResult.failed.map((f, i) => (
+                          <div key={i} className="flex gap-2 text-xs p-2 rounded bg-red-500/5 border border-red-500/10">
+                            <span className="text-muted-foreground">Row {f.row}</span>
+                            <span className="font-medium">{f.email || 'no email'}</span>
+                            <span className="text-red-400 ml-auto">{f.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button className="w-full" onClick={() => { setShowStaffImport(false); setStaffImportStep('upload'); setStaffImportRows([]); setStaffImportResult(null); fetchTeam(); }}>
+                      Done
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {limitBanner && (
         <LimitBanner
           type={limitBanner.type}

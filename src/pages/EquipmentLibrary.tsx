@@ -163,6 +163,39 @@ function TypeSummary({ equipment }: { equipment: Equipment[] }) {
   );
 }
 
+// Normalize ERP equipment type strings to our known type slugs
+const EQ_TYPE_ALIASES: Record<string, string> = {
+  'boiler': 'boiler', 'steam boiler': 'boiler', 'hot water boiler': 'boiler',
+  'chiller': 'chiller', 'water chiller': 'chiller',
+  'ahu': 'ahu', 'air handler': 'ahu', 'air handling unit': 'ahu', 'hvac unit': 'ahu', 'hvac': 'ahu',
+  'cooling tower': 'cooling_tower',
+  'pump': 'pump', 'centrifugal pump': 'pump', 'circulator pump': 'pump',
+  'compressor': 'compressor', 'air compressor': 'compressor',
+  'generator': 'generator', 'diesel generator': 'generator', 'standby generator': 'generator',
+  'ups': 'ups', 'uninterruptible power': 'ups',
+  'transformer': 'transformer',
+  'fan': 'fan', 'exhaust fan': 'fan', 'supply fan': 'fan',
+  'heat exchanger': 'heat_exchanger',
+  'water heater': 'hot_water_heater', 'hot water heater': 'hot_water_heater',
+  'conveyor': 'conveyor',
+  'refrigerator': 'refrigerator', 'fridge': 'refrigerator',
+  'printer': 'printer', 'laser printer': 'printer',
+  'computer': 'desktop_computer', 'desktop': 'desktop_computer', 'pc': 'desktop_computer',
+  'laptop': 'laptop', 'notebook': 'laptop',
+  'server': 'server',
+  'pos': 'pos_terminal', 'register': 'pos_terminal', 'point of sale': 'pos_terminal',
+  'walk in cooler': 'walk_in_cooler', 'walk-in cooler': 'walk_in_cooler',
+  'walk in freezer': 'walk_in_freezer', 'walk-in freezer': 'walk_in_freezer',
+  'floor scrubber': 'floor_scrubber', 'auto scrubber': 'floor_scrubber',
+  'fire extinguisher': 'other', 'extinguisher': 'other',
+};
+
+function normalizeEquipmentType(raw: string): string {
+  if (!raw) return 'other';
+  const key = raw.toLowerCase().trim().replace(/_/g, ' ');
+  return EQ_TYPE_ALIASES[key] || raw.toLowerCase().replace(/\s+/g, '_') || 'other';
+}
+
 export default function EquipmentLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1072,29 +1105,49 @@ export default function EquipmentLibrary() {
           'purchasePrice', 'replacementCost', 'warrantyExpiry', 'status', 'notes',
         ]}
         fields={[
-          { key: 'equipmentName', label: 'Equipment Name', required: true },
-          { key: 'equipmentType', label: 'Equipment Type', required: true },
-          { key: 'manufacturer', label: 'Manufacturer' },
-          { key: 'model', label: 'Model' },
-          { key: 'serialNumber', label: 'Serial Number' },
-          { key: 'assetTag', label: 'Asset Tag' },
-          { key: 'assetNumber', label: 'Asset Number' },
-          { key: 'location', label: 'Location' },
-          { key: 'building', label: 'Building' },
-          { key: 'installDate', label: 'Install Date' },
-          { key: 'purchasePrice', label: 'Purchase Price' },
-          { key: 'replacementCost', label: 'Replacement Cost' },
-          { key: 'warrantyExpiry', label: 'Warranty Expiry' },
-          { key: 'status', label: 'Status' },
-          { key: 'notes', label: 'Notes' },
+          { key: 'equipmentName', label: 'Equipment Name', required: true,
+            aliases: ['asset name', 'asset description', 'description', 'item name', 'name', 'assetname', 'asset', 'equipment'] },
+          { key: 'equipmentType', label: 'Equipment Type', defaultValue: 'other',
+            aliases: ['asset type', 'category', 'type', 'asset category', 'class', 'assettype', 'equipmentcategory'] },
+          { key: 'manufacturer', label: 'Manufacturer',
+            aliases: ['make', 'brand', 'mfr', 'vendor', 'mfg'] },
+          { key: 'model', label: 'Model',
+            aliases: ['model number', 'model no', 'modelno', 'model#', 'part number', 'partno'] },
+          { key: 'serialNumber', label: 'Serial Number',
+            aliases: ['serial', 'serial no', 'sn', 's/n', 'serial#', 'serialno'] },
+          { key: 'assetTag', label: 'Asset Tag',
+            aliases: ['tag', 'asset tag number', 'barcode', 'tag number', 'assettag'] },
+          { key: 'assetNumber', label: 'Asset Number',
+            aliases: ['asset no', 'asset id', 'assetid', 'asset#', 'id'] },
+          { key: 'location', label: 'Location',
+            aliases: ['room', 'area', 'zone', 'floor', 'site', 'facility', 'building location', 'placed at'] },
+          { key: 'building', label: 'Building',
+            aliases: ['building name', 'bldg', 'structure', 'facility name'] },
+          { key: 'installDate', label: 'Install Date',
+            aliases: ['installation date', 'installed', 'date installed', 'placed in service', 'in service date', 'service date'] },
+          { key: 'purchasePrice', label: 'Purchase Price',
+            aliases: ['cost', 'price', 'acquisition cost', 'purchase cost', 'original cost', 'cost basis'] },
+          { key: 'replacementCost', label: 'Replacement Cost',
+            aliases: ['replacement value', 'insured value', 'current replacement cost'] },
+          { key: 'warrantyExpiry', label: 'Warranty Expiry',
+            aliases: ['warranty end', 'warranty expiration', 'warranty date', 'warranty expires'] },
+          { key: 'status', label: 'Status', defaultValue: 'active',
+            aliases: ['condition', 'state', 'asset status', 'operational status'] },
+          { key: 'notes', label: 'Notes',
+            aliases: ['comments', 'remarks', 'description', 'memo', 'note'] },
         ]}
         onImportRow={async (row) => {
           try {
+            // Derive a name if the ERP had none but has manufacturer+model
+            const resolvedName = row.equipmentName
+              || [row.manufacturer, row.model].filter(Boolean).join(' ')
+              || 'Imported Asset';
+            const resolvedType = normalizeEquipmentType(row.equipmentType);
             await apiRequest('/equipment', {
               method: 'POST',
               body: JSON.stringify({
-                equipmentName: row.equipmentName,
-                equipmentType: row.equipmentType,
+                equipmentName: resolvedName,
+                equipmentType: resolvedType,
                 manufacturer: row.manufacturer || '',
                 model: row.model || '',
                 serialNumber: row.serialNumber || undefined,

@@ -18,6 +18,10 @@ export interface ImportField {
   key: string;
   label: string;
   required?: boolean;
+  /** Used when the column is unmapped or blank — prevents row rejection */
+  defaultValue?: string;
+  /** Extra column aliases to match during auto-mapping (ERP field names, etc.) */
+  aliases?: string[];
 }
 
 export interface ImportResult {
@@ -108,14 +112,13 @@ export function ImportModal({
     try { return JSON.parse(localStorage.getItem(storageKey + '_history') || '[]'); } catch { return []; }
   });
 
-  // auto-map columns by matching header names case-insensitively
+  // auto-map columns by matching header names case-insensitively + aliases
   const autoMap = useCallback((headers: string[]) => {
     const m: Record<string, string> = {};
+    const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, '');
     fields.forEach(f => {
-      const match = headers.find(h =>
-        h.toLowerCase().replace(/[\s_]/g, '') === f.key.toLowerCase().replace(/[\s_]/g, '') ||
-        h.toLowerCase() === f.label.toLowerCase()
-      );
+      const candidates = [f.key, f.label, ...(f.aliases || [])].map(norm);
+      const match = headers.find(h => candidates.includes(norm(h)));
       if (match) m[f.key] = match;
     });
     return m;
@@ -145,14 +148,15 @@ export function ImportModal({
 
     for (let i = 0; i < fileRows.length; i++) {
       const raw = fileRows[i];
-      // build row using mapping
+      // build row using mapping; fall back to defaultValue when blank
       const row: Record<string, string> = {};
       fields.forEach(f => {
         const col = mapping[f.key];
-        row[f.key] = col ? (raw[col] ?? '').trim() : '';
+        const val = col ? (raw[col] ?? '').trim() : '';
+        row[f.key] = val || f.defaultValue || '';
       });
 
-      // required field validation
+      // required field validation — only block if no defaultValue saved us
       const missing = fields.filter(f => f.required && !row[f.key]);
       if (missing.length) {
         errors.push({ row: i + 2, reason: `Missing required: ${missing.map(f => f.label).join(', ')}`, data: row });
