@@ -1052,10 +1052,10 @@ export default function RetailDashboard() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Wrench className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold">Service Tech Intelligence</h1>
-              <Badge variant="outline" className="border-primary/30 text-primary text-xs">FIELD OPS</Badge>
+              <h1 className="text-2xl font-bold">Service & Vendor Intelligence</h1>
+              <Badge variant="outline" className="border-primary/30 text-primary text-xs">OPERATIONS</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">Field Operations · Work Orders · Vendor Performance</p>
+            <p className="text-sm text-muted-foreground">Work Orders · Vendor Performance · Field Operations</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate('/pricing')}>

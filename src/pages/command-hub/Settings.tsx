@@ -29,7 +29,7 @@ import { TierGate } from '@/components/TierGate';
 const ADMIN_ROLES      = ['admin'];
 const EXECUTIVE_ROLES  = ['admin', 'executive'];
 const MANAGER_ROLES    = ['admin', 'executive', 'manager'];
-const LEADERSHIP_ROLES = ['admin', 'executive', 'manager', 'supervisor'];
+const LEADERSHIP_ROLES = ['admin', 'executive', 'director', 'manager', 'supervisor', 'compliance_officer'];
 const ALL_ROLES        = ['admin', 'executive', 'manager', 'supervisor', 'engineer', 'operator', 'technician', 'custodian'];
 
 function can(userRole: string, roles: string[]) {
@@ -46,7 +46,7 @@ const ALL_TABS = [
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
   { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard, access: EXECUTIVE_ROLES },
-  { id: 'compliance',    label: 'Compliance Types',  icon: Shield,     access: MANAGER_ROLES },
+  { id: 'compliance',    label: 'Compliance Types',  icon: Shield,     access: LEADERSHIP_ROLES },
   { id: 'integration',   label: 'Integrations',     icon: Zap,        access: ADMIN_ROLES },
   { id: 'data',          label: 'Data & Backup',    icon: Database,   access: ADMIN_ROLES },
 ];

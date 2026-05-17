@@ -378,7 +378,7 @@ const KPICard = ({ label, value, icon: Icon, accent, sub }: { label: string; val
 export default function OperationCenter() {
   const { isAuthenticated, loading, user } = useAuth();
   const { toast } = useToast();
-  const { can } = useTier();
+  const { can, isAdmin } = useTier();
   const [data, setData] = useState<OperationCenterData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -446,6 +446,28 @@ export default function OperationCenter() {
 
 
   if (loading)            return <NexumPageLoader message="Authenticating..." />;
+
+  // Tier gate — show upgrade prompt instead of a raw API auth error
+  if (!isAdmin && !can('operations_center')) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 px-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Radio className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold">Operation Center</h2>
+          <p className="text-muted-foreground max-w-md">
+            The Operation Center provides a real-time facility-wide view — equipment status, work orders, compliance, personnel, and AI probability feeds.
+            Available on the <strong>Business</strong> plan and above.
+          </p>
+          <Button onClick={() => window.location.href = '/pricing'} className="mt-2">
+            View Plans &amp; Upgrade
+          </Button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (error && !data)     return <NexumError message={error} onRetry={fetchData} />;
   if (isLoading && !data) return (
     <MainLayout>
