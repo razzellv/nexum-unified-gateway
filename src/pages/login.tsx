@@ -8,6 +8,8 @@ import {
   cognitoConfirmPassword,
 } from '@/auth/cognitoClient';
 
+const ADMIN_DOMAINS = ['nexumsuum.com', 'nexumsuum-facilityintelligence.com'];
+
 type LoginView = 'login' | 'forgot' | 'reset';
 
 export default function Login() {
@@ -98,6 +100,14 @@ export default function Login() {
     setError(''); setLoading(true);
     try {
       await cognitoSignIn(email.trim(), password);
+      // Admin domains always go straight to the app
+      const emailDomain = email.trim().split('@')[1]?.toLowerCase() || '';
+      const isAdminEmail = ADMIN_DOMAINS.includes(emailDomain);
+      if (isAdminEmail) {
+        navigate('/');
+        return;
+      }
+
       // Check for pending plan checkout
       const pendingPlan    = sessionStorage.getItem('nexum_pending_plan');
       const pendingPilot   = sessionStorage.getItem('nexum_pending_pilot');

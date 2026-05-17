@@ -988,6 +988,7 @@ export default function RetailDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isAdmin = user?.role === 'admin';
 
   // KPI state
   const [kpis, setKpis] = useState(() => {
@@ -1057,11 +1058,13 @@ export default function RetailDashboard() {
             </div>
             <p className="text-sm text-muted-foreground">Work Orders · Vendor Performance · Field Operations</p>
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate('/pricing')}>
-              <TrendingUp className="w-4 h-4 mr-2" />Upgrade to Pro
-            </Button>
-          </div>
+          {!isAdmin && (
+            <div className="flex gap-2">
+              <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate('/pricing')}>
+                <TrendingUp className="w-4 h-4 mr-2" />Upgrade to Pro
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* ── KPI Strip ── */}
@@ -1115,8 +1118,8 @@ export default function RetailDashboard() {
           </TabsContent>
         </Tabs>
 
-        {/* ── Tier Upgrade Banner ── */}
-        <Card className="bg-card border-border border-primary/20">
+        {/* ── Tier Upgrade Banner — hidden for admin ── */}
+        {!isAdmin && <Card className="bg-card border-border border-primary/20">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -1149,7 +1152,7 @@ export default function RetailDashboard() {
               </Button>
             </CardContent>
           )}
-        </Card>
+        </Card>}
 
       </div>
     </MainLayout>
