@@ -23,6 +23,8 @@ import { toast } from '@/hooks/use-toast';
 import { logComplianceEvent } from '@/lib/nexum-api';
 import { violationTypeConfigs } from '@/data/mockData';
 import { loadCustomViolations, customToConfig } from '@/lib/customViolations';
+import { NotifySelect } from '@/components/compliance/NotifySelect';
+import type { NotifyRecipient } from '@/components/compliance/NotifySelect';
 
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
 
@@ -760,6 +762,7 @@ export default function Compliance() {
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
 
   const [otherTypeNotes, setOtherTypeNotes] = useState('');
+  const [notifyRecipients, setNotifyRecipients] = useState<NotifyRecipient[]>(['all_leaders']);
 
   // Build orgType-filtered, subcategory-grouped violation types (built-in + custom)
   const orgViolationGroups = useMemo(() => {
@@ -811,6 +814,7 @@ export default function Compliance() {
           correctiveAction: data.correctiveAction,
           policyReference:  data.policyReference,
           timestamp:        new Date().toISOString(),
+          notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
         }),
       }).catch(() => {}); // fire-and-forget if endpoint unavailable
 
@@ -852,6 +856,7 @@ export default function Compliance() {
         equipmentId: data.equipmentId,
         equipmentType: data.equipmentType,
         notes: `Scheduled: ${data.scheduledDate}. ${!data.completedOnTime ? 'LATE: ' + data.missedReason : 'On time'}`,
+        notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
       };
       const response = await logComplianceEvent(payload);
       const virtuousScore = response?.employeeScores?.virtuousScore;
@@ -877,6 +882,7 @@ export default function Compliance() {
         equipmentType: data.equipmentType,
         notes: `Hazard: ${data.hazardType}. Action: ${data.actionTaken}`,
         correctiveAction: data.actionTaken,
+        notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
       };
       const response = await logComplianceEvent(payload);
       const virtuousScore = response?.employeeScores?.virtuousScore;
@@ -1046,6 +1052,11 @@ export default function Compliance() {
                       </div>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Send Notification To</Label>
+                    <NotifySelect value={notifyRecipients} onChange={setNotifyRecipients} orgType={orgType} />
+                    <p className="text-[11px] text-muted-foreground">Selected leaders will be notified when this entry is submitted.</p>
+                  </div>
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-destructive hover:bg-destructive/90">
                     <Scale className="w-4 h-4 mr-2" />
                     {isSubmitting ? 'Logging Violation...' : 'Log Violation Entry'}
@@ -1078,6 +1089,11 @@ export default function Compliance() {
                     {!pmForm.watch('completedOnTime') && (
                       <Textarea {...pmForm.register('missedReason')} placeholder="Reason for delay..." rows={2} />
                     )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Send Notification To</Label>
+                    <NotifySelect value={notifyRecipients} onChange={setNotifyRecipients} orgType={orgType} />
+                    <p className="text-[11px] text-muted-foreground">Selected leaders will be notified when this entry is submitted.</p>
                   </div>
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-green-600 hover:bg-green-700">
                     <ClipboardCheck className="w-4 h-4 mr-2" />
@@ -1113,6 +1129,11 @@ export default function Compliance() {
                       <Label>Action Taken *</Label>
                       <Textarea {...safetyForm.register('actionTaken', { required: true })} placeholder="Corrective/preventive action..." rows={3} />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Send Notification To</Label>
+                    <NotifySelect value={notifyRecipients} onChange={setNotifyRecipients} orgType={orgType} />
+                    <p className="text-[11px] text-muted-foreground">Selected leaders will be notified when this entry is submitted.</p>
                   </div>
                   <Button type="submit" disabled={isSubmitting} size="lg" className="w-full bg-primary hover:bg-primary/90">
                     <ShieldAlert className="w-4 h-4 mr-2" />

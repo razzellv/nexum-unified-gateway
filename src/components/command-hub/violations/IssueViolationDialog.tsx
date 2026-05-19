@@ -10,6 +10,7 @@ import { ViolationType, ViolationTypeConfig, ComplianceCategory, Violation } fro
 import { mockEmployees, mockTasks } from '@/data/mockData';
 import { loadCustomViolations } from '@/lib/customViolations';
 import { ViolationTypeSelect } from './ViolationTypeSelect';
+import { NotifySelect, type NotifyRecipient } from '@/components/compliance/NotifySelect';
 import { cn } from '@/lib/utils';
 import { getSeverityColor, getSeverityBgColor } from '@/lib/command-hub/violationService';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +61,7 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
   const [staffInvolved,   setStaffInvolved]   = useState('');
   const [correctiveAction,setCorrectiveAction]= useState('');
   const [workOrderId,     setWorkOrderId]     = useState('');
+  const [notifyRecipients, setNotifyRecipients] = useState<NotifyRecipient[]>(['all_leaders']);
   const [submitting,      setSubmitting]      = useState(false);
 
   const isOther  = violationType === 'other_custom';
@@ -82,6 +84,7 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
     setEmployeeId(''); setViolationType(''); setOtherNotes(''); setCategory('operational');
     setSeverityScore(5); setWeightFactor('1'); setDescription('');
     setLocation(''); setStaffInvolved(''); setCorrectiveAction(''); setWorkOrderId('');
+    setNotifyRecipients(['all_leaders']);
   };
 
   const handleSubmit = async () => {
@@ -108,6 +111,7 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
       issuedBy:         user?.email || 'Current User',
       issuedByRole:     'supervisor' as const,
       timestamp:        new Date().toISOString(),
+      notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
     };
 
     setSubmitting(true);
@@ -279,6 +283,19 @@ export function IssueViolationDialog({ open, onOpenChange, onSubmit, orgType = '
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Notify */}
+          <div className="space-y-2">
+            <Label>Send Notification To</Label>
+            <NotifySelect
+              value={notifyRecipients}
+              onChange={setNotifyRecipients}
+              orgType={orgType}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Leaders will be notified of this violation when submitted.
+            </p>
           </div>
 
           {/* Description */}
