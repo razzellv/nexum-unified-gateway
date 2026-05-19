@@ -200,6 +200,9 @@ deploy_lambda "nexum-fi-users" "fi-users.mjs" "fi-users-role" \
 deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
   "LEADS_TABLE=NexumLeads,SES_FROM_EMAIL=info@nexumsuum-facilityintelligence.com,ADMIN_EMAIL=razzellv@nexumsuum.com"
 
+deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-equipment-role" \
+  "ONBOARDING_TABLE=NexumOnboardingRecords"
+
 echo ""
 echo "3/4  API Gateway Routes"
 echo "     (existing routes updated in-place; new ones created)"
@@ -264,6 +267,12 @@ add_route "PATCH /users/{userId}"        "nexum-fi-users"           "jwt"
 
 # Intake — public, no JWT
 add_route "POST /intake"                 "nexum-fi-intake"          "none"
+
+# Onboarding tracker
+add_route "GET  /onboarding"                         "nexum-fi-onboarding"  "jwt"
+add_route "POST /onboarding"                         "nexum-fi-onboarding"  "jwt"
+add_route "GET  /onboarding/all"                     "nexum-fi-onboarding"  "jwt"
+add_route "POST /onboarding/{facilityId}/milestone"  "nexum-fi-onboarding"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"

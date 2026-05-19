@@ -930,6 +930,148 @@ function PilotApplications() {
   );
 }
 
+// ── Onboarding Tracker ───────────────────────────────────────────────────────
+const STATUS_COLORS: Record<string, string> = {
+  in_progress: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  complete:    'bg-green-500/10 text-green-400 border-green-500/20',
+  pending:     'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+};
+
+function OnboardingTracker() {
+  const [records, setRecords]       = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [actionNote, setActionNote] = useState('');
+
+  const hdrs = (() => {
+    const t = localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+    return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+  })();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/onboarding/all`, { headers: hdrs });
+      if (res.ok) {
+        const d = await res.json();
+        const sorted = (d.records || []).sort((a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setRecords(sorted);
+      }
+    } catch { /* network error */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleMilestone = async (facilityId: string, milestoneId: string, done: boolean) => {
+    await fetch(`${API_BASE}/onboarding/${facilityId}/milestone`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ milestoneId, done }),
+    });
+    load();
+  };
+
+  if (loading) return <div className="text-sm text-muted-foreground py-8 text-center">Loading onboarding records…</div>;
+
+  if (records.length === 0) {
+    return (
+      <div className="text-center py-12 text-sm text-muted-foreground border border-dashed rounded-xl">
+        No onboarding records yet. Records are created automatically when a pilot user first logs in.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-semibold">Active Onboarding Clients ({records.length})</h2>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={load}>Refresh</Button>
+      </div>
+      {records.map(r => {
+        const completed = (r.milestones || []).filter((m: any) => m.done).length;
+        const total     = (r.milestones || []).length || 8;
+        const pct       = r.progress ?? Math.round((completed / total) * 100);
+        const isOpen    = expanded === r.facilityId;
+
+        return (
+          <Card key={r.facilityId} className="bg-card border-border">
+            <button
+              className="w-full text-left px-4 py-3 flex items-center justify-between gap-3"
+              onClick={() => setExpanded(isOpen ? null : r.facilityId)}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-primary">{(r.orgName || r.email || '?')[0].toUpperCase()}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{r.orgName || r.email}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{r.email} · {r.orgType} · {r.type}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="hidden sm:flex flex-col items-end gap-0.5">
+                  <span className="text-xs font-medium">{pct}%</span>
+                  <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+                <Badge className={cn('text-[10px] border', STATUS_COLORS[r.status] || STATUS_COLORS.in_progress)}>
+                  {r.status?.replace('_', ' ')}
+                </Badge>
+              </div>
+            </button>
+
+            {isOpen && (
+              <CardContent className="px-4 pb-4 pt-0 space-y-3 border-t border-border/30">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 text-xs text-muted-foreground">
+                  <div><span className="block text-[10px] uppercase tracking-wider mb-0.5">Started</span>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</div>
+                  <div><span className="block text-[10px] uppercase tracking-wider mb-0.5">Type</span>{r.type}</div>
+                  <div><span className="block text-[10px] uppercase tracking-wider mb-0.5">Milestones</span>{completed}/{total}</div>
+                  <div><span className="block text-[10px] uppercase tracking-wider mb-0.5">Last Update</span>{r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '—'}</div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Milestones</p>
+                  {(r.milestones || []).map((m: any) => (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleMilestone(r.facilityId, m.id, !m.done)}
+                        className={cn(
+                          'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                          m.done ? 'bg-green-500/20 border-green-500/40' : 'border-border/50 hover:border-primary/50',
+                        )}
+                      >
+                        {m.done && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+                      </button>
+                      <span className={cn('text-xs', m.done ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                        {m.label}
+                      </span>
+                      {m.doneAt && <span className="text-[10px] text-muted-foreground ml-auto">{new Date(m.doneAt).toLocaleDateString()}</span>}
+                    </div>
+                  ))}
+                </div>
+
+                {r.notes && (
+                  <div className="text-xs bg-muted/30 rounded-lg p-2 text-muted-foreground">
+                    <span className="font-semibold text-foreground">Notes: </span>{r.notes}
+                  </div>
+                )}
+
+                <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+                  Email {r.email} →
+                </a>
+              </CardContent>
+            )}
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function NexumWorkspace() {
@@ -1016,9 +1158,10 @@ export default function NexumWorkspace() {
               { value: 'clients',   label: 'Client Accounts'   },
               { value: 'fias',      label: 'FIAS Assessments'  },
               { value: 'pipeline',  label: 'Lead Pipeline'     },
-              { value: 'pilots',    label: 'Pilot Applications'},
-              { value: 'tools',     label: 'Tools & Resources' },
-              { value: 'notes',     label: 'Notes'             },
+              { value: 'pilots',     label: 'Pilot Applications' },
+              { value: 'onboarding', label: 'Onboarding Tracker' },
+              { value: 'tools',      label: 'Tools & Resources'  },
+              { value: 'notes',      label: 'Notes'              },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value}
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
@@ -1127,6 +1270,11 @@ export default function NexumWorkspace() {
           {/* ── Pilot Applications ── */}
           <TabsContent value="pilots" className="mt-4">
             <PilotApplications />
+          </TabsContent>
+
+          {/* ── Onboarding Tracker ── */}
+          <TabsContent value="onboarding" className="mt-4">
+            <OnboardingTracker />
           </TabsContent>
 
           {/* ── Tools & Resources ── */}

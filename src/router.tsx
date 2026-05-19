@@ -78,6 +78,7 @@ import OperationalIntelligence from "./pages/OperationalIntelligence";
 import OSHA300Log from "./pages/OSHA300Log";
 import EnvironmentalMonitoring from "./pages/EnvironmentalMonitoring";
 import ConsultingServices from "./pages/ConsultingServices";
+import OnboardingStatus from "./pages/OnboardingStatus";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -382,6 +383,10 @@ export const router = createBrowserRouter([
           {
             path: "consulting",
             element: <ConsultingServices />,
+          },
+          {
+            path: "onboarding-status",
+            element: <OnboardingStatus />,
           },
         ],
       },

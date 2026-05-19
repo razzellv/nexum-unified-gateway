@@ -24,7 +24,7 @@ import {
   TrendingUp,
   LogOut,
   GraduationCap, ShoppingCart, Shield,
-  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase,
+  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -59,7 +59,8 @@ type NavItem = {
 };
 
 const allNavItems: NavItem[] = [
-  { name: 'Main Hub', href: '/', icon: Home, access: 'all' },
+  { name: 'Main Hub',          href: '/',                   icon: Home,    access: 'all' },
+  { name: 'Onboarding Status', href: '/onboarding-status',  icon: Rocket,  access: 'all' },
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
   { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
