@@ -28,7 +28,21 @@ interface DepartmentBudget { department: string; annualBudget: string; monthlyBu
 // Legacy fallback; actual roles derived from orgType at render time
 const ROLES = ['operator', 'technician', 'engineer', 'custodian', 'supervisor', 'manager', 'executive'];
 const EQUIPMENT_TYPES = ['boiler', 'chiller', 'pump', 'ahu', 'cooling_tower', 'fan', 'compressor', 'vav', 'heat_exchanger'];
-const FACILITY_TYPES = ['commercial_office', 'healthcare', 'education', 'industrial', 'residential', 'retail', 'hospitality', 'government'];
+const FACILITY_TYPES = ['commercial_office', 'healthcare', 'education_university', 'education_k12', 'industrial', 'manufacturing', 'residential', 'hospitality', 'data_center', 'government', 'other'];
+
+const FACILITY_TYPE_LABELS: Record<string, string> = {
+  commercial_office:    'Commercial / Office',
+  healthcare:           'Healthcare / Medical',
+  education_university: 'University / Higher Education',
+  education_k12:        'K-12 School / School District',
+  industrial:           'Industrial / Warehouse',
+  manufacturing:        'Manufacturing / Production',
+  residential:          'Residential / Multi-family',
+  hospitality:          'Hotel / Hospitality',
+  data_center:          'Data Center',
+  government:           'Government / Municipal',
+  other:                'Other',
+};
 const DEFAULT_DEPARTMENTS = ['Maintenance', 'Energy', 'Procurement', 'Operations', 'Safety & Compliance'];
 const FISCAL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -69,8 +83,8 @@ const APPARATUS_TYPES = ['engine', 'ladder', 'rescue', 'ambulance', 'hazmat', 't
 const ORG_TYPES = [
   {
     value: 'facility',
-    label: 'Facility',
-    description: 'Commercial, industrial, healthcare, or institutional facilities with equipment, compliance, and energy management needs.',
+    label: 'Facility / Institutional',
+    description: 'Commercial, industrial, healthcare, educational (universities, K-12), or institutional facilities — equipment, compliance, energy, and multi-building operations.',
     icon: Building2,
   },
   {
@@ -442,7 +456,7 @@ export default function Onboarding() {
                   <Select value={org.facilityType} onValueChange={v => setOrg({ ...org, facilityType: v })}>
                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
-                      {FACILITY_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
+                      {FACILITY_TYPES.map(t => <SelectItem key={t} value={t}>{FACILITY_TYPE_LABELS[t] ?? t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

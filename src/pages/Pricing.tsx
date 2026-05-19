@@ -1023,8 +1023,12 @@ function PilotModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                   <SelectContent>
                     <SelectItem value="facility_manager">Facility Manager</SelectItem>
                     <SelectItem value="operations_director">Operations Director</SelectItem>
+                    <SelectItem value="facilities_director">Facilities Director</SelectItem>
+                    <SelectItem value="campus_operations">Campus / University Operations</SelectItem>
                     <SelectItem value="property_owner">Property Owner</SelectItem>
                     <SelectItem value="retail_owner">Retail Owner/Operator</SelectItem>
+                    <SelectItem value="chief_engineer">Chief Engineer</SelectItem>
+                    <SelectItem value="maintenance_supervisor">Maintenance Supervisor</SelectItem>
                     <SelectItem value="it_admin">IT / Systems Admin</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
