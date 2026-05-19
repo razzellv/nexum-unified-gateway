@@ -125,7 +125,7 @@ add_route() {
 # ══════════════════════════════════════════════════════════════════════════════
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -165,6 +165,9 @@ aws iam put-role-policy --role-name fi-users-role --policy-name policy \
 aws iam put-role-policy --role-name fi-intake-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumLeads\"},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
@@ -200,7 +203,7 @@ deploy_lambda "nexum-fi-users" "fi-users.mjs" "fi-users-role" \
 deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
   "LEADS_TABLE=NexumLeads,SES_FROM_EMAIL=info@nexumsuum-facilityintelligence.com,ADMIN_EMAIL=razzellv@nexumsuum.com"
 
-deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-equipment-role" \
+deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-onboarding-role" \
   "ONBOARDING_TABLE=NexumOnboardingRecords"
 
 echo ""
@@ -269,9 +272,9 @@ add_route "PATCH /users/{userId}"        "nexum-fi-users"           "jwt"
 add_route "POST /intake"                 "nexum-fi-intake"          "none"
 
 # Onboarding tracker
-add_route "GET  /onboarding"                         "nexum-fi-onboarding"  "jwt"
+add_route "GET /onboarding"                          "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding"                         "nexum-fi-onboarding"  "jwt"
-add_route "GET  /onboarding/all"                     "nexum-fi-onboarding"  "jwt"
+add_route "GET /onboarding/all"                      "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding/{facilityId}/milestone"  "nexum-fi-onboarding"  "jwt"
 
 echo ""
@@ -300,4 +303,6 @@ echo "  DELETE /violations/{id}   /work-orders/{id}  /inventory/{id}"
 echo "  DELETE /equipment/{id}    /vvfi/{id}          /messages/{id}"
 echo "  DELETE /audit-reports/{id}"
 echo "  POST   /work-orders/{id}/notes"
+echo "  GET    /onboarding         /onboarding/all"
+echo "  POST   /onboarding         /onboarding/{facilityId}/milestone"
 echo "═══════════════════════════════════════════════════"
