@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { CourseSelector } from "@/components/lms/CourseSelector";
 import { ModuleDashboard } from "@/components/lms/ModuleDashboard";
 import { ModuleViewer } from "@/components/lms/ModuleViewer";
 import { FinalExam } from "@/components/lms/FinalExam";
 import { CompletionCertificate } from "@/components/lms/CompletionCertificate";
-import { courses } from "@/data/lms/courses";
+import { courses as staticCourses } from "@/data/lms/courses";
 import { moduleContent } from "@/data/lms/moduleContent";
 import { hvacModuleContent } from "@/data/lms/hvacModuleContent";
 import { thermodynamicsModuleContent } from "@/data/lms/thermodynamicsModuleContent";
@@ -18,6 +18,9 @@ import { useLMSAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
+import type { Course } from "@/types/lms/course";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
@@ -39,9 +42,39 @@ const COURSE_CONTENT_MAP: Record<string, Record<number, any>> = {
 export default function Courses() {
   const { getCourseModules, getCourseProgress, loading: progressLoading, saveProgress, resetProgress } = useUserProgress();
   const { isReadOnly } = useLMSAuth();
-  const [currentView, setCurrentView]     = useState<View>("courses");
+  const [currentView, setCurrentView]           = useState<View>("courses");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+  const [apiCourses, setApiCourses]             = useState<Course[]>([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+    if (!token) return;
+    fetch(`${API_BASE}/courses`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.courses?.length) return;
+        const mapped: Course[] = data.courses.map((c: any) => ({
+          id:          c.courseId,
+          title:       c.title,
+          description: c.description || '',
+          modules:     (c.modules || []).map((m: any, i: number) => ({
+            id:          m.id ?? i + 1,
+            title:       m.title || `Module ${i + 1}`,
+            description: m.description || '',
+            duration:    m.duration || '',
+            objective:   m.objective || '',
+            completed:   false,
+            locked:      i > 0,
+          })),
+          _apiContent: c.modules,
+        }));
+        setApiCourses(mapped);
+      })
+      .catch(() => {});
+  }, []);
+
+  const courses = [...staticCourses, ...apiCourses.filter(a => !staticCourses.find(s => s.id === a.id))];
 
   const handleSelectCourse   = (courseId: string) => { setSelectedCourseId(courseId); setCurrentView("dashboard"); };
   const handleModuleSelect   = (moduleId: number) => { setSelectedModuleId(moduleId); setCurrentView("module"); };
@@ -128,7 +161,9 @@ export default function Courses() {
 
       case "module": {
         if (selectedModuleId === null || !selectedCourseId) return null;
-        const content = (COURSE_CONTENT_MAP[selectedCourseId] || {})[selectedModuleId];
+        const apiCourse  = apiCourses.find(c => c.id === selectedCourseId) as any;
+        const apiContent = apiCourse?._apiContent?.find((m: any) => (m.id ?? 0) === selectedModuleId);
+        const content    = (COURSE_CONTENT_MAP[selectedCourseId] || {})[selectedModuleId] ?? apiContent;
         if (!content) {
           return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">

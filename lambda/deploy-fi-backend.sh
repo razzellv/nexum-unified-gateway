@@ -122,10 +122,31 @@ add_route() {
   fi
 }
 
+# ── Helper: ensure DynamoDB table exists ──────────────────────────────────────
+ensure_table() {
+  local NAME=$1 KEY=$2
+  if aws dynamodb describe-table --table-name "$NAME" --region $REGION > /dev/null 2>&1; then
+    echo "  ✓ Table $NAME already exists"
+  else
+    aws dynamodb create-table \
+      --table-name "$NAME" \
+      --attribute-definitions "AttributeName=${KEY},AttributeType=S" \
+      --key-schema "AttributeName=${KEY},KeyType=HASH" \
+      --billing-mode PAY_PER_REQUEST \
+      --region $REGION > /dev/null
+    echo "  ✓ Table $NAME created"
+  fi
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
+echo "0/4  DynamoDB Tables"
+ensure_table "NexumOnboardingRecords" "facilityId"
+ensure_table "NexumCourses"           "courseId"
+echo ""
+
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -139,16 +160,16 @@ done
 
 # Scoped DynamoDB policies per Lambda
 aws iam put-role-policy --role-name fi-violations-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-work-orders-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-inventory-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumInventory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-equipment-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-vvfi-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIASAssessments\"}]}" > /dev/null
@@ -157,7 +178,7 @@ aws iam put-role-policy --role-name fi-messages-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages/index/*\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-audit-reports-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports/index/*\"]}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-users-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminGetUser\",\"cognito-idp:AdminUpdateUserAttributes\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]}]}" > /dev/null
@@ -168,13 +189,16 @@ aws iam put-role-policy --role-name fi-intake-role --policy-name policy \
 aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name fi-courses-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumCourses\"}]}" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
 sleep 12
 
 echo ""
-echo "2/4  Lambda Functions"
+echo "2/4  Lambda Functions (11 total)"
 
 deploy_lambda "nexum-fi-violations" "fi-violations.mjs" "fi-violations-role" \
   "VIOLATIONS_TABLE=ViolationEvents"
@@ -205,6 +229,9 @@ deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
 
 deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-onboarding-role" \
   "ONBOARDING_TABLE=NexumOnboardingRecords"
+
+deploy_lambda "nexum-fi-courses" "fi-courses.mjs" "fi-courses-role" \
+  "COURSES_TABLE=NexumCourses"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -276,6 +303,12 @@ add_route "GET /onboarding"                          "nexum-fi-onboarding"  "jwt
 add_route "POST /onboarding"                         "nexum-fi-onboarding"  "jwt"
 add_route "GET /onboarding/all"                      "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding/{facilityId}/milestone"  "nexum-fi-onboarding"  "jwt"
+
+# Courses (Optimize & Learn)
+add_route "GET /courses"           "nexum-fi-courses"  "jwt"
+add_route "POST /courses"          "nexum-fi-courses"  "jwt"
+add_route "PATCH /courses/{id}"    "nexum-fi-courses"  "jwt"
+add_route "DELETE /courses/{id}"   "nexum-fi-courses"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"

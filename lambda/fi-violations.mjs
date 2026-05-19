@@ -9,10 +9,35 @@
 
 import { DynamoDBClient }                          from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand,
-         PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+         PutCommand, UpdateCommand, DeleteCommand,
+         GetCommand }                              from "@aws-sdk/lib-dynamodb";
 
-const ddb   = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
-const TABLE = process.env.VIOLATIONS_TABLE || "ViolationEvents";
+const ddb              = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
+const TABLE            = process.env.VIOLATIONS_TABLE || "ViolationEvents";
+const ONBOARDING_TABLE = "NexumOnboardingRecords";
+
+async function markMilestone(fid, milestoneId) {
+  try {
+    const res    = await ddb.send(new GetCommand({ TableName: ONBOARDING_TABLE, Key: { facilityId: fid } }));
+    const record = res.Item;
+    if (!record) return;
+    if ((record.milestones || []).find(m => m.id === milestoneId)?.done) return;
+    const milestones = (record.milestones || []).map(m =>
+      m.id === milestoneId ? { ...m, done: true, doneAt: new Date().toISOString() } : m
+    );
+    const completed = milestones.filter(m => m.done).length;
+    const progress  = Math.round((completed / milestones.length) * 100);
+    await ddb.send(new UpdateCommand({
+      TableName:                 ONBOARDING_TABLE,
+      Key:                       { facilityId: fid },
+      UpdateExpression:          "SET milestones = :m, progress = :p, updatedAt = :u, #st = :s",
+      ExpressionAttributeNames:  { "#st": "status" },
+      ExpressionAttributeValues: { ":m": milestones, ":p": progress, ":u": new Date().toISOString(), ":s": progress === 100 ? "complete" : "in_progress" },
+    }));
+  } catch (err) {
+    console.error(`markMilestone(${milestoneId}):`, err.message);
+  }
+}
 
 function json(statusCode, body) {
   return {
@@ -143,6 +168,8 @@ export const handler = async (event) => {
       };
 
       await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+      markMilestone(fid, "first_violation").catch(() => {});
+      markMilestone(fid, "compliance_logged").catch(() => {});
       return json(200, { success: true, violationId: id, violation: mapItem(item, fid) });
     } catch (err) {
       console.error("POST /violations:", err);
