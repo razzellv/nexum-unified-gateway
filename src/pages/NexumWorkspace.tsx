@@ -15,7 +15,7 @@ import {
   ChevronRight, Activity, AlertCircle, CheckCircle2, Clock,
   PhoneCall, Plus, Trash2, RefreshCw, MailCheck, Trophy,
   XCircle, CalendarClock, Filter, ShieldCheck, Copy, ChevronDown,
-  ChevronUp, Crown, Globe, Gauge, Send, Mail,
+  ChevronUp, Crown, Globe, Gauge, Send, Mail, Calendar, Loader2,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -50,6 +50,21 @@ interface PilotApp {
   role: string; facilities: string; useCase: string; status: PilotStatus;
   pilotCode?: string; pilotTier?: string; adminNotes?: string;
   createdAt: string; approvedAt?: string;
+}
+
+interface Booking {
+  bookingId: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientOrg: string;
+  service: string;
+  scheduledDate: string;
+  timeSlot: string;
+  status: 'confirmed' | 'completed' | 'cancelled';
+  notes: string;
+  stripeSessionId: string;
+  createdAt: string;
 }
 
 interface ClientUser {
@@ -389,6 +404,194 @@ function FIASQuick() {
           and operational maturity. Results justify retainer proposals and build the VVFI client base.
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── Engagements (Booking Tracker) ─────────────────────────────────────────────
+
+const SLOT_LABELS: Record<string, string> = {
+  "09:00": "9:00 AM", "10:00": "10:00 AM", "11:00": "11:00 AM",
+  "13:00": "1:00 PM", "14:00": "2:00 PM",  "15:00": "3:00 PM",  "16:00": "4:00 PM",
+};
+
+const BOOKING_STATUS_META = {
+  confirmed:  { label: 'Confirmed',  color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
+  completed:  { label: 'Completed',  color: 'bg-green-500/15 text-green-400 border-green-500/30' },
+  cancelled:  { label: 'Cancelled',  color: 'bg-muted/40 text-muted-foreground border-border/40' },
+};
+
+function EngagementsTab() {
+  const [bookings, setBookings]       = useState<Booking[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('confirmed');
+  const [updating, setUpdating]       = useState<string | null>(null);
+  const [expanded, setExpanded]       = useState<string | null>(null);
+
+  const fetchBookings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/bookings/all`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookings(data.bookings || []);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  const updateStatus = async (id: string, status: string) => {
+    setUpdating(id);
+    try {
+      await fetch(`${API_BASE}/bookings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ status }),
+      });
+      setBookings(prev => prev.map(b => b.bookingId === id ? { ...b, status: status as any } : b));
+    } catch { /* silent */ }
+    setUpdating(null);
+  };
+
+  const filtered = statusFilter === 'all' ? bookings : bookings.filter(b => b.status === statusFilter);
+
+  const upcoming  = bookings.filter(b => b.status === 'confirmed' && b.scheduledDate >= new Date().toISOString().split('T')[0]).length;
+  const completed = bookings.filter(b => b.status === 'completed').length;
+  const revenue   = bookings.filter(b => b.status !== 'cancelled').length;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Upcoming',  value: upcoming,  color: 'text-blue-400' },
+          { label: 'Completed', value: completed, color: 'text-green-400' },
+          { label: 'Total Booked', value: revenue, color: 'text-primary' },
+        ].map(s => (
+          <Card key={s.label} className="bg-card/60 border-border/40">
+            <CardContent className="p-4 text-center">
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-3 justify-between flex-wrap">
+        <div className="flex gap-2">
+          {['confirmed','completed','cancelled','all'].map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                'px-3 py-1 rounded-full text-xs border transition-all capitalize',
+                statusFilter === s
+                  ? 'bg-primary/20 text-primary border-primary/40'
+                  : 'border-border/40 text-muted-foreground hover:border-primary/30'
+              )}
+            >{s === 'all' ? 'All' : s.charAt(0).toUpperCase()+s.slice(1)}</button>
+          ))}
+        </div>
+        <Button size="sm" variant="outline" onClick={fetchBookings} disabled={loading} className="text-xs gap-1.5">
+          <RefreshCw className={cn('w-3 h-3', loading && 'animate-spin')} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Bookings list */}
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">Loading bookings…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {statusFilter === 'all' ? 'No bookings yet.' : `No ${statusFilter} bookings.`}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(b => {
+            const meta = BOOKING_STATUS_META[b.status] || BOOKING_STATUS_META.confirmed;
+            const isExpanded = expanded === b.bookingId;
+            const isPast = b.scheduledDate < new Date().toISOString().split('T')[0];
+            return (
+              <Card key={b.bookingId} className={cn('bg-card/60 border-border/40 transition-all', isExpanded && 'border-primary/30')}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm truncate">{b.clientName}</p>
+                        <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border', meta.color)}>
+                          {meta.label}
+                        </span>
+                        {isPast && b.status === 'confirmed' && (
+                          <span className="text-xs text-yellow-400 border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 rounded">Past</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />{b.scheduledDate}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />{SLOT_LABELS[b.timeSlot] || b.timeSlot} EST
+                        </span>
+                        <span className="font-medium text-foreground/70">{b.service}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {b.status === 'confirmed' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7 px-2 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                          disabled={updating === b.bookingId}
+                          onClick={() => updateStatus(b.bookingId, 'completed')}
+                        >
+                          {updating === b.bookingId ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Mark Done'}
+                        </Button>
+                      )}
+                      {b.status !== 'cancelled' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7 px-2 text-muted-foreground hover:text-red-400"
+                          disabled={updating === b.bookingId}
+                          onClick={() => updateStatus(b.bookingId, 'cancelled')}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      <button
+                        onClick={() => setExpanded(isExpanded ? null : b.bookingId)}
+                        className="text-muted-foreground hover:text-foreground p-1"
+                      >
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-muted-foreground">Email: </span>{b.clientEmail}</div>
+                      <div><span className="text-muted-foreground">Phone: </span>{b.clientPhone || '—'}</div>
+                      <div><span className="text-muted-foreground">Organization: </span>{b.clientOrg || '—'}</div>
+                      <div><span className="text-muted-foreground">Booking ID: </span><span className="font-mono text-[10px]">{b.bookingId}</span></div>
+                      {b.notes && (
+                        <div className="col-span-2"><span className="text-muted-foreground">Notes: </span>{b.notes}</div>
+                      )}
+                      {b.stripeSessionId && (
+                        <div className="col-span-2"><span className="text-muted-foreground">Stripe: </span><span className="font-mono text-[10px]">{b.stripeSessionId}</span></div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1238,8 +1441,9 @@ export default function NexumWorkspace() {
               { value: 'fias',      label: 'FIAS Assessments'  },
               { value: 'pipeline',  label: 'Lead Pipeline'     },
               { value: 'pilots',     label: 'Pilot Applications' },
-              { value: 'onboarding', label: 'Onboarding Tracker' },
-              { value: 'tools',      label: 'Tools & Resources'  },
+              { value: 'onboarding',   label: 'Onboarding Tracker'  },
+              { value: 'engagements',  label: 'Engagements'          },
+              { value: 'tools',        label: 'Tools & Resources'    },
               { value: 'notes',      label: 'Notes'              },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value}
@@ -1354,6 +1558,11 @@ export default function NexumWorkspace() {
           {/* ── Onboarding Tracker ── */}
           <TabsContent value="onboarding" className="mt-4">
             <OnboardingTracker />
+          </TabsContent>
+
+          {/* ── Engagements ── */}
+          <TabsContent value="engagements" className="mt-4">
+            <EngagementsTab />
           </TabsContent>
 
           {/* ── Tools & Resources ── */}

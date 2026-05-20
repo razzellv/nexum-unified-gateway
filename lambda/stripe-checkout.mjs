@@ -54,15 +54,15 @@ export const handler = async (event) => {
   try {
     let raw = event.body || "{}";
     if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
-    const { lineItems, tier, successUrl, cancelUrl, allowPromotionCodes } = JSON.parse(raw);
+    const { lineItems, tier, successUrl, cancelUrl, allowPromotionCodes, mode: reqMode } = JSON.parse(raw);
 
     if (!lineItems || !lineItems.length) {
       return json(400, { message: "lineItems are required" });
     }
 
-    // Determine mode: payment if any item uses price_data, otherwise subscription
+    // mode priority: explicit request param → auto-detect (price_data = payment, else subscription)
     const hasCustomPriceData = lineItems.some(item => item.price_data);
-    const mode = hasCustomPriceData ? "payment" : "subscription";
+    const mode = reqMode || (hasCustomPriceData ? "payment" : "subscription");
 
     const sessionParams = {
       mode,

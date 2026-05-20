@@ -142,6 +142,7 @@ ensure_table() {
 echo "0/4  DynamoDB Tables"
 ensure_table "NexumOnboardingRecords" "facilityId"
 ensure_table "NexumCourses"           "courseId"
+ensure_table "NexumBookings"          "bookingId"
 echo ""
 
 echo "1/4  IAM Roles"
@@ -192,6 +193,27 @@ aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
 aws iam put-role-policy --role-name fi-courses-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumCourses\"}]}" > /dev/null
 
+echo "▶ Ensuring fi-bookings-role..."
+BOOKINGS_POLICY='{
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Effect":"Allow","Action":["dynamodb:PutItem","dynamodb:GetItem","dynamodb:UpdateItem","dynamodb:DeleteItem","dynamodb:Scan","dynamodb:Query"],"Resource":"arn:aws:dynamodb:us-east-2:758027491272:table/NexumBookings"},
+    {"Effect":"Allow","Action":["ses:SendEmail","ses:SendRawEmail"],"Resource":"*"},
+    {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":"*"}
+  ]
+}'
+if aws iam get-role --role-name "fi-bookings-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-bookings-role already exists"
+else
+  aws iam create-role --role-name "fi-bookings-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-bookings-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-bookings-role created"
+fi
+aws iam put-role-policy --role-name fi-bookings-role --policy-name policy \
+  --policy-document "$BOOKINGS_POLICY" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
@@ -232,6 +254,9 @@ deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-onboarding-role" \
 
 deploy_lambda "nexum-fi-courses" "fi-courses.mjs" "fi-courses-role" \
   "COURSES_TABLE=NexumCourses"
+
+deploy_lambda "nexum-fi-bookings" "fi-bookings.mjs" "fi-bookings-role" \
+  "ADMIN_EMAIL=razzellv@nexumsuum.com,FROM_EMAIL=no-reply@nexumsuum-facilityintelligence.com"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -309,6 +334,13 @@ add_route "GET /courses"           "nexum-fi-courses"  "jwt"
 add_route "POST /courses"          "nexum-fi-courses"  "jwt"
 add_route "PATCH /courses/{id}"    "nexum-fi-courses"  "jwt"
 add_route "DELETE /courses/{id}"   "nexum-fi-courses"  "jwt"
+
+# Bookings — public (no JWT)
+add_route "GET /bookings"          "nexum-fi-bookings"  "none"
+add_route "POST /bookings"         "nexum-fi-bookings"  "none"
+add_route "GET /bookings/all"      "nexum-fi-bookings"  "none"
+add_route "PATCH /bookings/{id}"   "nexum-fi-bookings"  "none"
+add_route "DELETE /bookings/{id}"  "nexum-fi-bookings"  "none"
 
 echo ""
 echo "4/4  Verify routes"

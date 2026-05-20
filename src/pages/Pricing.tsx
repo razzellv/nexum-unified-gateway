@@ -1386,7 +1386,7 @@ export default function Pricing() {
     setInquirySubmitting(false);
   };
 
-  const handleEngagementCheckout = async (priceId: string, label?: string) => {
+  const handleEngagementCheckout = async (priceId: string, label?: string, mode: 'payment' | 'subscription' = 'subscription') => {
     setEngageLoading(priceId);
     try {
       const token = localStorage.getItem('nexum_access_token');
@@ -1399,15 +1399,20 @@ export default function Pricing() {
         body: JSON.stringify({
           lineItems: [{ price: priceId, quantity: 1 }],
           tier: label || 'consulting',
+          mode,
           allowPromotionCodes: false,
           successUrl: `${window.location.origin}/welcome?service=${encodeURIComponent(label || 'consulting')}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/pricing`,
         }),
       });
       const data = await response.json();
-      if (data.url) window.location.href = data.url;
-    } catch (err) {
-      console.error('Engagement checkout error:', err);
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast({ title: 'Checkout error', description: data.error || 'Could not start checkout. Please try again.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Checkout error', description: err?.message || 'Network error. Please try again.', variant: 'destructive' });
     } finally {
       setEngageLoading(null);
     }
@@ -1572,7 +1577,7 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZHydDfw4bOR2dfHm9B15dn', 'Stormwater Audit')}>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZHydDfw4bOR2dfHm9B15dn', 'Stormwater Audit', 'payment')}>
                   {engageLoading === 'price_1TZHydDfw4bOR2dfHm9B15dn' ? 'Redirecting…' : 'Pay $2,400 Now'} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
@@ -1657,7 +1662,7 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI0cDfw4bOR2dfRHJKJDIJ', 'Tier II Audit')}>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI0cDfw4bOR2dfRHJKJDIJ', 'Tier II Audit', 'payment')}>
                   {engageLoading === 'price_1TZI0cDfw4bOR2dfRHJKJDIJ' ? 'Redirecting…' : 'Pay $1,800 Now'} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
@@ -1739,7 +1744,7 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI22Dfw4bOR2dff9Evpj6J', 'Stormwater + Tier II Bundle')}>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI22Dfw4bOR2dff9Evpj6J', 'Stormwater + Tier II Bundle', 'payment')}>
                   {engageLoading === 'price_1TZI22Dfw4bOR2dff9Evpj6J' ? 'Redirecting…' : 'Pay $3,800 Now'} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
@@ -1796,7 +1801,7 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI3mDfw4bOR2dfUjyL3xg8', 'FI Blueprint')}>
+                <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI3mDfw4bOR2dfUjyL3xg8', 'FI Blueprint', 'payment')}>
                   {engageLoading === 'price_1TZI3mDfw4bOR2dfUjyL3xg8' ? 'Redirecting…' : 'Start Engagement — Base $25,000'} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll be invoiced</Button>
@@ -2047,9 +2052,10 @@ export default function Pricing() {
                     {(stage as any).priceId ? (
                       <Button
                         size="sm"
-                        className={cn('mt-4 w-full text-xs', stage.color.replace('text-', 'bg-').replace('-400', '-500/20'), 'border', stage.border)}
+                        variant="outline"
+                        className={cn('mt-4 w-full text-xs border', stage.border)}
                         disabled={engageLoading === (stage as any).priceId}
-                        onClick={() => handleEngagementCheckout((stage as any).priceId, stage.name)}
+                        onClick={() => handleEngagementCheckout((stage as any).priceId, stage.name, 'payment')}
                       >
                         {engageLoading === (stage as any).priceId ? 'Redirecting…' : 'Book & Pay'} <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
@@ -2062,7 +2068,7 @@ export default function Pricing() {
                             variant="outline"
                             className={cn('w-full text-xs border justify-between', stage.border)}
                             disabled={engageLoading === t.priceId}
-                            onClick={() => handleEngagementCheckout(t.priceId, `VVFI ${t.label}`)}
+                            onClick={() => handleEngagementCheckout(t.priceId, `VVFI ${t.label}`, 'subscription')}
                           >
                             <span>{t.label}</span>
                             <span className={cn('font-semibold', stage.color)}>{t.price}</span>
