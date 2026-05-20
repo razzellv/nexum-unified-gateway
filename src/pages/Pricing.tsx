@@ -1172,6 +1172,10 @@ export default function Pricing() {
   const [inquiryForm, setInquiryForm] = useState({ name: '', email: '', org: '', facilityType: '', concern: '', referral: '' });
   const [inquirySubmitting, setInquirySubmitting] = useState(false);
   const [inquirySuccess, setInquirySuccess] = useState(false);
+  const [engageDialog, setEngageDialog] = useState<{ open: boolean; stage: string }>({ open: false, stage: '' });
+  const [engageForm, setEngageForm] = useState({ name: '', email: '', org: '', facilityType: '', concern: '', expectations: '', referral: '' });
+  const [engageSubmitting, setEngageSubmitting] = useState(false);
+  const [engageSuccess, setEngageSuccess] = useState(false);
   // Standard module add-ons
   const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
   // Enterprise configurator
@@ -1377,6 +1381,26 @@ export default function Pricing() {
     setInquirySubmitting(false);
   };
 
+  const openEngage = (stage: string) => {
+    setEngageForm({ name: '', email: '', org: '', facilityType: '', concern: '', expectations: '', referral: '' });
+    setEngageSuccess(false);
+    setEngageDialog({ open: true, stage });
+  };
+
+  const submitEngage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEngageSubmitting(true);
+    try {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: engageDialog.stage || 'general_inquiry', ...engageForm }),
+      });
+    } catch { /* swallow */ }
+    setEngageSuccess(true);
+    setEngageSubmitting(false);
+  };
+
   // Build expansion line items for checkout
   const expansionLineItems = EXPANSION_ADDONS
     .filter(a => a.sectors.includes(sector) && (expandQty[a.id] || 0) > 0)
@@ -1417,6 +1441,88 @@ export default function Pricing() {
 
         {/* Pilot Program Modal */}
         <PilotModal open={showPilot} onClose={() => setShowPilot(false)} />
+
+        {/* ── Unified Engagement Dialog ─────────────────────────────────────── */}
+        <Dialog open={engageDialog.open} onOpenChange={open => !open && setEngageDialog(d => ({ ...d, open: false }))}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background border-border">
+            <DialogHeader>
+              <DialogTitle className="text-base">
+                {engageDialog.stage ? `Start with ${engageDialog.stage}` : 'Engagement Inquiry'}
+              </DialogTitle>
+            </DialogHeader>
+            {engageSuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Inquiry received!</p>
+                <p className="text-sm text-muted-foreground">We'll reach out within 1 business day to discuss next steps.</p>
+                <Button variant="outline" className="w-full" onClick={() => setEngageDialog(d => ({ ...d, open: false }))}>Close</Button>
+              </div>
+            ) : (
+              <form onSubmit={submitEngage} className="space-y-4 mt-1">
+                {engageDialog.stage && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-xs text-muted-foreground">
+                    <span className="font-semibold text-primary">Selected engagement: </span>{engageDialog.stage}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Name *</label>
+                    <Input required value={engageForm.name} onChange={e => setEngageForm(f => ({ ...f, name: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={engageForm.email} onChange={e => setEngageForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization</label>
+                    <Input value={engageForm.org} onChange={e => setEngageForm(f => ({ ...f, org: e.target.value }))} placeholder="Company or facility name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Facility type</label>
+                    <Select value={engageForm.facilityType} onValueChange={v => setEngageForm(f => ({ ...f, facilityType: v }))}>
+                      <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                        <SelectItem value="healthcare">Healthcare</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="government">Government</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Primary concern *</label>
+                  <Textarea required value={engageForm.concern} onChange={e => setEngageForm(f => ({ ...f, concern: e.target.value }))} placeholder="Describe your main operational challenge or compliance concern…" rows={3} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">What do you expect from this engagement?</label>
+                  <Textarea value={engageForm.expectations} onChange={e => setEngageForm(f => ({ ...f, expectations: e.target.value }))} placeholder="e.g. I want a written report I can show my board, a gap analysis, or help with OSHA readiness…" rows={2} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">How did you hear about us?</label>
+                  <Select value={engageForm.referral} onValueChange={v => setEngageForm(f => ({ ...f, referral: v }))}>
+                    <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select one" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="calendly">Calendly booking</SelectItem>
+                      <SelectItem value="colleague">Colleague referral</SelectItem>
+                      <SelectItem value="linkedin">LinkedIn</SelectItem>
+                      <SelectItem value="google">Google</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full" disabled={engageSubmitting}>
+                  {engageSubmitting ? 'Sending…' : 'Submit Inquiry'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* ── Stormwater Audit Modal ──────────────────────────────────────────── */}
         <Dialog open={consultModal === 'stormwater'} onOpenChange={open => !open && setConsultModal(null)}>
@@ -1706,8 +1812,8 @@ export default function Pricing() {
               {
                 step: 2,
                 name: 'Rapid Review',
-                price: 'Free',
-                priceNote: '20–30 min virtual call',
+                price: '$500',
+                priceNote: 'Virtual discovery assessment',
                 icon: Phone,
                 color: 'text-cyan-400',
                 border: 'border-cyan-400/30',
@@ -1832,6 +1938,14 @@ export default function Pricing() {
                         </li>
                       ))}
                     </ul>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={cn('mt-4 w-full text-xs border', stage.border)}
+                      onClick={() => openEngage(stage.name)}
+                    >
+                      Get Started <ArrowRight className="w-3 h-3 ml-1" />
+                    </Button>
                   </div>
                 </div>
               );
@@ -1847,7 +1961,7 @@ export default function Pricing() {
                   How the journey works
                 </div>
                 <p className="text-muted-foreground leading-relaxed">
-                  Intro and Rapid Review are always free. After your 20–30 min call, Nexum recommends Onsite Lite or Full Engagement based on what we hear. There's no pressure to move further than the stage that makes sense for you.
+                  The FI Intro call is always free. After your $500 Rapid Review discovery session, Nexum recommends Onsite Lite or Full Engagement based on what we hear. There's no pressure to move further than the stage that makes sense for you.
                 </p>
               </div>
               <div className="space-y-2">
@@ -1879,7 +1993,7 @@ export default function Pricing() {
                 className="bg-primary hover:bg-primary/90"
                 onClick={() => document.getElementById('enterprise-quote')?.scrollIntoView({ behavior: 'smooth' })}
               >
-                Book a Free Rapid Review <ArrowRight className="w-4 h-4 ml-2" />
+                Book a Rapid Review <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               <Button variant="outline" onClick={() => window.open('https://www.nexumsuum.com/facility-intelligence', '_blank')}>
                 Learn About the FI Framework
@@ -2721,85 +2835,26 @@ export default function Pricing() {
           </div>
 
           {/* ── General Service Inquiry ── */}
-          <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8">
-            <div className="text-center mb-6">
-              <h3 className="text-xl font-bold">Not sure which service fits?</h3>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Describe your situation and we'll point you in the right direction. We'll reach out within 1 business day.
-              </p>
-            </div>
-            {inquirySuccess ? (
-              <div className="py-8 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
-                  <Check className="w-6 h-6 text-green-400" />
-                </div>
-                <p className="font-semibold">Message received!</p>
-                <p className="text-sm text-muted-foreground">We'll reach out within 1 business day.</p>
-              </div>
-            ) : (
-              <form onSubmit={submitInquiry} className="max-w-2xl mx-auto space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Name *</label>
-                    <Input required value={inquiryForm.name} onChange={e => setInquiryForm(f => ({ ...f, name: e.target.value }))} placeholder="Your name" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Email *</label>
-                    <Input required type="email" value={inquiryForm.email} onChange={e => setInquiryForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Organization</label>
-                    <Input value={inquiryForm.org} onChange={e => setInquiryForm(f => ({ ...f, org: e.target.value }))} placeholder="Company or facility name" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Facility type</label>
-                    <Select value={inquiryForm.facilityType} onValueChange={v => setInquiryForm(f => ({ ...f, facilityType: v }))}>
-                      <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select type" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                        <SelectItem value="healthcare">Healthcare</SelectItem>
-                        <SelectItem value="education">Education</SelectItem>
-                        <SelectItem value="government">Government</SelectItem>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Primary concern *</label>
-                  <Textarea required value={inquiryForm.concern} onChange={e => setInquiryForm(f => ({ ...f, concern: e.target.value }))} placeholder="Describe your main operational challenge or compliance concern…" rows={3} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">How did you hear about us?</label>
-                  <Select value={inquiryForm.referral} onValueChange={v => setInquiryForm(f => ({ ...f, referral: v }))}>
-                    <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select one" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="calendly">Calendly booking</SelectItem>
-                      <SelectItem value="colleague">Colleague referral</SelectItem>
-                      <SelectItem value="linkedin">LinkedIn</SelectItem>
-                      <SelectItem value="google">Google</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full" disabled={inquirySubmitting}>
-                  {inquirySubmitting ? 'Sending…' : 'Send Inquiry'} <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </form>
-            )}
+          <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8 text-center space-y-4">
+            <h3 className="text-xl font-bold">Not sure which service fits?</h3>
+            <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+              Tell us about your facility and the challenge you're trying to solve — we'll recommend the right engagement stage and reach out within 1 business day.
+            </p>
+            <Button onClick={() => openEngage('General Inquiry')}>
+              Send Inquiry <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
           </div>
         </div>
 
         {/* Intake Form */}
-        <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8 space-y-4">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold">Not ready to commit?</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Tell us about your facility — we'll reach out within 1 business day.</p>
-          </div>
-          <div className="max-w-lg mx-auto">
-            <IntakeFormWidget />
-          </div>
+        <div className="rounded-2xl border border-border/50 bg-muted/20 p-6 md:p-8 text-center space-y-4">
+          <h2 className="text-xl font-bold">Not ready to commit?</h2>
+          <p className="text-muted-foreground text-sm">
+            That's okay. Tell us about your facility and what's on your mind — we'll reach out within 1 business day with no obligation.
+          </p>
+          <Button variant="outline" onClick={() => openEngage('Exploring Options')}>
+            Tell Us About Your Facility <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
         </div>
 
         {/* Trust badges */}
