@@ -15,8 +15,12 @@ import {
   ChevronRight, Activity, AlertCircle, CheckCircle2, Clock,
   PhoneCall, Plus, Trash2, RefreshCw, MailCheck, Trophy,
   XCircle, CalendarClock, Filter, ShieldCheck, Copy, ChevronDown,
-  ChevronUp, Crown, Globe, Gauge,
+  ChevronUp, Crown, Globe, Gauge, Send, Mail,
 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 const API_BASE  = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
@@ -708,6 +712,9 @@ function PilotApplications() {
   const [expanded, setExpanded]     = useState<Record<string, boolean>>({});
   const [filter, setFilter]         = useState<PilotStatus | 'all'>('all');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [emailTarget, setEmailTarget] = useState<PilotApp | null>(null);
+  const [emailDraft, setEmailDraft]   = useState({ subject: '', body: '' });
+  const [sending, setSending]         = useState(false);
 
   const fetchApps = useCallback(async () => {
     setLoading(true);
@@ -751,6 +758,30 @@ function PilotApplications() {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     });
+  };
+
+  const openEmail = (app: PilotApp) => {
+    setEmailTarget(app);
+    setEmailDraft({ subject: 'Nexum Suum — Pilot Program Update', body: `Hi ${app.name},\n\n` });
+  };
+
+  const sendEmail = async () => {
+    if (!emailTarget || !emailDraft.subject || !emailDraft.body) return;
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/pilot-applications/${emailTarget.appId}/message`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body:    JSON.stringify({ subject: emailDraft.subject, message: emailDraft.body }),
+      });
+      if (res.ok) {
+        toast.success(`Email sent to ${emailTarget.email}`);
+        setEmailTarget(null);
+      } else {
+        toast.error('Failed to send — check console.');
+      }
+    } catch { toast.error('Network error.'); }
+    setSending(false);
   };
 
   const visible = filter === 'all' ? apps : apps.filter(a => a.status === filter);
@@ -918,6 +949,10 @@ function PilotApplications() {
                           <CheckCircle2 className="w-3.5 h-3.5" />Active — Business tier provisioned
                         </p>
                       )}
+                      <Button size="sm" variant="ghost" onClick={() => openEmail(app)}
+                        className="text-xs text-muted-foreground hover:text-primary ml-auto gap-1.5">
+                        <Mail className="w-3.5 h-3.5" />Email
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -926,6 +961,50 @@ function PilotApplications() {
           );
         })}
       </div>
+
+      {/* Email compose dialog */}
+      <Dialog open={!!emailTarget} onOpenChange={open => !open && setEmailTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Send className="w-4 h-4 text-primary" />
+              Email {emailTarget?.name}
+              <span className="text-muted-foreground font-normal text-xs">({emailTarget?.email})</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Subject</Label>
+              <Input
+                value={emailDraft.subject}
+                onChange={e => setEmailDraft(d => ({ ...d, subject: e.target.value }))}
+                className="text-sm"
+                placeholder="Subject line…"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Message</Label>
+              <Textarea
+                value={emailDraft.body}
+                onChange={e => setEmailDraft(d => ({ ...d, body: e.target.value }))}
+                className="text-sm min-h-[180px] resize-none"
+                placeholder="Write your message…"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Sent from Nexum Suum · Replies go to razzellv@nexumsuum.com
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setEmailTarget(null)}>Cancel</Button>
+            <Button size="sm" onClick={sendEmail} disabled={sending || !emailDraft.subject || !emailDraft.body}
+              className="gap-1.5">
+              <Send className="w-3.5 h-3.5" />
+              {sending ? 'Sending…' : 'Send Email'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

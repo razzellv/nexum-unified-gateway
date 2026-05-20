@@ -167,10 +167,83 @@ export const handler = async (event) => {
       Source:      FROM_EMAIL,
       Destination: { ToAddresses: [email] },
       Message: {
-        Subject: { Data: "Nexum Suum Pilot Application Received" },
+        Subject: { Data: "Thank you for your interest — Nexum Suum Pilot Program" },
         Body: {
           Text: {
-            Data: `Hi ${name},\n\nWe received your pilot application for Nexum Suum Facility Intelligence.\n\nWe review applications within 2–3 business days. You'll receive an email with your approval code if selected.\n\nApplication ID: ${appId}\n\n— Nexum Suum`,
+            Data: [
+              `Hi ${name},`,
+              "",
+              "Thank you for your interest in becoming a Nexum Suum Pilot Partner.",
+              "",
+              "We received your application and are reviewing it now. You'll hear from us within 2–3 business days.",
+              "",
+              "── Pilot Partner Perks ─────────────────────────────────────",
+              "As a Pilot Partner, you'll receive:",
+              "  · Early access to new platform features before public release",
+              "  · Direct input into the product roadmap — your feedback shapes what we build",
+              "  · Invitations to Nexum Suum events, webinars, and industry roundtables",
+              "  · Priority onboarding support and a dedicated point of contact",
+              "  · Company updates and insider announcements before anyone else",
+              "  · Business tier access — the full platform, no restrictions",
+              "",
+              "We're selective about our Pilot Partners because your experience matters.",
+              "We want to make sure this is the right fit for both sides.",
+              "",
+              `Application ID: ${appId}`,
+              "",
+              "Questions? Reply to this email or reach us at: razzellv@nexumsuum.com",
+              "",
+              "— Razzel Taylor",
+              "  Nexum Suum Facility Intelligence™",
+            ].join("\n"),
+          },
+          Html: {
+            Data: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;background:#0f0f1a;padding:24px;margin:0;">
+  <div style="max-width:560px;margin:0 auto;background:#1a1a2e;border-radius:12px;overflow:hidden;border:1px solid #2d2d4e;">
+    <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:24px;">
+      <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700;">Thank you for your interest.</h1>
+      <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:13px;">Nexum Suum Pilot Partner Program — Application Received</p>
+    </div>
+    <div style="padding:28px;">
+      <p style="color:#e2e8f0;font-size:15px;margin:0 0 8px;">Hi ${name},</p>
+      <p style="color:#a1a1aa;font-size:14px;margin:0 0 24px;">
+        We received your application and are reviewing it now. You'll hear from us within <strong style="color:#e2e8f0;">2–3 business days</strong>.
+        We're selective about our Pilot Partners because your experience is important to us.
+      </p>
+
+      <div style="background:#0d1117;border:1px solid #7c3aed;border-radius:8px;padding:20px;margin-bottom:24px;">
+        <p style="color:#a78bfa;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 14px;">Pilot Partner Perks</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;width:20px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Early feature access</strong> — before public release</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Direct product input</strong> — your feedback shapes what we build</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Event & webinar invitations</strong> — roundtables, industry sessions</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Priority onboarding support</strong> — dedicated point of contact</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Insider company updates</strong> — before anyone else hears them</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:16px;">→</td><td style="padding:5px 0;color:#e2e8f0;font-size:13px;"><strong>Business tier access</strong> — full platform, no restrictions</td></tr>
+        </table>
+      </div>
+
+      <p style="color:#6b7280;font-size:12px;margin:0 0 4px;">Application ID: <span style="color:#a1a1aa;font-family:monospace;">${appId}</span></p>
+      <p style="color:#6b7280;font-size:12px;margin:0 0 20px;">
+        Questions? Reply to this email or reach us at
+        <a href="mailto:razzellv@nexumsuum.com" style="color:#a78bfa;">razzellv@nexumsuum.com</a>
+      </p>
+
+      <div style="border-top:1px solid #2d2d4e;padding-top:16px;">
+        <p style="color:#6b7280;font-size:12px;margin:0 0 2px;">Razzel Taylor</p>
+        <p style="color:#6b7280;font-size:12px;margin:0;">
+          Nexum Suum Facility Intelligence™ ·
+          <a href="${FRONTEND_URL}" style="color:#a78bfa;">portal.nexumsuum-facilityintelligence.com</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
           },
         },
       },

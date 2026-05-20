@@ -88,7 +88,8 @@ export const handler = async (event) => {
     email.endsWith("@nexumsuum-facilityintelligence.com");
   if (!isAdmin) return json(403, { message: "Admin only" });
 
-  const method = getMethod(event);
+  const method    = getMethod(event);
+  const pathParts = (event?.requestContext?.http?.path || event?.path || "").split("/").filter(Boolean);
 
   // ── GET /pilot-applications ─────────────────────────────────────────────────
   if (method === "GET") {
@@ -119,9 +120,8 @@ export const handler = async (event) => {
   // ── POST /pilot-applications/{id}/{action} ──────────────────────────────────
   if (method === "POST" || method === "PATCH") {
     try {
-      const pathParts = (event?.requestContext?.http?.path || event?.path || "").split("/");
-      const appId     = pathParts[pathParts.length - 2];
-      const action    = pathParts[pathParts.length - 1];
+      const appId  = pathParts[pathParts.length - 2];
+      const action = pathParts[pathParts.length - 1];
 
       let raw = event.body || "{}";
       if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
@@ -318,6 +318,59 @@ export const handler = async (event) => {
       console.error("action /pilot-applications:", err);
       return json(500, { message: "Failed to update application.", detail: err.message });
     }
+  }
+
+  // ── POST /pilot-applications/:id/message  (send custom email to applicant) ──
+  if (method === "POST" && pathParts.length >= 3 && pathParts[pathParts.length - 1] === "message") {
+    const appId    = pathParts[pathParts.length - 2];
+    const { subject, message } = body;
+    if (!subject || !message) return json(400, { message: "subject and message are required" });
+
+    const existing = await ddb.send(new QueryCommand({
+      TableName:                 TABLE,
+      KeyConditionExpression:    "PK = :pk",
+      ExpressionAttributeValues: { ":pk": `APP#${appId}` },
+      Limit:                     1,
+    }));
+    const app = existing.Items?.[0];
+    if (!app) return json(404, { message: "Application not found" });
+
+    await ses.send(new SendEmailCommand({
+      Source:      FROM_EMAIL,
+      Destination: { ToAddresses: [app.email] },
+      ReplyToAddresses: [ADMIN_EMAIL],
+      Message: {
+        Subject: { Data: subject },
+        Body: {
+          Html: {
+            Data: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;background:#0f0f1a;padding:24px;margin:0;">
+  <div style="max-width:560px;margin:0 auto;background:#1a1a2e;border-radius:12px;overflow:hidden;border:1px solid #2d2d4e;">
+    <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:20px 24px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;">Nexum Suum</h1>
+      <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:12px;">Facility Intelligence™ — Pilot Partner Program</p>
+    </div>
+    <div style="padding:28px;">
+      <p style="color:#e2e8f0;font-size:15px;margin:0 0 16px;">Hi ${app.name},</p>
+      <div style="color:#a1a1aa;font-size:14px;line-height:1.7;white-space:pre-wrap;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      <div style="border-top:1px solid #2d2d4e;padding-top:16px;margin-top:24px;">
+        <p style="color:#6b7280;font-size:12px;margin:0 0 2px;">Razzel Taylor</p>
+        <p style="color:#6b7280;font-size:12px;margin:0;">Nexum Suum Facility Intelligence™ · <a href="${FRONTEND_URL}" style="color:#a78bfa;">portal.nexumsuum-facilityintelligence.com</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+          },
+          Text: { Data: `Hi ${app.name},\n\n${message}\n\n— Razzel Taylor\nNexum Suum Facility Intelligence™` },
+        },
+      },
+    }));
+
+    return json(200, { success: true, sentTo: app.email });
   }
 
   return json(405, { message: "Method not allowed" });
