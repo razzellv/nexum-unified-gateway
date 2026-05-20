@@ -497,9 +497,13 @@ const EXPANSION_ADDONS = [
 
 const ADDONS = [
   // ── Secure Storage Add-ons ───────────────────────────────────────────────────
-  { name: 'Additional Storage — 50 GB',  price: 29,    priceId: 'price_storage_50gb',            desc: '+50 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
-  { name: 'Additional Storage — 200 GB', price: 79,    priceId: 'price_storage_200gb',           desc: '+200 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
-  { name: 'Additional Storage — 1 TB',   price: 149,   priceId: 'price_storage_1tb',             desc: '+1 TB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  { name: 'Additional Storage — 50 GB',  price: 29,    priceId: 'price_1TZHU5Dfw4bOR2df0NA7V6Sn', desc: '+50 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  { name: 'Additional Storage — 200 GB', price: 49,    priceId: 'price_1TZHV1Dfw4bOR2df1nXbVcJs', desc: '+200 GB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  { name: 'Additional Storage — 1 TB',   price: 149,   priceId: 'price_1TZHVNDfw4bOR2dfeAno93a4', desc: '+1 TB encrypted S3 document & media storage', billing: '/mo', category: 'storage' },
+  // ── Asset Expansion Add-ons ──────────────────────────────────────────────────
+  { name: 'Asset Expansion — 500–2K',    price: 4000,  priceId: 'price_1TZHXJDfw4bOR2dfx1WHANSc', desc: 'Expand tracked assets from base plan limit to 2,000', billing: '/yr', category: 'assets' },
+  { name: 'Asset Expansion — 2K–10K',   price: 10000, priceId: 'price_1TZHXtDfw4bOR2dfnXlUcgME', desc: 'Expand tracked assets up to 10,000', billing: '/yr', category: 'assets' },
+  { name: 'Asset Expansion — 10K+',     price: 20000, priceId: 'price_1TZHYWDfw4bOR2dfhQBgYGp5', desc: 'Unlimited asset tracking for enterprise-scale facilities', billing: '/yr', category: 'assets' },
   // ── Professional Services ────────────────────────────────────────────────────
   { name: 'FI Platform Implementation',  price: 4999,  priceId: 'price_1TAbl7Dfw4bOR2dfSxKwaYdP', desc: 'White-glove onboarding and setup', billing: 'one-time', category: 'services' },
   { name: 'FI Enterprise Support',       price: 10000, priceId: 'price_1TAbiWDfw4bOR2dfrBMHzuqV', desc: 'Dedicated support SLA', billing: '/yr', category: 'services' },
@@ -596,9 +600,9 @@ const ENT_IMPL = [
 ] as const;
 
 const ENT_MODULES = [
-  { id: 'mod_retail', label: 'Retail Module',          add: 2500, icon: ShoppingCart, color: 'text-green-400' },
-  { id: 'mod_govt',   label: 'Government Module',       add: 4000, icon: Shield,       color: 'text-blue-400' },
-  { id: 'mod_bms',    label: 'BMS / CMMS Integration',  add: 8000, icon: Wifi,         color: 'text-cyan-400' },
+  { id: 'mod_retail', label: 'Retail Module',          add: 2500, priceId: 'price_1TLs9PDfw4bOR2dfka4QxilT', icon: ShoppingCart, color: 'text-green-400' },
+  { id: 'mod_govt',   label: 'Government Module',       add: 4000, priceId: 'price_1TLs9wDfw4bOR2dfpXlMi0iw', icon: Shield,       color: 'text-blue-400' },
+  { id: 'mod_bms',    label: 'BMS / CMMS Integration',  add: 8000, priceId: 'price_1TZHakDfw4bOR2dfbVqEUQRY', icon: Wifi,         color: 'text-cyan-400' },
 ] as const;
 
 // ── Licensing Guide Modal ─────────────────────────────────────────────────────
@@ -1165,7 +1169,7 @@ export default function Pricing() {
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
   // ── Request-based consulting modals ──────────────────────────────────────────
-  const [consultModal, setConsultModal] = useState<'stormwater' | 'tier2' | 'blueprint' | null>(null);
+  const [consultModal, setConsultModal] = useState<'stormwater' | 'tier2' | 'bundle' | 'blueprint' | null>(null);
   const [consultForm, setConsultForm] = useState<Record<string, string>>({});
   const [consultSubmitting, setConsultSubmitting] = useState(false);
   const [consultSuccess, setConsultSuccess] = useState<string | null>(null);
@@ -1176,6 +1180,7 @@ export default function Pricing() {
   const [engageForm, setEngageForm] = useState({ name: '', email: '', org: '', facilityType: '', concern: '', expectations: '', referral: '' });
   const [engageSubmitting, setEngageSubmitting] = useState(false);
   const [engageSuccess, setEngageSuccess] = useState(false);
+  const [engageLoading, setEngageLoading] = useState<string | null>(null);
   // Standard module add-ons
   const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
   // Enterprise configurator
@@ -1349,7 +1354,7 @@ export default function Pricing() {
   };
 
   // ── Consulting service handlers ───────────────────────────────────────────────
-  const openConsultModal = (svc: 'stormwater' | 'tier2' | 'blueprint') => {
+  const openConsultModal = (svc: 'stormwater' | 'tier2' | 'bundle' | 'blueprint') => {
     setConsultForm({});
     setConsultSuccess(null);
     setConsultModal(svc);
@@ -1379,6 +1384,33 @@ export default function Pricing() {
     } catch { /* swallow */ }
     setInquirySuccess(true);
     setInquirySubmitting(false);
+  };
+
+  const handleEngagementCheckout = async (priceId: string, label?: string) => {
+    setEngageLoading(priceId);
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          lineItems: [{ price: priceId, quantity: 1 }],
+          tier: label || 'consulting',
+          allowPromotionCodes: false,
+          successUrl: `${window.location.origin}/welcome?service=${encodeURIComponent(label || 'consulting')}&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}/pricing`,
+        }),
+      });
+      const data = await response.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error('Engagement checkout error:', err);
+    } finally {
+      setEngageLoading(null);
+    }
   };
 
   const openEngage = (stage: string) => {
@@ -1540,7 +1572,10 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZHydDfw4bOR2dfHm9B15dn', 'Stormwater Audit')}>
+                  {engageLoading === 'price_1TZHydDfw4bOR2dfHm9B15dn' ? 'Redirecting…' : 'Pay $2,400 Now'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
               </div>
             ) : (
               <form onSubmit={e => submitConsulting('stormwater_audit', "We'll reach out within 2 business days to confirm site details and schedule.", e)} className="space-y-3 mt-1">
@@ -1622,7 +1657,10 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI0cDfw4bOR2dfRHJKJDIJ', 'Tier II Audit')}>
+                  {engageLoading === 'price_1TZI0cDfw4bOR2dfRHJKJDIJ' ? 'Redirecting…' : 'Pay $1,800 Now'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
               </div>
             ) : (
               <form onSubmit={e => submitConsulting('tier2_audit', "We'll review your facility state requirements and contact you within 2 business days.", e)} className="space-y-3 mt-1">
@@ -1685,6 +1723,63 @@ export default function Pricing() {
           </DialogContent>
         </Dialog>
 
+        {/* ── Stormwater + Tier II Bundle Modal ──────────────────────────────── */}
+        <Dialog open={consultModal === 'bundle'} onOpenChange={open => !open && setConsultModal(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background border-border">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <ClipboardCheck className="w-5 h-5 text-teal-400" />
+                Stormwater + Tier II Bundle — $3,800
+              </DialogTitle>
+            </DialogHeader>
+            {consultSuccess ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-green-400/20 flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-semibold">Request Submitted</p>
+                <p className="text-sm text-muted-foreground">{consultSuccess}</p>
+                <Button className="w-full" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI22Dfw4bOR2dff9Evpj6J', 'Stormwater + Tier II Bundle')}>
+                  {engageLoading === 'price_1TZI22Dfw4bOR2dff9Evpj6J' ? 'Redirecting…' : 'Pay $3,800 Now'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll pay later</Button>
+              </div>
+            ) : (
+              <form onSubmit={e => submitConsulting('bundle_audit', "We'll coordinate a single site visit and reach out within 2 business days to schedule.", e)} className="space-y-3 mt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Organization name *</label>
+                    <Input required value={consultForm.orgName || ''} onChange={e => setConsultForm(f => ({ ...f, orgName: e.target.value }))} placeholder="Company or facility name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Contact name *</label>
+                    <Input required value={consultForm.contactName || ''} onChange={e => setConsultForm(f => ({ ...f, contactName: e.target.value }))} placeholder="Your name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Email *</label>
+                    <Input required type="email" value={consultForm.email || ''} onChange={e => setConsultForm(f => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Facility address / state</label>
+                    <Input value={consultForm.facilityAddress || ''} onChange={e => setConsultForm(f => ({ ...f, facilityAddress: e.target.value }))} placeholder="City, State or full address" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Primary compliance concern</label>
+                    <Textarea value={consultForm.concern || ''} onChange={e => setConsultForm(f => ({ ...f, concern: e.target.value }))} placeholder="Stormwater discharge, chemical storage thresholds, both…" rows={2} />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Preferred timeline</label>
+                    <Input value={consultForm.timeline || ''} onChange={e => setConsultForm(f => ({ ...f, timeline: e.target.value }))} placeholder="e.g. Within 30 days, Q3 2026" />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-500 text-white" disabled={consultSubmitting}>
+                  {consultSubmitting ? 'Submitting…' : 'Request This Bundle'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* ── FI Blueprint Modal ──────────────────────────────────────────────── */}
         <Dialog open={consultModal === 'blueprint'} onOpenChange={open => !open && setConsultModal(null)}>
           <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-background border-border">
@@ -1701,7 +1796,10 @@ export default function Pricing() {
                 </div>
                 <p className="font-semibold">Request Submitted</p>
                 <p className="text-sm text-muted-foreground">{consultSuccess}</p>
-                <Button variant="outline" onClick={() => setConsultModal(null)}>Close</Button>
+                <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white" disabled={engageLoading !== null} onClick={() => handleEngagementCheckout('price_1TZI3mDfw4bOR2dfUjyL3xg8', 'FI Blueprint')}>
+                  {engageLoading === 'price_1TZI3mDfw4bOR2dfUjyL3xg8' ? 'Redirecting…' : 'Start Engagement — Base $25,000'} <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => setConsultModal(null)}>Close — I'll be invoiced</Button>
               </div>
             ) : (
               <form onSubmit={e => submitConsulting('fi_blueprint', "We'll contact you within 24 hours to confirm scope and timeline.", e)} className="space-y-3 mt-1">
@@ -1814,6 +1912,7 @@ export default function Pricing() {
                 name: 'Rapid Review',
                 price: '$500',
                 priceNote: 'Virtual discovery assessment',
+                priceId: 'price_1TZHoQDfw4bOR2dfZbXLRBQ6',
                 icon: Phone,
                 color: 'text-cyan-400',
                 border: 'border-cyan-400/30',
@@ -1834,6 +1933,7 @@ export default function Pricing() {
                 name: 'Onsite Lite',
                 price: '$2,500',
                 priceNote: 'Half-day assessment',
+                priceId: 'price_1TZHppDfw4bOR2dfSV33Vr6s',
                 icon: MapPin,
                 color: 'text-orange-400',
                 border: 'border-orange-400/40',
@@ -1856,6 +1956,7 @@ export default function Pricing() {
                 name: 'Full Engagement',
                 price: '$5,000+',
                 priceNote: 'Full transformation program',
+                quoteOnly: true,
                 icon: Wrench,
                 color: 'text-purple-400',
                 border: 'border-purple-400/40',
@@ -1877,7 +1978,7 @@ export default function Pricing() {
                 step: 5,
                 name: 'Consulting / VVFI',
                 price: 'Retainer',
-                priceNote: '$500–$2,000/mo',
+                priceNote: '$497–$1,997/mo',
                 icon: TrendingUp,
                 color: 'text-green-400',
                 border: 'border-green-400/30',
@@ -1893,6 +1994,11 @@ export default function Pricing() {
                   'Custom SOPs & Checklists on request',
                   '1 original + 2 copies within 72hrs',
                   '20% off first year FI Platform license',
+                ],
+                tiers: [
+                  { label: 'Basic',    price: '$497/mo',  priceId: 'price_1TDrGqDfw4bOR2dfpFGztXBE' },
+                  { label: 'Standard', price: '$997/mo',  priceId: 'price_1TDrI8Dfw4bOR2dfn5Van0F9' },
+                  { label: 'Premium',  price: '$1,997/mo', priceId: 'price_1TDrJUDfw4bOR2dfHcozYsiC' },
                 ],
               },
             ].map((stage, idx, arr) => {
@@ -1938,14 +2044,41 @@ export default function Pricing() {
                         </li>
                       ))}
                     </ul>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={cn('mt-4 w-full text-xs border', stage.border)}
-                      onClick={() => openEngage(stage.name)}
-                    >
-                      Get Started <ArrowRight className="w-3 h-3 ml-1" />
-                    </Button>
+                    {(stage as any).priceId ? (
+                      <Button
+                        size="sm"
+                        className={cn('mt-4 w-full text-xs', stage.color.replace('text-', 'bg-').replace('-400', '-500/20'), 'border', stage.border)}
+                        disabled={engageLoading === (stage as any).priceId}
+                        onClick={() => handleEngagementCheckout((stage as any).priceId, stage.name)}
+                      >
+                        {engageLoading === (stage as any).priceId ? 'Redirecting…' : 'Book & Pay'} <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    ) : (stage as any).tiers ? (
+                      <div className="mt-4 space-y-1.5">
+                        {((stage as any).tiers as Array<{ label: string; price: string; priceId: string }>).map(t => (
+                          <Button
+                            key={t.priceId}
+                            size="sm"
+                            variant="outline"
+                            className={cn('w-full text-xs border justify-between', stage.border)}
+                            disabled={engageLoading === t.priceId}
+                            onClick={() => handleEngagementCheckout(t.priceId, `VVFI ${t.label}`)}
+                          >
+                            <span>{t.label}</span>
+                            <span className={cn('font-semibold', stage.color)}>{t.price}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn('mt-4 w-full text-xs border', stage.border)}
+                        onClick={() => openEngage(stage.name)}
+                      >
+                        {(stage as any).quoteOnly ? 'Request Quote' : 'Get Started'} <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -2714,7 +2847,7 @@ export default function Pricing() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* ── Stormwater Audit ── */}
             <Card className="flex flex-col border-2 border-blue-400/30 bg-blue-400/5">
               <CardHeader className="pb-3">
@@ -2789,6 +2922,44 @@ export default function Pricing() {
                 </ul>
                 <Button className="w-full bg-orange-600 hover:bg-orange-500 text-white mt-auto" onClick={() => openConsultModal('tier2')}>
                   Request This Service <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ── Stormwater + Tier II Bundle ── */}
+            <Card className="flex flex-col border-2 border-teal-400/30 bg-teal-400/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-teal-400/20 flex items-center justify-center">
+                    <ClipboardCheck className="w-5 h-5 text-teal-400" />
+                  </div>
+                  <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30 text-xs">Bundle — Save $400</Badge>
+                </div>
+                <CardTitle className="text-base leading-tight">Stormwater + Tier II Bundle</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Both audits together — one engagement, one price.</p>
+                <div className="mt-2">
+                  <span className="text-2xl font-bold">$3,800</span>
+                  <span className="text-sm text-muted-foreground ml-1">· save $400 vs. separate</span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 pt-0">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  Full Industrial Stormwater Compliance Audit + SARA Title III Tier II Report Filing in one engagement. Ideal for facilities that have both stormwater discharge activity and reportable chemical storage on-site.
+                </p>
+                <ul className="space-y-1.5 mb-6 flex-1">
+                  {[
+                    'Everything in Stormwater Audit',
+                    'Everything in Tier II Audit',
+                    'Coordinated site visit (single mobilization)',
+                    'Combined compliance report',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Check className="w-3 h-3 mt-0.5 shrink-0 text-teal-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+                <Button className="w-full bg-teal-600 hover:bg-teal-500 text-white mt-auto" onClick={() => openConsultModal('bundle')}>
+                  Request Bundle <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </CardContent>
             </Card>
