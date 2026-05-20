@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   Droplets, FlaskConical, CheckCircle2, Clock, FileText,
   Phone, Mail, Building2, Calendar, Briefcase, X, ChevronRight,
-  Zap, Shield, Award,
+  Zap, Shield, Award, Printer,
 } from 'lucide-react';
 
 const API_BASE = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
@@ -222,6 +222,106 @@ export default function ConsultingServices() {
     ? ([...SERVICES, BUNDLE].find(s => s.id === activeService) ?? null)
     : null;
 
+  function printReport(r: ServiceRequest, svc: ServiceDef | undefined) {
+    const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const submittedDate = new Date(r.submittedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Nexum Suum — ${svc?.title ?? 'Service'} Report</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; margin: 0; padding: 40px; max-width: 760px; margin: 0 auto; }
+  .header { border-bottom: 3px solid #7c3aed; padding-bottom: 20px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand { font-size: 20px; font-weight: 700; color: #7c3aed; }
+  .brand-sub { font-size: 10px; color: #6b7280; letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+  .report-title { font-size: 15px; font-weight: 700; margin: 0 0 20px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; background: #f9f9f9; padding: 16px; border-radius: 6px; border: 1px solid #e5e7eb; }
+  .meta-item label { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 2px; }
+  .meta-item span { font-size: 12px; color: #111; }
+  .section-title { font-size: 12px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin: 20px 0 12px; }
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li { padding: 5px 0; border-bottom: 1px dotted #e5e7eb; display: flex; gap: 8px; }
+  .checklist li::before { content: '☐'; color: #7c3aed; font-size: 13px; }
+  .regulatory { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 11px; color: #92400e; line-height: 1.6; margin: 12px 0; }
+  .findings-box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; min-height: 80px; margin-top: 8px; font-size: 11px; color: #6b7280; }
+  .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+  .sig-line { border-top: 1px solid #374151; padding-top: 6px; font-size: 10px; color: #6b7280; }
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; display: flex; justify-content: space-between; }
+  .badge { display: inline-block; background: #ede9fe; color: #7c3aed; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  @media print { body { padding: 20px; } }
+</style>
+</head><body>
+<div class="header">
+  <div>
+    <div class="brand">Nexum Suum</div>
+    <div class="brand-sub">Facility Intelligence™ · Compliance & Advisory Services</div>
+  </div>
+  <div style="text-align:right;font-size:11px;color:#6b7280;">
+    <div>Report Date: ${reportDate}</div>
+    <div>Request ID: ${r.id}</div>
+    <div><span class="badge">ADMISSIBLE DOCUMENT</span></div>
+  </div>
+</div>
+
+<div class="report-title">${svc?.title ?? 'Compliance Service'} — Engagement Report</div>
+
+<div class="section-title">Facility Information</div>
+<div class="meta-grid">
+  <div class="meta-item"><label>Facility Name</label><span>${r.facilityName || '—'}</span></div>
+  <div class="meta-item"><label>Facility Address</label><span>${r.facilityAddress || '—'}</span></div>
+  <div class="meta-item"><label>SIC / NAICS Code</label><span>${r.sicNaics || 'Not provided'}</span></div>
+  <div class="meta-item"><label>${svc?.permitLabel ?? 'Permit / EPA ID'}</label><span>${r.permitNumber || 'Not provided'}</span></div>
+</div>
+
+<div class="section-title">Primary Contact</div>
+<div class="meta-grid">
+  <div class="meta-item"><label>Name</label><span>${r.contactName}</span></div>
+  <div class="meta-item"><label>Email</label><span>${r.contactEmail}</span></div>
+  <div class="meta-item"><label>Phone</label><span>${r.contactPhone || '—'}</span></div>
+  <div class="meta-item"><label>Request Submitted</label><span>${submittedDate}</span></div>
+</div>
+
+<div class="section-title">Regulatory Context</div>
+<div class="regulatory">${svc?.regulatoryContext ?? ''}</div>
+
+<div class="section-title">Service Scope — Deliverables</div>
+<ul class="checklist">
+  ${(svc?.includes ?? []).map(i => `<li>${i}</li>`).join('')}
+</ul>
+
+<div class="section-title">Known Issues / Areas of Concern (Client-Reported)</div>
+<div class="findings-box">${r.knownIssues || 'None reported at time of request.'}</div>
+
+<div class="section-title">Findings & Corrective Actions</div>
+<div class="findings-box" style="min-height:120px;">
+  <span style="color:#d1d5db;font-style:italic;">To be completed by Nexum Suum specialist following site engagement.</span>
+</div>
+
+<div class="section-title">Certification</div>
+<p style="font-size:11px;color:#374151;line-height:1.7;">
+  This report has been prepared by Nexum Suum Facility Intelligence™ based on the information provided by the facility contact and any on-site observations made during the engagement. All findings are documented in accordance with applicable regulatory standards and are intended to support the facility's compliance posture. This document may be retained as a defensible compliance record.
+</p>
+
+<div class="signature-grid">
+  <div>
+    <div style="height:40px;"></div>
+    <div class="sig-line">Nexum Suum Specialist Signature &amp; Date</div>
+  </div>
+  <div>
+    <div style="height:40px;"></div>
+    <div class="sig-line">Facility Representative Signature &amp; Date</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Nexum Suum Facility Intelligence™ · razzellv@nexumsuum.com</span>
+  <span>Confidential — Prepared for ${r.facilityName} · ${reportDate}</span>
+</div>
+</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  }
+
   function saveLocally(req: ServiceRequest) {
     const updated = [req, ...requests];
     setRequests(updated);
@@ -315,6 +415,7 @@ export default function ConsultingServices() {
                       <th className="pb-2 font-medium">Facility</th>
                       <th className="pb-2 font-medium">Submitted</th>
                       <th className="pb-2 font-medium">Status</th>
+                      <th className="pb-2 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
@@ -333,6 +434,16 @@ export default function ConsultingServices() {
                             <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', meta.color)}>
                               {meta.label}
                             </span>
+                          </td>
+                          <td className="py-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => printReport(r, svc)}
+                            >
+                              <Printer className="w-3 h-3" />Report
+                            </Button>
                           </td>
                         </tr>
                       );

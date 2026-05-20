@@ -119,6 +119,7 @@ const allNavItems: NavItem[] = [
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
   { name: 'Workspace', href: '/nexum-workspace', icon: LayoutDashboard, access: 'admin_only' },
+  { name: 'Implementation Guide', href: '/implementation-guide', icon: Rocket, access: 'admin_only' },
   { name: 'FIAS Assessment', href: '/fias', icon: Activity, access: 'admin_only' },
   { name: 'Contractor Installs', href: '/contractor-installs', icon: Wrench, access: 'admin_only' },
 ];
