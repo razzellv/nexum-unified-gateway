@@ -205,6 +205,20 @@ export const handler = async (event) => {
                   "You'll be redirected to register (or log in if you already have an account).",
                   "Your account will automatically reflect Business tier access.",
                   "",
+                  "── Quick Onboarding Checklist ──────────────────────────",
+                  "Once you're in, work through these 5 steps to get fully set up:",
+                  "  1. Configure your organization type (prompted on first login)",
+                  "  2. Log your first piece of equipment → Equipment Intelligence",
+                  "  3. Create a work order → Work Orders",
+                  "  4. Invite at least one team member → Settings",
+                  "  5. Submit a compliance log or PM check → Compliance Logger",
+                  "",
+                  "Your progress is tracked on the Onboarding Status page inside the platform.",
+                  "",
+                  "Need help? Our team offers FI Platform Implementation support —",
+                  "assisted setup, equipment data import, and team onboarding.",
+                  "Reply to this email or reach out directly: razzellv@nexumsuum.com",
+                  "",
                   notes ? `Note from our team: ${notes}\n` : "",
                   "Welcome to the program.",
                   "— Nexum Suum",
@@ -239,6 +253,25 @@ export const handler = async (event) => {
           <li>Click <strong style="color:#e2e8f0;">"Already have a code?"</strong></li>
           <li>Enter code <strong style="color:#fff;font-family:monospace;">${pilotCode}</strong> and your email: <strong style="color:#e2e8f0;">${app.email}</strong></li>
         </ol>
+      </div>
+
+      <div style="background:#0d1117;border:1px solid #2d2d4e;border-radius:8px;padding:20px;margin-bottom:24px;">
+        <p style="color:#e2e8f0;font-size:13px;font-weight:700;margin:0 0 12px;">Quick Onboarding Checklist</p>
+        <p style="color:#6b7280;font-size:12px;margin:0 0 12px;">Complete these 5 steps to get fully set up inside the platform:</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:13px;width:22px;">1.</td><td style="padding:5px 0;color:#a1a1aa;font-size:13px;"><strong style="color:#e2e8f0;">Configure your org type</strong> — prompted on first login</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:13px;">2.</td><td style="padding:5px 0;color:#a1a1aa;font-size:13px;"><strong style="color:#e2e8f0;">Log your first equipment</strong> — Equipment Intelligence module</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:13px;">3.</td><td style="padding:5px 0;color:#a1a1aa;font-size:13px;"><strong style="color:#e2e8f0;">Create a work order</strong> — Work Orders module</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:13px;">4.</td><td style="padding:5px 0;color:#a1a1aa;font-size:13px;"><strong style="color:#e2e8f0;">Invite a team member</strong> — Settings → Team</td></tr>
+          <tr><td style="padding:5px 0;color:#a78bfa;font-size:13px;">5.</td><td style="padding:5px 0;color:#a1a1aa;font-size:13px;"><strong style="color:#e2e8f0;">Submit a compliance log or PM check</strong> — Compliance Logger</td></tr>
+        </table>
+        <p style="color:#6b7280;font-size:12px;margin:14px 0 0;">Your progress is tracked automatically on the <strong style="color:#a78bfa;">Onboarding Status</strong> page.</p>
+      </div>
+
+      <div style="background:#1e1b4b;border-left:3px solid #34d399;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:24px;">
+        <p style="color:#34d399;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 4px;">Need hands-on help?</p>
+        <p style="color:#a1a1aa;font-size:13px;margin:0 0 6px;">Our team offers <strong style="color:#e2e8f0;">FI Platform Implementation support</strong> — assisted setup, equipment data import, and team onboarding sessions.</p>
+        <a href="mailto:razzellv@nexumsuum.com" style="color:#a78bfa;font-size:13px;font-weight:600;">Reply to this email or reach out → razzellv@nexumsuum.com</a>
       </div>
 
       ${notes ? `<div style="background:#1e1b4b;border-left:3px solid #7c3aed;padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:20px;"><p style="color:#a78bfa;font-size:11px;font-weight:700;margin:0 0 4px;text-transform:uppercase;">Note from our team</p><p style="color:#c4b5fd;font-size:13px;margin:0;">${notes}</p></div>` : ""}
