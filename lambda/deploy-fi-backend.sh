@@ -138,11 +138,27 @@ ensure_table() {
   fi
 }
 
+ensure_composite_table() {
+  local NAME=$1 PK=$2 SK=$3
+  if aws dynamodb describe-table --table-name "$NAME" --region $REGION > /dev/null 2>&1; then
+    echo "  ✓ Table $NAME already exists"
+  else
+    aws dynamodb create-table \
+      --table-name "$NAME" \
+      --attribute-definitions "AttributeName=${PK},AttributeType=S" "AttributeName=${SK},AttributeType=S" \
+      --key-schema "AttributeName=${PK},KeyType=HASH" "AttributeName=${SK},KeyType=RANGE" \
+      --billing-mode PAY_PER_REQUEST \
+      --region $REGION > /dev/null
+    echo "  ✓ Table $NAME created (composite key: ${PK}+${SK})"
+  fi
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 echo "0/4  DynamoDB Tables"
-ensure_table "NexumOnboardingRecords" "facilityId"
-ensure_table "NexumCourses"           "courseId"
-ensure_table "NexumBookings"          "bookingId"
+ensure_table           "NexumOnboardingRecords"   "facilityId"
+ensure_table           "NexumCourses"             "courseId"
+ensure_table           "NexumBookings"            "bookingId"
+ensure_composite_table "NexumQualityIntelligence" "facilityId" "snapshotId"
 echo ""
 
 echo "1/4  IAM Roles"
@@ -214,6 +230,26 @@ fi
 aws iam put-role-policy --role-name fi-bookings-role --policy-name policy \
   --policy-document "$BOOKINGS_POLICY" > /dev/null
 
+echo "▶ Ensuring fi-quality-intelligence-role..."
+QI_POLICY="{
+  \"Version\":\"2012-10-17\",
+  \"Statement\":[
+    {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumQualityIntelligence\"},
+    {\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"*\"}
+  ]
+}"
+if aws iam get-role --role-name "fi-quality-intelligence-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-quality-intelligence-role already exists"
+else
+  aws iam create-role --role-name "fi-quality-intelligence-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-quality-intelligence-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-quality-intelligence-role created"
+fi
+aws iam put-role-policy --role-name fi-quality-intelligence-role --policy-name policy \
+  --policy-document "$QI_POLICY" > /dev/null
+
 echo "▶ Ensuring fi-sms-role..."
 SMS_POLICY='{
   "Version":"2012-10-17",
@@ -280,6 +316,9 @@ deploy_lambda "nexum-fi-bookings" "fi-bookings.mjs" "fi-bookings-role" \
 
 deploy_lambda "nexum-fi-sms" "fi-sms.mjs" "fi-sms-role" \
   "ADMIN_PHONE=+19734448260"
+
+deploy_lambda "nexum-quality-intelligence" "quality-intelligence.mjs" "fi-quality-intelligence-role" \
+  "QI_TABLE=NexumQualityIntelligence"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -367,6 +406,10 @@ add_route "DELETE /bookings/{id}"  "nexum-fi-bookings"  "none"
 
 add_route "POST /admin/send-email"  "pilot-admin"    "jwt"
 add_route "POST /admin/send-sms"    "nexum-fi-sms"   "jwt"
+
+# Quality Intelligence — longitudinal snapshot storage
+add_route "GET  /quality-intelligence"   "nexum-quality-intelligence"  "jwt"
+add_route "POST /quality-intelligence"   "nexum-quality-intelligence"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"

@@ -5,9 +5,10 @@ import { Progress } from '@/components/ui/progress';
 import {
   Brain, AlertTriangle, CheckCircle, TrendingUp, TrendingDown,
   Flame, Snowflake, Wind, Droplets, Activity, ChevronDown, ChevronUp,
-  Shield, Target,
+  Shield, Target, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QualityCostIntelligence } from './QualityIntelligence';
 
 interface Diagnosis {
   id: string;
@@ -230,8 +231,32 @@ const TREND: Record<string, any> = {
 
 interface Props { logs: any[]; }
 
+type ActiveTab = 'diagnostics' | 'qi';
+
+function TabBar({ active, setActive }: { active: ActiveTab; setActive: (t: ActiveTab) => void }) {
+  return (
+    <div className="flex gap-1 p-1 bg-muted/20 rounded-xl border border-border/30 w-fit">
+      {([
+        { id: 'diagnostics' as const, label: 'Equipment Diagnostics', icon: Brain },
+        { id: 'qi'          as const, label: 'Quality & Cost Intelligence', icon: BarChart3 },
+      ] as const).map(({ id, label, icon: Icon }) => (
+        <button key={id} onClick={() => setActive(id)}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+            active === id
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}>
+          <Icon className="w-3.5 h-3.5" />{label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DecisionIntelligence({ logs }: Props) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded]   = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<ActiveTab>('diagnostics');
 
   const equipmentMap = logs.reduce((acc: any, log: any) => {
     const key = log.equipmentId || log.systemType || 'unknown';
@@ -253,11 +278,20 @@ export function DecisionIntelligence({ logs }: Props) {
   const totalWarning  = patterns.reduce((s: number, e: any) => s + e.diagnoses.filter((d: Diagnosis) => d.severity === 'warning').length, 0);
   const avgHealth = patterns.length > 0 ? Math.round(patterns.reduce((s: number, e: any) => s + e.overallHealth, 0) / patterns.length) : 0;
 
+  const allDiagnoses = patterns.flatMap((p: any) => p.diagnoses);
+
   if (patterns.length === 0) return (
-    <div className="text-center py-16 text-muted-foreground space-y-3">
-      <Brain className="w-14 h-14 mx-auto opacity-30" />
-      <p className="font-medium">No equipment data to analyze</p>
-      <p className="text-sm">Log equipment readings to see Decision Intelligence patterns</p>
+    <div className="space-y-4">
+      <TabBar active={activeTab} setActive={setActiveTab} />
+      {activeTab === 'diagnostics' ? (
+        <div className="text-center py-16 text-muted-foreground space-y-3">
+          <Brain className="w-14 h-14 mx-auto opacity-30" />
+          <p className="font-medium">No equipment data to analyze</p>
+          <p className="text-sm">Log equipment readings to see Decision Intelligence patterns</p>
+        </div>
+      ) : (
+        <QualityCostIntelligence logs={logs} allDiagnoses={[]} />
+      )}
     </div>
   );
 
@@ -265,6 +299,12 @@ export function DecisionIntelligence({ logs }: Props) {
 
   return (
     <div className="space-y-6">
+      <TabBar active={activeTab} setActive={setActiveTab} />
+
+      {activeTab === 'qi' ? (
+        <QualityCostIntelligence logs={logs} allDiagnoses={allDiagnoses} />
+      ) : (
+      <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Equipment Analyzed', value: patterns.length, icon: Activity, color: 'text-primary' },
@@ -347,6 +387,8 @@ export function DecisionIntelligence({ logs }: Props) {
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }
