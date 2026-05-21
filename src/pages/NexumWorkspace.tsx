@@ -15,7 +15,7 @@ import {
   ChevronRight, Activity, AlertCircle, CheckCircle2, Clock,
   PhoneCall, Plus, Trash2, RefreshCw, MailCheck, Trophy,
   XCircle, CalendarClock, Filter, ShieldCheck, Copy, ChevronDown,
-  ChevronUp, Crown, Globe, Gauge, Send, Mail, Calendar, Loader2,
+  ChevronUp, Crown, Globe, Gauge, Send, Mail, Calendar, Loader2, MessageSquare,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -592,6 +592,333 @@ function EngagementsTab() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Communications Hub ────────────────────────────────────────────────────────
+
+const PORTAL_URL = 'https://portal.nexumsuum-facilityintelligence.com';
+
+const EMAIL_TEMPLATES = [
+  {
+    id: 'onboarding',
+    label: 'Onboarding Welcome',
+    subject: 'Your FI Platform Access is Live — Let\'s Get You Set Up',
+    body: (name: string) =>
+`Hi ${name},
+
+Welcome to Nexum Suum Facility Intelligence™. Your platform account is now active and ready to use.
+
+Here's how to get started:
+1. Log in at ${PORTAL_URL}
+2. Complete your Onboarding Setup (takes ~10 minutes)
+3. Add your first piece of equipment to the Equipment Library
+4. Log your first facility data point
+
+If you have any questions or need help getting set up, reply to this email and I'll be with you directly.
+
+— Razzel Taylor
+Nexum Suum Facility Intelligence™`,
+  },
+  {
+    id: 'pilot',
+    label: 'Pilot Program Welcome',
+    subject: 'You\'re In — Nexum Suum Pilot Program',
+    body: (name: string) =>
+`Hi ${name},
+
+You're officially a Nexum Suum Pilot Partner. Here's what that means for you:
+
+Your Pilot Partner Perks:
+✓ Early access to new features before public release
+✓ Direct input on product development
+✓ Exclusive event invitations
+✓ Priority onboarding support
+✓ Insider company updates
+✓ Business tier platform access during your pilot period
+
+Your access details will follow in a separate message. We'll be in close contact throughout — your feedback directly shapes how this platform evolves.
+
+— Razzel Taylor
+Nexum Suum Facility Intelligence™`,
+  },
+  {
+    id: 'both',
+    label: 'Pilot + Onboarding (Combined)',
+    subject: 'You\'re In — Pilot Access + FI Platform Is Live',
+    body: (name: string) =>
+`Hi ${name},
+
+You've been approved as a Nexum Suum Pilot Partner and your FI Platform account is now active.
+
+Your Pilot Partner Perks:
+✓ Early feature access
+✓ Direct product input
+✓ Event invitations
+✓ Priority onboarding support
+✓ Insider company updates
+✓ Business tier access
+
+Getting Started on the Platform:
+1. Log in at ${PORTAL_URL}
+2. Complete your Onboarding Setup (~10 minutes)
+3. Add your first equipment or facility data point
+
+As a pilot partner, reach out directly anytime — your experience is our priority.
+
+— Razzel Taylor
+Nexum Suum Facility Intelligence™`,
+  },
+];
+
+const SMS_TEMPLATES = [
+  {
+    id: 'onboarding',
+    label: 'Onboarding',
+    body: (name: string) =>
+`Hi ${name}, your Nexum Suum FI Platform is live. Log in at ${PORTAL_URL} to get set up. Questions? Reply anytime — Razzel Taylor, Nexum Suum`,
+  },
+  {
+    id: 'pilot',
+    label: 'Pilot Welcome',
+    body: (name: string) =>
+`Hi ${name}, you've been approved as a Nexum Suum Pilot Partner! Check your email for details and next steps. — Razzel Taylor, Nexum Suum`,
+  },
+  {
+    id: 'both',
+    label: 'Pilot + Platform',
+    body: (name: string) =>
+`Hi ${name}, your Pilot access is confirmed and your FI Platform is live. Login: ${PORTAL_URL} — Reply anytime, Razzel Taylor, Nexum Suum`,
+  },
+];
+
+function CommunicationsHub() {
+  const [pilots, setPilots] = useState<PilotApp[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/pilot-applications`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.applications) setPilots(d.applications); })
+      .catch(() => {});
+  }, []);
+
+  const approvedPilots = pilots.filter(p => ['approved', 'active'].includes(p.status));
+
+  // ── Email state ──────────────────────────────────────────────────────────────
+  const [emailMode, setEmailMode]         = useState<'pick' | 'manual'>('pick');
+  const [emailPickId, setEmailPickId]     = useState('');
+  const [emailManual, setEmailManual]     = useState({ name: '', email: '' });
+  const [emailTemplate, setEmailTemplate] = useState('');
+  const [emailSubject, setEmailSubject]   = useState('');
+  const [emailBody, setEmailBody]         = useState('');
+  const [emailSending, setEmailSending]   = useState(false);
+  const [emailSent, setEmailSent]         = useState(false);
+
+  // ── SMS state ────────────────────────────────────────────────────────────────
+  const [smsPhone, setSmsPhone]           = useState('');
+  const [smsName, setSmsName]             = useState('');
+  const [smsTemplate, setSmsTemplate]     = useState('');
+  const [smsBody, setSmsBody]             = useState('');
+  const [smsSending, setSmsSending]       = useState(false);
+  const [smsSent, setSmsSent]             = useState(false);
+
+  const applyEmailTemplate = (id: string, name: string) => {
+    const tpl = EMAIL_TEMPLATES.find(t => t.id === id);
+    if (!tpl) return;
+    setEmailSubject(tpl.subject);
+    setEmailBody(tpl.body(name || 'there'));
+  };
+
+  const applySmsTemplate = (id: string, name: string) => {
+    const tpl = SMS_TEMPLATES.find(t => t.id === id);
+    if (!tpl) return;
+    setSmsBody(tpl.body(name || 'there'));
+  };
+
+  const emailTarget = emailMode === 'pick'
+    ? approvedPilots.find(p => p.appId === emailPickId)
+    : null;
+  const emailTo   = emailMode === 'pick' ? emailTarget?.email  || '' : emailManual.email;
+  const emailName = emailMode === 'pick' ? emailTarget?.name   || '' : emailManual.name;
+
+  const sendEmail = async () => {
+    if (!emailTo || !emailSubject || !emailBody) return;
+    setEmailSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ to: emailTo, toName: emailName, subject: emailSubject, message: emailBody }),
+      });
+      if (res.ok) {
+        setEmailSent(true);
+        setTimeout(() => setEmailSent(false), 4000);
+        setEmailSubject(''); setEmailBody(''); setEmailTemplate('');
+        setEmailPickId(''); setEmailManual({ name: '', email: '' });
+      } else { toast.error('Email failed — check console.'); }
+    } catch { toast.error('Network error.'); }
+    setEmailSending(false);
+  };
+
+  const sendSms = async () => {
+    if (!smsPhone || !smsBody) return;
+    setSmsSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/send-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ to: smsPhone, message: smsBody }),
+      });
+      if (res.ok) {
+        setSmsSent(true);
+        setTimeout(() => setSmsSent(false), 4000);
+        setSmsBody(''); setSmsTemplate(''); setSmsPhone(''); setSmsName('');
+      } else { toast.error('SMS failed — check console.'); }
+    } catch { toast.error('Network error.'); }
+    setSmsSending(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* ── Email Hub ── */}
+      <Card className="bg-card/60 border-border/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Mail className="w-4 h-4 text-primary" />
+            Email Hub
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {emailSent && (
+            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />Email sent successfully
+            </div>
+          )}
+
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            {(['pick','manual'] as const).map(m => (
+              <button key={m} onClick={() => setEmailMode(m)}
+                className={cn('px-3 py-1 rounded-full text-xs border transition-all',
+                  emailMode === m ? 'bg-primary/20 text-primary border-primary/40' : 'border-border/40 text-muted-foreground hover:border-primary/30')}>
+                {m === 'pick' ? 'Pick Pilot Client' : 'Enter Email Manually'}
+              </button>
+            ))}
+          </div>
+
+          {/* Recipient */}
+          {emailMode === 'pick' ? (
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Select approved pilot</label>
+              <Select value={emailPickId} onValueChange={v => { setEmailPickId(v); if (emailTemplate) { const p = approvedPilots.find(a => a.appId === v); applyEmailTemplate(emailTemplate, p?.name || ''); } }}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder={approvedPilots.length ? 'Choose a pilot…' : 'No approved pilots yet'} /></SelectTrigger>
+                <SelectContent>
+                  {approvedPilots.map(p => (
+                    <SelectItem key={p.appId} value={p.appId} className="text-sm">
+                      {p.name} — {p.company} <span className="text-muted-foreground text-xs">({p.email})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Name</label>
+                <Input value={emailManual.name} onChange={e => { setEmailManual(f => ({...f, name: e.target.value})); if (emailTemplate) applyEmailTemplate(emailTemplate, e.target.value); }} placeholder="Recipient name" className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Email *</label>
+                <Input type="email" value={emailManual.email} onChange={e => setEmailManual(f => ({...f, email: e.target.value}))} placeholder="client@company.com" className="h-9 text-sm" />
+              </div>
+            </div>
+          )}
+
+          {/* Template picker */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Template (optional)</label>
+            <Select value={emailTemplate} onValueChange={v => { setEmailTemplate(v); applyEmailTemplate(v, emailName); }}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Choose a template…" /></SelectTrigger>
+              <SelectContent>
+                {EMAIL_TEMPLATES.map(t => <SelectItem key={t.id} value={t.id} className="text-sm">{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Subject */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Subject *</label>
+            <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="Email subject" className="h-9 text-sm" />
+          </div>
+
+          {/* Body */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Message *</label>
+            <Textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Write your message here…" rows={8} className="text-sm font-mono" />
+          </div>
+
+          <Button className="w-full" disabled={!emailTo || !emailSubject || !emailBody || emailSending} onClick={sendEmail}>
+            {emailSending ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Sending…</> : <><Send className="w-4 h-4 mr-2" />Send Email</>}
+          </Button>
+          {emailTo && <p className="text-xs text-center text-muted-foreground">Sending to: {emailTo}</p>}
+        </CardContent>
+      </Card>
+
+      {/* ── SMS Hub ── */}
+      <Card className="bg-card/60 border-border/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-green-400" />
+            SMS Hub
+            <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">Outbound · Copy sent to your work phone</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {smsSent && (
+            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />Text sent — copy delivered to your work phone
+            </div>
+          )}
+
+          {/* Recipient phone */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Recipient name</label>
+              <Input value={smsName} onChange={e => { setSmsName(e.target.value); if (smsTemplate) applySmsTemplate(smsTemplate, e.target.value); }} placeholder="Client name" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Phone number *</label>
+              <Input value={smsPhone} onChange={e => setSmsPhone(e.target.value)} placeholder="(973) 000-0000" className="h-9 text-sm" />
+            </div>
+          </div>
+
+          {/* Template picker */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Template (optional)</label>
+            <Select value={smsTemplate} onValueChange={v => { setSmsTemplate(v); applySmsTemplate(v, smsName); }}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Choose a template…" /></SelectTrigger>
+              <SelectContent>
+                {SMS_TEMPLATES.map(t => <SelectItem key={t.id} value={t.id} className="text-sm">{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Message */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Message * <span className="text-muted-foreground/60">({smsBody.length}/160)</span></label>
+            <Textarea value={smsBody} onChange={e => setSmsBody(e.target.value)} placeholder="Write your text message…" rows={4} className="text-sm" />
+          </div>
+
+          <div className="flex items-center gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-300">
+            <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+            Sent from AWS SNS · A copy goes to your work phone (973) 444-8260 · Replies go to your physical phone
+          </div>
+
+          <Button className="w-full bg-green-600 hover:bg-green-500 text-white" disabled={!smsPhone || !smsBody || smsSending} onClick={sendSms}>
+            {smsSending ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Sending…</> : <><MessageSquare className="w-4 h-4 mr-2" />Send Text</>}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1442,8 +1769,9 @@ export default function NexumWorkspace() {
               { value: 'pipeline',  label: 'Lead Pipeline'     },
               { value: 'pilots',     label: 'Pilot Applications' },
               { value: 'onboarding',   label: 'Onboarding Tracker'  },
-              { value: 'engagements',  label: 'Engagements'          },
-              { value: 'tools',        label: 'Tools & Resources'    },
+              { value: 'engagements',  label: 'Engagements'           },
+              { value: 'comms',        label: 'Communications'        },
+              { value: 'tools',        label: 'Tools & Resources'     },
               { value: 'notes',      label: 'Notes'              },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value}
@@ -1558,6 +1886,11 @@ export default function NexumWorkspace() {
           {/* ── Onboarding Tracker ── */}
           <TabsContent value="onboarding" className="mt-4">
             <OnboardingTracker />
+          </TabsContent>
+
+          {/* ── Communications ── */}
+          <TabsContent value="comms" className="mt-4">
+            <CommunicationsHub />
           </TabsContent>
 
           {/* ── Engagements ── */}

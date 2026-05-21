@@ -320,6 +320,54 @@ export const handler = async (event) => {
     }
   }
 
+  // Parse body once for remaining POST handlers
+  let body: any = {};
+  try {
+    let raw = event.body || "{}";
+    if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
+    body = JSON.parse(raw);
+  } catch { body = {}; }
+
+  const ADMIN_EMAIL = "razzellv@nexumsuum.com";
+
+  // ── POST /admin/send-email  (send branded email to any address) ─────────────
+  if (method === "POST" && pathParts[0] === "admin" && pathParts[1] === "send-email") {
+    const { to, toName, subject, message } = body;
+    if (!to || !subject || !message) return json(400, { message: "to, subject, message are required" });
+
+    const displayName = toName || to;
+    const html = `
+<html><body style="font-family:sans-serif;background:#0a0a0a;color:#e5e7eb;padding:32px;max-width:600px;margin:0 auto;">
+  <div style="margin-bottom:28px;border-bottom:1px solid #1f2937;padding-bottom:20px;">
+    <span style="color:#f97316;font-size:20px;font-weight:bold;">Nexum Suum</span>
+    <span style="color:#6b7280;font-size:13px;margin-left:8px;">Facility Intelligence™</span>
+  </div>
+  <div style="color:#e5e7eb;font-size:15px;line-height:1.8;white-space:pre-wrap;">${message.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid #1f2937;color:#6b7280;font-size:12px;">
+    <p style="margin:0;">Razzel Taylor · Nexum Suum Facility Intelligence™</p>
+    <p style="margin:4px 0 0;">razzellv@nexumsuum.com</p>
+  </div>
+</body></html>`;
+
+    try {
+      await ses.send(new SendEmailCommand({
+        Source: `Razzel Taylor <${FROM_EMAIL}>`,
+        Destination: { ToAddresses: [to] },
+        ReplyToAddresses: [ADMIN_EMAIL],
+        Message: {
+          Subject: { Data: subject },
+          Body: {
+            Html: { Data: html },
+            Text: { Data: `${message}\n\n— Razzel Taylor\nNexum Suum Facility Intelligence™` },
+          },
+        },
+      }));
+      return json(200, { sent: true, to });
+    } catch (err: any) {
+      return json(500, { message: "Failed to send email.", detail: err.message });
+    }
+  }
+
   // ── POST /pilot-applications/:id/message  (send custom email to applicant) ──
   if (method === "POST" && pathParts.length >= 3 && pathParts[pathParts.length - 1] === "message") {
     const appId    = pathParts[pathParts.length - 2];

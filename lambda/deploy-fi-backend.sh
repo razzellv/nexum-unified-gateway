@@ -214,6 +214,26 @@ fi
 aws iam put-role-policy --role-name fi-bookings-role --policy-name policy \
   --policy-document "$BOOKINGS_POLICY" > /dev/null
 
+echo "▶ Ensuring fi-sms-role..."
+SMS_POLICY='{
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Effect":"Allow","Action":["sns:Publish"],"Resource":"*"},
+    {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":"*"}
+  ]
+}'
+if aws iam get-role --role-name "fi-sms-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-sms-role already exists"
+else
+  aws iam create-role --role-name "fi-sms-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-sms-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-sms-role created"
+fi
+aws iam put-role-policy --role-name fi-sms-role --policy-name policy \
+  --policy-document "$SMS_POLICY" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
@@ -257,6 +277,9 @@ deploy_lambda "nexum-fi-courses" "fi-courses.mjs" "fi-courses-role" \
 
 deploy_lambda "nexum-fi-bookings" "fi-bookings.mjs" "fi-bookings-role" \
   "ADMIN_EMAIL=razzellv@nexumsuum.com,FROM_EMAIL=no-reply@nexumsuum-facilityintelligence.com"
+
+deploy_lambda "nexum-fi-sms" "fi-sms.mjs" "fi-sms-role" \
+  "ADMIN_PHONE=+19734448260"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -341,6 +364,9 @@ add_route "POST /bookings"         "nexum-fi-bookings"  "none"
 add_route "GET /bookings/all"      "nexum-fi-bookings"  "none"
 add_route "PATCH /bookings/{id}"   "nexum-fi-bookings"  "none"
 add_route "DELETE /bookings/{id}"  "nexum-fi-bookings"  "none"
+
+add_route "POST /admin/send-email"  "pilot-admin"    "jwt"
+add_route "POST /admin/send-sms"    "nexum-fi-sms"   "jwt"
 
 echo ""
 echo "4/4  Verify routes"
