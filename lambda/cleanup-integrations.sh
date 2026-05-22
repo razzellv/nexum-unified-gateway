@@ -66,13 +66,15 @@ for INT_ID in $ALL_IDS; do
 done
 
 echo ""
+# Count remaining (sum across pages — 'length(Items)' prints one count per page)
 REMAINING=$(aws apigatewayv2 get-integrations \
   --api-id "$API_ID" --region "$REGION" \
-  --query 'length(Items)' --output text)
+  --query 'Items[].IntegrationId' --output text \
+  | tr '\t' '\n' | grep -c . || echo 0)
 
 echo "═══════════════════════════════════════════════════"
 echo "  Done. Removed $DELETED unused integration(s)."
-echo "  Integrations remaining: $REMAINING"
+echo "  Integrations remaining: $REMAINING / 300 (AWS limit)"
 echo ""
 echo "  You can now run:  bash deploy-fi-backend.sh"
 echo "═══════════════════════════════════════════════════"

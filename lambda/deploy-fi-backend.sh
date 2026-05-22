@@ -56,48 +56,13 @@ deploy_lambda() {
   rm -rf "$TMPDIR"
 }
 
-# ── Helper: get or create one integration per Lambda ARN ──────────────────────
-# Caches result in INTEGRATION_CACHE_<safe_name> to avoid repeated API calls
-# within the same deploy run.
-get_or_create_integration() {
-  local LAMBDA_NAME=$1
-  local LAMBDA_ARN=$2
-  local CACHE_VAR="INTEGRATION_CACHE_$(echo "$LAMBDA_NAME" | tr '-' '_')"
-
-  # Return cached value if we already resolved this Lambda this run
-  if [ -n "${!CACHE_VAR}" ]; then
-    echo "${!CACHE_VAR}"
-    return
-  fi
-
-  local INTEGRATION_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
-
-  # Look for an existing integration pointing at this Lambda
-  local EXISTING_ID
-  EXISTING_ID=$(aws apigatewayv2 get-integrations \
-    --api-id "$API_ID" --region "$REGION" \
-    --query "Items[?IntegrationUri=='${INTEGRATION_URI}'].IntegrationId | [0]" \
-    --output text 2>/dev/null)
-
-  if [ -z "$EXISTING_ID" ] || [ "$EXISTING_ID" = "None" ]; then
-    EXISTING_ID=$(aws apigatewayv2 create-integration \
-      --api-id "$API_ID" \
-      --integration-type AWS_PROXY \
-      --integration-uri "$INTEGRATION_URI" \
-      --payload-format-version 2.0 \
-      --region "$REGION" \
-      --query 'IntegrationId' --output text)
-  fi
-
-  # Cache so the same Lambda reuses the same integration for every route
-  export "${CACHE_VAR}=${EXISTING_ID}"
-  echo "$EXISTING_ID"
-}
-
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
+# Reuses one integration per Lambda ARN — never creates duplicates.
+# Uses grep+awk lookup instead of JMESPath filter (more portable on macOS bash 3).
 add_route() {
   local ROUTE_KEY=$1 LAMBDA_NAME=$2 AUTH=$3
 
+  local LAMBDA_ARN
   LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region $REGION \
     --query 'Configuration.FunctionArn' --output text)
 
@@ -110,9 +75,35 @@ add_route() {
     --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${API_ID}/*/*" \
     --region $REGION > /dev/null 2>&1 || true
 
-  # Reuse one integration per Lambda — never create a duplicate
-  INTEGRATION_ID=$(get_or_create_integration "$LAMBDA_NAME" "$LAMBDA_ARN")
+  # Look up existing integration for this Lambda (tab-separated URI IntegrationId per line)
+  local INTEGRATION_ID
+  INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
+    --api-id "$API_ID" --region "$REGION" \
+    --query 'Items[*].[IntegrationUri,IntegrationId]' \
+    --output text \
+    | grep "$LAMBDA_ARN" \
+    | awk '{print $2}' \
+    | head -1)
 
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    local INTEGRATION_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
+    INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+      --api-id "$API_ID" \
+      --integration-type AWS_PROXY \
+      --integration-uri "$INTEGRATION_URI" \
+      --payload-format-version 2.0 \
+      --region "$REGION" \
+      --query 'IntegrationId' --output text) || true
+  fi
+
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    echo "  ✗ ERROR: Cannot get or create integration for $LAMBDA_NAME"
+    echo "    Integration limit may still be hit. Check count:"
+    echo "    aws apigatewayv2 get-integrations --api-id $API_ID --region $REGION --query 'length(Items)'"
+    exit 1
+  fi
+
+  local EXISTING_ROUTE
   EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
     --query "Items[?RouteKey=='${ROUTE_KEY}'].RouteId" --output text 2>/dev/null)
 
