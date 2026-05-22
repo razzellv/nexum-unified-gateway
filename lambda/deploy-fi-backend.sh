@@ -432,8 +432,8 @@ add_route "POST /admin/send-email"  "pilot-admin"    "jwt"
 add_route "POST /admin/send-sms"    "nexum-fi-sms"   "jwt"
 
 # Quality Intelligence — longitudinal snapshot storage
-add_route "GET  /quality-intelligence"   "nexum-quality-intelligence"  "jwt"
-add_route "POST /quality-intelligence"   "nexum-quality-intelligence"  "jwt"
+add_route "GET /quality-intelligence"  "nexum-quality-intelligence"  "jwt"
+add_route "POST /quality-intelligence" "nexum-quality-intelligence"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"
