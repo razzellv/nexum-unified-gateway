@@ -237,6 +237,39 @@ export function SystemSelector({ onSelect }: SystemSelectorProps) {
               </button>
             </div>
 
+            {/* Water Chemistry — standalone, links to equipment inside the form */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <div className={cn('p-1 rounded', systemConfig.water_chemistry.bgColor)}>
+                  <FlaskConical className={cn('h-3.5 w-3.5', systemConfig.water_chemistry.color)} />
+                </div>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {systemConfig.water_chemistry.label}
+                </span>
+              </div>
+              <button
+                onClick={() => facility && building && onSelect(facility, building, {
+                  id: 'water_chemistry',
+                  name: 'Water Chemistry Log',
+                  type: 'water_chemistry',
+                  assetTag: 'WATER-CHEM',
+                  location: building.name,
+                })}
+                className={cn(
+                  'w-full system-card p-4 text-left border-2',
+                  systemConfig.water_chemistry.bgColor
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">Log Water Chemistry</p>
+                    <p className="text-sm text-muted-foreground">pH, conductivity, treatment levels</p>
+                  </div>
+                  <ChevronRight className={cn('h-5 w-5', systemConfig.water_chemistry.color)} />
+                </div>
+              </button>
+            </div>
+
             {/* Equipment-based systems */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {(Object.entries(groupedSystems) as [SystemType, SystemInfo[]][]).map(
