@@ -23,6 +23,12 @@ export default function VideoLibrary() {
   const [editTags, setEditTags] = useState("");
   const prevUrl = useRef<string | null>(null);
 
+  // Must be before any early return (Rules of Hooks)
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    listVideos().then(setVideos).finally(() => setLoading(false));
+  }, [user?.role]);
+
   if (user?.role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
@@ -30,10 +36,6 @@ export default function VideoLibrary() {
       </div>
     );
   }
-
-  useEffect(() => {
-    listVideos().then(setVideos).finally(() => setLoading(false));
-  }, []);
 
   async function openPlayer(id: string) {
     if (prevUrl.current) URL.revokeObjectURL(prevUrl.current);

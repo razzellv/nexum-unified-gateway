@@ -49,6 +49,13 @@ export default function DemoPanel() {
   // Demo ids for linking steps
   const [demoIds, setDemoIds] = useState<{ boilerId?: string; ahuId?: string }>({});
 
+  // Must be before any early return (Rules of Hooks)
+  useEffect(() => () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+  }, []);
+
   if (user?.role !== "admin") return null;
 
   const facilityId = user?.facilityId || user?.["custom:facilityId"] || "facility-001";
@@ -150,13 +157,6 @@ export default function DemoPanel() {
 
     navigate("/video-library");
   }
-
-  // Cleanup on unmount
-  useEffect(() => () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    micStreamRef.current?.getTracks().forEach((t) => t.stop());
-  }, []);
 
   // ── Demo automation ────────────────────────────────────────────────────────
   const setStatus = (id: number, s: StepStatus) =>
