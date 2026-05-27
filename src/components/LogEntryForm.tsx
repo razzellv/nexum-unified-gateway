@@ -55,6 +55,7 @@ export function LogEntryForm({
   onBack,
 }: LogEntryFormProps) {
   const [shift, setShift] = useState<Shift>(getCurrentShift());
+  const [oat, setOat] = useState('');
   const [notes, setNotes] = useState('');
   const [abnormalCondition, setAbnormalCondition] = useState(false);
   const [measurementType, setMeasurementType] = useState<MeasurementType>('measured');
@@ -175,6 +176,7 @@ export function LogEntryForm({
         operatorId: authUser?.sub || mockUser.id,
         measurementType,
         abnormalCondition,
+        oat: oat ? parseFloat(oat) : undefined,
         operatorNotes: notes,
         metrics: metricsMap[systemType ?? 'energy'] ?? {},
       };
@@ -292,6 +294,8 @@ export function LogEntryForm({
           isFacilityLevel={isEnergyLog}
           shift={shift}
           onShiftChange={setShift}
+          oat={oat}
+          onOatChange={setOat}
           notes={notes}
           onNotesChange={setNotes}
           abnormalCondition={abnormalCondition}
