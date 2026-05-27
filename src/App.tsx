@@ -8,6 +8,7 @@ import { Outlet } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { RoleProvider } from "./contexts/RoleContext";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import DemoPanel from "@/components/demo/DemoPanel";
 
 // ── Global Error Boundary ─────────────────────────────────────────────────────
 interface EBState { hasError: boolean; message: string }
@@ -67,6 +68,7 @@ export default function App() {
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <DemoPanel />
               <Outlet />
             </TooltipProvider>
           </RoleProvider>
