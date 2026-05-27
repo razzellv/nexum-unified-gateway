@@ -73,6 +73,11 @@ export const handler = async (event) => {
       const messages = result.Items || [];
       return json(200, { messages, count: messages.length });
     } catch (err) {
+      // Table not yet created — return empty instead of 500
+      if (err.name === "ResourceNotFoundException") {
+        console.warn("NexumMessages table not found — returning empty");
+        return json(200, { messages: [], count: 0 });
+      }
       console.error("GET /messages:", err);
       return json(500, { message: "Failed to fetch messages.", detail: err.message });
     }

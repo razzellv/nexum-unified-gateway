@@ -183,6 +183,27 @@ ensure_table           "NexumOnboardingRecords"   "facilityId"
 ensure_table           "NexumCourses"             "courseId"
 ensure_table           "NexumBookings"            "bookingId"
 ensure_composite_table "NexumQualityIntelligence" "facilityId" "snapshotId"
+ensure_composite_table "NexumMessages"            "PK"         "SK"
+
+# Add orgId-index GSI to EquipmentLibrary if not present
+EQUIP_GSI=$(aws dynamodb describe-table --table-name "EquipmentLibrary" --region $REGION \
+  --query 'Table.GlobalSecondaryIndexes[?IndexName==`orgId-index`].IndexName' \
+  --output text 2>/dev/null || true)
+if [ -z "$EQUIP_GSI" ] || [ "$EQUIP_GSI" = "None" ]; then
+  echo "  ▶ Adding orgId-index GSI to EquipmentLibrary..."
+  aws dynamodb update-table \
+    --table-name "EquipmentLibrary" \
+    --region "$REGION" \
+    --attribute-definitions \
+      "AttributeName=orgId,AttributeType=S" \
+      "AttributeName=createdAt,AttributeType=S" \
+    --global-secondary-index-updates \
+      '[{"Create":{"IndexName":"orgId-index","KeySchema":[{"AttributeName":"orgId","KeyType":"HASH"},{"AttributeName":"createdAt","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}}]' \
+    > /dev/null 2>&1 && echo "  ✓ GSI creation started (activates in ~1 min)" \
+    || echo "  ! GSI creation skipped (may already be creating)"
+else
+  echo "  ✓ EquipmentLibrary orgId-index GSI already exists"
+fi
 echo ""
 
 echo "1/4  IAM Roles"

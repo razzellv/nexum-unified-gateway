@@ -14,7 +14,7 @@
 import { DynamoDBClient }                          from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand,
          PutCommand, UpdateCommand, DeleteCommand,
-         GetCommand }                              from "@aws-sdk/lib-dynamodb";
+         GetCommand, ScanCommand }                from "@aws-sdk/lib-dynamodb";
 
 const ddb              = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
 const EQUIP_TABLE      = process.env.EQUIPMENT_TABLE  || "EquipmentLibrary";
@@ -382,7 +382,7 @@ export const handler = async (event) => {
   }
 
   // ── GET /equipment ──────────────────────────────────────────────────────────
-  // EquipmentLibrary key: equipmentId (HASH only), GSI: orgId-index (orgId+createdAt)
+  // Primary: query via orgId-index GSI. Fallback: scan by facilityId (if GSI absent).
   if (method === "GET" && (path.endsWith("/equipment") || path.includes("/equipment?"))) {
     try {
       const qs    = event.queryStringParameters || {};
@@ -390,22 +390,39 @@ export const handler = async (event) => {
       const type  = qs.type || qs.systemType;
       const oid   = orgId(claims);
 
-      let params = {
-        TableName:                 EQUIP_TABLE,
-        IndexName:                 "orgId-index",
-        KeyConditionExpression:    "orgId = :oid",
-        ExpressionAttributeValues: { ":oid": oid },
-        ScanIndexForward:          false,
-        Limit:                     limit,
-      };
-
-      if (type) {
-        params.FilterExpression              = "systemType = :type";
-        params.ExpressionAttributeValues[":type"] = type;
+      let equipment = [];
+      try {
+        // Preferred path: GSI query (O(n) with index)
+        const params = {
+          TableName:                 EQUIP_TABLE,
+          IndexName:                 "orgId-index",
+          KeyConditionExpression:    "orgId = :oid",
+          ExpressionAttributeValues: { ":oid": oid },
+          ScanIndexForward:          false,
+          Limit:                     limit,
+        };
+        if (type) {
+          params.FilterExpression = "systemType = :type";
+          params.ExpressionAttributeValues[":type"] = type;
+        }
+        const result = await ddb.send(new QueryCommand(params));
+        equipment = (result.Items || []).map(i => mapEquipment(i, fid));
+      } catch (gsiErr) {
+        // Fallback: scan by facilityId (GSI not yet active or doesn't exist)
+        console.warn("orgId-index unavailable, scanning by facilityId:", gsiErr.message);
+        const filter = type
+          ? "facilityId = :fid AND systemType = :type"
+          : "facilityId = :fid";
+        const vals = { ":fid": fid };
+        if (type) vals[":type"] = type;
+        const result = await ddb.send(new ScanCommand({
+          TableName:                 EQUIP_TABLE,
+          FilterExpression:          filter,
+          ExpressionAttributeValues: vals,
+          Limit:                     limit,
+        }));
+        equipment = (result.Items || []).map(i => mapEquipment(i, fid));
       }
-
-      const result    = await ddb.send(new QueryCommand(params));
-      const equipment = (result.Items || []).map(i => mapEquipment(i, fid));
 
       return json(200, { equipment, count: equipment.length });
     } catch (err) {
@@ -421,6 +438,9 @@ export const handler = async (event) => {
       if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
       const body = JSON.parse(raw);
 
+      // Accept both field naming conventions (frontend sends equipmentName/equipmentType)
+      if (!body.name)       body.name       = body.equipmentName || body.systemName || "";
+      if (!body.systemType) body.systemType = body.equipmentType || body.type       || "";
       if (!body.name && !body.systemType) return json(400, { message: "name or systemType is required" });
 
       const now = new Date().toISOString();
