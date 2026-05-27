@@ -1,7 +1,7 @@
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
+  return localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
 };
 
 
