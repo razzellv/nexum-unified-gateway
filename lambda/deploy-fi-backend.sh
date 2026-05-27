@@ -125,7 +125,7 @@ add_route() {
 # ══════════════════════════════════════════════════════════════════════════════
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -165,6 +165,76 @@ aws iam put-role-policy --role-name fi-users-role --policy-name policy \
 aws iam put-role-policy --role-name fi-intake-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumLeads\"},{\"Effect\":\"Allow\",\"Action\":[\"ses:SendEmail\",\"ses:SendRawEmail\"],\"Resource\":\"*\"}]}" > /dev/null
 
+aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-courses-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumCourses\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-manager-dashboard-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\",\"dynamodb:Scan\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary/index/*\"]}]}" > /dev/null
+
+echo "▶ Ensuring fi-bookings-role..."
+BOOKINGS_POLICY='{
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Effect":"Allow","Action":["dynamodb:PutItem","dynamodb:GetItem","dynamodb:UpdateItem","dynamodb:DeleteItem","dynamodb:Scan","dynamodb:Query"],"Resource":"arn:aws:dynamodb:us-east-2:758027491272:table/NexumBookings"},
+    {"Effect":"Allow","Action":["ses:SendEmail","ses:SendRawEmail"],"Resource":"*"},
+    {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":"*"}
+  ]
+}'
+if aws iam get-role --role-name "fi-bookings-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-bookings-role already exists"
+else
+  aws iam create-role --role-name "fi-bookings-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-bookings-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-bookings-role created"
+fi
+aws iam put-role-policy --role-name fi-bookings-role --policy-name policy \
+  --policy-document "$BOOKINGS_POLICY" > /dev/null
+
+echo "▶ Ensuring fi-quality-intelligence-role..."
+QI_POLICY="{
+  \"Version\":\"2012-10-17\",
+  \"Statement\":[
+    {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumQualityIntelligence\"},
+    {\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"*\"}
+  ]
+}"
+if aws iam get-role --role-name "fi-quality-intelligence-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-quality-intelligence-role already exists"
+else
+  aws iam create-role --role-name "fi-quality-intelligence-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-quality-intelligence-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-quality-intelligence-role created"
+fi
+aws iam put-role-policy --role-name fi-quality-intelligence-role --policy-name policy \
+  --policy-document "$QI_POLICY" > /dev/null
+
+echo "▶ Ensuring fi-sms-role..."
+SMS_POLICY='{
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Effect":"Allow","Action":["sns:Publish"],"Resource":"*"},
+    {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":"*"}
+  ]
+}'
+if aws iam get-role --role-name "fi-sms-role" > /dev/null 2>&1; then
+  echo "  ✓ Role fi-sms-role already exists"
+else
+  aws iam create-role --role-name "fi-sms-role" \
+    --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}' > /dev/null
+  aws iam attach-role-policy --role-name "fi-sms-role" \
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  echo "  ✓ Role fi-sms-role created"
+fi
+aws iam put-role-policy --role-name fi-sms-role --policy-name policy \
+  --policy-document "$SMS_POLICY" > /dev/null
+
 echo "  ✓ Policies attached"
 echo ""
 echo "  Waiting 12s for IAM propagation..."
@@ -202,6 +272,21 @@ deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
 
 deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-equipment-role" \
   "ONBOARDING_TABLE=NexumOnboardingRecords"
+
+deploy_lambda "nexum-fi-courses" "fi-courses.mjs" "fi-courses-role" \
+  "COURSES_TABLE=NexumCourses"
+
+deploy_lambda "nexum-fi-bookings" "fi-bookings.mjs" "fi-bookings-role" \
+  "ADMIN_EMAIL=razzellv@nexumsuum.com,FROM_EMAIL=no-reply@nexumsuum-facilityintelligence.com"
+
+deploy_lambda "nexum-fi-sms" "fi-sms.mjs" "fi-sms-role" \
+  "ADMIN_PHONE=+19734448260"
+
+deploy_lambda "nexum-quality-intelligence" "quality-intelligence.mjs" "fi-quality-intelligence-role" \
+  "QI_TABLE=NexumQualityIntelligence"
+
+deploy_lambda "nexum-fi-manager-dashboard" "fi-manager-dashboard.mjs" "fi-manager-dashboard-role" \
+  "REGION=us-east-2"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -273,6 +358,32 @@ add_route "GET  /onboarding"                         "nexum-fi-onboarding"  "jwt
 add_route "POST /onboarding"                         "nexum-fi-onboarding"  "jwt"
 add_route "GET  /onboarding/all"                     "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding/{facilityId}/milestone"  "nexum-fi-onboarding"  "jwt"
+
+# Courses (Optimize & Learn)
+add_route "GET /courses"           "nexum-fi-courses"  "jwt"
+add_route "POST /courses"          "nexum-fi-courses"  "jwt"
+add_route "PATCH /courses/{id}"    "nexum-fi-courses"  "jwt"
+add_route "DELETE /courses/{id}"   "nexum-fi-courses"  "jwt"
+
+# Bookings — public (no JWT)
+add_route "GET /bookings"          "nexum-fi-bookings"  "none"
+add_route "POST /bookings"         "nexum-fi-bookings"  "none"
+add_route "GET /bookings/all"      "nexum-fi-bookings"  "none"
+add_route "PATCH /bookings/{id}"   "nexum-fi-bookings"  "none"
+add_route "DELETE /bookings/{id}"  "nexum-fi-bookings"  "none"
+
+add_route "POST /admin/send-email"  "pilot-admin"    "jwt"
+add_route "POST /admin/send-sms"    "nexum-fi-sms"   "jwt"
+
+# Quality Intelligence — longitudinal snapshot storage
+add_route "GET /quality-intelligence"  "nexum-quality-intelligence"  "jwt"
+add_route "POST /quality-intelligence" "nexum-quality-intelligence"  "jwt"
+
+# Manager / Supervisor / Executive Dashboards
+add_route "GET /dashboard/manager"     "nexum-fi-manager-dashboard"  "jwt"
+add_route "GET /dashboard/supervisor"  "nexum-fi-manager-dashboard"  "jwt"
+add_route "GET /dashboard/executive"   "nexum-fi-manager-dashboard"  "jwt"
+add_route "GET /dashboard/energy"      "nexum-fi-manager-dashboard"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"
