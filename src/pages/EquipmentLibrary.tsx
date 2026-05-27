@@ -582,7 +582,7 @@ export default function EquipmentLibrary() {
   const EquipmentFormFields = () => (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Equipment Type *</Label><EquipmentTypeSelect /></div>
+        <div className="space-y-2"><Label>Equipment Type *</Label>{EquipmentTypeSelect()}</div>
         <div className="space-y-2">
           <Label>Status</Label>
           <Select value={formData.status} onValueChange={v => setFormData(f => ({ ...f, status: v }))}>
@@ -848,7 +848,7 @@ export default function EquipmentLibrary() {
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Add New Equipment</DialogTitle></DialogHeader>
                   <div className="py-4 space-y-4">
-                    <EquipmentFormFields />
+                    {EquipmentFormFields()}
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }} disabled={submitting}>Cancel</Button>
                       <Button onClick={handleAdd} disabled={submitting}>{submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Add Equipment</Button>
@@ -865,7 +865,7 @@ export default function EquipmentLibrary() {
                   <DialogHeader><DialogTitle>Request Equipment Addition</DialogTitle></DialogHeader>
                   <div className="py-4 space-y-4">
                     <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm text-yellow-400">This request will be sent to your manager for approval.</div>
-                    <EquipmentFormFields />
+                    {EquipmentFormFields()}
                     <div className="space-y-2"><Label>Reason for Addition</Label><Textarea value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Explain why..." rows={3} /></div>
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => { setRequestDialogOpen(false); resetForm(); setRequestReason(''); }} disabled={submitting}>Cancel</Button>
@@ -1094,7 +1094,7 @@ export default function EquipmentLibrary() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Edit Equipment</DialogTitle></DialogHeader>
             <div className="py-4 space-y-4">
-              <EquipmentFormFields />
+              {EquipmentFormFields()}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => { setEditDialogOpen(false); setSelectedEquipment(null); resetForm(); }} disabled={submitting}>Cancel</Button>
                 <Button onClick={handleEdit} disabled={submitting}>{submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save Changes</Button>
