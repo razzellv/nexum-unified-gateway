@@ -21,6 +21,7 @@ import { GeneratorForm, initialGeneratorData, validateGeneratorForm } from '@/co
 import { ROSystemForm, initialROSystemData, validateROSystemForm } from '@/components/forms/ROSystemForm';
 import { WFISystemForm, initialWFISystemData, validateWFISystemForm } from '@/components/forms/WFISystemForm';
 import { MPCCForm, initialMPCCData, validateMPCCForm } from '@/components/forms/MPCCForm';
+import { WaterChemistryForm, initialWaterChemistryData, validateWaterChemistryForm } from '@/components/forms/WaterChemistryForm';
 
 import { Facility, Building, SystemInfo, Shift, MeasurementType } from '@/types/logging';
 import { getCurrentShift, mockUser } from '@/data/mockData';
@@ -84,6 +85,7 @@ export function LogEntryForm({
   const [roSystemData, setROSystemData] = useState(initialROSystemData);
   const [wfiSystemData, setWFISystemData] = useState(initialWFISystemData);
   const [mpccData, setMpccData] = useState(initialMPCCData);
+  const [waterChemData, setWaterChemData] = useState(initialWaterChemistryData);
 
   // Block executives from accessing
   if (!permissions.hasAccess) {
@@ -124,6 +126,7 @@ export function LogEntryForm({
       case 'ro_system':         formErrors = validateROSystemForm(roSystemData); break;
       case 'wfi_system':        formErrors = validateWFISystemForm(wfiSystemData); break;
       case 'mpcc':              formErrors = validateMPCCForm(mpccData); break;
+      case 'water_chemistry':   formErrors = validateWaterChemistryForm(waterChemData); break;
     }
 
     setErrors(formErrors);
@@ -163,13 +166,17 @@ export function LogEntryForm({
         ro_system:         roSystemData,
         wfi_system:        wfiSystemData,
         mpcc:              mpccData,
+        water_chemistry:   waterChemData,
       };
 
       const logData = {
         facilityId: facility.id,
         buildingId: building.id,
         systemType: system?.type || 'energy',
-        systemId: system?.id || 'energy-log',
+        // For water chemistry the target equipment comes from inside the form
+        systemId: systemType === 'water_chemistry'
+          ? (waterChemData.equipmentId || system?.id || 'water-chem')
+          : (system?.id || 'energy-log'),
         timestamp: new Date().toISOString(),
         shift,
         operator: authUser?.name || authUser?.email || mockUser.name,
@@ -248,7 +255,8 @@ export function LogEntryForm({
         return <ROSystemForm data={roSystemData} onChange={setROSystemData} errors={errors} />;
       case 'wfi_system':
         return <WFISystemForm data={wfiSystemData} onChange={setWFISystemData} errors={errors} />;        
-      case 'mpcc':        return <MPCCForm data={mpccData} onChange={setMpccData} errors={errors} />;
+      case 'mpcc':            return <MPCCForm data={mpccData} onChange={setMpccData} errors={errors} />;
+      case 'water_chemistry': return <WaterChemistryForm data={waterChemData} onChange={setWaterChemData} errors={errors} />;
       default:
         return (
           <div className="form-section text-center py-12">

@@ -97,6 +97,12 @@ const systemConfig: Record<SystemType, { icon: any; label: string; color: string
     color: 'text-chiller',
     bgColor: 'bg-chiller-muted border-chiller/40',
   },
+  water_chemistry: {
+    icon: FlaskConical,
+    label: 'Water Chemistry',
+    color: 'text-sky-400',
+    bgColor: 'bg-sky-500/10 border-sky-500/30',
+  },
 };
 
 interface SystemSelectorProps {

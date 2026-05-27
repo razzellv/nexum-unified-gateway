@@ -202,7 +202,12 @@ export default function SupervisorDashboard() {
     if (isAuthenticated) {
       fetchData();
       const interval = setInterval(fetchData, 60000);
-      return () => clearInterval(interval);
+      const onLog = () => fetchData();
+      window.addEventListener('facility-log-submitted', onLog);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('facility-log-submitted', onLog);
+      };
     }
   }, [isAuthenticated, fetchData]);
 

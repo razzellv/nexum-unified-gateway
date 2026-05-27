@@ -239,9 +239,15 @@ export const submitFacilityLog = async (logData: any) => {
 
     // Cache submitted log locally so dashboards can show updates before API polling refreshes
     try {
+      const entry = { ...payload, systemType: logData.systemType, facilityId, timestamp, metrics: logData.metrics || {} };
+      // nexum_submitted_logs — used by some dashboards
       const cache: any[] = JSON.parse(localStorage.getItem('nexum_submitted_logs') || '[]');
-      cache.unshift({ systemType: logData.systemType, facilityId, timestamp, metrics: logData.metrics || {} });
+      cache.unshift(entry);
       localStorage.setItem('nexum_submitted_logs', JSON.stringify(cache.slice(0, 200)));
+      // nexum_facility_logs — read by OperationalIntelligence engine
+      const logs: any[] = JSON.parse(localStorage.getItem('nexum_facility_logs') || '[]');
+      logs.unshift(entry);
+      localStorage.setItem('nexum_facility_logs', JSON.stringify(logs.slice(0, 500)));
     } catch { /* silent */ }
 
     return result;

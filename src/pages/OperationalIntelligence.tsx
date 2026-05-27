@@ -78,13 +78,17 @@ function integrityBadge(a: string) {
 }
 
 function loadSampleData() {
-  const raw = {
-    logs:       JSON.parse(localStorage.getItem('nexum_facility_logs')       ?? '[]'),
-    workOrders: JSON.parse(localStorage.getItem('nexum_work_orders')         ?? '[]'),
-    equipment:  JSON.parse(localStorage.getItem('nexum_equipment_library')   ?? '[]'),
-    violations: JSON.parse(localStorage.getItem('nexum_violation_events')    ?? '[]'),
+  const stored: any[]  = JSON.parse(localStorage.getItem('nexum_facility_logs')    ?? '[]');
+  const submitted: any[] = JSON.parse(localStorage.getItem('nexum_submitted_logs') ?? '[]');
+  // Merge submitted logs with stored logs, deduplicate by SK
+  const seen = new Set(stored.map((l: any) => l.SK));
+  const merged = [...stored, ...submitted.filter((l: any) => !seen.has(l.SK))];
+  return {
+    logs:       merged,
+    workOrders: JSON.parse(localStorage.getItem('nexum_work_orders')       ?? '[]'),
+    equipment:  JSON.parse(localStorage.getItem('nexum_equipment_library') ?? '[]'),
+    violations: JSON.parse(localStorage.getItem('nexum_violation_events')  ?? '[]'),
   };
-  return raw;
 }
 
 // ── Score Gauge ───────────────────────────────────────────────────────────────
@@ -399,7 +403,11 @@ function OIGContent() {
     }, 600);
   }, [facilityId]);
 
-  useEffect(() => { runAnalysis(); }, [runAnalysis]);
+  useEffect(() => {
+    runAnalysis();
+    window.addEventListener('facility-log-submitted', runAnalysis);
+    return () => window.removeEventListener('facility-log-submitted', runAnalysis);
+  }, [runAnalysis]);
 
   const critical = result
     ? result.correlatedFindings.filter(f => f.severity === 'Critical' || f.severity === 'High').length

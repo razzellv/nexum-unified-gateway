@@ -18,7 +18,8 @@ export type SystemType =
   | 'generator'
   | 'ro_system'
   | 'wfi_system'
-  | 'mpcc';
+  | 'mpcc'
+  | 'water_chemistry';
 
 export interface BaseLogEntry {
   id?: string;

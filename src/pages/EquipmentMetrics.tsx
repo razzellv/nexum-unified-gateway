@@ -157,6 +157,9 @@ export default function EquipmentMetrics() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchLogs();
+      const onLog = () => fetchLogs();
+      window.addEventListener('facility-log-submitted', onLog);
+      return () => window.removeEventListener('facility-log-submitted', onLog);
     }
   }, [isAuthenticated, fetchLogs]);
 

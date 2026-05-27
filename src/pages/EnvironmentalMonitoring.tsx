@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TestType = 'air_quality' | 'water_quality' | 'soil_sampling' | 'noise_level' | 'radiation' | 'wastewater' | 'stormwater' | 'groundwater' | 'stack_emissions' | 'other';
+type TestType = 'air_quality' | 'indoor_air_quality' | 'water_quality' | 'soil_sampling' | 'noise_level' | 'radiation' | 'wastewater' | 'stormwater' | 'groundwater' | 'stack_emissions' | 'other';
 type MonitoringStatus = 'compliant' | 'warning' | 'violation' | 'pending_lab';
 
 interface MonitoringRecord {
@@ -47,8 +47,9 @@ interface MonitoringRecord {
 const STORAGE_KEY = 'nexum_env_monitoring';
 
 const PARAM_SUGGESTIONS: Record<string, string[]> = {
-  air_quality: ['PM2.5', 'PM10', 'CO', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
-  stack_emissions: ['PM2.5', 'PM10', 'CO', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
+  air_quality: ['PM2.5', 'PM10', 'CO', 'CO2', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
+  indoor_air_quality: ['O2', 'CO', 'CO2', 'NO2', 'VOCs', 'PM2.5', 'PM10', 'Humidity', 'Temperature', 'Radon', 'Formaldehyde'],
+  stack_emissions: ['PM2.5', 'PM10', 'CO', 'CO2', 'O2', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
   water_quality: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
   wastewater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
   stormwater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
@@ -93,7 +94,7 @@ function statusLabel(s: MonitoringStatus) {
 }
 
 const TAB_TYPES: { label: string; types: TestType[] | null }[] = [
-  { label: 'Air Quality', types: ['air_quality', 'stack_emissions'] },
+  { label: 'Air Quality', types: ['air_quality', 'indoor_air_quality', 'stack_emissions'] },
   { label: 'Water Testing', types: ['water_quality', 'wastewater', 'stormwater'] },
   { label: 'Soil & Groundwater', types: ['soil_sampling', 'groundwater'] },
   { label: 'Noise', types: ['noise_level', 'radiation'] },
@@ -399,7 +400,7 @@ export default function EnvironmentalMonitoring() {
                   <Select value={form.testType} onValueChange={v => setForm(f => ({ ...f, testType: v as TestType }))}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {(['air_quality','water_quality','soil_sampling','noise_level','radiation','wastewater','stormwater','groundwater','stack_emissions','other'] as TestType[]).map(t => (
+                      {(['air_quality','indoor_air_quality','water_quality','soil_sampling','noise_level','radiation','wastewater','stormwater','groundwater','stack_emissions','other'] as TestType[]).map(t => (
                         <SelectItem key={t} value={t}>{t.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
                       ))}
                     </SelectContent>
