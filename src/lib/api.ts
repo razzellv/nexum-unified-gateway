@@ -10,15 +10,11 @@ const getAuthToken = (): string | null => {
   if (token) {
     try {
       const p = JSON.parse(atob(token.split('.')[1]));
-      console.log('🔑 Token claims:', {
-        token_use: p.token_use,
-        aud: p.aud,
-        client_id: p.client_id,
-        iss: p.iss,
-        exp: p.exp ? new Date(p.exp * 1000).toISOString() : 'none',
-        expired: p.exp ? p.exp < Date.now() / 1000 : false,
-        email: p.email,
-      });
+      const expired = p.exp ? p.exp < Date.now() / 1000 : false;
+      console.log(
+        `🔑 Token claims — use=${p.token_use} | aud=${p.aud} | client_id=${p.client_id}` +
+        ` | iss=${p.iss} | exp=${expired ? '🔴 EXPIRED' : '🟢 ok'} | email=${p.email}`
+      );
     } catch (_) {}
   }
   return token;
