@@ -80,6 +80,7 @@ import EnvironmentalMonitoring from "./pages/EnvironmentalMonitoring";
 import ConsultingServices from "./pages/ConsultingServices";
 import OnboardingStatus from "./pages/OnboardingStatus";
 import ImplementationGuide from "./pages/ImplementationGuide";
+import VideoLibrary from "./pages/VideoLibrary";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -392,6 +393,10 @@ export const router = createBrowserRouter([
           {
             path: "implementation-guide",
             element: <ImplementationGuide />,
+          },
+          {
+            path: "video-library",
+            element: <VideoLibrary />,
           },
         ],
       },

@@ -1,7 +1,27 @@
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+  // API Gateway JWT authorizer validates the `aud` claim.
+  // Cognito ID tokens carry `aud = client_id`; access tokens do not.
+  // So we prefer the ID token here.
+  const idToken = localStorage.getItem('nexum_id_token');
+  const accessToken = localStorage.getItem('nexum_access_token');
+  const token = idToken || accessToken;
+  if (token) {
+    try {
+      const p = JSON.parse(atob(token.split('.')[1]));
+      console.log('🔑 Token claims:', {
+        token_use: p.token_use,
+        aud: p.aud,
+        client_id: p.client_id,
+        iss: p.iss,
+        exp: p.exp ? new Date(p.exp * 1000).toISOString() : 'none',
+        expired: p.exp ? p.exp < Date.now() / 1000 : false,
+        email: p.email,
+      });
+    } catch (_) {}
+  }
+  return token;
 };
 
 
