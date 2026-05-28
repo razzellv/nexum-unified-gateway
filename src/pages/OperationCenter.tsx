@@ -424,23 +424,26 @@ export default function OperationCenter() {
   }, []);
 
   useEffect(() => {
-    if (loading) return; // still waiting for auth check
-    if (isAuthenticated) {
-      fetchData();
+    if (loading) return;
+    if (!isAuthenticated) { setIsLoading(false); setError('Authentication required. Please log in.'); return; }
+
+    fetchData();
+    fetchRecentWOs();
+
+    let intervalId: ReturnType<typeof setInterval> | null = setInterval(() => {
+      fetchData().catch((err: any) => {
+        // Stop polling if auth failed to avoid flooding expired-token 401s
+        if (err?.status === 401 && intervalId) { clearInterval(intervalId); intervalId = null; }
+      });
       fetchRecentWOs();
-      // Auto-refresh every 30s so new logs appear without manual refresh
-      const interval = setInterval(() => { fetchData(); fetchRecentWOs(); }, 30000);
-      // Also refresh immediately when a facility log is submitted from this session
-      const logHandler = () => { fetchData(); fetchRecentWOs(); };
-      window.addEventListener('facility-log-submitted', logHandler);
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('facility-log-submitted', logHandler);
-      };
-    } else {
-      setIsLoading(false);
-      setError('Authentication required. Please log in.');
-    }
+    }, 30000);
+
+    const logHandler = () => { fetchData(); fetchRecentWOs(); };
+    window.addEventListener('facility-log-submitted', logHandler);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('facility-log-submitted', logHandler);
+    };
   }, [isAuthenticated, loading, fetchData, fetchRecentWOs]);
 
 

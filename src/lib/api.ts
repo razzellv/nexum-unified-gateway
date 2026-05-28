@@ -1,7 +1,9 @@
+import { getValidAccessToken } from '@/auth/session';
+
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+  return localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
 };
 
 
@@ -69,38 +71,46 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getAuthToken();
-  
-  console.log('🔍 API Request:', {
-    endpoint,
-    hasToken: !!token,
-    url: API_BASE_URL + endpoint
-  });
-  
-  const headers = {
+  // Prefer a valid (auto-refreshed) token; fall back to stored value for non-auth requests
+  let token: string | null = null;
+  try {
+    token = await getValidAccessToken();
+  } catch {
+    token = getAuthToken();
+  }
+  if (!token) token = getAuthToken();
+
+  // Use id_token for JWT authorizer (has `aud` claim); access_token as fallback
+  const idToken = localStorage.getItem('nexum_id_token');
+  const authHeader = idToken || token;
+
+  console.log('🔑 Token claims —', (() => {
+    try {
+      const payload = JSON.parse(atob((authHeader || '').split('.')[1] || ''));
+      const exp = payload.exp ? (payload.exp * 1000 > Date.now() ? '🟢 ok' : '🔴 EXPIRED') : '?';
+      return `use=${idToken ? 'id' : 'access'} | aud=${payload.aud} | client_id=${payload.client_id} | iss=${payload.iss} | exp=${exp} | email=${payload.email}`;
+    } catch { return 'decode error'; }
+  })());
+
+  console.log('🔍 API Request:', { endpoint, hasToken: !!authHeader, url: API_BASE_URL + endpoint });
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
-    ...options.headers,
+    ...(authHeader ? { 'Authorization': `Bearer ${authHeader}` } : {}),
+    ...(options.headers as Record<string, string> || {}),
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
 
-    console.log('📡 API Response:', {
-      endpoint,
-      status: response.status,
-      ok: response.ok
-    });
+    console.log('📡 API Response:', { endpoint, status: response.status, ok: response.ok });
 
     if (!response.ok) {
       if (response.status === 401) {
         console.warn(`🔒 Authentication required for ${endpoint}`);
       }
       let body: any = null;
-      try { body = await response.json(); } catch { /* ignore parse failure */ }
+      try { body = await response.json(); } catch { /* ignore */ }
       const err: any = new Error(body?.message || `API request failed: ${response.status} ${response.statusText}`);
       err.status = response.status;
       err.body = body;
