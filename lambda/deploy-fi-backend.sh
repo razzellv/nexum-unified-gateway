@@ -159,10 +159,26 @@ ensure_table "LinkedHistoricalRecords" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+# BMS / Skid tables
+ensure_table "NexumBMSFeeds" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumSkids" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumBMSData" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -207,6 +223,9 @@ aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
 
 aws iam put-role-policy --role-name fi-courses-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumCourses\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-bms-skids-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumBMSFeeds\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSkids\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumBMSData\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-issue-origin-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/IssueOrigins\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/IssueReportAttempts\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/LinkedHistoricalRecords\"]}]}" > /dev/null
@@ -331,6 +350,9 @@ deploy_lambda "nexum-fi-manager-dashboard" "fi-manager-dashboard.mjs" "fi-manage
 deploy_lambda "nexum-fi-issue-origin" "fi-issue-origin.mjs" "fi-issue-origin-role" \
   "REGION=us-east-2,ORIGINS_TABLE=IssueOrigins,ATTEMPTS_TABLE=IssueReportAttempts,LINKS_TABLE=LinkedHistoricalRecords"
 
+deploy_lambda "nexum-fi-bms-skids" "fi-bms-skids.mjs" "fi-bms-skids-role" \
+  "REGION=us-east-2,FEEDS_TABLE=NexumBMSFeeds,SKIDS_TABLE=NexumSkids,DATA_TABLE=NexumBMSData"
+
 echo ""
 echo "3/4  API Gateway Routes"
 echo "     (existing routes updated in-place; new ones created)"
@@ -427,6 +449,22 @@ add_route "GET /dashboard/manager"     "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/supervisor"  "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/executive"   "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/energy"      "nexum-fi-manager-dashboard"  "jwt"
+
+# BMS Integration + Skids — 15 routes
+add_route "POST   /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
+add_route "PATCH  /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
+add_route "DELETE /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /bms/data/{feedId}"      "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /bms/metadata"           "nexum-fi-bms-skids"  "none"
+add_route "POST   /bms/ingest"             "nexum-fi-bms-skids"  "none"
+add_route "POST   /skids"                  "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /skids"                  "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
+add_route "PATCH  /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
+add_route "DELETE /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
+add_route "GET    /skids/{skidId}/data"    "nexum-fi-bms-skids"  "jwt"
 
 # Issue Origin & Reporting Intelligence — 10 routes
 add_route "POST /issues"                     "nexum-fi-issue-origin"  "jwt"

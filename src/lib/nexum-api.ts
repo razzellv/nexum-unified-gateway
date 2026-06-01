@@ -426,3 +426,180 @@ export async function updateIssue(issueId: string, data: {
     body: JSON.stringify(data),
   });
 }
+
+// ============================================================================
+// BMS INTEGRATION + SKIDS APIs
+// ============================================================================
+
+export type BMSProtocol =
+  | 'rest_webhook' | 'mqtt' | 'bacnet_ip' | 'modbus_tcp'
+  | 'opc_ua' | 'niagara' | 'metasys' | 'desigo';
+
+export interface BMSFeed {
+  feedId: string;
+  facilityId: string;
+  name: string;
+  protocol: BMSProtocol;
+  bmsVendor?: string;
+  description?: string;
+  apiKey: string;
+  ingestUrl: string;
+  status: 'active' | 'inactive' | 'error';
+  lastSeenAt?: string | null;
+  pointCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BMSDataPoint {
+  value: number | boolean | string | null;
+  unit: string;
+  label: string;
+  inAlarm: boolean;
+  updatedAt: string;
+}
+
+export interface BMSEquipmentData {
+  feedId: string;
+  facilityId: string;
+  equipmentId: string;
+  equipmentType: string;
+  timestamp: string;
+  receivedAt: string;
+  points: Record<string, BMSDataPoint>;
+  inAlarm: boolean;
+  runStatus: boolean | null;
+}
+
+export interface SkidEquipment {
+  equipmentId: string;
+  equipmentType: string;
+  role: string;
+  label: string;
+  bmsPointMap?: Record<string, string> | null;
+  pointSchema?: any[];
+  livePoints?: Record<string, BMSDataPoint> | null;
+  inAlarm?: boolean;
+  runStatus?: boolean | null;
+  lastUpdated?: string | null;
+}
+
+export interface Skid {
+  skidId: string;
+  facilityId: string;
+  skidName: string;
+  skidType: string;
+  description?: string;
+  location?: string;
+  bmsIntegrationId?: string | null;
+  equipment: SkidEquipment[];
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+  liveData?: BMSEquipmentData[] | null;
+  alarmCount?: number;
+}
+
+// BMS Feed management
+export async function createBMSFeed(data: {
+  name: string;
+  protocol: BMSProtocol;
+  bmsVendor?: string;
+  description?: string;
+  settings?: Record<string, any>;
+}) {
+  return await apiRequest<{ feedId: string; feed: BMSFeed; apiKey: string; ingestUrl: string; instructions: string[] }>(
+    '/bms/feeds', { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function listBMSFeeds() {
+  return await apiRequest<{ feeds: BMSFeed[]; count: number; protocols: Record<string, any> }>('/bms/feeds');
+}
+
+export async function getBMSFeed(feedId: string) {
+  return await apiRequest<{ feed: BMSFeed; latestData: any; pointSchemas: Record<string, any> }>(`/bms/feeds/${feedId}`);
+}
+
+export async function updateBMSFeed(feedId: string, data: Partial<BMSFeed>) {
+  return await apiRequest<{ message: string }>(`/bms/feeds/${feedId}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBMSFeed(feedId: string) {
+  return await apiRequest<{ message: string }>(`/bms/feeds/${feedId}`, { method: 'DELETE' });
+}
+
+export async function getBMSFeedData(feedId: string) {
+  return await apiRequest<{
+    feedId: string;
+    equipment: BMSEquipmentData[];
+    count: number;
+    alarmCount: number;
+    runningCount: number;
+    lastUpdated: string | null;
+    pointSchemas: Record<string, any>;
+  }>(`/bms/data/${feedId}`);
+}
+
+export async function getBMSMetadata() {
+  return await apiRequest<{
+    protocols: Record<string, any>;
+    skidTypes: Record<string, any>;
+    pointSchemas: Record<string, any>;
+    equipmentTypes: string[];
+  }>('/bms/metadata');
+}
+
+// Skid management
+export async function createSkid(data: {
+  skidName: string;
+  skidType: string;
+  description?: string;
+  location?: string;
+  bmsIntegrationId?: string;
+  equipment: Partial<SkidEquipment>[];
+}) {
+  return await apiRequest<{ skidId: string; skid: Skid; skidTypes: Record<string, any> }>(
+    '/skids', { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function listSkids() {
+  return await apiRequest<{ skids: Skid[]; count: number; skidTypes: Record<string, any> }>('/skids');
+}
+
+export async function getSkid(skidId: string) {
+  return await apiRequest<{
+    skid: Skid;
+    alarmCount: number;
+    bmsConnected: boolean;
+    lastDataReceived: string | null;
+    skidTypes: Record<string, any>;
+    pointSchemas: Record<string, any>;
+  }>(`/skids/${skidId}`);
+}
+
+export async function updateSkid(skidId: string, data: Partial<Skid>) {
+  return await apiRequest<{ skid: Skid; message: string }>(`/skids/${skidId}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSkid(skidId: string) {
+  return await apiRequest<{ message: string }>(`/skids/${skidId}`, { method: 'DELETE' });
+}
+
+export async function getSkidData(skidId: string) {
+  return await apiRequest<{
+    skidId: string;
+    skidName: string;
+    liveData: BMSEquipmentData[];
+    bmsConnected: boolean;
+    alarmCount: number;
+    runningCount: number;
+    lastUpdated: string | null;
+    pointSchemas: Record<string, any>;
+  }>(`/skids/${skidId}/data`);
+}
