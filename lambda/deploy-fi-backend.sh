@@ -175,10 +175,39 @@ ensure_table "NexumBMSData" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+# Risk Engine tables
+ensure_table "NexumRiskTolerance" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumRiskAcceptance" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumSuggestions" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+# Vendor Pluck table (NexumVendorPlucks with GSI1 for vendor-side lookup)
+ensure_table "NexumVendorPlucks" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S" \
+  "PAY_PER_REQUEST" || \
+aws dynamodb create-table \
+  --table-name "NexumVendorPlucks" \
+  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
+  --region $REGION > /dev/null 2>&1 || true
+
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -232,6 +261,12 @@ aws iam put-role-policy --role-name fi-issue-origin-role --policy-name policy \
 
 aws iam put-role-policy --role-name fi-manager-dashboard-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\",\"dynamodb:Scan\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary/index/*\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-risk-engine-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumRiskTolerance\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumRiskAcceptance\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSuggestions\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-vendor-pluck-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendorPlucks\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendorPlucks/index/*\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors/index/*\"]}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -352,6 +387,12 @@ deploy_lambda "nexum-fi-issue-origin" "fi-issue-origin.mjs" "fi-issue-origin-rol
 
 deploy_lambda "nexum-fi-bms-skids" "fi-bms-skids.mjs" "fi-bms-skids-role" \
   "REGION=us-east-2,FEEDS_TABLE=NexumBMSFeeds,SKIDS_TABLE=NexumSkids,DATA_TABLE=NexumBMSData"
+
+deploy_lambda "nexum-fi-risk-engine" "fi-risk-engine.mjs" "fi-risk-engine-role" \
+  "REGION=us-east-2,TOLERANCE_TABLE=NexumRiskTolerance,ACCEPTANCE_TABLE=NexumRiskAcceptance,SUGGESTIONS_TABLE=NexumSuggestions,WO_TABLE=WorkOrders"
+
+deploy_lambda "nexum-fi-vendor-pluck" "fi-vendor-pluck.mjs" "fi-vendor-pluck-role" \
+  "REGION=us-east-2,PLUCKS_TABLE=NexumVendorPlucks,VENDORS_TABLE=NexumVendors"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -478,6 +519,27 @@ add_route "POST /issues/{issueId}/link"      "nexum-fi-issue-origin"  "jwt"
 add_route "GET /issues/{issueId}/links"      "nexum-fi-issue-origin"  "jwt"
 add_route "GET /issues/{issueId}/summary"    "nexum-fi-issue-origin"  "jwt"
 
+# Risk Engine — 8 routes
+add_route "GET  /risk/tolerance"                  "nexum-fi-risk-engine"  "jwt"
+add_route "PATCH /risk/tolerance"                 "nexum-fi-risk-engine"  "jwt"
+add_route "GET  /risk/acceptance"                 "nexum-fi-risk-engine"  "jwt"
+add_route "POST /risk/acceptance"                 "nexum-fi-risk-engine"  "jwt"
+add_route "POST /risk/acceptance/{sk}/expire"     "nexum-fi-risk-engine"  "jwt"
+add_route "GET  /suggestions"                     "nexum-fi-risk-engine"  "jwt"
+add_route "POST /suggestions/generate"            "nexum-fi-risk-engine"  "jwt"
+add_route "POST /suggestions/{sk}/dismiss"        "nexum-fi-risk-engine"  "jwt"
+add_route "POST /suggestions/{sk}/act"            "nexum-fi-risk-engine"  "jwt"
+
+# Vendor Pluck — 9 routes
+add_route "GET  /vendors"                         "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET  /vendors/{id}"                    "nexum-fi-vendor-pluck"  "jwt"
+add_route "POST /vendors/{id}/pluck"              "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET  /vendors/plucks"                  "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET  /vendor/profile"                  "nexum-fi-vendor-pluck"  "jwt"
+add_route "PATCH /vendor/profile"                 "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET  /vendor/plucks"                   "nexum-fi-vendor-pluck"  "jwt"
+add_route "POST /vendor/plucks/{sk}/respond"      "nexum-fi-vendor-pluck"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
@@ -508,4 +570,11 @@ echo "  POST   /issues                 /issues/{id}/report    /issues/{id}/link"
 echo "  GET    /issues                 /issues/{id}           /issues/{id}/reports"
 echo "  GET    /issues/{id}/continuity /issues/{id}/links     /issues/{id}/summary"
 echo "  PATCH  /issues/{id}"
+echo "  GET /risk/tolerance   PATCH /risk/tolerance   GET/POST /risk/acceptance"
+echo "  POST /risk/acceptance/{sk}/expire"
+echo "  GET /suggestions  POST /suggestions/generate"
+echo "  POST /suggestions/{sk}/dismiss  POST /suggestions/{sk}/act"
+echo "  GET /vendors  GET /vendors/{id}  POST /vendors/{id}/pluck  GET /vendors/plucks"
+echo "  GET /vendor/profile  PATCH /vendor/profile  GET /vendor/plucks"
+echo "  POST /vendor/plucks/{sk}/respond"
 echo "═══════════════════════════════════════════════════"

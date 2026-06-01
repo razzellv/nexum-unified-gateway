@@ -603,3 +603,191 @@ export async function getSkidData(skidId: string) {
     pointSchemas: Record<string, any>;
   }>(`/skids/${skidId}/data`);
 }
+
+// ─── Risk Tolerance ───────────────────────────────────────────────────────────
+
+export interface RiskThresholds {
+  safety: number;
+  compliance: number;
+  operational: number;
+  financial: number;
+  reputational: number;
+}
+
+export async function getRiskTolerance() {
+  return await apiRequest<{ facilityId: string; thresholds: RiskThresholds }>('/risk/tolerance');
+}
+
+export async function updateRiskTolerance(thresholds: Partial<RiskThresholds>) {
+  return await apiRequest<{ facilityId: string; thresholds: RiskThresholds }>('/risk/tolerance', {
+    method: 'PATCH', body: JSON.stringify({ thresholds }),
+  });
+}
+
+// ─── Risk Acceptance ──────────────────────────────────────────────────────────
+
+export interface RiskAcceptance {
+  id: string;
+  facilityId: string;
+  category: string;
+  riskTitle: string;
+  justification: string;
+  riskScore: number;
+  acceptedBy: string;
+  acceptedAt: string;
+  expiresAt: string | null;
+  status: 'active' | 'expired';
+  relatedIssueId?: string | null;
+  relatedWOId?: string | null;
+  SK: string;
+}
+
+export async function listRiskAcceptance() {
+  return await apiRequest<{ items: RiskAcceptance[]; count: number }>('/risk/acceptance');
+}
+
+export async function createRiskAcceptance(data: {
+  riskTitle: string;
+  justification: string;
+  category: string;
+  riskScore: number;
+  expiresAt?: string;
+  relatedIssueId?: string;
+  relatedWOId?: string;
+}) {
+  return await apiRequest<RiskAcceptance>('/risk/acceptance', {
+    method: 'POST', body: JSON.stringify(data),
+  });
+}
+
+// ─── Suggestions ──────────────────────────────────────────────────────────────
+
+export interface Suggestion {
+  id: string;
+  facilityId: string;
+  type: string;
+  category: string;
+  title: string;
+  detail: string;
+  riskScore: number;
+  status: 'active' | 'dismissed' | 'acted_on' | 'expired';
+  priority: 'low' | 'medium' | 'high';
+  triggeredBy: string;
+  relatedEntityId?: string | null;
+  relatedEntityType?: string | null;
+  suggestedVendorId?: string | null;
+  suggestedVendorName?: string | null;
+  vendorMatchScore?: number | null;
+  visibleToServiceTech: boolean;
+  createdAt: string;
+  SK: string;
+}
+
+export async function listSuggestions(status = 'active') {
+  return await apiRequest<{ items: Suggestion[]; count: number }>(`/suggestions?status=${status}`);
+}
+
+export async function generateSuggestions() {
+  return await apiRequest<{ generated: number; items: Suggestion[] }>('/suggestions/generate', {
+    method: 'POST', body: JSON.stringify({}),
+  });
+}
+
+export async function dismissSuggestion(sk: string, note?: string) {
+  return await apiRequest<{ message: string }>(`/suggestions/${encodeURIComponent(sk)}/dismiss`, {
+    method: 'POST', body: JSON.stringify({ note: note || '' }),
+  });
+}
+
+export async function actOnSuggestion(sk: string, note?: string) {
+  return await apiRequest<{ message: string }>(`/suggestions/${encodeURIComponent(sk)}/act`, {
+    method: 'POST', body: JSON.stringify({ note: note || '' }),
+  });
+}
+
+// ─── Vendors + Plucks ─────────────────────────────────────────────────────────
+
+export interface VendorProfile {
+  vendorOrgId: string;
+  orgName: string;
+  ownerName: string;
+  ownerTitle: string;
+  email: string;
+  phone: string;
+  website: string;
+  services: string[];
+  serviceAreas: string[];
+  bio: string;
+  licenseNumber: string;
+  certifications: string[];
+  tier: 'basic' | 'pro' | 'enterprise';
+  updatedAt: string;
+}
+
+export interface VendorPluck {
+  id: string;
+  facilityId: string;
+  vendorId: string;
+  sentBy: string;
+  serviceType: string;
+  description: string;
+  urgency: 'normal' | 'urgent' | 'emergency';
+  preferredDate: string | null;
+  status: 'sent' | 'viewed' | 'accepted' | 'declined' | 'responded';
+  vendorResponse: string | null;
+  respondedAt: string | null;
+  vendorMessage: string;
+  matchScore: number | null;
+  relatedSuggestionId: string | null;
+  relatedWOId: string | null;
+  createdAt: string;
+  SK: string;
+}
+
+export async function listVendors(serviceType?: string) {
+  const qs = serviceType ? `?serviceType=${encodeURIComponent(serviceType)}` : '';
+  return await apiRequest<{ items: any[]; count: number }>(`/vendors${qs}`);
+}
+
+export async function sendPluck(vendorId: string, data: {
+  serviceType: string;
+  description: string;
+  urgency?: string;
+  preferredDate?: string;
+  matchScore?: number;
+  relatedSuggestionId?: string;
+  relatedWOId?: string;
+}) {
+  return await apiRequest<VendorPluck>(`/vendors/${vendorId}/pluck`, {
+    method: 'POST', body: JSON.stringify(data),
+  });
+}
+
+export async function listSentPlucks() {
+  return await apiRequest<{ items: VendorPluck[]; count: number }>('/vendors/plucks');
+}
+
+export async function getVendorProfile() {
+  return await apiRequest<VendorProfile>('/vendor/profile');
+}
+
+export async function updateVendorProfile(data: Partial<VendorProfile>) {
+  return await apiRequest<VendorProfile>('/vendor/profile', {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function listReceivedPlucks() {
+  return await apiRequest<{ items: VendorPluck[]; count: number }>('/vendor/plucks');
+}
+
+export async function respondToPluck(sk: string, response: {
+  response: 'accepted' | 'declined' | 'responded';
+  message: string;
+  status?: string;
+}) {
+  return await apiRequest<{ message: string; status: string }>(
+    `/vendor/plucks/${encodeURIComponent(sk)}/respond`,
+    { method: 'POST', body: JSON.stringify(response) }
+  );
+}
