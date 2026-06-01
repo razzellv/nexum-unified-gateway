@@ -1335,6 +1335,103 @@ export default function Compliance() {
               <TabsContent value="audit_reports">
                 <AuditReportsTab />
               </TabsContent>
+
+              <TabsContent value="issue_history">
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <History className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">Issue History</h3>
+                      {issues.length > 0 && (
+                        <Badge variant="outline" className="text-xs">{issues.length}</Badge>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={loadIssues} disabled={issuesLoading}>
+                      <RefreshCw className={`w-4 h-4 mr-1 ${issuesLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
+
+                  {/* Loading skeleton */}
+                  {issuesLoading && (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="rounded-lg border border-border bg-card/50 p-4 animate-pulse">
+                          <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+                          <div className="h-3 bg-muted rounded w-1/2 mb-2" />
+                          <div className="h-3 bg-muted rounded w-3/4" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {!issuesLoading && issues.length === 0 && (
+                    <div className="text-center py-16 text-muted-foreground">
+                      <History className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                      <p className="font-medium">No issues recorded yet.</p>
+                      <p className="text-sm mt-1">Issues are automatically created when you log compliance events.</p>
+                    </div>
+                  )}
+
+                  {/* Issue cards */}
+                  {!issuesLoading && issues.length > 0 && (
+                    <div className="space-y-3">
+                      {issues.map((issue) => {
+                        const severityBadgeClass =
+                          issue.severity === 'critical' ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                          issue.severity === 'high'     ? 'bg-orange-500/10 text-orange-500 border-orange-500/30' :
+                          issue.severity === 'medium'   ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30' :
+                                                          'bg-blue-500/10 text-blue-500 border-blue-500/30';
+                        const statusBadgeClass =
+                          issue.status === 'open'        ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                          issue.status === 'in_progress' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30' :
+                          issue.status === 'resolved'    ? 'bg-green-500/10 text-green-500 border-green-500/30' :
+                                                           'bg-muted text-muted-foreground border-border';
+                        const formattedDate = issue.originalTimestamp
+                          ? new Date(issue.originalTimestamp).toLocaleString()
+                          : issue.createdAt
+                            ? new Date(issue.createdAt).toLocaleString()
+                            : '—';
+                        const truncatedDesc = issue.originalDescription
+                          ? issue.originalDescription.length > 120
+                            ? issue.originalDescription.slice(0, 120) + '…'
+                            : issue.originalDescription
+                          : '';
+
+                        return (
+                          <div key={issue.issueId} className="rounded-lg border border-border bg-card/50 p-4 space-y-2">
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <span className="font-semibold text-sm">{issue.title}</span>
+                              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                                <Badge className={`text-xs border ${severityBadgeClass}`}>
+                                  {issue.severity || 'medium'}
+                                </Badge>
+                                <Badge className={`text-xs border ${statusBadgeClass}`}>
+                                  {issue.status === 'in_progress' ? 'In Progress' : (issue.status || 'open').charAt(0).toUpperCase() + (issue.status || 'open').slice(1)}
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              First reported by{' '}
+                              <span className="text-foreground font-medium">{issue.firstReporterName || '—'}</span>
+                              {issue.firstReporterRole ? ` (${issue.firstReporterRole})` : ''}{' '}
+                              on {formattedDate}
+                            </p>
+                            {issue.sourceType && (
+                              <p className="text-xs text-muted-foreground/60">Source: {issue.sourceType}</p>
+                            )}
+                            {truncatedDesc && (
+                              <p className="text-xs text-muted-foreground leading-relaxed">{truncatedDesc}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
