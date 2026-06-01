@@ -217,3 +217,212 @@ export async function getRecentEquipment(facilityId: string, days: number = 7) {
 export async function getManagerConfidenceMetrics(facilityId: string = 'facility-001', days: number = 7) {
   return await apiRequest<any>(`/manager/confidence-metrics?facilityId=${facilityId}&days=${days}`);
 }
+
+// ============================================================================
+// ISSUE ORIGIN & REPORTING INTELLIGENCE APIs
+// ============================================================================
+
+export type IssueSourceType =
+  | 'operator_log' | 'pm' | 'work_order' | 'violation' | 'inspection'
+  | 'photo' | 'ai_detection' | 'vendor_note' | 'bas_alarm' | 'manual_report';
+
+export type IssueReportSourceCategory = 'human' | 'sensor' | 'ai_inferred' | 'system_generated';
+
+export type IssueAttemptType =
+  | 'duplicate' | 'escalation' | 'clarification' | 'repair_attempt'
+  | 'pm_note' | 'closure_note' | 'reopen';
+
+export interface IssueOrigin {
+  issueId: string;
+  facilityId: string;
+  title: string;
+  sourceType: IssueSourceType;
+  reportSourceCategory: IssueReportSourceCategory;
+  confidenceLevel: number;
+  firstReporterName: string;
+  firstReporterRole: string;
+  firstReporterId: string;
+  originalTimestamp: string;
+  originalDescription: string;
+  originalAttachment?: string | null;
+  assetId?: string | null;
+  systemType?: string | null;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed' | 'reopened';
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+  closureEvidence?: string | null;
+}
+
+export interface IssueReportAttempt {
+  attemptId: string;
+  issueId: string;
+  reporterName: string;
+  reporterRole: string;
+  reporterId: string;
+  timestamp: string;
+  description: string;
+  attemptType: IssueAttemptType;
+  attachment?: string | null;
+  isDuplicate: boolean;
+  isEscalation: boolean;
+}
+
+export interface IssueContinuityScores {
+  issueContinuityScore: number;
+  visibilityGapScore: number;
+  escalationRiskScore: number;
+  reportingFrictionScore: number;
+  repeatFailureRiskScore: number;
+  decisionDefensibilityScore: number;
+  computedAt: string;
+  factors: {
+    uniqueReporters: number;
+    totalAttempts: number;
+    repairAttempts: number;
+    reopens: number;
+    escalations: number;
+    duplicates: number;
+    totalLinkedRecords: number;
+    linkedPMs: number;
+    linkedWOs: number;
+    linkedViolations: number;
+    ageHours: number;
+    hasClosureEvidence: boolean;
+  };
+}
+
+export interface LinkedHistoricalRecord {
+  linkId: string;
+  issueId: string;
+  recordType: 'pm' | 'work_order' | 'violation' | 'operator_log' | 'bas_alarm'
+            | 'vendor_note' | 'inspection' | 'photo' | 'repair' | 'reopen' | 'manual';
+  recordId: string;
+  recordTimestamp?: string;
+  recordDescription: string;
+  linkedAt: string;
+  linkedByName: string;
+}
+
+export interface IssueDashboardFields {
+  firstReportedBy: string;
+  firstReportedAt: string;
+  firstReporterRole: string;
+  lastReportedBy: string;
+  lastReportedAt: string;
+  totalReports: number;
+  uniqueReporters: number;
+  repairAttempts: number;
+  reopenEvents: number;
+  linkedPMRecords: number;
+  linkedWORecords: number;
+  linkedViolationRecords: number;
+  totalLinkedRecords: number;
+  defensibilityStatus: 'Strong' | 'Moderate' | 'Weak';
+  continuityStatus: 'Well-documented' | 'Partial' | 'Sparse';
+  visibilityStatus: 'High Gap' | 'Moderate Gap' | 'Visible';
+}
+
+// Create a new issue
+export async function createIssue(data: Partial<IssueOrigin> & { title: string }) {
+  return await apiRequest<{ issueId: string; issue: IssueOrigin }>('/issues', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// List all issues for the current facility
+export async function listIssues(params?: { status?: string; severity?: string; limit?: number }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ issues: IssueOrigin[]; count: number }>(`/issues${qs}`);
+}
+
+// Full issue detail: origin + timeline + scores + AI summary
+export async function getIssue(issueId: string) {
+  return await apiRequest<{
+    issue: IssueOrigin;
+    timeline: any[];
+    attempts: IssueReportAttempt[];
+    links: LinkedHistoricalRecord[];
+    scores: IssueContinuityScores;
+    aiSummary: string;
+    dashboardFields: IssueDashboardFields;
+  }>(`/issues/${issueId}`);
+}
+
+// Add a report attempt to an existing issue
+export async function addIssueReport(issueId: string, data: {
+  reporterName?: string;
+  reporterRole?: string;
+  description: string;
+  attemptType: IssueAttemptType;
+  isDuplicate?: boolean;
+  isEscalation?: boolean;
+  attachment?: string;
+}) {
+  return await apiRequest<{ attemptId: string; attempt: IssueReportAttempt }>(
+    `/issues/${issueId}/report`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// All report attempts + reporter breakdown
+export async function getIssueReports(issueId: string) {
+  return await apiRequest<{
+    attempts: IssueReportAttempt[];
+    totalAttempts: number;
+    uniqueReporters: number;
+    byReporter: Record<string, any>;
+    attemptTypes: Record<string, number>;
+  }>(`/issues/${issueId}/reports`);
+}
+
+// Continuity scores only
+export async function getIssueContinuityScores(issueId: string) {
+  return await apiRequest<IssueContinuityScores>(`/issues/${issueId}/continuity`);
+}
+
+// Attach a historical record
+export async function linkIssueRecord(issueId: string, data: Partial<LinkedHistoricalRecord>) {
+  return await apiRequest<{ linkId: string; link: LinkedHistoricalRecord }>(
+    `/issues/${issueId}/link`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// All linked historical records
+export async function getIssueLinks(issueId: string) {
+  return await apiRequest<{
+    links: LinkedHistoricalRecord[];
+    totalLinks: number;
+    byType: Record<string, LinkedHistoricalRecord[]>;
+  }>(`/issues/${issueId}/links`);
+}
+
+// AI-ready summary + dashboard fields
+export async function getIssueSummary(issueId: string) {
+  return await apiRequest<{
+    issueId: string;
+    aiSummary: string;
+    scores: IssueContinuityScores;
+    dashboardFields: IssueDashboardFields;
+  }>(`/issues/${issueId}/summary`);
+}
+
+// Update issue status / severity / closure
+export async function updateIssue(issueId: string, data: {
+  status?: IssueOrigin['status'];
+  severity?: IssueOrigin['severity'];
+  title?: string;
+  closureEvidence?: string;
+  tags?: string[];
+}) {
+  return await apiRequest<{ issue: IssueOrigin }>(`/issues/${issueId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}

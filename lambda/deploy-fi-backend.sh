@@ -12,6 +12,22 @@ ACCOUNT_ID="758027491272"
 REGION="us-east-2"
 API_ID="vflco2pvo3"
 
+# ── Helper: create DynamoDB table if it does not already exist ─────────────────
+ensure_table() {
+  local NAME=$1 KEY_SCHEMA=$2 ATTR_DEFS=$3 BILLING=$4
+  if aws dynamodb describe-table --table-name "$NAME" --region $REGION > /dev/null 2>&1; then
+    echo "  ✓ Table $NAME already exists"
+  else
+    aws dynamodb create-table \
+      --table-name "$NAME" \
+      --key-schema $KEY_SCHEMA \
+      --attribute-definitions $ATTR_DEFS \
+      --billing-mode "$BILLING" \
+      --region $REGION > /dev/null
+    echo "  ✓ Table $NAME created"
+  fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo ""
@@ -123,9 +139,30 @@ add_route() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+echo "0/4  DynamoDB Tables (Issue Origin & Reporting Intelligence)"
+
+# IssueOrigins — PK=FACILITY#{id}, SK=ISSUE#{uuid}
+ensure_table "IssueOrigins" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+# IssueReportAttempts — PK=ISSUE#{uuid}, SK=ATTEMPT#{ts}#{uuid}
+ensure_table "IssueReportAttempts" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+# LinkedHistoricalRecords — PK=ISSUE#{uuid}, SK=LINK#{type}#{recordId}
+ensure_table "LinkedHistoricalRecords" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -170,6 +207,9 @@ aws iam put-role-policy --role-name fi-onboarding-role --policy-name policy \
 
 aws iam put-role-policy --role-name fi-courses-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Scan\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumCourses\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-issue-origin-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/IssueOrigins\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/IssueReportAttempts\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/LinkedHistoricalRecords\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-manager-dashboard-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\",\"dynamodb:Scan\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary/index/*\"]}]}" > /dev/null
@@ -288,6 +328,9 @@ deploy_lambda "nexum-quality-intelligence" "quality-intelligence.mjs" "fi-qualit
 deploy_lambda "nexum-fi-manager-dashboard" "fi-manager-dashboard.mjs" "fi-manager-dashboard-role" \
   "REGION=us-east-2"
 
+deploy_lambda "nexum-fi-issue-origin" "fi-issue-origin.mjs" "fi-issue-origin-role" \
+  "REGION=us-east-2,ORIGINS_TABLE=IssueOrigins,ATTEMPTS_TABLE=IssueReportAttempts,LINKS_TABLE=LinkedHistoricalRecords"
+
 echo ""
 echo "3/4  API Gateway Routes"
 echo "     (existing routes updated in-place; new ones created)"
@@ -385,6 +428,18 @@ add_route "GET /dashboard/supervisor"  "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/executive"   "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/energy"      "nexum-fi-manager-dashboard"  "jwt"
 
+# Issue Origin & Reporting Intelligence — 10 routes
+add_route "POST /issues"                     "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues"                      "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues/{issueId}"            "nexum-fi-issue-origin"  "jwt"
+add_route "PATCH /issues/{issueId}"          "nexum-fi-issue-origin"  "jwt"
+add_route "POST /issues/{issueId}/report"    "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues/{issueId}/reports"    "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues/{issueId}/continuity" "nexum-fi-issue-origin"  "jwt"
+add_route "POST /issues/{issueId}/link"      "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues/{issueId}/links"      "nexum-fi-issue-origin"  "jwt"
+add_route "GET /issues/{issueId}/summary"    "nexum-fi-issue-origin"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
@@ -411,4 +466,8 @@ echo "  DELETE /violations/{id}   /work-orders/{id}  /inventory/{id}"
 echo "  DELETE /equipment/{id}    /vvfi/{id}          /messages/{id}"
 echo "  DELETE /audit-reports/{id}"
 echo "  POST   /work-orders/{id}/notes"
+echo "  POST   /issues                 /issues/{id}/report    /issues/{id}/link"
+echo "  GET    /issues                 /issues/{id}           /issues/{id}/reports"
+echo "  GET    /issues/{id}/continuity /issues/{id}/links     /issues/{id}/summary"
+echo "  PATCH  /issues/{id}"
 echo "═══════════════════════════════════════════════════"
