@@ -141,6 +141,12 @@ add_route() {
 # ══════════════════════════════════════════════════════════════════════════════
 echo "0/4  DynamoDB Tables (Issue Origin & Reporting Intelligence)"
 
+# NexumFIASAssessments — VVFI sessions, PK=FACILITY#{id}, SK=VVFI#{ts}#{id}
+ensure_table "NexumFIASAssessments" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # IssueOrigins — PK=FACILITY#{id}, SK=ISSUE#{uuid}
 ensure_table "IssueOrigins" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \

@@ -3,9 +3,13 @@
 //
 // JWT-protected routes:
 //   GET    /vvfi               — list VVFI sessions / FIAS assessments for facility
-//   POST   /vvfi               — create / save a VVFI session
+//   POST   /vvfi               — create / save a VVFI session (or AI chat mode)
 //   PATCH  /vvfi/{id}          — update a session (status, score, notes)
 //   DELETE /vvfi/{id}          — remove a session
+//
+// DynamoDB key pattern (matches every other FI table):
+//   PK = "FACILITY#{facilityId}"
+//   SK = "VVFI#{createdAt}#{id}"
 
 import { DynamoDBClient }                          from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand,
@@ -37,11 +41,13 @@ function newId() {
 }
 
 function mapItem(item, fid) {
-  const id = item.sessionId || item.assessmentId || item.SK?.split("#")[1] || "";
+  // Support both old clientId/assessedAt key and new PK/SK key
+  const id = item.sessionId || item.assessmentId || item.SK?.split("#")[2] || item.SK?.split("#")[1] || "";
   return {
     sessionId:        id,
     assessmentId:     id,
     id,
+    SK:               item.SK || "",
     facilityId:       item.facilityId       || fid,
     facilityName:     item.facilityName     || "",
     assessorId:       item.assessorId       || "",
@@ -74,13 +80,9 @@ export const handler = async (event) => {
   if (!claims) return json(401, { message: "Unauthorized" });
 
   const fid = facilityId(claims);
+  const pk  = `FACILITY#${fid}`;
 
-  // NexumFIASAssessments key: clientId (HASH) + assessedAt (RANGE)
-  // We use facilityId as clientId so each facility queries its own sessions.
-  // PATCH/DELETE use assessedAt (returned in GET) as the path param.
-
-  // ── POST /vvfi — AI chat modes ────────────────────────────────────────────────
-  // Handles text-instructor and ethics-advisor before falling through to CRUD.
+  // ── POST /vvfi — AI chat modes ─────────────────────────────────────────────
   if (method === "POST" && path.endsWith("/vvfi")) {
     let raw = event.body || "{}";
     if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
@@ -146,14 +148,15 @@ Set isCritical to true ONLY if the situation involves imminent physical danger, 
       }
     }
 
-    // ── CRUD POST — fall through handled below ───────────────────────────────
+    // ── CRUD POST ────────────────────────────────────────────────────────────
     try {
       const now = new Date().toISOString();
       const id  = newId();
+      const sk  = `VVFI#${now}#${id}`;
 
       const item = {
-        clientId:         fid,
-        assessedAt:       now,
+        PK:               pk,
+        SK:               sk,
         sessionId:        id,
         assessmentId:     id,
         facilityId:       fid,
@@ -178,24 +181,24 @@ Set isCritical to true ONLY if the situation involves imminent physical danger, 
       };
 
       await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-      return json(200, { success: true, sessionId: id, assessedAt: now, session: mapItem(item, fid) });
+      return json(200, { success: true, sessionId: id, SK: sk, session: mapItem(item, fid) });
     } catch (err) {
       console.error("POST /vvfi (crud):", err);
       return json(500, { message: "Failed to save VVFI session.", detail: err.message });
     }
   }
 
-  // ── GET /vvfi ────────────────────────────────────────────────────────────────
+  // ── GET /vvfi ──────────────────────────────────────────────────────────────
   if (method === "GET" && (path.endsWith("/vvfi") || path.includes("/vvfi?"))) {
     try {
       const qs     = event.queryStringParameters || {};
       const limit  = Math.min(parseInt(qs.limit || "50"), 200);
       const status = qs.status;
 
-      let params = {
+      const params = {
         TableName:                 TABLE,
-        KeyConditionExpression:    "clientId = :cid",
-        ExpressionAttributeValues: { ":cid": fid },
+        KeyConditionExpression:    "PK = :pk AND begins_with(SK, :prefix)",
+        ExpressionAttributeValues: { ":pk": pk, ":prefix": "VVFI#" },
         ScanIndexForward:          false,
         Limit:                     limit,
       };
@@ -216,11 +219,12 @@ Set isCritical to true ONLY if the situation involves imminent physical danger, 
     }
   }
 
-  // ── PATCH /vvfi/{assessedAt} ──────────────────────────────────────────────────
-  // {id} in the route = URL-encoded assessedAt timestamp from the GET response
+  // ── PATCH /vvfi/{sk} ───────────────────────────────────────────────────────
+  // {id} in the route = URL-encoded SK (VVFI#ts#id) from the GET response
   if (method === "PATCH" && path.includes("/vvfi/")) {
     try {
-      const assessedAt = decodeURIComponent(path.split("/vvfi/")[1].split("?")[0]);
+      const encodedSK = path.split("/vvfi/")[1].split("?")[0];
+      const sk        = decodeURIComponent(encodedSK);
       let raw   = event.body || "{}";
       if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
       const body = JSON.parse(raw);
@@ -245,27 +249,28 @@ Set isCritical to true ONLY if the situation involves imminent physical danger, 
 
       const params = {
         TableName:                 TABLE,
-        Key:                       { clientId: fid, assessedAt },
+        Key:                       { PK: pk, SK: sk },
         UpdateExpression:          "SET " + setExprs.join(", "),
         ExpressionAttributeValues: vals,
       };
       if (Object.keys(names).length > 0) params.ExpressionAttributeNames = names;
 
       await ddb.send(new UpdateCommand(params));
-      return json(200, { success: true, assessedAt });
+      return json(200, { success: true, SK: sk });
     } catch (err) {
       console.error("PATCH /vvfi:", err);
       return json(500, { message: "Failed to update VVFI session.", detail: err.message });
     }
   }
 
-  // ── DELETE /vvfi/{assessedAt} ─────────────────────────────────────────────────
+  // ── DELETE /vvfi/{sk} ──────────────────────────────────────────────────────
   if (method === "DELETE" && path.includes("/vvfi/")) {
     try {
-      const assessedAt = decodeURIComponent(path.split("/vvfi/")[1].split("?")[0]);
+      const encodedSK = path.split("/vvfi/")[1].split("?")[0];
+      const sk        = decodeURIComponent(encodedSK);
       await ddb.send(new DeleteCommand({
         TableName: TABLE,
-        Key:       { clientId: fid, assessedAt },
+        Key:       { PK: pk, SK: sk },
       }));
       return json(200, { success: true });
     } catch (err) {
