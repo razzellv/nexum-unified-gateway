@@ -17,10 +17,11 @@ import {
   AlertTriangle, ClipboardCheck, Eye, FileText, Building2, Cpu, User,
   Scale, ShieldAlert, Shield, Award, Upload, BookOpen, CheckCircle2, XCircle,
   AlertCircle, Download, RefreshCw, Calendar, ExternalLink,
-  TrendingUp, ChevronDown, ChevronUp, Sparkles
+  TrendingUp, ChevronDown, ChevronUp, Sparkles, History
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { logComplianceEvent } from '@/lib/nexum-api';
+import { logComplianceEvent, createIssue, listIssues } from '@/lib/nexum-api';
+import { apiRequest } from '@/lib/api';
 import { violationTypeConfigs } from '@/data/mockData';
 import { loadCustomViolations, customToConfig } from '@/lib/customViolations';
 import { NotifySelect } from '@/components/compliance/NotifySelect';
@@ -29,8 +30,8 @@ import type { NotifyRecipient } from '@/components/compliance/NotifySelect';
 const API_BASE = "https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod";
 
 const getToken = () =>
-  localStorage.getItem("nexum_access_token") ||
   localStorage.getItem("nexum_id_token") ||
+  localStorage.getItem("nexum_access_token") ||
   localStorage.getItem("accessToken") || "";
 
 const FACILITIES = ['Facility Alpha', 'Facility Beta', 'Facility Gamma', 'Facility Delta'];
@@ -152,9 +153,114 @@ interface GlobalFieldsProps {
   setValue: any;
 }
 
+// Helper: get default datetime-local value (current datetime)
+function getDefaultDatetimeLocal() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+const OBSERVED_SOURCES = [
+  { value: 'operator',          label: 'Operator Rounds',         category: 'human' },
+  { value: 'technician',        label: 'Technician Inspection',   category: 'human' },
+  { value: 'supervisor',        label: 'Supervisor Walkthrough',  category: 'human' },
+  { value: 'vendor',            label: 'Vendor Note',             category: 'human' },
+  { value: 'contractor',        label: 'Contractor Report',       category: 'human' },
+  { value: 'inspector',         label: 'Inspector Finding',       category: 'human' },
+  { value: 'occupant',          label: 'Occupant Report',         category: 'human' },
+  { value: 'bas_alarm',         label: 'BAS Alarm',               category: 'sensor' },
+  { value: 'ai_detection',      label: 'AI Detection',            category: 'ai_inferred' },
+  { value: 'pm_inspection',     label: 'PM Inspection',           category: 'human' },
+  { value: 'compliance_audit',  label: 'Compliance Audit',        category: 'human' },
+  { value: 'safety_walk',       label: 'Safety Walk',             category: 'human' },
+  { value: 'work_order',        label: 'Work Order',              category: 'human' },
+] as const;
+
+const REPORT_CATEGORIES = [
+  { value: 'human',            label: 'Human-Reported' },
+  { value: 'sensor',           label: 'Sensor/System Generated' },
+  { value: 'ai_inferred',      label: 'AI-Inferred' },
+  { value: 'system_generated', label: 'System-Generated' },
+] as const;
+
+const CONFIDENCE_LEVELS = [
+  { value: 'low',      label: 'Low — Limited evidence' },
+  { value: 'moderate', label: 'Moderate — Reasonable confidence' },
+  { value: 'high',     label: 'High — Strong evidence' },
+] as const;
+
 function GlobalFields({ register, watch, errors, setValue }: GlobalFieldsProps) {
+  const selectedSource = watch('firstObservedSource');
+
+  // Auto-set reportCategory when firstObservedSource changes
+  useEffect(() => {
+    if (!selectedSource) return;
+    const src = OBSERVED_SOURCES.find(s => s.value === selectedSource);
+    if (src) {
+      setValue('reportCategory', src.category);
+    }
+  }, [selectedSource, setValue]);
+
   return (
     <div className="space-y-6">
+      {/* Origin of Truth — FIRST section */}
+      <div className="space-y-4 p-6 rounded-lg border border-primary/40 bg-primary/5">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-foreground">Origin of Truth</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>First Observed Source</Label>
+            <Select onValueChange={(v) => setValue('firstObservedSource', v)}>
+              <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+              <SelectContent>
+                {OBSERVED_SOURCES.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Report Category</Label>
+            <Select
+              value={watch('reportCategory') || ''}
+              onValueChange={(v) => setValue('reportCategory', v)}
+            >
+              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+              <SelectContent>
+                {REPORT_CATEGORIES.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Auto-set based on source; override if needed</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Confidence Level</Label>
+            <Select
+              defaultValue="moderate"
+              onValueChange={(v) => setValue('confidenceLevel', v)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CONFIDENCE_LEVELS.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>First Observed At (defaults to now)</Label>
+            <Input
+              type="datetime-local"
+              defaultValue={getDefaultDatetimeLocal()}
+              {...register('firstObservedTimestamp')}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-4 p-6 rounded-lg border border-border bg-card/50">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="w-5 h-5 text-primary" />
@@ -757,6 +863,17 @@ export default function Compliance() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastVirtuousScore, setLastVirtuousScore] = useState<number | null>(null);
 
+  const [issues, setIssues] = useState<any[]>([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
+  const loadIssues = async () => {
+    setIssuesLoading(true);
+    try {
+      const res = await listIssues({ limit: 50 });
+      setIssues(res.issues || []);
+    } catch (e) { console.warn('Issues load failed:', e); }
+    finally { setIssuesLoading(false); }
+  };
+
   const violationForm = useForm({ defaultValues: { operatorId: '', severity: isCustodianMode ? 'low' : 'medium' } });
   const pmForm = useForm({ defaultValues: { operatorId: '' } });
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
@@ -837,6 +954,28 @@ export default function Compliance() {
         title: '✅ Violation Logged Successfully',
         description: virtuousScore !== undefined ? `Employee Virtuous Score: ${virtuousScore}%` : 'The violation has been recorded.',
       });
+      // Create Issue Origin record for this compliance event
+      try {
+        await createIssue({
+          title: data.violationType || 'Violation Observation',
+          sourceType: (data.firstObservedSource as any) || 'manual_report',
+          reportSourceCategory: (data.reportCategory as any) || 'human',
+          confidenceLevel: data.confidenceLevel === 'high' ? 95 : data.confidenceLevel === 'low' ? 40 : 70,
+          firstReporterName: data.operator || data.operatorId,
+          firstReporterRole: data.firstObservedSource || 'operator',
+          originalTimestamp: data.firstObservedTimestamp
+            ? new Date(data.firstObservedTimestamp).toISOString()
+            : new Date().toISOString(),
+          originalDescription: data.description || '',
+          assetId: data.equipmentId || null,
+          systemType: data.equipmentType || null,
+          severity: data.severity || 'medium',
+          tags: ['compliance-logger', data.violationType || 'observation'].filter(Boolean),
+        });
+      } catch (issueErr) {
+        console.warn('Issue Origin creation failed (non-critical):', issueErr);
+        // Non-critical — don't fail the main submission
+      }
       violationForm.reset({ operatorId: '', severity: 'medium' });
     } catch (error: any) {
       toast({ title: 'Error Logging Violation', description: error.message, variant: 'destructive' });
@@ -862,6 +1001,28 @@ export default function Compliance() {
       const virtuousScore = response?.employeeScores?.virtuousScore;
       if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
       toast({ title: '✅ PM Check Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'PM check recorded.' });
+      // Create Issue Origin record for this compliance event
+      try {
+        await createIssue({
+          title: data.pmTask || 'PM Inspection',
+          sourceType: (data.firstObservedSource as any) || 'manual_report',
+          reportSourceCategory: (data.reportCategory as any) || 'human',
+          confidenceLevel: data.confidenceLevel === 'high' ? 95 : data.confidenceLevel === 'low' ? 40 : 70,
+          firstReporterName: data.operator || data.operatorId,
+          firstReporterRole: data.firstObservedSource || 'operator',
+          originalTimestamp: data.firstObservedTimestamp
+            ? new Date(data.firstObservedTimestamp).toISOString()
+            : new Date().toISOString(),
+          originalDescription: data.description || '',
+          assetId: data.equipmentId || null,
+          systemType: data.equipmentType || null,
+          severity: data.severity || 'medium',
+          tags: ['compliance-logger', data.pmTask || 'pm-check'].filter(Boolean),
+        });
+      } catch (issueErr) {
+        console.warn('Issue Origin creation failed (non-critical):', issueErr);
+        // Non-critical — don't fail the main submission
+      }
       pmForm.reset({ operatorId: '' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -888,6 +1049,28 @@ export default function Compliance() {
       const virtuousScore = response?.employeeScores?.virtuousScore;
       if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
       toast({ title: '✅ Safety Observation Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'Safety observation recorded.' });
+      // Create Issue Origin record for this compliance event
+      try {
+        await createIssue({
+          title: 'Safety Observation',
+          sourceType: (data.firstObservedSource as any) || 'manual_report',
+          reportSourceCategory: (data.reportCategory as any) || 'human',
+          confidenceLevel: data.confidenceLevel === 'high' ? 95 : data.confidenceLevel === 'low' ? 40 : 70,
+          firstReporterName: data.operator || data.operatorId,
+          firstReporterRole: data.firstObservedSource || 'operator',
+          originalTimestamp: data.firstObservedTimestamp
+            ? new Date(data.firstObservedTimestamp).toISOString()
+            : new Date().toISOString(),
+          originalDescription: data.description || '',
+          assetId: data.equipmentId || null,
+          systemType: data.equipmentType || null,
+          severity: data.severity || 'medium',
+          tags: ['compliance-logger', 'safety-observation'].filter(Boolean),
+        });
+      } catch (issueErr) {
+        console.warn('Issue Origin creation failed (non-critical):', issueErr);
+        // Non-critical — don't fail the main submission
+      }
       safetyForm.reset({ operatorId: '' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -924,8 +1107,11 @@ export default function Compliance() {
 
         <Card className="bg-card/80 border-border">
           <CardContent className="p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid grid-cols-4 w-full max-w-[750px] h-auto p-1">
+            <Tabs value={activeTab} onValueChange={(v) => {
+              setActiveTab(v);
+              if (v === 'issue_history' && issues.length === 0) loadIssues();
+            }} className="space-y-6">
+              <TabsList className="grid grid-cols-5 w-full max-w-[950px] h-auto p-1">
                 <TabsTrigger value="violation" className="flex items-center gap-2 py-3">
                   <AlertTriangle className="w-4 h-4" />
                   <span className="hidden sm:inline">Violation</span>
@@ -941,6 +1127,10 @@ export default function Compliance() {
                 <TabsTrigger value="audit_reports" className="flex items-center gap-2 py-3">
                   <BookOpen className="w-4 h-4" />
                   <span className="hidden sm:inline">Audit Reports</span>
+                </TabsTrigger>
+                <TabsTrigger value="issue_history" className="flex items-center gap-2 py-3">
+                  <History className="w-4 h-4" />
+                  <span className="hidden sm:inline">Issue History</span>
                 </TabsTrigger>
               </TabsList>
 
