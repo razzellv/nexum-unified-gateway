@@ -13,18 +13,22 @@ import { Progress } from '@/components/ui/progress';
 import { NexumLoader, NexumPageLoader } from '@/components/global/NexumLoader';
 import { NexumError } from '@/components/global/NexumError';
 import { ExportButtons } from '@/components/global/ExportButtons';
-import { 
+import {
   type ViolationSummary,
   type VirtuousMetrics,
-  type WorkOrder 
+  type WorkOrder,
+  listSuggestions,
+  dismissSuggestion,
+  actOnSuggestion,
+  type Suggestion,
 } from '@/lib/nexum-api';
 import { OnShiftTeamTable } from '@/components/supervisor/OnShiftTeamTable';
 import { EmployeeStatusTable } from '@/components/supervisor/EmployeeStatusTable';
-import { 
-  ClipboardList, 
-  AlertTriangle, 
-  Users, 
-  Bell, 
+import {
+  ClipboardList,
+  AlertTriangle,
+  Users,
+  Bell,
   Clock,
   TrendingUp,
   TrendingDown,
@@ -36,6 +40,9 @@ import {
   Award,
   Pencil,
   Check,
+  Lightbulb,
+  CheckCheck,
+  XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -94,6 +101,8 @@ export default function SupervisorDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -205,6 +214,13 @@ export default function SupervisorDashboard() {
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, fetchData]);
+
+  useEffect(() => {
+    listSuggestions('active').then(data => {
+      setSuggestions(data.items || []);
+      setSuggestionsLoaded(true);
+    }).catch(() => setSuggestionsLoaded(true));
+  }, []);
 
   if (loading) {
     return <NexumPageLoader message="Authenticating..." />;
@@ -637,7 +653,81 @@ export default function SupervisorDashboard() {
               </CardContent>
             </Card>
           </>
-        )} 
+        )}
+
+        {/* ── Operational Suggestions ──────────────────────────────────────── */}
+        {suggestionsLoaded && suggestions.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-semibold">Operational Suggestions</h2>
+              {suggestions.filter(s => s.priority === 'high').length > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {suggestions.filter(s => s.priority === 'high').length} high priority
+                </Badge>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {suggestions.slice(0, 4).map(s => (
+                <Card
+                  key={s.SK}
+                  className={cn(
+                    "border-l-4",
+                    s.priority === 'high'   ? "border-l-red-500"    :
+                    s.priority === 'medium' ? "border-l-yellow-500" :
+                                             "border-l-blue-500"
+                  )}
+                >
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-snug">{s.message}</p>
+                      <Badge
+                        className={cn(
+                          "text-xs shrink-0",
+                          s.priority === 'high'   ? "bg-red-500/20 text-red-400"    :
+                          s.priority === 'medium' ? "bg-yellow-500/20 text-yellow-400" :
+                                                   "bg-blue-500/20 text-blue-400"
+                        )}
+                      >
+                        {s.priority}
+                      </Badge>
+                    </div>
+                    {s.suggestedVendorName && (
+                      <p className="text-xs text-muted-foreground">
+                        Suggested vendor: <span className="text-primary">{s.suggestedVendorName}</span>
+                        {s.vendorMatchScore !== undefined && ` · ${s.vendorMatchScore}% match`}
+                      </p>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          actOnSuggestion(s.SK).catch(() => {});
+                          setSuggestions(prev => prev.filter(x => x.SK !== s.SK));
+                        }}
+                      >
+                        <CheckCheck className="w-3 h-3" /> Act
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs gap-1 text-muted-foreground"
+                        onClick={() => {
+                          dismissSuggestion(s.SK).catch(() => {});
+                          setSuggestions(prev => prev.filter(x => x.SK !== s.SK));
+                        }}
+                      >
+                        <XCircle className="w-3 h-3" /> Dismiss
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
