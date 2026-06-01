@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,8 @@ import { NexumLoader } from '@/components/global/NexumLoader';
 import { getManagerDashboard } from '@/lib/nexum-api';
 import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
 import ConfidenceMetrics from "@/components/manager/ConfidenceMetrics";
-import { getManagerConfidenceMetrics } from "@/lib/nexum-api";
+import { getManagerConfidenceMetrics, listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion } from "@/lib/nexum-api";
+import { cn } from '@/lib/utils';
 import {
   Activity,
   Shield,
@@ -156,6 +157,8 @@ export default function ManagerDashboard() {
   const [budgetData, setBudgetData]   = useState<any>(null);
   const [confidenceData, setConfidenceData] = useState<any>(null);
   const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryItems: 0, inventoryValue: 0, lowStock: 0 });
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
 
   // ── Main data load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -292,6 +295,14 @@ export default function ManagerDashboard() {
       setAssetStats({ totalAssets, totalValue, inventoryItems, inventoryValue, lowStock });
     });
   }, [refreshKey]);
+
+  // ── Suggestions ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    listSuggestions('active').then(data => {
+      setSuggestions(data.items || []);
+      setSuggestionsLoaded(true);
+    }).catch(() => setSuggestionsLoaded(true));
+  }, []);
 
   // ── Energy / utility trend ──────────────────────────────────────────────────
   useEffect(() => {
@@ -929,6 +940,68 @@ export default function ManagerDashboard() {
             </Card>
           )}
         </div>
+
+        {/* ── Risk & Operations Suggestions ─────────────────────────────── */}
+        {suggestionsLoaded && suggestions.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-400" />
+                <h2 className="text-xl font-bold">Operational Suggestions</h2>
+                <Badge variant="outline" className="text-xs bg-amber-500/10 border-amber-500/30 text-amber-400">
+                  {suggestions.filter(s => s.priority === 'high').length > 0
+                    ? `${suggestions.filter(s => s.priority === 'high').length} high priority`
+                    : `${suggestions.length} active`}
+                </Badge>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {suggestions.slice(0, 4).map(sug => (
+                <Card key={sug.id} className={cn(
+                  "border transition-colors",
+                  sug.priority === 'high' ? 'border-red-500/30 bg-red-500/5' : 'neon-border bg-card/80'
+                )}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className={cn("text-[10px]",
+                        sug.priority === 'high'   ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                        sug.priority === 'medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                        'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                      )}>
+                        {sug.priority}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground capitalize">{sug.category}</span>
+                      {sug.riskScore > 60 && (
+                        <span className="text-xs text-amber-400 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Risk {sug.riskScore}
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-semibold text-sm leading-snug">{sug.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{sug.detail}</p>
+                    {sug.suggestedVendorName && (
+                      <p className="text-xs text-cyan-400">
+                        Suggested vendor: {sug.suggestedVendorName}
+                        {sug.vendorMatchScore !== null ? ` · ${sug.vendorMatchScore}% match` : ''}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" variant="outline"
+                        className="h-7 text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
+                        onClick={() => actOnSuggestion(sug.SK).then(() => setSuggestions(prev => prev.filter(s => s.id !== sug.id)))}>
+                        Act on this
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
+                        onClick={() => dismissSuggestion(sug.SK).then(() => setSuggestions(prev => prev.filter(s => s.id !== sug.id)))}>
+                        Dismiss
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </MainLayout>
