@@ -285,6 +285,9 @@ aws iam put-role-policy --role-name fi-risk-engine-role --policy-name policy \
 aws iam put-role-policy --role-name fi-vendor-pluck-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendorPlucks\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendorPlucks/index/*\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumVendors/index/*\"]}]}" > /dev/null
 
+aws iam put-role-policy --role-name fi-observation-journal-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationJournal\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationEvents\"]}]}" > /dev/null
+
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
   "Version":"2012-10-17",
@@ -410,6 +413,14 @@ deploy_lambda "nexum-fi-risk-engine" "fi-risk-engine.mjs" "fi-risk-engine-role" 
 
 deploy_lambda "nexum-fi-vendor-pluck" "fi-vendor-pluck.mjs" "fi-vendor-pluck-role" \
   "REGION=us-east-2,PLUCKS_TABLE=NexumVendorPlucks,VENDORS_TABLE=NexumVendors"
+
+# Observation Journal
+deploy_lambda "nexum-fi-observation-journal" "fi-observation-journal.mjs" "fi-observation-journal-role" \
+  "OBS_TABLE=ObservationJournal,EVENTS_TABLE=ObservationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+aws lambda update-function-configuration \
+  --function-name "nexum-fi-observation-journal" \
+  --environment "Variables={OBS_TABLE=ObservationJournal,EVENTS_TABLE=ObservationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY}" \
+  --region $REGION --output json > /dev/null
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -557,6 +568,21 @@ add_route "PATCH /vendor/profile"                 "nexum-fi-vendor-pluck"  "jwt"
 add_route "GET  /vendor/plucks"                   "nexum-fi-vendor-pluck"  "jwt"
 add_route "POST /vendor/plucks/{sk}/respond"      "nexum-fi-vendor-pluck"  "jwt"
 
+# Observation Journal — 13 routes
+add_route "GET /observations"                          "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations"                         "nexum-fi-observation-journal"  "jwt"
+add_route "GET /observations/{sk}"                     "nexum-fi-observation-journal"  "jwt"
+add_route "GET /observations/{sk}/score"               "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/validate"           "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/escalate"           "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/assign"             "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/action"             "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/verify"             "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/close"              "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/reopen"             "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/{sk}/amend"              "nexum-fi-observation-journal"  "jwt"
+add_route "POST /observations/ai-summary"              "nexum-fi-observation-journal"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
@@ -594,4 +620,7 @@ echo "  POST /suggestions/{sk}/dismiss  POST /suggestions/{sk}/act"
 echo "  GET /vendors  GET /vendors/{id}  POST /vendors/{id}/pluck  GET /vendors/plucks"
 echo "  GET /vendor/profile  PATCH /vendor/profile  GET /vendor/plucks"
 echo "  POST /vendor/plucks/{sk}/respond"
+echo "  GET/POST /observations  GET /observations/{sk}  GET /observations/{sk}/score"
+echo "  POST /observations/{sk}/validate|escalate|assign|action|verify|close|reopen|amend"
+echo "  POST /observations/ai-summary"
 echo "═══════════════════════════════════════════════════"

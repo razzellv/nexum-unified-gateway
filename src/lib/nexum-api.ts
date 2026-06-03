@@ -791,3 +791,155 @@ export async function respondToPluck(sk: string, response: {
     { method: 'POST', body: JSON.stringify(response) }
   );
 }
+
+// ============================================================================
+// OBSERVATION JOURNAL APIs
+// ============================================================================
+
+export interface Observation {
+  PK: string; SK: string; observationId: string; facilityId: string;
+  organizationId: string; assetId: string; equipmentId: string;
+  locationId: string; systemType: string; department: string;
+  building: string; area: string; reporterName: string;
+  reporterUserId: string; reporterRole: string; reporterOrganization: string;
+  observationTimestamp: string; observationSource: string;
+  originalText: string; originalPhotos: string[]; originalVideos: string[];
+  originalAudio: string[]; originalDocuments: string[];
+  originalAttachments: string[]; originalSensorReadings: any;
+  originalBMSData: any; originalEnvironmentalConditions: any;
+  originalSeverity: number | null; originalRisk: number | null;
+  status: string; currentSeverity: number | null; assignedTo: string | null;
+  linkedWorkOrders: string[]; linkedViolations: string[];
+  linkedRiskAcceptances: string[]; linkedVendorActions: string[];
+  createdAt: string; updatedAt: string; tags: string[]; priority: string;
+}
+
+export interface ObservationEvent {
+  PK: string; SK: string; eventId: string; observationId: string;
+  eventType: string; timestamp: string; actor: string; actorRole: string;
+  title?: string; summary?: string; notes?: string; evidence?: any;
+  [key: string]: any;
+}
+
+export interface ObservationTimelineEntry {
+  timestamp: string; eventType: string; title: string;
+  actor: string; role: string; summary: string;
+  evidence?: any; eventId?: string;
+}
+
+export interface ObservationScores {
+  integrityScore: number; chainOfCustodyScore: number;
+  validationScore: number; escalationScore: number;
+  ownershipScore: number; correctiveActionScore: number;
+  verificationScore: number; decisionDefensibilityScore: number;
+  operationalContinuityScore: number; facilityIntelligenceScore: number;
+}
+
+export async function listObservations(params?: {
+  status?: string; dateFrom?: string; dateTo?: string; limit?: number;
+}) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ observations: Observation[]; count: number }>(`/observations${qs}`);
+}
+
+export async function createObservation(data: Partial<Observation>) {
+  return await apiRequest<{ success: boolean; observationId: string; SK: string; observation: Observation }>(
+    '/observations',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getObservation(sk: string) {
+  return await apiRequest<{
+    observation: Observation;
+    events: ObservationEvent[];
+    timeline: ObservationTimelineEntry[];
+    scores: ObservationScores;
+  }>(`/observations/${encodeURIComponent(sk)}`);
+}
+
+export async function getObservationScore(sk: string) {
+  return await apiRequest<ObservationScores>(`/observations/${encodeURIComponent(sk)}/score`);
+}
+
+export async function validateObservation(sk: string, data: {
+  notes?: string; evidence?: string; validationMethod?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/validate`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function escalateObservation(sk: string, data: {
+  escalateTo: string; escalateToRole?: string; reason: string; notes?: string; urgency?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/escalate`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function assignObservation(sk: string, data: {
+  assignedTo: string; assignedToRole?: string; assignedToId?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/assign`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function addObservationAction(sk: string, data: {
+  actionDescription: string; actionType?: string; linkedWorkOrderId?: string;
+  vendorId?: string; vendorName?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/action`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function verifyObservation(sk: string, data: {
+  verificationMethod?: string; passed?: boolean; evidence?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/verify`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function closeObservation(sk: string, data: { resolution: string; notes?: string }) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/close`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function reopenObservation(sk: string, data: { reason: string; notes?: string }) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/reopen`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function amendObservation(sk: string, data: {
+  field: string; correctedValue: any; reason: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; originalValue: any; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/amend`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getObservationAISummary(
+  observation: Observation,
+  events: ObservationEvent[],
+  scores: ObservationScores
+) {
+  return await apiRequest<{ narrative: string }>(
+    '/observations/ai-summary',
+    { method: 'POST', body: JSON.stringify({ observation, events, scores }) }
+  );
+}
