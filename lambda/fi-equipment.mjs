@@ -233,21 +233,22 @@ export const handler = async (event) => {
         Limit:                     limit,
       };
 
-      if (startDate || endDate || systemType) {
-        const filters  = [];
-        const names    = {};
+      if (startDate && endDate) {
+        params.KeyConditionExpression += " AND SK BETWEEN :start AND :end";
+        params.ExpressionAttributeValues[":start"] = `LOG#${startDate}`;
+        params.ExpressionAttributeValues[":end"]   = `LOG#${endDate}z`;
+      } else if (startDate) {
+        params.KeyConditionExpression += " AND SK >= :start";
+        params.ExpressionAttributeValues[":start"] = `LOG#${startDate}`;
+      } else if (endDate) {
+        params.KeyConditionExpression += " AND SK <= :end";
+        params.ExpressionAttributeValues[":end"] = `LOG#${endDate}z`;
+      }
 
-        if (startDate) { filters.push("SK >= :start"); params.ExpressionAttributeValues[":start"] = `LOG#${startDate}`; }
-        if (endDate)   { filters.push("SK <= :end");   params.ExpressionAttributeValues[":end"]   = `LOG#${endDate}z`; }
-        if (systemType){ filters.push("systemType = :st"); params.ExpressionAttributeValues[":st"] = systemType; }
-
-        if (filters.length > 0) {
-          if (startDate || endDate) {
-            params.KeyConditionExpression += " AND " + filters.filter(f => f.startsWith("SK")).join(" AND ");
-          }
-          const nonKeyFilters = filters.filter(f => !f.startsWith("SK"));
-          if (nonKeyFilters.length > 0) params.FilterExpression = nonKeyFilters.join(" AND ");
-        }
+      if (systemType) {
+        params.FilterExpression = "#stype = :st";
+        params.ExpressionAttributeNames = { "#stype": "systemType" };
+        params.ExpressionAttributeValues[":st"] = systemType;
       }
 
       const result = await ddb.send(new QueryCommand(params));

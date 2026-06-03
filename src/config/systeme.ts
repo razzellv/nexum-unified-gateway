@@ -96,7 +96,7 @@ export const systemeConfig: SystemeConfig = {
       }
     },
     makecom_mapping: {
-      event_source: "lovable",
+      event_source: "nexum",
       flows: {
         work_orders: {
           source_tab: "Work_Orders",

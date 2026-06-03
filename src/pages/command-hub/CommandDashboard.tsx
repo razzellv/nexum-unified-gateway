@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MetricCard } from '@/components/command-hub/dashboard/MetricCard';
 import { SignalsPanel } from '@/components/command-hub/dashboard/SignalsPanel';
@@ -6,9 +6,11 @@ import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHeal
 import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
 import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard';
-import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash } from 'lucide-react';
+import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash, Lightbulb, CheckCheck, XCircle, Star, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion } from '@/lib/nexum-api';
+import { cn } from '@/lib/utils';
 
 const CommandDashboard = () => {
   const { user } = useAuth();
@@ -24,6 +26,8 @@ const CommandDashboard = () => {
   const [violations, setViolations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -84,13 +88,32 @@ const CommandDashboard = () => {
     }
   };
 
+  const loadSuggestions = useCallback(async () => {
+    setSuggestionsLoading(true);
+    try {
+      const data = await listSuggestions('active');
+      setSuggestions(data.items || []);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
+    loadSuggestions();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const highSeverityViolations = violations.filter(v => v.severity >= 80);
+  const highSuggestions = suggestions.filter(s => s.priority === 'high');
+  const suggPriorityColor: Record<string, string> = {
+    high:   'bg-red-500/20 text-red-400',
+    medium: 'bg-amber-500/20 text-amber-400',
+    low:    'bg-slate-500/20 text-slate-400',
+  };
 
   return (
     <MainLayout>
@@ -224,6 +247,97 @@ const CommandDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* ── Risk & Operations Suggestions ──────────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-semibold">Smart Suggestions</h2>
+              {highSuggestions.length > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium">
+                  {highSuggestions.length} high priority
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadSuggestions}
+                className="text-muted-foreground hover:text-foreground"
+                title="Refresh suggestions"
+              >
+                <RefreshCw className={cn('w-4 h-4', suggestionsLoading && 'animate-spin')} />
+              </button>
+              <button
+                onClick={() => navigate('/suggestions')}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                View all <ArrowUpRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {suggestionsLoading ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {[1,2].map(i => <div key={i} className="h-20 bg-muted/20 animate-pulse rounded-lg" />)}
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="border border-border/30 rounded-xl bg-card/50 p-6 text-center text-muted-foreground">
+              <Lightbulb className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No active suggestions. The system will surface insights as operational patterns are detected.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {suggestions.slice(0, 4).map(sug => (
+                <div key={sug.id} className={cn(
+                  "border rounded-lg p-4 bg-card space-y-2",
+                  sug.priority === 'high' ? 'border-red-500/30' : 'border-border'
+                )}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", suggPriorityColor[sug.priority])}>
+                          {sug.priority}
+                        </span>
+                        <span className="text-xs text-muted-foreground capitalize">{sug.category}</span>
+                      </div>
+                      <p className="font-medium text-sm leading-snug">{sug.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{sug.detail}</p>
+                      {sug.suggestedVendorName && (
+                        <p className="text-xs text-cyan-400 mt-1.5 flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-cyan-400" />
+                          Suggested: {sug.suggestedVendorName}
+                          {sug.vendorMatchScore !== null && ` · ${sug.vendorMatchScore}% match`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={async () => {
+                        await actOnSuggestion(sug.SK);
+                        loadSuggestions();
+                      }}
+                      className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1 border border-green-500/30 rounded px-2 py-1 hover:bg-green-500/10 transition-colors"
+                    >
+                      <CheckCheck className="w-3 h-3" /> Act on this
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await dismissSuggestion(sug.SK);
+                        loadSuggestions();
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 hover:bg-muted/20 rounded px-2 py-1 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3" /> Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </MainLayout>
   );

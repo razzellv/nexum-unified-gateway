@@ -217,3 +217,729 @@ export async function getRecentEquipment(facilityId: string, days: number = 7) {
 export async function getManagerConfidenceMetrics(facilityId: string = 'facility-001', days: number = 7) {
   return await apiRequest<any>(`/manager/confidence-metrics?facilityId=${facilityId}&days=${days}`);
 }
+
+// ============================================================================
+// ISSUE ORIGIN & REPORTING INTELLIGENCE APIs
+// ============================================================================
+
+export type IssueSourceType =
+  | 'operator_log' | 'pm' | 'work_order' | 'violation' | 'inspection'
+  | 'photo' | 'ai_detection' | 'vendor_note' | 'bas_alarm' | 'manual_report';
+
+export type IssueReportSourceCategory = 'human' | 'sensor' | 'ai_inferred' | 'system_generated';
+
+export type IssueAttemptType =
+  | 'duplicate' | 'escalation' | 'clarification' | 'repair_attempt'
+  | 'pm_note' | 'closure_note' | 'reopen';
+
+export interface IssueOrigin {
+  issueId: string;
+  facilityId: string;
+  title: string;
+  sourceType: IssueSourceType;
+  reportSourceCategory: IssueReportSourceCategory;
+  confidenceLevel: number;
+  firstReporterName: string;
+  firstReporterRole: string;
+  firstReporterId: string;
+  originalTimestamp: string;
+  originalDescription: string;
+  originalAttachment?: string | null;
+  assetId?: string | null;
+  systemType?: string | null;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed' | 'reopened';
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+  closureEvidence?: string | null;
+}
+
+export interface IssueReportAttempt {
+  attemptId: string;
+  issueId: string;
+  reporterName: string;
+  reporterRole: string;
+  reporterId: string;
+  timestamp: string;
+  description: string;
+  attemptType: IssueAttemptType;
+  attachment?: string | null;
+  isDuplicate: boolean;
+  isEscalation: boolean;
+}
+
+export interface IssueContinuityScores {
+  issueContinuityScore: number;
+  visibilityGapScore: number;
+  escalationRiskScore: number;
+  reportingFrictionScore: number;
+  repeatFailureRiskScore: number;
+  decisionDefensibilityScore: number;
+  computedAt: string;
+  factors: {
+    uniqueReporters: number;
+    totalAttempts: number;
+    repairAttempts: number;
+    reopens: number;
+    escalations: number;
+    duplicates: number;
+    totalLinkedRecords: number;
+    linkedPMs: number;
+    linkedWOs: number;
+    linkedViolations: number;
+    ageHours: number;
+    hasClosureEvidence: boolean;
+  };
+}
+
+export interface LinkedHistoricalRecord {
+  linkId: string;
+  issueId: string;
+  recordType: 'pm' | 'work_order' | 'violation' | 'operator_log' | 'bas_alarm'
+            | 'vendor_note' | 'inspection' | 'photo' | 'repair' | 'reopen' | 'manual';
+  recordId: string;
+  recordTimestamp?: string;
+  recordDescription: string;
+  linkedAt: string;
+  linkedByName: string;
+}
+
+export interface IssueDashboardFields {
+  firstReportedBy: string;
+  firstReportedAt: string;
+  firstReporterRole: string;
+  lastReportedBy: string;
+  lastReportedAt: string;
+  totalReports: number;
+  uniqueReporters: number;
+  repairAttempts: number;
+  reopenEvents: number;
+  linkedPMRecords: number;
+  linkedWORecords: number;
+  linkedViolationRecords: number;
+  totalLinkedRecords: number;
+  defensibilityStatus: 'Strong' | 'Moderate' | 'Weak';
+  continuityStatus: 'Well-documented' | 'Partial' | 'Sparse';
+  visibilityStatus: 'High Gap' | 'Moderate Gap' | 'Visible';
+}
+
+// Create a new issue
+export async function createIssue(data: Partial<IssueOrigin> & { title: string }) {
+  return await apiRequest<{ issueId: string; issue: IssueOrigin }>('/issues', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// List all issues for the current facility
+export async function listIssues(params?: { status?: string; severity?: string; limit?: number }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ issues: IssueOrigin[]; count: number }>(`/issues${qs}`);
+}
+
+// Full issue detail: origin + timeline + scores + AI summary
+export async function getIssue(issueId: string) {
+  return await apiRequest<{
+    issue: IssueOrigin;
+    timeline: any[];
+    attempts: IssueReportAttempt[];
+    links: LinkedHistoricalRecord[];
+    scores: IssueContinuityScores;
+    aiSummary: string;
+    dashboardFields: IssueDashboardFields;
+  }>(`/issues/${issueId}`);
+}
+
+// Add a report attempt to an existing issue
+export async function addIssueReport(issueId: string, data: {
+  reporterName?: string;
+  reporterRole?: string;
+  description: string;
+  attemptType: IssueAttemptType;
+  isDuplicate?: boolean;
+  isEscalation?: boolean;
+  attachment?: string;
+}) {
+  return await apiRequest<{ attemptId: string; attempt: IssueReportAttempt }>(
+    `/issues/${issueId}/report`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// All report attempts + reporter breakdown
+export async function getIssueReports(issueId: string) {
+  return await apiRequest<{
+    attempts: IssueReportAttempt[];
+    totalAttempts: number;
+    uniqueReporters: number;
+    byReporter: Record<string, any>;
+    attemptTypes: Record<string, number>;
+  }>(`/issues/${issueId}/reports`);
+}
+
+// Continuity scores only
+export async function getIssueContinuityScores(issueId: string) {
+  return await apiRequest<IssueContinuityScores>(`/issues/${issueId}/continuity`);
+}
+
+// Attach a historical record
+export async function linkIssueRecord(issueId: string, data: Partial<LinkedHistoricalRecord>) {
+  return await apiRequest<{ linkId: string; link: LinkedHistoricalRecord }>(
+    `/issues/${issueId}/link`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// All linked historical records
+export async function getIssueLinks(issueId: string) {
+  return await apiRequest<{
+    links: LinkedHistoricalRecord[];
+    totalLinks: number;
+    byType: Record<string, LinkedHistoricalRecord[]>;
+  }>(`/issues/${issueId}/links`);
+}
+
+// AI-ready summary + dashboard fields
+export async function getIssueSummary(issueId: string) {
+  return await apiRequest<{
+    issueId: string;
+    aiSummary: string;
+    scores: IssueContinuityScores;
+    dashboardFields: IssueDashboardFields;
+  }>(`/issues/${issueId}/summary`);
+}
+
+// Update issue status / severity / closure
+export async function updateIssue(issueId: string, data: {
+  status?: IssueOrigin['status'];
+  severity?: IssueOrigin['severity'];
+  title?: string;
+  closureEvidence?: string;
+  tags?: string[];
+}) {
+  return await apiRequest<{ issue: IssueOrigin }>(`/issues/${issueId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================================================
+// BMS INTEGRATION + SKIDS APIs
+// ============================================================================
+
+export type BMSProtocol =
+  | 'rest_webhook' | 'mqtt' | 'bacnet_ip' | 'modbus_tcp'
+  | 'opc_ua' | 'niagara' | 'metasys' | 'desigo';
+
+export interface BMSFeed {
+  feedId: string;
+  facilityId: string;
+  name: string;
+  protocol: BMSProtocol;
+  bmsVendor?: string;
+  description?: string;
+  apiKey: string;
+  ingestUrl: string;
+  status: 'active' | 'inactive' | 'error';
+  lastSeenAt?: string | null;
+  pointCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BMSDataPoint {
+  value: number | boolean | string | null;
+  unit: string;
+  label: string;
+  inAlarm: boolean;
+  updatedAt: string;
+}
+
+export interface BMSEquipmentData {
+  feedId: string;
+  facilityId: string;
+  equipmentId: string;
+  equipmentType: string;
+  timestamp: string;
+  receivedAt: string;
+  points: Record<string, BMSDataPoint>;
+  inAlarm: boolean;
+  runStatus: boolean | null;
+}
+
+export interface SkidEquipment {
+  equipmentId: string;
+  equipmentType: string;
+  role: string;
+  label: string;
+  bmsPointMap?: Record<string, string> | null;
+  pointSchema?: any[];
+  livePoints?: Record<string, BMSDataPoint> | null;
+  inAlarm?: boolean;
+  runStatus?: boolean | null;
+  lastUpdated?: string | null;
+}
+
+export interface Skid {
+  skidId: string;
+  facilityId: string;
+  skidName: string;
+  skidType: string;
+  description?: string;
+  location?: string;
+  bmsIntegrationId?: string | null;
+  equipment: SkidEquipment[];
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+  liveData?: BMSEquipmentData[] | null;
+  alarmCount?: number;
+}
+
+// BMS Feed management
+export async function createBMSFeed(data: {
+  name: string;
+  protocol: BMSProtocol;
+  bmsVendor?: string;
+  description?: string;
+  settings?: Record<string, any>;
+}) {
+  return await apiRequest<{ feedId: string; feed: BMSFeed; apiKey: string; ingestUrl: string; instructions: string[] }>(
+    '/bms/feeds', { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function listBMSFeeds() {
+  return await apiRequest<{ feeds: BMSFeed[]; count: number; protocols: Record<string, any> }>('/bms/feeds');
+}
+
+export async function getBMSFeed(feedId: string) {
+  return await apiRequest<{ feed: BMSFeed; latestData: any; pointSchemas: Record<string, any> }>(`/bms/feeds/${feedId}`);
+}
+
+export async function updateBMSFeed(feedId: string, data: Partial<BMSFeed>) {
+  return await apiRequest<{ message: string }>(`/bms/feeds/${feedId}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBMSFeed(feedId: string) {
+  return await apiRequest<{ message: string }>(`/bms/feeds/${feedId}`, { method: 'DELETE' });
+}
+
+export async function getBMSFeedData(feedId: string) {
+  return await apiRequest<{
+    feedId: string;
+    equipment: BMSEquipmentData[];
+    count: number;
+    alarmCount: number;
+    runningCount: number;
+    lastUpdated: string | null;
+    pointSchemas: Record<string, any>;
+  }>(`/bms/data/${feedId}`);
+}
+
+export async function getBMSMetadata() {
+  return await apiRequest<{
+    protocols: Record<string, any>;
+    skidTypes: Record<string, any>;
+    pointSchemas: Record<string, any>;
+    equipmentTypes: string[];
+  }>('/bms/metadata');
+}
+
+// Skid management
+export async function createSkid(data: {
+  skidName: string;
+  skidType: string;
+  description?: string;
+  location?: string;
+  bmsIntegrationId?: string;
+  equipment: Partial<SkidEquipment>[];
+}) {
+  return await apiRequest<{ skidId: string; skid: Skid; skidTypes: Record<string, any> }>(
+    '/skids', { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function listSkids() {
+  return await apiRequest<{ skids: Skid[]; count: number; skidTypes: Record<string, any> }>('/skids');
+}
+
+export async function getSkid(skidId: string) {
+  return await apiRequest<{
+    skid: Skid;
+    alarmCount: number;
+    bmsConnected: boolean;
+    lastDataReceived: string | null;
+    skidTypes: Record<string, any>;
+    pointSchemas: Record<string, any>;
+  }>(`/skids/${skidId}`);
+}
+
+export async function updateSkid(skidId: string, data: Partial<Skid>) {
+  return await apiRequest<{ skid: Skid; message: string }>(`/skids/${skidId}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSkid(skidId: string) {
+  return await apiRequest<{ message: string }>(`/skids/${skidId}`, { method: 'DELETE' });
+}
+
+export async function getSkidData(skidId: string) {
+  return await apiRequest<{
+    skidId: string;
+    skidName: string;
+    liveData: BMSEquipmentData[];
+    bmsConnected: boolean;
+    alarmCount: number;
+    runningCount: number;
+    lastUpdated: string | null;
+    pointSchemas: Record<string, any>;
+  }>(`/skids/${skidId}/data`);
+}
+
+// ─── Risk Tolerance ───────────────────────────────────────────────────────────
+
+export interface RiskThresholds {
+  safety: number;
+  compliance: number;
+  operational: number;
+  financial: number;
+  reputational: number;
+}
+
+export async function getRiskTolerance() {
+  return await apiRequest<{ facilityId: string; thresholds: RiskThresholds }>('/risk/tolerance');
+}
+
+export async function updateRiskTolerance(thresholds: Partial<RiskThresholds>) {
+  return await apiRequest<{ facilityId: string; thresholds: RiskThresholds }>('/risk/tolerance', {
+    method: 'PATCH', body: JSON.stringify({ thresholds }),
+  });
+}
+
+// ─── Risk Acceptance ──────────────────────────────────────────────────────────
+
+export interface RiskAcceptance {
+  id: string;
+  facilityId: string;
+  category: string;
+  riskTitle: string;
+  justification: string;
+  riskScore: number;
+  acceptedBy: string;
+  acceptedAt: string;
+  expiresAt: string | null;
+  status: 'active' | 'expired';
+  relatedIssueId?: string | null;
+  relatedWOId?: string | null;
+  SK: string;
+}
+
+export async function listRiskAcceptance() {
+  return await apiRequest<{ items: RiskAcceptance[]; count: number }>('/risk/acceptance');
+}
+
+export async function createRiskAcceptance(data: {
+  riskTitle: string;
+  justification: string;
+  category: string;
+  riskScore: number;
+  expiresAt?: string;
+  relatedIssueId?: string;
+  relatedWOId?: string;
+}) {
+  return await apiRequest<RiskAcceptance>('/risk/acceptance', {
+    method: 'POST', body: JSON.stringify(data),
+  });
+}
+
+// ─── Suggestions ──────────────────────────────────────────────────────────────
+
+export interface Suggestion {
+  id: string;
+  facilityId: string;
+  type: string;
+  category: string;
+  title: string;
+  detail: string;
+  riskScore: number;
+  status: 'active' | 'dismissed' | 'acted_on' | 'expired';
+  priority: 'low' | 'medium' | 'high';
+  triggeredBy: string;
+  relatedEntityId?: string | null;
+  relatedEntityType?: string | null;
+  suggestedVendorId?: string | null;
+  suggestedVendorName?: string | null;
+  vendorMatchScore?: number | null;
+  visibleToServiceTech: boolean;
+  createdAt: string;
+  SK: string;
+}
+
+export async function listSuggestions(status = 'active') {
+  return await apiRequest<{ items: Suggestion[]; count: number }>(`/suggestions?status=${status}`);
+}
+
+export async function generateSuggestions() {
+  return await apiRequest<{ generated: number; items: Suggestion[] }>('/suggestions/generate', {
+    method: 'POST', body: JSON.stringify({}),
+  });
+}
+
+export async function dismissSuggestion(sk: string, note?: string) {
+  return await apiRequest<{ message: string }>(`/suggestions/${encodeURIComponent(sk)}/dismiss`, {
+    method: 'POST', body: JSON.stringify({ note: note || '' }),
+  });
+}
+
+export async function actOnSuggestion(sk: string, note?: string) {
+  return await apiRequest<{ message: string }>(`/suggestions/${encodeURIComponent(sk)}/act`, {
+    method: 'POST', body: JSON.stringify({ note: note || '' }),
+  });
+}
+
+// ─── Vendors + Plucks ─────────────────────────────────────────────────────────
+
+export interface VendorProfile {
+  vendorOrgId: string;
+  orgName: string;
+  ownerName: string;
+  ownerTitle: string;
+  email: string;
+  phone: string;
+  website: string;
+  services: string[];
+  serviceAreas: string[];
+  bio: string;
+  licenseNumber: string;
+  certifications: string[];
+  tier: 'basic' | 'pro' | 'enterprise';
+  updatedAt: string;
+}
+
+export interface VendorPluck {
+  id: string;
+  facilityId: string;
+  vendorId: string;
+  sentBy: string;
+  serviceType: string;
+  description: string;
+  urgency: 'normal' | 'urgent' | 'emergency';
+  preferredDate: string | null;
+  status: 'sent' | 'viewed' | 'accepted' | 'declined' | 'responded';
+  vendorResponse: string | null;
+  respondedAt: string | null;
+  vendorMessage: string;
+  matchScore: number | null;
+  relatedSuggestionId: string | null;
+  relatedWOId: string | null;
+  createdAt: string;
+  SK: string;
+}
+
+export async function listVendors(serviceType?: string) {
+  const qs = serviceType ? `?serviceType=${encodeURIComponent(serviceType)}` : '';
+  return await apiRequest<{ items: any[]; count: number }>(`/vendors${qs}`);
+}
+
+export async function sendPluck(vendorId: string, data: {
+  serviceType: string;
+  description: string;
+  urgency?: string;
+  preferredDate?: string;
+  matchScore?: number;
+  relatedSuggestionId?: string;
+  relatedWOId?: string;
+}) {
+  return await apiRequest<VendorPluck>(`/vendors/${vendorId}/pluck`, {
+    method: 'POST', body: JSON.stringify(data),
+  });
+}
+
+export async function listSentPlucks() {
+  return await apiRequest<{ items: VendorPluck[]; count: number }>('/vendors/plucks');
+}
+
+export async function getVendorProfile() {
+  return await apiRequest<VendorProfile>('/vendor/profile');
+}
+
+export async function updateVendorProfile(data: Partial<VendorProfile>) {
+  return await apiRequest<VendorProfile>('/vendor/profile', {
+    method: 'PATCH', body: JSON.stringify(data),
+  });
+}
+
+export async function listReceivedPlucks() {
+  return await apiRequest<{ items: VendorPluck[]; count: number }>('/vendor/plucks');
+}
+
+export async function respondToPluck(sk: string, response: {
+  response: 'accepted' | 'declined' | 'responded';
+  message: string;
+  status?: string;
+}) {
+  return await apiRequest<{ message: string; status: string }>(
+    `/vendor/plucks/${encodeURIComponent(sk)}/respond`,
+    { method: 'POST', body: JSON.stringify(response) }
+  );
+}
+
+// ============================================================================
+// OBSERVATION JOURNAL APIs
+// ============================================================================
+
+export interface Observation {
+  PK: string; SK: string; observationId: string; facilityId: string;
+  organizationId: string; assetId: string; equipmentId: string;
+  locationId: string; systemType: string; department: string;
+  building: string; area: string; reporterName: string;
+  reporterUserId: string; reporterRole: string; reporterOrganization: string;
+  observationTimestamp: string; observationSource: string;
+  originalText: string; originalPhotos: string[]; originalVideos: string[];
+  originalAudio: string[]; originalDocuments: string[];
+  originalAttachments: string[]; originalSensorReadings: any;
+  originalBMSData: any; originalEnvironmentalConditions: any;
+  originalSeverity: number | null; originalRisk: number | null;
+  status: string; currentSeverity: number | null; assignedTo: string | null;
+  linkedWorkOrders: string[]; linkedViolations: string[];
+  linkedRiskAcceptances: string[]; linkedVendorActions: string[];
+  createdAt: string; updatedAt: string; tags: string[]; priority: string;
+}
+
+export interface ObservationEvent {
+  PK: string; SK: string; eventId: string; observationId: string;
+  eventType: string; timestamp: string; actor: string; actorRole: string;
+  title?: string; summary?: string; notes?: string; evidence?: any;
+  [key: string]: any;
+}
+
+export interface ObservationTimelineEntry {
+  timestamp: string; eventType: string; title: string;
+  actor: string; role: string; summary: string;
+  evidence?: any; eventId?: string;
+}
+
+export interface ObservationScores {
+  integrityScore: number; chainOfCustodyScore: number;
+  validationScore: number; escalationScore: number;
+  ownershipScore: number; correctiveActionScore: number;
+  verificationScore: number; decisionDefensibilityScore: number;
+  operationalContinuityScore: number; facilityIntelligenceScore: number;
+}
+
+export async function listObservations(params?: {
+  status?: string; dateFrom?: string; dateTo?: string; limit?: number;
+}) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ observations: Observation[]; count: number }>(`/observations${qs}`);
+}
+
+export async function createObservation(data: Partial<Observation>) {
+  return await apiRequest<{ success: boolean; observationId: string; SK: string; observation: Observation }>(
+    '/observations',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getObservation(sk: string) {
+  return await apiRequest<{
+    observation: Observation;
+    events: ObservationEvent[];
+    timeline: ObservationTimelineEntry[];
+    scores: ObservationScores;
+  }>(`/observations/${encodeURIComponent(sk)}`);
+}
+
+export async function getObservationScore(sk: string) {
+  return await apiRequest<ObservationScores>(`/observations/${encodeURIComponent(sk)}/score`);
+}
+
+export async function validateObservation(sk: string, data: {
+  notes?: string; evidence?: string; validationMethod?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/validate`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function escalateObservation(sk: string, data: {
+  escalateTo: string; escalateToRole?: string; reason: string; notes?: string; urgency?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/escalate`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function assignObservation(sk: string, data: {
+  assignedTo: string; assignedToRole?: string; assignedToId?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/assign`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function addObservationAction(sk: string, data: {
+  actionDescription: string; actionType?: string; linkedWorkOrderId?: string;
+  vendorId?: string; vendorName?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/action`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function verifyObservation(sk: string, data: {
+  verificationMethod?: string; passed?: boolean; evidence?: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/verify`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function closeObservation(sk: string, data: { resolution: string; notes?: string }) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/close`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function reopenObservation(sk: string, data: { reason: string; notes?: string }) {
+  return await apiRequest<{ success: boolean; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/reopen`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function amendObservation(sk: string, data: {
+  field: string; correctedValue: any; reason: string; notes?: string;
+}) {
+  return await apiRequest<{ success: boolean; originalValue: any; event: ObservationEvent }>(
+    `/observations/${encodeURIComponent(sk)}/amend`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getObservationAISummary(
+  observation: Observation,
+  events: ObservationEvent[],
+  scores: ObservationScores
+) {
+  return await apiRequest<{ narrative: string }>(
+    '/observations/ai-summary',
+    { method: 'POST', body: JSON.stringify({ observation, events, scores }) }
+  );
+}

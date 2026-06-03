@@ -753,7 +753,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-muted-foreground text-sm">
-              Nexum Suum™ © 2025 • Powered by AWS + Lovable AI
+              Nexum Suum™ © 2025 • Powered by AWS
             </p>
             <div className="flex gap-6 text-sm">
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Support</a>

@@ -621,15 +621,33 @@ export default function OCCAE() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsed: DataPoint[] = (results.data as Record<string, string>[]).map((row, i) => ({
-          id:        `csv-${i}`,
-          system:    (row.system || 'boiler') as SystemType,
-          timestamp: row.timestamp || row.date || new Date().toISOString(),
-          metric:    row.metric || row.parameter || '',
-          value:     parseFloat(row.value || row.reading || '0'),
-          unit:      row.unit || '',
-          notes:     row.notes || '',
-        }));
+        const parsed: DataPoint[] = (results.data as Record<string, string>[]).map((row, i) => {
+          const rawValue =
+            row.value         ??
+            row.output_value  ??
+            row.input_value   ??
+            row.supply_value  ??
+            row.return_value  ??
+            row.reading       ??
+            row.reading_value ??
+            row.measured      ??
+            row.actual        ??
+            // last resort: first numeric-looking column that isn't system/timestamp/metric/unit/notes/process
+            Object.entries(row).find(([k, v]) =>
+              !['system','timestamp','date','metric','parameter','unit','notes','process'].includes(k.toLowerCase()) &&
+              v !== '' && !isNaN(Number(v))
+            )?.[1] ??
+            '0';
+          return {
+            id:        `csv-${i}`,
+            system:    (row.system || 'boiler') as SystemType,
+            timestamp: row.timestamp || row.date || new Date().toISOString(),
+            metric:    row.metric || row.parameter || '',
+            value:     parseFloat(String(rawValue)),
+            unit:      row.unit || '',
+            notes:     row.notes || row.process || '',
+          };
+        });
         setDataPoints(prev => [...prev, ...parsed]);
         toast({ title: `${parsed.length} readings imported`, description: file.name });
       },
