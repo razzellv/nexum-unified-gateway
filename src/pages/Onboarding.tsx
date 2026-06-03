@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 import { DEPARTMENTS, getRolesForOrgType, ROLE_DISPLAY_NAMES } from '@/config/roles';
+import { createObservation } from '@/lib/nexum-api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StaffMember { name: string; role: string; email: string; department: string; }
@@ -330,6 +331,115 @@ export default function Onboarding() {
 
       // Persist org type choice
       if (orgType) localStorage.setItem('nexum_org_type', orgType);
+
+      // ── Observation Journal — capture onboarding as system of origin ──────────
+      try {
+        const equipList  = equipment.filter(e => e.equipmentType && e.manufacturer);
+        const inventList = inventory.filter(i => i.itemName && i.quantity);
+        const staffList  = staff.filter(s => s.name && s.email);
+
+        const orgName =
+          orgType === 'retail'      ? retailStore.storeName :
+          orgType === 'government'  ? govAgency.agencyName  :
+          org.name || 'this facility';
+
+        const orgAddress =
+          orgType === 'retail'     ? `${retailStore.address}, ${retailStore.city}, ${retailStore.state}` :
+          orgType === 'government' ? `${govAgency.address}, ${govAgency.city}, ${govAgency.state}`       :
+          org.address ? `${org.address}, ${org.city}, ${org.state} ${org.zip}` : '';
+
+        const baselineLines: string[] = [
+          `Initial setup completed for ${orgName}. Organization type: ${orgType}.`,
+          orgAddress && `Location: ${orgAddress}.`,
+          orgType === 'facility' && org.facilityType && `Facility type: ${org.facilityType}.`,
+          equipList.length > 0
+            ? `Equipment registered (${equipList.length} items):\n` +
+              equipList.map(e =>
+                `  • ${e.equipmentType} — ${e.manufacturer} ${e.model}` +
+                `${e.location ? ` at ${e.location}` : ''}` +
+                `${e.serialNumber ? ` (S/N: ${e.serialNumber})` : ''}`
+              ).join('\n')
+            : null,
+          inventList.length > 0 ? `Inventory: ${inventList.length} item types registered.` : null,
+          staffList.length > 0
+            ? `Staff/personnel invited: ${staffList.map(s => `${s.name} (${s.role})`).join(', ')}.`
+            : null,
+          orgType === 'retail' && retailCategories.filter(Boolean).length > 0
+            ? `Product categories: ${retailCategories.filter(Boolean).join(', ')}.`
+            : null,
+          orgType === 'government' && govApparatus.filter(a => a.unitNumber).length > 0
+            ? `Fleet: ${govApparatus.filter(a => a.unitNumber).map(a => `${a.year} ${a.make} ${a.model} (Unit ${a.unitNumber})`).join(', ')}.`
+            : null,
+          budget.annualTotal ? `Annual budget baseline: $${parseFloat(budget.annualTotal).toLocaleString()}.` : null,
+          utilities.electricRate ? `Utility rates — Electric: $${utilities.electricRate}/kWh, Gas: $${utilities.gasRate}/therm, Water: $${utilities.waterRate}/CCF.` : null,
+        ].filter(Boolean) as string[];
+
+        await createObservation({
+          observationSource: 'Onboarding',
+          systemType:        'Administrative',
+          department:        'All Departments',
+          building:          orgAddress,
+          area:              orgType === 'facility' ? (org.city || '') : '',
+          reporterName:      user?.name || user?.email || 'Facility Administrator',
+          reporterRole:      user?.role || 'administrator',
+          reporterOrganization: orgName,
+          originalText:      baselineLines.join('\n'),
+          originalSeverity:  null,
+          originalRisk:      null,
+          priority:          'normal',
+          tags:              ['onboarding', 'baseline', 'facility-setup', orgType].filter(Boolean),
+        } as any);
+
+        // Equipment baseline observations (one per registered item)
+        for (const eq of equipList) {
+          const baseline = baselines[eq.equipmentType] || {};
+          const readings = Object.entries(baseline)
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ');
+          await createObservation({
+            observationSource:    'PM Finding',
+            systemType:           eq.equipmentType,
+            department:           'Maintenance',
+            area:                 eq.location || '',
+            assetId:              eq.serialNumber || '',
+            equipmentId:          `${eq.equipmentType}-${eq.manufacturer}-${eq.model}`.toLowerCase().replace(/\s+/g, '-'),
+            locationId:           eq.location || '',
+            reporterName:         user?.name || user?.email || 'Facility Administrator',
+            reporterRole:         user?.role || 'administrator',
+            reporterOrganization: orgName,
+            originalText: [
+              `Equipment baseline recorded at facility onboarding.`,
+              `${eq.manufacturer} ${eq.model}${eq.serialNumber ? ` (S/N: ${eq.serialNumber})` : ''} installed at ${eq.location || 'unspecified location'}.`,
+              readings ? `Baseline readings: ${readings}.` : null,
+            ].filter(Boolean).join(' '),
+            originalSeverity: null,
+            originalRisk:     null,
+            priority:         'normal',
+            tags:             ['onboarding', 'equipment-baseline', eq.equipmentType],
+          } as any);
+        }
+
+        // Audit finding observation
+        if (auditFile) {
+          await createObservation({
+            observationSource:    'Audit Finding',
+            systemType:           'Compliance',
+            department:           'Safety & Compliance',
+            reporterName:         auditMeta.agency || 'External Inspector',
+            reporterRole:         'Inspector',
+            reporterOrganization: auditMeta.agency || '',
+            originalText: `Initial compliance audit uploaded at onboarding. Agency: ${auditMeta.agency || 'N/A'}. Inspection date: ${auditMeta.inspectionDate || 'N/A'}. Result: ${(auditMeta.result || 'pass').toUpperCase()}.`,
+            originalSeverity: auditMeta.result === 'fail' ? 8 : auditMeta.result === 'conditional' ? 5 : 2,
+            originalRisk:     auditMeta.result === 'fail' ? 8 : auditMeta.result === 'conditional' ? 4 : 1,
+            priority:         auditMeta.result === 'fail' ? 'high' : 'normal',
+            tags:             ['onboarding', 'audit', 'compliance', auditMeta.result || 'pass'],
+          } as any);
+        }
+      } catch {
+        // Observation journal capture is non-blocking — onboarding success is unaffected
+      }
+      // ── End Observation Journal capture ───────────────────────────────────────
 
       // Clear onboarding session flag after successful completion
       sessionStorage.removeItem('nexum_onboarding_verified');
