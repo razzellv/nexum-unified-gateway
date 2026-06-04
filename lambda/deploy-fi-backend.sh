@@ -263,6 +263,11 @@ ensure_table "NexumAssetValuation" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+ensure_table "NexumWorkIntegrity" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # ── Observation Journal tables ────────────────────────────────────────────────
 ensure_table "ObservationJournal" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
@@ -306,7 +311,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -372,6 +377,9 @@ aws iam put-role-policy --role-name fi-observation-journal-role --policy-name po
 
 aws iam put-role-policy --role-name fi-cost-intelligence-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumAssetValuation\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SpendingTransactions\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-work-integrity-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumWorkIntegrity\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -510,6 +518,9 @@ aws lambda update-function-configuration \
 # Cost Intelligence
 deploy_lambda "nexum-fi-cost-intelligence" "fi-cost-intelligence.mjs" "fi-cost-intelligence-role" \
   "VALUATION_TABLE=NexumAssetValuation,TRANSACTIONS_TABLE=SpendingTransactions"
+
+deploy_lambda "nexum-fi-work-integrity" "fi-work-integrity.mjs" "fi-work-integrity-role" \
+  "WI_TABLE=NexumWorkIntegrity,VIOLATIONS_TABLE=ViolationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
 
 echo ""
 echo "3/4  API Gateway Routes"
