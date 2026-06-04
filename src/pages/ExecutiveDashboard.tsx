@@ -11,7 +11,7 @@ import { FacilityGauge } from '@/components/global/FacilityGauge';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { TierGate } from '@/components/TierGate';
-import { getExecutiveDashboard } from '@/lib/nexum-api';
+import { getExecutiveDashboard, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from '@/lib/nexum-api';
 import { getAvailableFacilities } from '@/lib/role-filters';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -21,9 +21,10 @@ import {
 import {
   Flame, DollarSign, AlertTriangle, Clock,
   TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity,
-  CalendarClock, Cpu
+  CalendarClock, Cpu, TrendingDown, PieChart, Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 // ── Animated count-up ─────────────────────────────────────────────────────────
@@ -345,6 +346,9 @@ export default function ExecutiveDashboard() {
   const [selectedSystem,   setSelectedSystem]    = useState('all');
   const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryValue: 0, inventoryItems: 0 });
   const [capitalPlan, setCapitalPlan] = useState<any[]>([]);
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -482,6 +486,17 @@ export default function ExecutiveDashboard() {
       setAssetStats({ totalAssets, totalValue, inventoryItems, inventoryValue });
     });
   }, [isAuthenticated, facilityId]);
+
+  useEffect(() => {
+    setCostLoading(true);
+    Promise.all([getCostSummary(), getCostBreakdown()])
+      .then(([summary, breakdown]) => {
+        setCostSummary(summary);
+        setCostBreakdown(breakdown);
+      })
+      .catch(() => {})
+      .finally(() => setCostLoading(false));
+  }, []);
 
   if (loading) return <NexumPageLoader message="Loading..." />;
 
@@ -865,6 +880,93 @@ export default function ExecutiveDashboard() {
             </TierGate>
           </TabsContent>
         </Tabs>
+
+        {/* ── Financial Intelligence ─────────────────────────────────────────────── */}
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-lg font-semibold">Financial Intelligence</h2>
+            {costLoading && <span className="text-xs text-muted-foreground">Loading...</span>}
+          </div>
+
+          {/* KPI row: 6 cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: 'YTD Spend', value: `$${((costSummary?.totalCostYTD || 0) / 1000).toFixed(1)}k`, sub: 'Year to date', color: 'text-emerald-400' },
+              { label: 'This Month', value: `$${((costSummary?.totalCostThisMonth || 0) / 1000).toFixed(1)}k`, sub: 'Current month', color: 'text-blue-400' },
+              { label: 'CapEx', value: `$${((costSummary?.capex || 0) / 1000).toFixed(1)}k`, sub: `${(costSummary?.capexPercent || 0).toFixed(0)}% of total`, color: 'text-purple-400' },
+              { label: 'OpEx', value: `$${((costSummary?.opex || 0) / 1000).toFixed(1)}k`, sub: `${(costSummary?.opexPercent || 0).toFixed(0)}% of total`, color: 'text-amber-400' },
+              { label: 'Asset Book Value', value: `$${((costSummary?.totalBookValue || 0) / 1000).toFixed(1)}k`, sub: `${costSummary?.assetCount || 0} assets`, color: 'text-cyan-400' },
+              { label: 'Depreciation YTD', value: `$${((costSummary?.totalDepreciationYTD || 0) / 1000).toFixed(1)}k`, sub: 'Accumulated loss', color: 'text-red-400' },
+            ].map(kpi => (
+              <div key={kpi.label} className="bg-card border border-border rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                <p className={`text-lg font-bold ${kpi.color}`}>{kpi.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Cost breakdown — department + category */}
+          {costBreakdown && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Department contribution */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-muted-foreground" /> Cost by Department
+                </h3>
+                <div className="space-y-2">
+                  {(costBreakdown.byDepartment.slice(0, 5)).map(d => (
+                    <div key={d.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">{d.name || 'Unassigned'}</span>
+                        <span className="font-medium">${(d.amount / 1000).toFixed(1)}k <span className="text-muted-foreground">({d.percent.toFixed(1)}%)</span></span>
+                      </div>
+                      <Progress value={d.percent} className="h-1.5" />
+                    </div>
+                  ))}
+                  {costBreakdown.byDepartment.length === 0 && <p className="text-xs text-muted-foreground">No cost data recorded yet.</p>}
+                </div>
+              </div>
+
+              {/* Category contribution */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-muted-foreground" /> Cost by Category
+                </h3>
+                <div className="space-y-2">
+                  {(costBreakdown.byCategory.slice(0, 5)).map(c => (
+                    <div key={c.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-muted-foreground capitalize">{c.name}</span>
+                        <span className="font-medium">${(c.amount / 1000).toFixed(1)}k <span className="text-muted-foreground">({c.percent.toFixed(1)}%)</span></span>
+                      </div>
+                      <Progress value={c.percent} className="h-1.5" />
+                    </div>
+                  ))}
+                  {costBreakdown.byCategory.length === 0 && <p className="text-xs text-muted-foreground">No category data recorded yet.</p>}
+                </div>
+              </div>
+
+              {/* System type contribution */}
+              <div className="bg-card border border-border rounded-lg p-4 md:col-span-2">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-muted-foreground" /> Cost by System Type
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {(costBreakdown.bySystemType.slice(0, 8)).map(s => (
+                    <div key={s.name} className="bg-muted/30 rounded p-2">
+                      <p className="text-xs text-muted-foreground capitalize">{s.name || 'Unassigned'}</p>
+                      <p className="text-sm font-semibold">${(s.amount / 1000).toFixed(1)}k</p>
+                      <p className="text-xs text-muted-foreground">{s.percent.toFixed(1)}% of total</p>
+                    </div>
+                  ))}
+                  {costBreakdown.bySystemType.length === 0 && <p className="text-xs text-muted-foreground col-span-4">No system cost data recorded yet.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
       </div>
     </MainLayout>

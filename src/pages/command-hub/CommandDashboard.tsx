@@ -6,10 +6,10 @@ import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHeal
 import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
 import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard';
-import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash, Lightbulb, CheckCheck, XCircle, Star, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash, Lightbulb, CheckCheck, XCircle, Star, ArrowUpRight, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion } from '@/lib/nexum-api';
+import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, type CostSummary } from '@/lib/nexum-api';
 import { cn } from '@/lib/utils';
 
 const CommandDashboard = () => {
@@ -28,6 +28,7 @@ const CommandDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -80,6 +81,15 @@ const CommandDashboard = () => {
 
         setViolations(data.compliance?.recent_violations || []);
         setLastUpdated(new Date());
+
+        getCostSummary().then(s => {
+          setCostSummary(s);
+          setMetrics(prev => [
+            ...prev,
+            { label: 'Monthly Spend', value: `$${((s.totalCostThisMonth || 0) / 1000).toFixed(1)}k`, trend: 'stable', status: 'success' },
+            { label: 'YTD Cost', value: `$${((s.totalCostYTD || 0) / 1000).toFixed(1)}k`, trend: 'stable', status: 'success' },
+          ]);
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('Command Hub fetch error:', err);

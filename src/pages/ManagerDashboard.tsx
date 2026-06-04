@@ -16,7 +16,7 @@ import { NexumLoader } from '@/components/global/NexumLoader';
 import { getManagerDashboard } from '@/lib/nexum-api';
 import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
 import ConfidenceMetrics from "@/components/manager/ConfidenceMetrics";
-import { getManagerConfidenceMetrics, listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion } from "@/lib/nexum-api";
+import { getManagerConfidenceMetrics, listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from "@/lib/nexum-api";
 import { cn } from '@/lib/utils';
 import {
   Activity,
@@ -159,6 +159,8 @@ export default function ManagerDashboard() {
   const [assetStats, setAssetStats] = useState({ totalAssets: 0, totalValue: 0, inventoryItems: 0, inventoryValue: 0, lowStock: 0 });
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
 
   // ── Main data load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -302,6 +304,9 @@ export default function ManagerDashboard() {
       setSuggestions(data.items || []);
       setSuggestionsLoaded(true);
     }).catch(() => setSuggestionsLoaded(true));
+    Promise.all([getCostSummary(), getCostBreakdown()])
+      .then(([s, b]) => { setCostSummary(s); setCostBreakdown(b); })
+      .catch(() => {});
   }, []);
 
   // ── Energy / utility trend ──────────────────────────────────────────────────
@@ -1000,6 +1005,44 @@ export default function ManagerDashboard() {
                 </Card>
               ))}
             </div>
+          </div>
+        )}
+
+        {(costSummary || costBreakdown) && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-5 h-5 text-emerald-400" />
+              <h2 className="text-lg font-semibold">Cost Allocation</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: 'This Month', value: `$${((costSummary?.totalCostThisMonth || 0) / 1000).toFixed(1)}k` },
+                { label: 'YTD Spend', value: `$${((costSummary?.totalCostYTD || 0) / 1000).toFixed(1)}k` },
+                { label: 'CapEx %', value: `${(costSummary?.capexPercent || 0).toFixed(0)}%` },
+                { label: 'OpEx %', value: `${(costSummary?.opexPercent || 0).toFixed(0)}%` },
+              ].map(k => (
+                <div key={k.label} className="bg-card border border-border rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className="text-base font-bold text-emerald-400">{k.value}</p>
+                </div>
+              ))}
+            </div>
+            {costBreakdown && costBreakdown.byDepartment.length > 0 && (
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold mb-3">Department Cost Contribution</h3>
+                <div className="space-y-2">
+                  {costBreakdown.byDepartment.slice(0, 6).map(d => (
+                    <div key={d.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>{d.name || 'Unassigned'}</span>
+                        <span className="font-medium">${(d.amount / 1000).toFixed(1)}k — {d.percent.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={d.percent} className="h-1.5" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

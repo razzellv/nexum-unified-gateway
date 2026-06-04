@@ -21,6 +21,8 @@ import {
   dismissSuggestion,
   actOnSuggestion,
   type Suggestion,
+  getCostBreakdown,
+  type CostBreakdown,
 } from '@/lib/nexum-api';
 import { OnShiftTeamTable } from '@/components/supervisor/OnShiftTeamTable';
 import { EmployeeStatusTable } from '@/components/supervisor/EmployeeStatusTable';
@@ -43,6 +45,7 @@ import {
   Lightbulb,
   CheckCheck,
   XCircle,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -103,6 +106,7 @@ export default function SupervisorDashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -225,6 +229,10 @@ export default function SupervisorDashboard() {
       setSuggestions(data.items || []);
       setSuggestionsLoaded(true);
     }).catch(() => setSuggestionsLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    getCostBreakdown().then(b => setCostBreakdown(b)).catch(() => {});
   }, []);
 
   if (loading) {
@@ -658,6 +666,26 @@ export default function SupervisorDashboard() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {/* ── Maintenance Cost Impact ───────────────────────────────────────── */}
+        {costBreakdown && costBreakdown.bySystemType.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-5 h-5 text-emerald-400" />
+              <h2 className="text-lg font-semibold">Maintenance Cost Impact</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {costBreakdown.bySystemType.slice(0, 4).map(s => (
+                <div key={s.name} className="bg-card border border-border rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground capitalize">{s.name || 'Unassigned'}</p>
+                  <p className="text-sm font-bold text-emerald-400">${(s.amount / 1000).toFixed(1)}k</p>
+                  <p className="text-xs text-muted-foreground">{s.percent.toFixed(1)}% of facility cost</p>
+                  <Progress value={s.percent} className="h-1 mt-1" />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ── Operational Suggestions ──────────────────────────────────────── */}
