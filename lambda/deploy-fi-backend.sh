@@ -257,6 +257,12 @@ ensure_table "NexumBMSData" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+# ── Cost Intelligence table ───────────────────────────────────────────────────
+ensure_table "NexumAssetValuation" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # ── Observation Journal tables ────────────────────────────────────────────────
 ensure_table "ObservationJournal" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
@@ -300,7 +306,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -363,6 +369,9 @@ aws iam put-role-policy --role-name fi-vendor-pluck-role --policy-name policy \
 
 aws iam put-role-policy --role-name fi-observation-journal-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationJournal\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationEvents\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-cost-intelligence-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumAssetValuation\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SpendingTransactions\"]}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -497,6 +506,10 @@ aws lambda update-function-configuration \
   --function-name "nexum-fi-observation-journal" \
   --environment "Variables={OBS_TABLE=ObservationJournal,EVENTS_TABLE=ObservationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY}" \
   --region $REGION --output json > /dev/null
+
+# Cost Intelligence
+deploy_lambda "nexum-fi-cost-intelligence" "fi-cost-intelligence.mjs" "fi-cost-intelligence-role" \
+  "VALUATION_TABLE=NexumAssetValuation,TRANSACTIONS_TABLE=SpendingTransactions"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -658,6 +671,15 @@ add_route "POST /observations/{sk}/close"              "nexum-fi-observation-jou
 add_route "POST /observations/{sk}/reopen"             "nexum-fi-observation-journal"  "jwt"
 add_route "POST /observations/{sk}/amend"              "nexum-fi-observation-journal"  "jwt"
 add_route "POST /observations/ai-summary"              "nexum-fi-observation-journal"  "jwt"
+
+# Cost Intelligence — 7 routes
+add_route "GET /costs/summary"       "nexum-fi-cost-intelligence"  "jwt"
+add_route "GET /costs/transactions"  "nexum-fi-cost-intelligence"  "jwt"
+add_route "POST /costs/transactions" "nexum-fi-cost-intelligence"  "jwt"
+add_route "GET /costs/valuations"    "nexum-fi-cost-intelligence"  "jwt"
+add_route "POST /costs/valuations"   "nexum-fi-cost-intelligence"  "jwt"
+add_route "GET /costs/depreciation"  "nexum-fi-cost-intelligence"  "jwt"
+add_route "GET /costs/breakdown"     "nexum-fi-cost-intelligence"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"

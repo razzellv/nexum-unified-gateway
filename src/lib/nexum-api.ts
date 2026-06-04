@@ -943,3 +943,134 @@ export async function getObservationAISummary(
     { method: 'POST', body: JSON.stringify({ observation, events, scores }) }
   );
 }
+
+// ── Cost Intelligence ─────────────────────────────────────────────────────────
+
+export interface CostTransaction {
+  transactionId: string;
+  SK: string;
+  facilityId: string;
+  amount: number;
+  category: string;
+  costType: 'capex' | 'opex';
+  description: string;
+  department: string;
+  systemType: string;
+  equipmentId: string;
+  workOrderId: string;
+  vendor: string;
+  invoiceNumber: string;
+  poNumber: string;
+  transactionDate: string;
+  createdAt: string;
+  createdByName: string;
+}
+
+export interface AssetValuation {
+  SK: string;
+  equipmentId: string;
+  equipmentName: string;
+  systemType: string;
+  purchasePrice: number;
+  purchaseDate: string;
+  usefulLifeYears: number;
+  depreciationMethod: string;
+  residualValue: number;
+  replacementCost: number;
+  insuranceValue: number;
+  notes: string;
+  facilityId: string;
+  depreciation?: {
+    annualDepreciation: number;
+    accumulatedDepreciation: number;
+    currentBookValue: number;
+    remainingLifeYears: number;
+    depreciationPercent: number;
+    ageYears: number;
+  };
+}
+
+export interface CostSummary {
+  totalCostYTD: number;
+  totalCostThisMonth: number;
+  totalCostAllTime: number;
+  capex: number;
+  opex: number;
+  capexPercent: number;
+  opexPercent: number;
+  byCategory: Record<string, number>;
+  byCategoryPercent: Record<string, number>;
+  byDepartment: Record<string, number>;
+  byDepartmentPercent: Record<string, number>;
+  bySystemType: Record<string, number>;
+  bySystemTypePercent: Record<string, number>;
+  totalAssetValue: number;
+  totalBookValue: number;
+  totalDepreciationYTD: number;
+  totalAccumulatedDepreciation: number;
+  assetCount: number;
+  avgCostPerTransaction: number;
+  transactionCount: number;
+}
+
+export interface CostBreakdownItem {
+  name: string;
+  amount: number;
+  percent: number;
+  transactionCount: number;
+}
+
+export interface CostBreakdown {
+  byCategory: CostBreakdownItem[];
+  byDepartment: CostBreakdownItem[];
+  bySystemType: CostBreakdownItem[];
+  topCostDrivers: CostBreakdownItem[];
+}
+
+export async function getCostSummary() {
+  return await apiRequest<CostSummary>('/costs/summary');
+}
+
+export async function getCostTransactions(params?: {
+  dateFrom?: string;
+  dateTo?: string;
+  category?: string;
+  department?: string;
+  limit?: number;
+}) {
+  const qs = params
+    ? '?' + Object.entries(params)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
+    : '';
+  return await apiRequest<{ transactions: CostTransaction[]; count: number }>(`/costs/transactions${qs}`);
+}
+
+export async function createCostTransaction(data: Partial<CostTransaction>) {
+  return await apiRequest<{ success: boolean; transactionId: string }>(
+    '/costs/transactions',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getCostValuations() {
+  return await apiRequest<{ valuations: AssetValuation[]; count: number }>('/costs/valuations');
+}
+
+export async function createAssetValuation(data: Partial<AssetValuation>) {
+  return await apiRequest<{ success: boolean }>(
+    '/costs/valuations',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getCostDepreciation() {
+  return await apiRequest<{ assets: AssetValuation[]; totalBookValue: number; totalDepreciationYTD: number }>(
+    '/costs/depreciation'
+  );
+}
+
+export async function getCostBreakdown() {
+  return await apiRequest<CostBreakdown>('/costs/breakdown');
+}
