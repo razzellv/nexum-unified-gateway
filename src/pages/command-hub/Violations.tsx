@@ -275,7 +275,11 @@ export default function Violations() {
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2 min-w-0">
                           <AlertTriangle className={`w-4 h-4 shrink-0 ${severity >= 80 ? 'text-red-400' : severity >= 50 ? 'text-orange-400' : 'text-yellow-400'}`} />
-                          <span className="text-sm font-medium truncate">{violation.type || violation.violationType || 'Violation'}</span>
+                          <span className="text-sm font-medium truncate">
+                            {typeof violation.type === 'string' ? violation.type
+                              : typeof violation.violationType === 'string' ? violation.violationType
+                              : (violation.type as any)?.name || (violation.violationType as any)?.name || 'Violation'}
+                          </span>
                         </div>
                         <Badge variant="outline" className={`text-[10px] px-2 ${meta.color}`}>{meta.label}</Badge>
                       </div>

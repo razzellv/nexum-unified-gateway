@@ -536,7 +536,7 @@ export default function GovernmentDashboard() {
                     <span className="text-[10px] text-muted-foreground">{p.rank} · {p.unit}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {p.certs.map((cert, ci) => {
+                    {(p.certs || []).map((cert, ci) => {
                       const days = getDaysUntilExpiry(cert.expiry);
                       const color = certColor(days);
                       return (

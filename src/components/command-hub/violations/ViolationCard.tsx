@@ -60,6 +60,14 @@ const typeLabels: Record<string, string> = {
   'MENTORSHIP': 'Mentorship'
 };
 
+// Safe string extraction — handles API fields that may be {name, id} objects
+function safeStr(val: any, fallback = ''): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return val.name || val.id || fallback;
+  return String(val);
+}
+
 // Safe date formatter
 function formatDate(dateValue: any): string {
   if (!dateValue) return 'N/A';
@@ -96,7 +104,7 @@ export function ViolationCard({ violation }: ViolationCardProps) {
               Severity: {violation.severityScore || violation.severity || 0}/100
             </Badge>
             <Badge variant="outline" className="text-xs text-muted-foreground">
-              {categoryLabels[violation.complianceCategory || violation.category] || violation.category || 'Unknown'}
+              {categoryLabels[safeStr(violation.complianceCategory || violation.category)] || safeStr(violation.category, 'Unknown')}
             </Badge>
             {violation.weightFactor && violation.weightFactor > 1 && (
               <Badge 
@@ -112,7 +120,7 @@ export function ViolationCard({ violation }: ViolationCardProps) {
           </div>
 
           <h4 className="font-medium text-foreground mb-1">
-            {typeLabels[violation.type] || violation.type || 'Unknown Type'}
+            {typeLabels[safeStr(violation.type)] || safeStr(violation.type, 'Unknown Type')}
           </h4>
           
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
