@@ -26,6 +26,8 @@ import {
   Target,
   Layers,
   BarChart2,
+  Brain,
+  Lightbulb,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -39,7 +41,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getViolationDetails, getCategoryColor } from '@/lib/complianceConstants';
 import { apiRequest } from '@/lib/api';
-import { listIssues, IssueOrigin } from '@/lib/nexum-api';
+import { listIssues, IssueOrigin, runAICritique, type AICritiqueResult } from '@/lib/nexum-api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -225,6 +227,12 @@ export default function ComplianceAnalyzer() {
   // --- Employee sub-tab ---
   const [empSubTab, setEmpSubTab] = useState<'chart' | 'table'>('table');
 
+  // --- Work Integrity Critique ---
+  const [critiqueTarget, setCritiqueTarget] = useState<string | null>(null);
+  const [critiqueResult, setCritiqueResult] = useState<AICritiqueResult | null>(null);
+  const [critiqueLoading, setCritiqueLoading] = useState(false);
+  const [critiqueInput, setCritiqueInput] = useState('');
+
   // ---------------------------------------------------------------------------
   // Data loading
   // ---------------------------------------------------------------------------
@@ -313,6 +321,20 @@ export default function ComplianceAnalyzer() {
     score: emp.virtuousScore ?? 100,
     violations: emp.violationCount ?? 0,
   })) ?? [];
+
+  const runCritique = async (title: string, description: string) => {
+    setCritiqueTarget(title);
+    setCritiqueLoading(true);
+    setCritiqueResult(null);
+    try {
+      const result = await runAICritique({ title, description, taskType: 'compliance' });
+      setCritiqueResult(result as AICritiqueResult);
+    } catch {
+      setCritiqueResult(null);
+    } finally {
+      setCritiqueLoading(false);
+    }
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedIssues(prev => {
@@ -1161,6 +1183,106 @@ export default function ComplianceAnalyzer() {
                 </Card>
               </>
             )}
+
+            {/* Work Integrity Critique Panel */}
+            <Card className="glass-panel bg-card/30 backdrop-blur-xl border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  Work Integrity Critique
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    placeholder="Enter a compliance requirement to critique..."
+                    value={critiqueInput}
+                    onChange={e => setCritiqueInput(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => runCritique(critiqueInput, '')}
+                    disabled={critiqueLoading || !critiqueInput.trim()}
+                    className="gap-2 shrink-0"
+                  >
+                    {critiqueLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                    Run
+                  </Button>
+                </div>
+                {critiqueLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Analyzing "{critiqueTarget}"...
+                  </div>
+                )}
+                {critiqueResult && !critiqueLoading && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Overall Risk:</span>
+                        <span className={cn(
+                          'px-2 py-0.5 rounded text-xs font-semibold border',
+                          critiqueResult.overallRisk === 'high' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                          critiqueResult.overallRisk === 'medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-green-500/20 text-green-400 border-green-500/30'
+                        )}>{critiqueResult.overallRisk}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Deadline Viability:</span>
+                        <span className={cn(
+                          'px-2 py-0.5 rounded text-xs font-semibold border',
+                          critiqueResult.deadlineViability === 'unrealistic' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                          critiqueResult.deadlineViability === 'tight' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-green-500/20 text-green-400 border-green-500/30'
+                        )}>{critiqueResult.deadlineViability}</span>
+                      </div>
+                    </div>
+                    {critiqueResult.assumptions && critiqueResult.assumptions.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Assumptions
+                        </p>
+                        {critiqueResult.assumptions.map((a, i) => (
+                          <div key={i} className="p-2 rounded bg-muted/10 border border-border flex items-start justify-between gap-2">
+                            <div className="text-xs flex-1">
+                              <span className="font-medium">{a.text}</span>
+                              {a.recommendation && <p className="text-muted-foreground mt-0.5">{a.recommendation}</p>}
+                            </div>
+                            <span className={cn(
+                              'px-1.5 py-0.5 rounded text-[10px] border shrink-0',
+                              a.risk === 'high' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                              a.risk === 'medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                              'bg-green-500/20 text-green-400 border-green-500/30'
+                            )}>{a.risk}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {critiqueResult.efficiencyGains && critiqueResult.efficiencyGains.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Efficiency Gains</p>
+                        {critiqueResult.efficiencyGains.map((g, i) => (
+                          <div key={i} className="text-xs flex items-center justify-between bg-green-500/5 border border-green-500/20 rounded px-2 py-1">
+                            <span>{g.description}</span>
+                            <span className="text-green-400 font-semibold shrink-0 ml-2">-{g.estimatedTimeSavingHours}h</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {critiqueResult.simplifications && critiqueResult.simplifications.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <Lightbulb className="w-3 h-3 text-yellow-400" /> Simplifications
+                        </p>
+                        {critiqueResult.simplifications.map((s, i) => (
+                          <p key={i} className="text-xs text-muted-foreground">· {s}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ============================================================== */}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,9 @@ import {
   BrainCircuit, RefreshCw, ShieldCheck, Zap, Activity,
   AlertTriangle, CheckCircle2, Clock, TrendingUp, TrendingDown,
   Minus, Info, ChevronDown, ChevronUp, ClipboardList, Eye,
+  Target,
 } from 'lucide-react';
+import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
 import {
   runOIGAnalysis,
   type OIGAnalysisResult,
@@ -383,11 +386,13 @@ function GovernanceRow({ entry }: { entry: GovernanceEntry }) {
 
 function OIGContent() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const facilityId = (user as any)?.facilityId || (user as any)?.['custom:facilityId'] || 'facility-001';
   const [result, setResult]     = useState<OIGAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [govLimit, setGovLimit] = useState(50);
   const [expandedBlind, setExpandedBlind] = useState(false);
+  const [wiCriticalPath, setWiCriticalPath] = useState<CriticalPathData | null>(null);
 
   const runAnalysis = useCallback(() => {
     setAnalyzing(true);
@@ -400,6 +405,12 @@ function OIGContent() {
   }, [facilityId]);
 
   useEffect(() => { runAnalysis(); }, [runAnalysis]);
+
+  useEffect(() => {
+    getCriticalPath()
+      .then(cp => setWiCriticalPath(cp as CriticalPathData))
+      .catch(() => {});
+  }, []);
 
   const critical = result
     ? result.correlatedFindings.filter(f => f.severity === 'Critical' || f.severity === 'High').length
@@ -426,6 +437,63 @@ function OIGContent() {
           {analyzing ? 'Analyzing…' : 'Re-analyze'}
         </Button>
       </div>
+
+      {/* Work Integrity Section */}
+      {wiCriticalPath && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="border-border">
+              <CardContent className="p-3 flex items-center gap-2">
+                <Target className="w-6 h-6 text-primary shrink-0" />
+                <div>
+                  <div className="text-xl font-bold text-primary">{wiCriticalPath.tasks.length}</div>
+                  <div className="text-[10px] text-muted-foreground">Open Tasks</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={wiCriticalPath.overdueCount > 0 ? 'border-red-500/30' : 'border-border'}>
+              <CardContent className="p-3 flex items-center gap-2">
+                <Clock className={`w-6 h-6 shrink-0 ${wiCriticalPath.overdueCount > 0 ? 'text-red-400' : 'text-muted-foreground'}`} />
+                <div>
+                  <div className={`text-xl font-bold ${wiCriticalPath.overdueCount > 0 ? 'text-red-400' : ''}`}>{wiCriticalPath.overdueCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Overdue</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={wiCriticalPath.atRiskCount > 0 ? 'border-amber-500/30' : 'border-border'}>
+              <CardContent className="p-3 flex items-center gap-2">
+                <AlertTriangle className={`w-6 h-6 shrink-0 ${wiCriticalPath.atRiskCount > 0 ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                <div>
+                  <div className={`text-xl font-bold ${wiCriticalPath.atRiskCount > 0 ? 'text-amber-400' : ''}`}>{wiCriticalPath.atRiskCount}</div>
+                  <div className="text-[10px] text-muted-foreground">At Risk</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate('/work-integrity')}>
+              <CardContent className="p-3 flex items-center gap-2">
+                <Zap className="w-6 h-6 text-primary shrink-0" />
+                <div>
+                  <div className="text-[11px] font-medium text-primary">
+                    {wiCriticalPath.earliestCompletion
+                      ? new Date(wiCriticalPath.earliestCompletion).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : '—'}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Optimistic Completion</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          {wiCriticalPath.atRisk.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <span className="font-semibold text-amber-400">At Risk: </span>
+                <span className="text-muted-foreground">{wiCriticalPath.atRisk.map(t => t.title).join(' · ')}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {analyzing && !result && (
         <div className="flex items-center justify-center py-24 text-muted-foreground gap-3">
