@@ -12,6 +12,9 @@ ACCOUNT_ID="758027491272"
 REGION="us-east-2"
 API_ID="vflco2pvo3"
 
+# Anthropic key is optional — AI features degrade gracefully without it
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-placeholder}"
+
 # ── Helper: create DynamoDB table if it does not already exist ─────────────────
 ensure_table() {
   local NAME=$1 KEY_SCHEMA=$2 ATTR_DEFS=$3 BILLING=$4
