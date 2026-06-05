@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,17 +8,27 @@ import { Button } from '@/components/ui/button';
 import { NexumLoader } from '@/components/global/NexumLoader';
 import { ParticleBackground } from '@/components/ParticleBackground';
 import { NexumBranding } from '@/components/NexumBranding';
-import { 
-  Users, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Users,
+  TrendingUp,
+  TrendingDown,
   Minus,
   AlertTriangle,
   Award,
   ChevronRight,
-  Shield
+  Shield,
+  Target,
+  Brain,
+  Clock,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  getCriticalPath,
+  getCompetencyMatch,
+  type CriticalPathData,
+  type CompetencyRecommendation,
+} from '@/lib/nexum-api';
 
 interface Employee {
   id: string;
@@ -54,10 +65,16 @@ const getScoreLevel = (score: number) => {
 
 export default function StaffPerformanceCompass() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  const [criticalPath, setCriticalPath] = useState<CriticalPathData | null>(null);
+  const [competencyTask, setCompetencyTask] = useState('wo');
+  const [competencyRecs, setCompetencyRecs] = useState<CompetencyRecommendation[]>([]);
+  const [competencyLoading, setCompetencyLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -77,7 +94,17 @@ export default function StaffPerformanceCompass() {
       }
     };
 
+    const fetchWI = async () => {
+      try {
+        const cp = await getCriticalPath();
+        setCriticalPath(cp as CriticalPathData);
+      } catch {
+        // non-critical
+      }
+    };
+
     fetchData();
+    fetchWI();
   }, []);
 
   if (loading) {
@@ -346,6 +373,113 @@ export default function StaffPerformanceCompass() {
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Work Integrity Summary Panel */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Target className="w-4 h-4 text-primary" />
+                Work Integrity Summary
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1 text-primary"
+                onClick={() => navigate('/work-integrity')}
+              >
+                View Work Integrity <ChevronRight className="w-3 h-3" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-red-400" />
+                <span className="text-sm text-muted-foreground">Overdue:</span>
+                <span className="font-bold text-red-400">{criticalPath?.overdueCount ?? '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span className="text-sm text-muted-foreground">At Risk:</span>
+                <span className="font-bold text-amber-400">{criticalPath?.atRiskCount ?? '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-muted-foreground">Completed This Week:</span>
+                <span className="font-bold text-green-400">{criticalPath?.completedThisWeek ?? '—'}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Optimal Assignment Panel */}
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Brain className="w-4 h-4 text-primary" />
+              Optimal Assignment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <select
+                className="flex-1 bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none"
+                value={competencyTask}
+                onChange={e => setCompetencyTask(e.target.value)}
+              >
+                {['wo','pm','report','check','compliance','inspection'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  setCompetencyLoading(true);
+                  try {
+                    const res = await getCompetencyMatch(competencyTask);
+                    setCompetencyRecs((res as any).recommendations || []);
+                  } catch {
+                    setCompetencyRecs([]);
+                  } finally {
+                    setCompetencyLoading(false);
+                  }
+                }}
+                disabled={competencyLoading}
+                className="gap-1 shrink-0"
+              >
+                {competencyLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                Match
+              </Button>
+            </div>
+            {competencyRecs.length > 0 && (
+              <div className="space-y-2">
+                {competencyRecs.map((r, i) => (
+                  <div key={r.employeeId} className="p-3 rounded-lg border border-border bg-muted/10 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{r.employeeName}</span>
+                        {i === 0 && <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">Best Match</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{r.reasoning}</p>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-[10px] text-muted-foreground">Reliability: <span className="text-foreground">{r.reliability}%</span></span>
+                        <span className="text-[10px] text-muted-foreground">Completion: <span className="text-foreground">{r.completionRate}%</span></span>
+                        <span className="text-[10px] text-muted-foreground">Active tasks: <span className="text-foreground">{r.currentWorkload}</span></span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-xl font-bold ${r.competencyScore >= 80 ? 'text-green-400' : r.competencyScore >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {r.competencyScore}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">score</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

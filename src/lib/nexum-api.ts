@@ -1074,3 +1074,222 @@ export async function getCostDepreciation() {
 export async function getCostBreakdown() {
   return await apiRequest<CostBreakdown>('/costs/breakdown');
 }
+
+// ── Work Integrity Engine ─────────────────────────────────────────────────────
+
+export interface WorkIntegrityTask {
+  PK: string; SK: string; taskId: string; facilityId: string;
+  taskType: 'wo' | 'pm' | 'report' | 'check' | 'compliance' | 'inspection';
+  title: string; description: string; systemType: string; department: string;
+  assignedTo: string; assignedToId: string; assignedToCompetencyScore: number;
+  deadline: string; estimatedDurationHours: number; actualDurationHours: number | null;
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  status: 'pending_review' | 'approved' | 'in_progress' | 'completed' | 'overdue' | 'at_risk' | 'cancelled';
+  deadlineStatus: 'overdue' | 'at_risk' | 'on_track';
+  reviewRequired: boolean;
+  reviews: { userId: string; userName: string; role: string; timestamp: string; approved: boolean; note: string }[];
+  criticalPath: boolean;
+  dependencies: string[];
+  linkedWOId: string; linkedPMId: string; linkedViolationId: string;
+  tags: string[];
+  aiCritique: any | null;
+  createdBy: string; createdByName: string; createdAt: string; updatedAt: string; completedAt: string | null;
+}
+
+export interface CompetencyRecommendation {
+  employeeId: string; employeeName: string; competencyScore: number;
+  reliability: number; completionRate: number; currentWorkload: number; reasoning: string;
+}
+
+export interface CriticalPathData {
+  tasks: WorkIntegrityTask[]; criticalTasks: WorkIntegrityTask[];
+  atRisk: WorkIntegrityTask[]; overdue: WorkIntegrityTask[];
+  totalEstimatedHours: number; earliestCompletion: string;
+  overdueCount: number; atRiskCount: number; completedThisWeek: number;
+}
+
+export interface AICritiqueResult {
+  assumptions: { text: string; risk: string; recommendation: string }[];
+  efficiencyGains: { description: string; estimatedTimeSavingHours: number }[];
+  simplifications: string[];
+  estimatedOptimisticHours: number; estimatedPessimisticHours: number;
+  criticalPathRisk: string; competencyNotes: string;
+  overallRisk: string; deadlineViability: string;
+}
+
+export async function listWITasks(params?: { status?: string; taskType?: string; department?: string }) {
+  const qs = params
+    ? '?' + Object.entries(params)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
+    : '';
+  return await apiRequest<{ tasks: WorkIntegrityTask[]; count: number }>(`/work-integrity/tasks${qs}`);
+}
+
+export async function createWITask(data: Partial<WorkIntegrityTask>) {
+  return await apiRequest<{ success: boolean; taskId: string; SK: string }>(
+    '/work-integrity/tasks',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function updateWITask(sk: string, data: Partial<WorkIntegrityTask>) {
+  return await apiRequest<{ success: boolean }>(
+    `/work-integrity/tasks/${encodeURIComponent(sk)}`,
+    { method: 'PATCH', body: JSON.stringify(data) }
+  );
+}
+
+export async function reviewWITask(sk: string, data: { approved: boolean; note?: string }) {
+  return await apiRequest<{ success: boolean }>(
+    `/work-integrity/tasks/${encodeURIComponent(sk)}/review`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getWIDeadlines() {
+  return await apiRequest<{ overdue: WorkIntegrityTask[]; due_today: WorkIntegrityTask[]; due_this_week: WorkIntegrityTask[]; upcoming: WorkIntegrityTask[] }>(
+    '/work-integrity/deadlines'
+  );
+}
+
+export async function getCriticalPath() {
+  return await apiRequest<CriticalPathData>('/work-integrity/critical-path');
+}
+
+export async function getCompetencyMatch(taskType: string, systemType?: string, department?: string) {
+  return await apiRequest<{ taskType: string; recommendations: CompetencyRecommendation[] }>(
+    `/work-integrity/competency-match?taskType=${taskType}${systemType ? '&systemType=' + systemType : ''}${department ? '&department=' + department : ''}`
+  );
+}
+
+export async function getWIPerformance() {
+  return await apiRequest<{ employees: any[]; facilityStats: any }>('/work-integrity/performance');
+}
+
+export async function runAICritique(data: {
+  title: string;
+  description: string;
+  taskType?: string;
+  systemType?: string;
+  estimatedDurationHours?: number;
+  deadline?: string;
+}) {
+  return await apiRequest<AICritiqueResult>(
+    '/work-integrity/ai-critique',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// ── Resource Planning ─────────────────────────────────────────────────────────
+
+export interface ResourceVendor {
+  vendorId: string;
+  name: string;
+  specialty: string;
+  contact: string;
+  phone: string;
+  email: string;
+  address: string;
+  avgLeadTimeDays: number;
+  partsSupplied: string[];
+  linkedSystems: string[];
+  certifications: string[];
+  rating: number;
+  notes: string;
+  facilityId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResourcePart {
+  partId: string;
+  name: string;
+  category: string;
+  quantity?: number;
+  minQuantity?: number;
+  supplier?: string;
+  unitCost?: number;
+  location?: string;
+  vendorId: string;
+  vendorName: string;
+  floatDays: number | null;
+  reorderLeadDays: number;
+  atRisk: boolean;
+  openWOCount: number;
+  lastOrderedAt: string | null;
+}
+
+export interface FloatTimeData {
+  systemType: string;
+  avgFloatDays: number | null;
+  completedWOs: number;
+  openWOs: number;
+  referencedParts: string[];
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+export interface PMInterval {
+  equipmentId: string;
+  equipmentName: string;
+  systemType: string;
+  pmCount: number;
+  avgIntervalDays: number | null;
+  suggestedIntervalDays: number;
+  trend: 'stable' | 'worsening' | 'improving';
+  lastPMDate: string | null;
+  nextDueDate: string | null;
+  daysUntilDue: number | null;
+  openCount: number;
+  status: 'overdue' | 'due_soon' | 'on_schedule';
+}
+
+export interface ResourceSummary {
+  vendorCount: number;
+  trackedPartsCount: number;
+  totalInventoryParts: number;
+  openWOCount: number;
+  avgVendorLeadTimeDays: number;
+  atRiskParts: number;
+}
+
+export async function getResourceSummary() {
+  return await apiRequest<ResourceSummary>('/resources/summary');
+}
+
+export async function getResourceVendors() {
+  return await apiRequest<{ vendors: ResourceVendor[]; count: number }>('/resources/vendors');
+}
+
+export async function createResourceVendor(data: Partial<ResourceVendor>) {
+  return await apiRequest<{ success: boolean; vendorId: string }>(
+    '/resources/vendors',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getResourceParts() {
+  return await apiRequest<{ parts: ResourcePart[]; count: number }>('/resources/parts');
+}
+
+export async function updateResourcePart(data: Partial<ResourcePart> & { partId: string }) {
+  return await apiRequest<{ success: boolean; partId: string }>(
+    '/resources/parts',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function getFloatTime() {
+  return await apiRequest<{
+    floatData: FloatTimeData[];
+    summary: { totalSystems: number; overallAvgDays: number; highRiskSystems: number; totalOpenWOs: number };
+  }>('/resources/float-time');
+}
+
+export async function getPMIntervals() {
+  return await apiRequest<{
+    intervals: PMInterval[];
+    summary: { total: number; overdue: number; dueSoon: number; onSchedule: number; worsening: number };
+  }>('/resources/intervals');
+}

@@ -82,6 +82,7 @@ import OnboardingStatus from "./pages/OnboardingStatus";
 import ImplementationGuide from "./pages/ImplementationGuide";
 import VideoLibrary from "./pages/VideoLibrary";
 import ObservationJournal from "./pages/ObservationJournal";
+import WorkIntegrity from "./pages/WorkIntegrity";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -370,6 +371,10 @@ export const router = createBrowserRouter([
           {
             path: "occae",
             element: <OCCAE />,
+          },
+          {
+            path: "work-integrity",
+            element: <WorkIntegrity />,
           },
           {
             path: "observations",

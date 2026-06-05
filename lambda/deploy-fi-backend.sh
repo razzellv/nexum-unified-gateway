@@ -350,6 +350,16 @@ ensure_table "NexumAssetValuation" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+ensure_table "NexumWorkIntegrity" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumResourcePlanning" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # ── Observation Journal tables ────────────────────────────────────────────────
 ensure_table "ObservationJournal" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
@@ -393,7 +403,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -459,6 +469,12 @@ aws iam put-role-policy --role-name fi-observation-journal-role --policy-name po
 
 aws iam put-role-policy --role-name fi-cost-intelligence-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumAssetValuation\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SpendingTransactions\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-work-integrity-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumWorkIntegrity\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-resource-planning-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumResourcePlanning\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumInventory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\"]}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -597,6 +613,13 @@ aws lambda update-function-configuration \
 # Cost Intelligence
 deploy_lambda "nexum-fi-cost-intelligence" "fi-cost-intelligence.mjs" "fi-cost-intelligence-role" \
   "VALUATION_TABLE=NexumAssetValuation,TRANSACTIONS_TABLE=SpendingTransactions"
+
+deploy_lambda "nexum-fi-work-integrity" "fi-work-integrity.mjs" "fi-work-integrity-role" \
+  "WI_TABLE=NexumWorkIntegrity,VIOLATIONS_TABLE=ViolationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+
+# Resource Planning
+deploy_lambda "nexum-fi-resource-planning" "fi-resource-planning.mjs" "fi-resource-planning-role" \
+  "RP_TABLE=NexumResourcePlanning,WO_TABLE=WorkOrders,INV_TABLE=NexumInventory,EQ_TABLE=EquipmentLibrary"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -768,46 +791,101 @@ add_route "POST /costs/valuations"   "nexum-fi-cost-intelligence"  "jwt"
 add_route "GET /costs/depreciation"  "nexum-fi-cost-intelligence"  "jwt"
 add_route "GET /costs/breakdown"     "nexum-fi-cost-intelligence"  "jwt"
 
+# Work Integrity Engine — 9 routes
+add_route "GET /work-integrity/tasks"              "nexum-fi-work-integrity"  "jwt"
+add_route "POST /work-integrity/tasks"             "nexum-fi-work-integrity"  "jwt"
+add_route "PATCH /work-integrity/tasks/{sk}"       "nexum-fi-work-integrity"  "jwt"
+add_route "POST /work-integrity/tasks/{sk}/review" "nexum-fi-work-integrity"  "jwt"
+add_route "GET /work-integrity/deadlines"          "nexum-fi-work-integrity"  "jwt"
+add_route "GET /work-integrity/critical-path"      "nexum-fi-work-integrity"  "jwt"
+add_route "GET /work-integrity/competency-match"   "nexum-fi-work-integrity"  "jwt"
+add_route "GET /work-integrity/performance"        "nexum-fi-work-integrity"  "jwt"
+add_route "POST /work-integrity/ai-critique"       "nexum-fi-work-integrity"  "jwt"
+
+add_route "GET /resources/summary"             "nexum-fi-resource-planning"  "jwt"
+add_route "GET /resources/vendors"             "nexum-fi-resource-planning"  "jwt"
+add_route "POST /resources/vendors"            "nexum-fi-resource-planning"  "jwt"
+add_route "GET /resources/parts"               "nexum-fi-resource-planning"  "jwt"
+add_route "POST /resources/parts"              "nexum-fi-resource-planning"  "jwt"
+add_route "GET /resources/float-time"          "nexum-fi-resource-planning"  "jwt"
+add_route "GET /resources/intervals"           "nexum-fi-resource-planning"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
-  --query 'Items[?contains(RouteKey,`violations`) || contains(RouteKey,`work-orders`) || contains(RouteKey,`inventory`) || contains(RouteKey,`equipment`) || contains(RouteKey,`vvfi`) || contains(RouteKey,`logs`) || contains(RouteKey,`metrics`) || contains(RouteKey,`messages`) || contains(RouteKey,`audit-reports`) || contains(RouteKey,`users`) || contains(RouteKey,`intake`)].[RouteKey,AuthorizationType]' \
+  --query 'Items[?contains(RouteKey,`violations`) || contains(RouteKey,`work-orders`) || contains(RouteKey,`observations`) || contains(RouteKey,`costs`) || contains(RouteKey,`work-integrity`)].[RouteKey,AuthorizationType]' \
   --output table
 
 echo ""
 echo "═══════════════════════════════════════════════════"
-echo "  Deploy complete."
+echo "  Nexum Suum FI Platform — All Active Endpoints"
+echo "  (JWT protected unless noted)"
 echo ""
-echo "  FI Platform Endpoints (JWT unless noted):"
-echo "  GET    /violations     /work-orders    /inventory"
-echo "  GET    /equipment      /metrics        /vvfi"
-echo "  GET    /facility-logs  /logs/latest    /logs/query"
-echo "  GET    /messages       /audit-reports  /users"
-echo "  POST   /violations     /work-orders    /inventory"
-echo "  POST   /equipment      /logs           /vvfi"
-echo "  POST   /facility-log-ingest  /messages  /audit-reports"
-echo "  POST   /intake (PUBLIC — no JWT)"
-echo "  PATCH  /violations/{id}   /work-orders/{id}  /inventory/{id}"
-echo "  PATCH  /equipment/{id}    /vvfi/{id}          /messages/{id}"
-echo "  PATCH  /audit-reports/{id} /users/{userId}"
-echo "  DELETE /violations/{id}   /work-orders/{id}  /inventory/{id}"
-echo "  DELETE /equipment/{id}    /vvfi/{id}          /messages/{id}"
-echo "  DELETE /audit-reports/{id}"
-echo "  POST   /work-orders/{id}/notes"
-echo "  GET    /onboarding         /onboarding/all"
-echo "  POST   /onboarding         /onboarding/{facilityId}/milestone"
-echo "  POST   /issues                 /issues/{id}/report    /issues/{id}/link"
-echo "  GET    /issues                 /issues/{id}           /issues/{id}/reports"
-echo "  GET    /issues/{id}/continuity /issues/{id}/links     /issues/{id}/summary"
-echo "  PATCH  /issues/{id}"
-echo "  GET /risk/tolerance   PATCH /risk/tolerance   GET/POST /risk/acceptance"
+echo "  CORE CRUD"
+echo "  GET/POST/PATCH/DELETE  /violations  /work-orders  /inventory"
+echo "  GET/POST/PATCH/DELETE  /equipment   /vvfi         /messages"
+echo "  GET/POST/PATCH/DELETE  /audit-reports"
+echo "  PATCH /users/{userId}"
+echo "  POST  /work-orders/{id}/notes"
+echo ""
+echo "  FACILITY LOGS & METRICS"
+echo "  GET  /facility-logs   /logs/latest   /logs/query   /metrics"
+echo "  POST /logs   /facility-log-ingest"
+echo ""
+echo "  ONBOARDING & USERS"
+echo "  GET/POST /onboarding   GET /onboarding/all   GET/PATCH /users"
+echo "  POST /onboarding/{facilityId}/milestone"
+echo "  POST /intake  (PUBLIC — no JWT)"
+echo ""
+echo "  DASHBOARD APIs"
+echo "  GET /dashboard/manager   /dashboard/supervisor"
+echo "  GET /dashboard/executive  /dashboard/energy"
+echo ""
+echo "  BMS INTEGRATION & SKIDS"
+echo "  GET/POST /bms/feeds   GET/PATCH/DELETE /bms/feeds/{feedId}"
+echo "  GET /bms/data/{feedId}   GET /bms/metadata"
+echo "  POST /bms/ingest  (PUBLIC)"
+echo "  GET/POST/PATCH/DELETE /skids   GET /skids/{skidId}/data"
+echo ""
+echo "  ISSUE ORIGIN & REPORTING INTELLIGENCE"
+echo "  GET/POST /issues   GET/PATCH /issues/{issueId}"
+echo "  POST /issues/{issueId}/report|link"
+echo "  GET  /issues/{issueId}/reports|continuity|links|summary"
+echo ""
+echo "  RISK ENGINE & SUGGESTIONS"
+echo "  GET/PATCH /risk/tolerance   GET/POST /risk/acceptance"
 echo "  POST /risk/acceptance/{sk}/expire"
-echo "  GET /suggestions  POST /suggestions/generate"
-echo "  POST /suggestions/{sk}/dismiss  POST /suggestions/{sk}/act"
-echo "  GET /vendors  GET /vendors/{id}  POST /vendors/{id}/pluck  GET /vendors/plucks"
-echo "  GET /vendor/profile  PATCH /vendor/profile  GET /vendor/plucks"
+echo "  GET /suggestions   POST /suggestions/generate"
+echo "  POST /suggestions/{sk}/dismiss|act"
+echo ""
+echo "  VENDOR PLUCK"
+echo "  GET /vendors   GET /vendors/{id}   POST /vendors/{id}/pluck"
+echo "  GET /vendors/plucks"
+echo "  GET/PATCH /vendor/profile   GET /vendor/plucks"
 echo "  POST /vendor/plucks/{sk}/respond"
-echo "  GET/POST /observations  GET /observations/{sk}  GET /observations/{sk}/score"
+echo ""
+echo "  OBSERVATION JOURNAL"
+echo "  GET/POST /observations   GET /observations/{sk}"
+echo "  GET /observations/{sk}/score"
 echo "  POST /observations/{sk}/validate|escalate|assign|action|verify|close|reopen|amend"
 echo "  POST /observations/ai-summary"
+echo ""
+echo "  COST INTELLIGENCE"
+echo "  GET /costs/summary   /costs/breakdown   /costs/depreciation"
+echo "  GET/POST /costs/transactions   GET/POST /costs/valuations"
+echo ""
+echo "  WORK INTEGRITY ENGINE"
+echo "  GET/POST /work-integrity/tasks"
+echo "  PATCH /work-integrity/tasks/{sk}"
+echo "  POST  /work-integrity/tasks/{sk}/review"
+echo "  GET   /work-integrity/deadlines"
+echo "  GET   /work-integrity/critical-path"
+echo "  GET   /work-integrity/competency-match"
+echo "  GET   /work-integrity/performance"
+echo "  POST  /work-integrity/ai-critique"
+echo ""
+echo "  OTHER"
+echo "  GET /quality-intelligence   POST /quality-intelligence"
+echo "  GET /fias   POST /fias   POST /admin/send-email   POST /admin/send-sms"
+echo "  GET/POST /bookings   GET/POST /courses"
 echo "═══════════════════════════════════════════════════"

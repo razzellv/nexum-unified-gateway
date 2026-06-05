@@ -19,6 +19,7 @@ import {
   ClipboardList, CheckCircle, User, Clock, Plus, X, History,
   Thermometer, ShoppingCart, Shield, Truck, Lock, AlertOctagon, Upload,
   FlaskConical, AlertCircle, FileText, CheckCircle2, Trash2,
+  Building2, Calendar, RefreshCw, Star, ChevronUp, ChevronDown, Minus,
 } from 'lucide-react';
 import { ImportModal } from '@/components/ImportModal';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,11 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import InventoryImportModal from '@/components/import/InventoryImportModal';
+import {
+  getResourceSummary, getResourceVendors, createResourceVendor,
+  getFloatTime, getPMIntervals,
+  type ResourceVendor, type FloatTimeData, type PMInterval, type ResourceSummary,
+} from '@/lib/nexum-api';
 
 const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
@@ -266,6 +272,20 @@ export default function InventoryLibrary() {
   const [activeGroupFilter, setActiveGroupFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('inventory');
 
+  // Resources tab state
+  const [resourceSummary, setResourceSummary] = useState<ResourceSummary | null>(null);
+  const [resourceVendors, setResourceVendors] = useState<ResourceVendor[]>([]);
+  const [floatData, setFloatData] = useState<FloatTimeData[]>([]);
+  const [pmIntervals, setPmIntervals] = useState<PMInterval[]>([]);
+  const [resourcesLoaded, setResourcesLoaded] = useState(false);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [showAddVendor, setShowAddVendor] = useState(false);
+  const [vendorForm, setVendorForm] = useState({
+    name: '', specialty: '', contact: '', phone: '', email: '', address: '',
+    avgLeadTimeDays: '', notes: '', linkedSystems: '', partsSupplied: '',
+  });
+  const [vendorSubmitting, setVendorSubmitting] = useState(false);
+
   // checkout / temp logs — facility-scoped
   const [checkoutLogs, setCheckoutLogs] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem(CHECKOUT_KEY) || '[]'); } catch { return []; }
@@ -367,6 +387,51 @@ export default function InventoryLibrary() {
   // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchInventory(); }, []);
   useEffect(() => { filterAndSortInventory(); }, [inventory, searchTerm, categoryFilter, stockFilter, sortField, sortDirection, activeGroupFilter]);
+  useEffect(() => {
+    if (activeTab === 'resources' && !resourcesLoaded) loadResources();
+  }, [activeTab]);
+
+  const loadResources = async () => {
+    setResourcesLoading(true);
+    try {
+      const [summary, vendorsResp, floatResp, intervalsResp] = await Promise.allSettled([
+        getResourceSummary(),
+        getResourceVendors(),
+        getFloatTime(),
+        getPMIntervals(),
+      ]);
+      if (summary.status === 'fulfilled') setResourceSummary(summary.value);
+      if (vendorsResp.status === 'fulfilled') setResourceVendors(vendorsResp.value.vendors || []);
+      if (floatResp.status === 'fulfilled') setFloatData(floatResp.value.floatData || []);
+      if (intervalsResp.status === 'fulfilled') setPmIntervals(intervalsResp.value.intervals || []);
+      setResourcesLoaded(true);
+    } catch { /* silent */ } finally { setResourcesLoading(false); }
+  };
+
+  const handleAddVendor = async () => {
+    if (!vendorForm.name) return;
+    setVendorSubmitting(true);
+    try {
+      await createResourceVendor({
+        name: vendorForm.name,
+        specialty: vendorForm.specialty,
+        contact: vendorForm.contact,
+        phone: vendorForm.phone,
+        email: vendorForm.email,
+        address: vendorForm.address,
+        avgLeadTimeDays: Number(vendorForm.avgLeadTimeDays) || 0,
+        notes: vendorForm.notes,
+        linkedSystems: vendorForm.linkedSystems.split(',').map(s => s.trim()).filter(Boolean),
+        partsSupplied: vendorForm.partsSupplied.split(',').map(s => s.trim()).filter(Boolean),
+      });
+      toast({ title: 'Vendor added', description: vendorForm.name });
+      setShowAddVendor(false);
+      setVendorForm({ name: '', specialty: '', contact: '', phone: '', email: '', address: '', avgLeadTimeDays: '', notes: '', linkedSystems: '', partsSupplied: '' });
+      setResourcesLoaded(false);
+      loadResources();
+    } catch { toast({ title: 'Error', description: 'Could not save vendor', variant: 'destructive' }); }
+    finally { setVendorSubmitting(false); }
+  };
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleCheckout = (item: any, action: 'checkout' | 'checkin' | 'verify') => {
@@ -651,6 +716,7 @@ export default function InventoryLibrary() {
               { value: 'gov',         label: 'Gov / Public Safety',  icon: Shield },
               { value: 'retail',      label: 'Retail',               icon: ShoppingCart },
               { value: 'hazmat',      label: 'Chemical & Hazmat',    icon: FlaskConical },
+              { value: 'resources',   label: 'Resources',            icon: Building2 },
             ] as const).map(({ value, label, icon: Icon }) => (
               <button key={value} onClick={() => setActiveTab(value)}
                 className={cn(
@@ -1176,6 +1242,227 @@ export default function InventoryLibrary() {
             )}
 
           </div>}
+
+          {/* ── Tab: Resources ───────────────────────────────────────────────── */}
+          {activeTab === 'resources' && (
+            <div className="space-y-5">
+              {resourcesLoading && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading resource data…
+                </div>
+              )}
+
+              {!resourcesLoading && (
+                <>
+                  {/* Summary KPIs */}
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    {[
+                      { label: 'Vendors', value: resourceSummary?.vendorCount ?? resourceVendors.length, color: 'text-blue-400' },
+                      { label: 'Inventory Parts', value: resourceSummary?.totalInventoryParts ?? '—', color: 'text-cyan-400' },
+                      { label: 'Open WOs', value: resourceSummary?.openWOCount ?? '—', color: resourceSummary?.openWOCount && resourceSummary.openWOCount > 5 ? 'text-red-400' : 'text-yellow-400' },
+                      { label: 'Avg Lead Time', value: resourceSummary?.avgVendorLeadTimeDays != null ? `${resourceSummary.avgVendorLeadTimeDays}d` : '—', color: 'text-purple-400' },
+                      { label: 'At-Risk Parts', value: resourceSummary?.atRiskParts ?? '—', color: 'text-red-400' },
+                      { label: 'Systems Tracked', value: floatData.length, color: 'text-green-400' },
+                    ].map(kpi => (
+                      <Card key={kpi.label} className="glass-panel border-border/30">
+                        <CardContent className="p-3 text-center">
+                          <div className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{kpi.label}</div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Vendor Directory */}
+                    <Card className="glass-panel border-border/30">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm flex items-center gap-2"><Truck className="w-4 h-4 text-blue-400" />Vendor Directory</CardTitle>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddVendor(v => !v)}>
+                            <Plus className="w-3 h-3 mr-1" />{showAddVendor ? 'Cancel' : 'Add Vendor'}
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {showAddVendor && (
+                          <div className="bg-muted/20 border border-border/30 rounded-xl p-4 space-y-3">
+                            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">New Vendor</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="col-span-2 space-y-1"><Label className="text-xs">Company Name *</Label><Input value={vendorForm.name} onChange={e => setVendorForm(p => ({...p, name: e.target.value}))} placeholder="Acme HVAC Services" className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Specialty</Label><Input value={vendorForm.specialty} onChange={e => setVendorForm(p => ({...p, specialty: e.target.value}))} placeholder="HVAC, Plumbing, Electrical…" className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Contact Name</Label><Input value={vendorForm.contact} onChange={e => setVendorForm(p => ({...p, contact: e.target.value}))} className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Phone</Label><Input value={vendorForm.phone} onChange={e => setVendorForm(p => ({...p, phone: e.target.value}))} className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Email</Label><Input value={vendorForm.email} onChange={e => setVendorForm(p => ({...p, email: e.target.value}))} className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Avg Lead Time (days)</Label><Input type="number" min={0} value={vendorForm.avgLeadTimeDays} onChange={e => setVendorForm(p => ({...p, avgLeadTimeDays: e.target.value}))} className="h-8 text-sm" /></div>
+                              <div className="space-y-1"><Label className="text-xs">Linked Systems (comma-sep)</Label><Input value={vendorForm.linkedSystems} onChange={e => setVendorForm(p => ({...p, linkedSystems: e.target.value}))} placeholder="HVAC, BLR-001, CHL-001" className="h-8 text-sm" /></div>
+                              <div className="col-span-2 space-y-1"><Label className="text-xs">Parts Supplied (comma-sep)</Label><Input value={vendorForm.partsSupplied} onChange={e => setVendorForm(p => ({...p, partsSupplied: e.target.value}))} placeholder="Filters, Bearings, Belts" className="h-8 text-sm" /></div>
+                              <div className="col-span-2 space-y-1"><Label className="text-xs">Notes</Label><Input value={vendorForm.notes} onChange={e => setVendorForm(p => ({...p, notes: e.target.value}))} className="h-8 text-sm" /></div>
+                            </div>
+                            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={handleAddVendor} disabled={vendorSubmitting || !vendorForm.name}>
+                              {vendorSubmitting ? 'Saving…' : 'Save Vendor'}
+                            </Button>
+                          </div>
+                        )}
+
+                        {resourceVendors.length === 0 && !showAddVendor && (
+                          <p className="text-sm text-muted-foreground text-center py-6">No vendors registered yet. Add your first vendor above.</p>
+                        )}
+
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                          {resourceVendors.map(v => (
+                            <div key={v.vendorId} className="flex items-start gap-3 p-3 bg-muted/10 border border-border/20 rounded-lg">
+                              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                <Building2 className="w-4 h-4 text-blue-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium truncate">{v.name}</p>
+                                  {v.avgLeadTimeDays > 0 && (
+                                    <Badge variant="outline" className="text-xs shrink-0">{v.avgLeadTimeDays}d lead</Badge>
+                                  )}
+                                </div>
+                                {v.specialty && <p className="text-xs text-muted-foreground">{v.specialty}</p>}
+                                <div className="flex items-center gap-3 mt-1">
+                                  {v.phone && <span className="text-xs text-muted-foreground">{v.phone}</span>}
+                                  {v.linkedSystems?.length > 0 && (
+                                    <div className="flex gap-1 flex-wrap">
+                                      {v.linkedSystems.slice(0, 3).map(s => (
+                                        <Badge key={s} variant="secondary" className="text-xs px-1.5 py-0">{s}</Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {v.partsSupplied?.length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">Parts: {v.partsSupplied.slice(0, 4).join(', ')}{v.partsSupplied.length > 4 ? '…' : ''}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Float Time Analysis */}
+                    <Card className="glass-panel border-border/30">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-400" />Float Time by System</CardTitle>
+                        <p className="text-xs text-muted-foreground">Avg WO resolution days per system — high open count = at-risk float</p>
+                      </CardHeader>
+                      <CardContent>
+                        {floatData.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-6">No WO data yet. Float time is computed from completed work orders.</p>
+                        ) : (
+                          <div className="space-y-2 max-h-72 overflow-y-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">System</TableHead>
+                                  <TableHead className="text-xs text-right">Avg Days</TableHead>
+                                  <TableHead className="text-xs text-right">Open WOs</TableHead>
+                                  <TableHead className="text-xs text-right">Risk</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {floatData.map(f => (
+                                  <TableRow key={f.systemType} className="hover:bg-muted/20">
+                                    <TableCell className="text-xs font-medium py-2">{f.systemType}</TableCell>
+                                    <TableCell className="text-xs text-right py-2 font-mono">
+                                      {f.avgFloatDays != null ? `${f.avgFloatDays}d` : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right py-2">
+                                      <span className={f.openWOs > 2 ? 'text-red-400 font-semibold' : ''}>{f.openWOs}</span>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right py-2">
+                                      <Badge variant="outline" className={cn('text-xs',
+                                        f.riskLevel === 'high' ? 'border-red-500/50 text-red-400' :
+                                        f.riskLevel === 'medium' ? 'border-yellow-500/50 text-yellow-400' :
+                                        'border-green-500/50 text-green-400'
+                                      )}>{f.riskLevel}</Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* PM Intervals */}
+                  <Card className="glass-panel border-border/30">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2"><Calendar className="w-4 h-4 text-green-400" />PM Interval Recommendations</CardTitle>
+                      <p className="text-xs text-muted-foreground">Derived from WO history patterns — intervals computed dynamically, trend shows if frequency is increasing (worsening) or stable</p>
+                    </CardHeader>
+                    <CardContent>
+                      {pmIntervals.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">No PM work orders found. Intervals are computed from preventive maintenance WO history.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Equipment</TableHead>
+                                <TableHead className="text-xs">System</TableHead>
+                                <TableHead className="text-xs text-right">Avg Interval</TableHead>
+                                <TableHead className="text-xs text-right">Suggested</TableHead>
+                                <TableHead className="text-xs text-center">Trend</TableHead>
+                                <TableHead className="text-xs">Last PM</TableHead>
+                                <TableHead className="text-xs">Next Due</TableHead>
+                                <TableHead className="text-xs text-center">Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {pmIntervals.map(interval => (
+                                <TableRow key={interval.equipmentId} className="hover:bg-muted/20">
+                                  <TableCell className="text-xs font-medium py-2">{interval.equipmentName}</TableCell>
+                                  <TableCell className="text-xs text-muted-foreground py-2">{interval.systemType || '—'}</TableCell>
+                                  <TableCell className="text-xs text-right py-2 font-mono">
+                                    {interval.avgIntervalDays != null ? `${interval.avgIntervalDays}d` : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-right py-2 font-mono text-cyan-400">
+                                    {interval.suggestedIntervalDays}d
+                                  </TableCell>
+                                  <TableCell className="text-xs text-center py-2">
+                                    {interval.trend === 'worsening' ? <ChevronDown className="w-3.5 h-3.5 text-red-400 inline" /> :
+                                     interval.trend === 'improving' ? <ChevronUp className="w-3.5 h-3.5 text-green-400 inline" /> :
+                                     <Minus className="w-3.5 h-3.5 text-muted-foreground inline" />}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground py-2">
+                                    {interval.lastPMDate ? new Date(interval.lastPMDate).toLocaleDateString() : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2">
+                                    {interval.nextDueDate ? (
+                                      <span className={interval.daysUntilDue !== null && interval.daysUntilDue < 0 ? 'text-red-400 font-semibold' : interval.daysUntilDue !== null && interval.daysUntilDue < 14 ? 'text-yellow-400' : ''}>
+                                        {new Date(interval.nextDueDate).toLocaleDateString()}
+                                        {interval.daysUntilDue !== null && ` (${interval.daysUntilDue < 0 ? `${Math.abs(interval.daysUntilDue)}d overdue` : `in ${interval.daysUntilDue}d`})`}
+                                      </span>
+                                    ) : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-center py-2">
+                                    <Badge variant="outline" className={cn('text-xs',
+                                      interval.status === 'overdue' ? 'border-red-500/50 text-red-400' :
+                                      interval.status === 'due_soon' ? 'border-yellow-500/50 text-yellow-400' :
+                                      'border-green-500/50 text-green-400'
+                                    )}>
+                                      {interval.status === 'due_soon' ? 'due soon' : interval.status.replace('_', ' ')}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
