@@ -53,6 +53,7 @@ deploy_lambda() {
       --function-name "$NAME" \
       --zip-file "fileb://$TMPDIR/$NAME.zip" \
       --region $REGION > /dev/null
+    aws lambda wait function-updated --function-name "$NAME" --region $REGION
     aws lambda update-function-configuration \
       --function-name "$NAME" \
       --environment "Variables={$ENV_VARS}" \
@@ -69,6 +70,8 @@ deploy_lambda() {
       --environment "Variables={$ENV_VARS}" \
       --timeout 15 \
       --region $REGION > /dev/null
+    echo "  ⏳ Waiting for $NAME to become Active..."
+    aws lambda wait function-active --function-name "$NAME" --region $REGION
     echo "  ✓ $NAME created"
   fi
 
