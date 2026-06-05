@@ -81,6 +81,8 @@ import ConsultingServices from "./pages/ConsultingServices";
 import OnboardingStatus from "./pages/OnboardingStatus";
 import ObservationJournal from "./pages/ObservationJournal";
 import WorkIntegrity from "./pages/WorkIntegrity";
+import FacilityMemory from "./pages/FacilityMemory";
+import OperationalDNA from "./pages/OperationalDNA";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -397,6 +399,14 @@ export const router = createBrowserRouter([
           {
             path: "onboarding-status",
             element: <OnboardingStatus />,
+          },
+          {
+            path: "facility-memory",
+            element: <FacilityMemory />,
+          },
+          {
+            path: "operational-dna",
+            element: <OperationalDNA />,
           },
         ],
       },

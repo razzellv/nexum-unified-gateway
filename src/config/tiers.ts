@@ -74,6 +74,9 @@ export type TierFeature =
   | 'response_metrics'
   | 'weapons_inventory'
   | 'compliance_reporting'
+  // Facility Intelligence engines
+  | 'facility_memory'
+  | 'operational_dna'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -127,6 +130,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'operations_center', 'decision_intelligence', 'multi_facility',
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
+      'facility_memory',
     ],
   },
   premium: {
@@ -149,6 +153,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
+      'facility_memory', 'operational_dna',
     ],
   },
   enterprise: {
@@ -171,6 +176,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
+      'facility_memory', 'operational_dna',
     ],
   },
   admin: {
@@ -197,6 +203,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'waste_tracking', 'supplier_management',
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
+      'facility_memory', 'operational_dna',
     ],
   },
 
@@ -429,4 +436,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   response_metrics:      'command_standard',
   weapons_inventory:     'command_standard',
   compliance_reporting:  'command_standard',
+  // Facility Intelligence engines
+  facility_memory:       'business',
+  operational_dna:       'premium',
 };
