@@ -83,6 +83,7 @@ import ImplementationGuide from "./pages/ImplementationGuide";
 import VideoLibrary from "./pages/VideoLibrary";
 import ObservationJournal from "./pages/ObservationJournal";
 import WorkIntegrity from "./pages/WorkIntegrity";
+import EvidenceBoard from "./pages/EvidenceBoard";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -379,6 +380,10 @@ export const router = createBrowserRouter([
           {
             path: "observations",
             element: <ObservationJournal />,
+          },
+          {
+            path: "evidence-board",
+            element: <EvidenceBoard />,
           },
           {
             path: "operational-intelligence",

@@ -224,9 +224,7 @@ else
 fi
 echo ""
 
-echo "1/4  IAM Roles"
-
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role; do
+echo "0/4  DynamoDB Tables"
 
 # Core operational tables (created if they don't already exist)
 ensure_table "FacilityLogs-v2" \
@@ -360,6 +358,11 @@ ensure_table "NexumResourcePlanning" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+ensure_table "NexumEvidenceBoards" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # ── Observation Journal tables ────────────────────────────────────────────────
 ensure_table "ObservationJournal" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
@@ -403,7 +406,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-evidence-board-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -475,6 +478,9 @@ aws iam put-role-policy --role-name fi-work-integrity-role --policy-name policy 
 
 aws iam put-role-policy --role-name fi-resource-planning-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumResourcePlanning\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumInventory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-evidence-board-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumEvidenceBoards\"}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -620,6 +626,10 @@ deploy_lambda "nexum-fi-work-integrity" "fi-work-integrity.mjs" "fi-work-integri
 # Resource Planning
 deploy_lambda "nexum-fi-resource-planning" "fi-resource-planning.mjs" "fi-resource-planning-role" \
   "RP_TABLE=NexumResourcePlanning,WO_TABLE=WorkOrders,INV_TABLE=NexumInventory,EQ_TABLE=EquipmentLibrary"
+
+# Evidence Board
+deploy_lambda "nexum-fi-evidence-board" "fi-evidence-board.mjs" "fi-evidence-board-role" \
+  "TABLE=NexumEvidenceBoards"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -809,6 +819,15 @@ add_route "GET /resources/parts"               "nexum-fi-resource-planning"  "jw
 add_route "POST /resources/parts"              "nexum-fi-resource-planning"  "jwt"
 add_route "GET /resources/float-time"          "nexum-fi-resource-planning"  "jwt"
 add_route "GET /resources/intervals"           "nexum-fi-resource-planning"  "jwt"
+
+add_route "GET /evidence-boards"                              "nexum-fi-evidence-board"  "jwt"
+add_route "POST /evidence-boards"                             "nexum-fi-evidence-board"  "jwt"
+add_route "GET /evidence-boards/{boardId}"                    "nexum-fi-evidence-board"  "jwt"
+add_route "PATCH /evidence-boards/{boardId}"                  "nexum-fi-evidence-board"  "jwt"
+add_route "DELETE /evidence-boards/{boardId}"                 "nexum-fi-evidence-board"  "jwt"
+add_route "POST /evidence-boards/{boardId}/evidence"          "nexum-fi-evidence-board"  "jwt"
+add_route "PATCH /evidence-boards/{boardId}/evidence/{itemId}" "nexum-fi-evidence-board" "jwt"
+add_route "DELETE /evidence-boards/{boardId}/evidence/{itemId}" "nexum-fi-evidence-board" "jwt"
 
 echo ""
 echo "4/4  Verify routes"

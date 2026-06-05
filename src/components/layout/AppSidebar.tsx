@@ -24,7 +24,7 @@ import {
   TrendingUp,
   LogOut,
   GraduationCap, ShoppingCart, Shield,
-  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
+  Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -97,6 +97,8 @@ const allNavItems: NavItem[] = [
   { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
   { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
   { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
+  { name: 'Observation Journal', href: '/observations', icon: BookOpen, access: 'all', tier: 'compliance_logging' },
+  { name: 'Evidence Board', href: '/evidence-board', icon: LayoutGrid, access: 'all', tier: 'compliance_logging' },
   { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
   { name: 'Compliance Dashboard', href: '/dashboard/compliance', icon: ShieldCheck, access: 'leadership' },
   { name: 'Chemical & Hazmat', href: '/inventory-library', icon: FlaskConical, access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
