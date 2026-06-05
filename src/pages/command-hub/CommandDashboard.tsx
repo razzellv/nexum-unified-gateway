@@ -6,7 +6,7 @@ import { SystemHealthChart } from '@/components/command-hub/dashboard/SystemHeal
 import { WorkloadChart } from '@/components/command-hub/dashboard/WorkloadChart';
 import { RecentTasks } from '@/components/command-hub/dashboard/RecentTasks';
 import { EmergencyCard } from '@/components/command-hub/emergency/EmergencyCard';
-import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash, Lightbulb, CheckCheck, XCircle, Star, ArrowUpRight, DollarSign } from 'lucide-react';
+import { AlertTriangle, RefreshCw, MessageSquare, Send, Hash, Lightbulb, CheckCheck, XCircle, Star, ArrowUpRight, DollarSign, BookOpen, LayoutGrid, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, type CostSummary } from '@/lib/nexum-api';
@@ -29,6 +29,8 @@ const CommandDashboard = () => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [feedItems, setFeedItems] = useState<any[]>([]);
+  const [feedLoading, setFeedLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -98,6 +100,52 @@ const CommandDashboard = () => {
     }
   };
 
+  const loadIntelligenceFeed = useCallback(async () => {
+    setFeedLoading(true);
+    const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
+    const headers = { Authorization: 'Bearer ' + token };
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
+    try {
+      const [obsRes, boardsRes] = await Promise.allSettled([
+        fetch(baseUrl + '/observations?limit=5', { headers }).then(r => r.ok ? r.json() : null),
+        fetch(baseUrl + '/evidence-boards', { headers }).then(r => r.ok ? r.json() : null),
+      ]);
+
+      const observations: any[] = (obsRes.status === 'fulfilled' && obsRes.value)
+        ? (obsRes.value.items || obsRes.value.observations || []).slice(0, 5)
+        : [];
+      const boards: any[] = (boardsRes.status === 'fulfilled' && boardsRes.value)
+        ? (boardsRes.value.boards || []).filter((b: any) => b.status === 'open' || b.status === 'active').slice(0, 3)
+        : [];
+
+      const feed = [
+        ...observations.map((o: any) => ({
+          type: 'observation',
+          id: o.observationId || o.id,
+          title: o.title || o.subject || 'Observation',
+          detail: o.description || o.content || '',
+          time: o.createdAt || o.timestamp,
+          severity: o.severity || null,
+          href: '/observations',
+        })),
+        ...boards.map((b: any) => ({
+          type: 'evidence',
+          id: b.boardId,
+          title: b.title,
+          detail: `${b.evidenceCount || 0} items · ${b.priority} priority`,
+          time: b.updatedAt || b.createdAt,
+          severity: b.priority === 'critical' ? 100 : b.priority === 'high' ? 75 : null,
+          href: '/evidence-board',
+        })),
+      ].sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime()).slice(0, 8);
+
+      setFeedItems(feed);
+    } catch { /* feed stays empty */ } finally {
+      setFeedLoading(false);
+    }
+  }, []);
+
   const loadSuggestions = useCallback(async () => {
     setSuggestionsLoading(true);
     try {
@@ -113,6 +161,7 @@ const CommandDashboard = () => {
   useEffect(() => {
     fetchData();
     loadSuggestions();
+    loadIntelligenceFeed();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -235,7 +284,7 @@ const CommandDashboard = () => {
                 <div key={i} className="border border-border rounded-lg p-4 bg-card">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-sm">{v.type?.replace(/_/g, ' ')}</p>
+                      <p className="font-medium text-sm">{(typeof v.type === 'string' ? v.type : v.type?.name || '').replace(/_/g, ' ')}</p>
                       <p className="text-xs text-muted-foreground mt-1">{v.description}</p>
                       <p className="text-xs text-muted-foreground mt-2">
                         Operator: {v.operator} | Equipment: {v.equipment}
@@ -257,6 +306,67 @@ const CommandDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* ── Intelligence Feed ──────────────────────────────────────────── */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Intelligence Feed</h2>
+              <span className="text-xs text-muted-foreground">Observations · Investigations · Signals</span>
+            </div>
+            <button onClick={loadIntelligenceFeed} className="text-muted-foreground hover:text-foreground">
+              <RefreshCw className={cn('w-4 h-4', feedLoading && 'animate-spin')} />
+            </button>
+          </div>
+
+          {feedLoading ? (
+            <div className="space-y-2">
+              {[1,2,3].map(i => <div key={i} className="h-14 bg-muted/20 animate-pulse rounded-lg" />)}
+            </div>
+          ) : feedItems.length === 0 ? (
+            <div className="border border-border/30 rounded-xl bg-card/50 p-6 text-center text-muted-foreground">
+              <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No recent signals. Log observations or start an investigation to populate the feed.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {feedItems.map((item, i) => {
+                const Icon = item.type === 'observation' ? BookOpen : LayoutGrid;
+                const typeColor = item.type === 'observation' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5'
+                                                               : 'text-amber-400 border-amber-400/20 bg-amber-400/5';
+                const typeLabel = item.type === 'observation' ? 'Observation' : 'Investigation';
+                return (
+                  <div
+                    key={item.id || i}
+                    onClick={() => navigate(item.href)}
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:border-primary/30 transition-all',
+                      item.severity && item.severity >= 80 ? 'border-red-500/30 bg-red-500/5' : 'border-border/30 bg-card/50'
+                    )}
+                  >
+                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border', typeColor)}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded border', typeColor)}>{typeLabel}</span>
+                        {item.severity && item.severity >= 80 && (
+                          <span className="text-[10px] text-red-400 font-medium">Critical</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium truncate mt-0.5">{item.title}</p>
+                      {item.detail && <p className="text-xs text-muted-foreground truncate">{item.detail}</p>}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {item.time ? new Date(item.time).toLocaleDateString() : ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* ── Risk & Operations Suggestions ──────────────────────────────── */}
         <div>

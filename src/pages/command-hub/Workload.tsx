@@ -255,9 +255,23 @@ const Workload = () => {
                     </div>
                   ))}
                   {(unassigned?.tasks || 0) > 0 && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-xs">
-                      <Clock className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-                      <span className="text-muted-foreground"><span className="font-medium text-yellow-400">{unassigned?.tasks} unassigned task(s)</span> need to be assigned. {overloaded.length === 0 && underloaded.length > 0 ? `Recommend assigning to ${underloaded[0]?.name}.` : ''}</span>
+                    <div className="flex items-start gap-3 p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-xs">
+                      <Clock className="w-3.5 h-3.5 text-yellow-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <span className="text-muted-foreground">
+                          <span className="font-medium text-yellow-400">{unassigned?.tasks} unassigned task(s)</span> need to be assigned.
+                        </span>
+                        {underloaded.length > 0 && (
+                          <button
+                            onClick={async () => {
+                              toast({ title: 'Auto-assign', description: `Recommending ${underloaded[0].name} for unassigned tasks. Open Work Orders to confirm.` });
+                            }}
+                            className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 transition-colors font-medium"
+                          >
+                            <Zap className="w-3 h-3" />Assign to {underloaded[0]?.name}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>

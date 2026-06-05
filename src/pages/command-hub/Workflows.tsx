@@ -152,11 +152,34 @@ const Workflows = () => {
           dueDate,
         }),
       });
+
+      // Auto-create an Evidence Board draft for compliance/emergency workflows
+      if (slaType === 'compliance' || slaType === 'emergency') {
+        try {
+          const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token');
+          const baseUrl = import.meta.env.VITE_API_BASE_URL;
+          await fetch(baseUrl + '/evidence-boards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({
+              title: `Investigation: ${template.name}`,
+              description: `Auto-created from workflow run. ${template.description}`,
+              category: slaType === 'compliance' ? 'compliance' : 'safety',
+              priority: slaType === 'emergency' ? 'critical' : 'high',
+            }),
+          });
+          toast({ title: 'Workflow Started', description: `"${template.name}" WO created + Evidence Board opened. SLA: ${slaHours}h.` });
+        } catch {
+          toast({ title: 'Workflow Started', description: `"${template.name}" WO created. SLA: ${slaHours}h.` });
+        }
+      } else {
+        toast({ title: 'Workflow Started', description: `"${template.name}" WO created. SLA: ${slaHours}h.` });
+      }
+
       const entry = { id: Date.now(), templateId: template.id, templateName: template.name, startedAt: new Date().toISOString(), slaHours, status: 'running' };
       const updated = [entry, ...runLog].slice(0, 50);
       setRunLog(updated);
       localStorage.setItem(RUN_LOG_KEY, JSON.stringify(updated));
-      toast({ title: 'Workflow Started', description: `"${template.name}" WO created. SLA: ${slaHours}h.` });
       await fetchRecentRuns();
     } catch {
       // Fallback: log locally even if API failed

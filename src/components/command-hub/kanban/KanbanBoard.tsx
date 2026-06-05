@@ -55,7 +55,11 @@ function woToTask(wo: any): Task {
   };
 }
 
-export function KanbanBoard() {
+interface KanbanBoardProps {
+  onStatsChange?: (active: number, critical: number) => void;
+}
+
+export function KanbanBoard({ onStatsChange }: KanbanBoardProps) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,11 +75,15 @@ export function KanbanBoard() {
       const wos: any[] = data.workOrders || data.items || [];
       const overrides = getLocalOverrides();
       // Merge API data with any locally-saved status overrides
-      setTasks(wos.map(wo => {
+      const mapped = wos.map(wo => {
         const t = woToTask(wo);
         if (overrides[t.id]) t.status = overrides[t.id];
         return t;
-      }));
+      });
+      setTasks(mapped);
+      const active   = mapped.filter(t => t.status !== 'completed').length;
+      const critical = mapped.filter(t => t.priority === 'critical' && t.status !== 'completed').length;
+      onStatsChange?.(active, critical);
     } catch (err) {
       console.error('Kanban fetch error:', err);
       // If API is down, try localStorage fallback
