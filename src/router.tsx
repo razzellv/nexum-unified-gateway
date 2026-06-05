@@ -83,6 +83,7 @@ import ObservationJournal from "./pages/ObservationJournal";
 import WorkIntegrity from "./pages/WorkIntegrity";
 import FacilityMemory from "./pages/FacilityMemory";
 import OperationalDNA from "./pages/OperationalDNA";
+import EventIntegrity from "./pages/EventIntegrity";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -407,6 +408,10 @@ export const router = createBrowserRouter([
           {
             path: "operational-dna",
             element: <OperationalDNA />,
+          },
+          {
+            path: "event-integrity",
+            element: <EventIntegrity />,
           },
         ],
       },

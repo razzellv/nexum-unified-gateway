@@ -118,6 +118,7 @@ const allNavItems: NavItem[] = [
   { name: 'Operational Intelligence', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Facility Memory', href: '/facility-memory', icon: Brain, access: 'leadership', tier: 'facility_memory' },
   { name: 'Operational DNA', href: '/operational-dna', icon: Cpu, access: 'leadership', tier: 'operational_dna' },
+  { name: 'Event Integrity', href: '/event-integrity', icon: ShieldCheck, access: 'leadership', tier: 'event_integrity' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
