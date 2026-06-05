@@ -8,6 +8,7 @@ import AnalysisResults from "@/components/equipment-intelligence/AnalysisResults
 import RecentEquipment from "@/components/equipment-intelligence/RecentEquipment";
 // ❌ REMOVED: import EquipmentLibrary from "@/components/equipment-intelligence/EquipmentLibrary";
 import InventorySection from "@/components/equipment-intelligence/InventorySection";
+import GlycolHealthScore from "@/components/equipment-intelligence/GlycolHealthScore";
 import { EquipmentProvider } from "@/contexts/EquipmentContext";
 
 export default function EquipmentIntelligence() {
@@ -35,6 +36,9 @@ export default function EquipmentIntelligence() {
           
           {/* ❌ REMOVED: <EquipmentLibrary /> */}
           
+          {/* Glycol System Health Score */}
+          <GlycolHealthScore />
+
           {/* Parts & Supplies Inventory */}
           <InventorySection />
         </div>
