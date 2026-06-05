@@ -54,10 +54,14 @@ deploy_lambda() {
       --zip-file "fileb://$TMPDIR/$NAME.zip" \
       --region $REGION > /dev/null
     aws lambda wait function-updated --function-name "$NAME" --region $REGION
-    aws lambda update-function-configuration \
-      --function-name "$NAME" \
-      --environment "Variables={$ENV_VARS}" \
-      --region $REGION > /dev/null 2>&1 || true
+    for _i in 1 2 3 4 5; do
+      aws lambda update-function-configuration \
+        --function-name "$NAME" \
+        --environment "Variables={$ENV_VARS}" \
+        --region $REGION > /dev/null 2>&1 && break
+      echo "  ⏳ Config not ready yet, retrying ($_i/5)..."
+      sleep 5
+    done
     echo "  ✓ $NAME updated"
   else
     aws lambda create-function \
