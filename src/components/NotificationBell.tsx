@@ -99,12 +99,12 @@ export function NotificationBell() {
           violationNotifs.push({
             id:        v.violationId || v.id,
             type:      'violation',
-            title:     `${v.type?.replace(/_/g, ' ')} — ${v.category || 'Compliance'}`,
+            title:     `${(typeof v.type === 'string' ? v.type : (v.type?.name || '')).replace(/_/g, ' ')} — ${typeof v.category === 'string' ? v.category : (v.category?.name || 'Compliance')}`,
             message:   v.description || `Violation by ${operatorName}`,
             severity:  sev,
             timestamp: new Date(v.timestamp || v.createdAt || Date.now()),
             read:      false,
-            category:  v.category,
+            category:  typeof v.category === 'string' ? v.category : (v.category?.name || 'Compliance'),
           });
         });
       }

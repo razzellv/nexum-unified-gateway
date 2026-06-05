@@ -40,6 +40,13 @@ import React from 'react';
 import { DecisionIntelligence } from '@/components/equipment/DecisionIntelligence';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+function safeStr(val: any, fallback = ''): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return val.name || val.id || fallback;
+  return String(val);
+}
+
 const EQUIPMENT_TYPES = [
   { value: 'all', label: 'All Equipment', icon: Activity },
   { value: 'boilers', label: 'Boilers', icon: Flame },
@@ -170,8 +177,8 @@ export default function EquipmentMetrics() {
     if (searchTerm) {
       filtered = filtered.filter(log =>
         log.equipmentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.operator.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.operatorId.toLowerCase().includes(searchTerm.toLowerCase())
+        safeStr(log.operator).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        safeStr(log.operatorId).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -187,7 +194,7 @@ export default function EquipmentMetrics() {
       let cmp = 0;
       if (sortField === 'date') cmp = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
       else if (sortField === 'equipment') cmp = a.equipmentId.localeCompare(b.equipmentId);
-      else if (sortField === 'operator') cmp = a.operator.localeCompare(b.operator);
+      else if (sortField === 'operator') cmp = safeStr(a.operator).localeCompare(safeStr(b.operator));
       else if (sortField === 'efficiency') cmp = ((a as any).efficiency || (a.data as any)?.efficiency || 0) - ((b as any).efficiency || (b.data as any)?.efficiency || 0);
       return sortDirection === 'desc' ? -cmp : cmp;
     });
@@ -473,8 +480,8 @@ export default function EquipmentMetrics() {
                     </thead>
                     <tbody>
                       {currentLogs.map((log, index) => {
-                        const Icon = getEquipmentIcon(log.equipmentType);
-                        const colorClass = getEquipmentColor(log.equipmentType);
+                        const Icon = getEquipmentIcon(safeStr(log.equipmentType));
+                        const colorClass = getEquipmentColor(safeStr(log.equipmentType));
                         const { date, time } = formatTimestamp(log.timestamp);
                         const logKey = `${log.SK}-${index}`;
                         const isExpanded = expandedRows.has(logKey);
@@ -503,15 +510,15 @@ export default function EquipmentMetrics() {
                               </td>
                               <td className="p-3">
                                 <Badge variant="outline" className="capitalize">
-                                  {log.equipmentType}
+                                  {safeStr(log.equipmentType)}
                                 </Badge>
                               </td>
                               <td className="p-3 text-sm">{date}</td>
                               <td className="p-3 text-sm font-mono">{time}</td>
                               <td className="p-3">
                                 <div className="flex flex-col">
-                                  <span className="text-sm">{log.operator}</span>
-                                  <span className="text-xs text-muted-foreground font-mono">{log.operatorId}</span>
+                                  <span className="text-sm">{safeStr(log.operator)}</span>
+                                  <span className="text-xs text-muted-foreground font-mono">{safeStr(log.operatorId)}</span>
                                 </div>
                               </td>
                               <td className="p-3">
@@ -554,7 +561,7 @@ export default function EquipmentMetrics() {
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">Type:</span>
-                                          <span className="capitalize">{log.equipmentType}</span>
+                                          <span className="capitalize">{safeStr(log.equipmentType)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">Timestamp:</span>
@@ -571,11 +578,11 @@ export default function EquipmentMetrics() {
                                       <div className="space-y-1 text-sm">
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">Name:</span>
-                                          <span>{log.operator}</span>
+                                          <span>{safeStr(log.operator)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">ID:</span>
-                                          <span className="font-mono">{log.operatorId}</span>
+                                          <span className="font-mono">{safeStr(log.operatorId)}</span>
                                         </div>
                                       </div>
                                     </div>
