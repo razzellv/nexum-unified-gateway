@@ -162,21 +162,6 @@ add_route() {
   fi
 }
 
-# ── Helper: ensure DynamoDB table exists ──────────────────────────────────────
-ensure_table() {
-  local NAME=$1 KEY=$2
-  if aws dynamodb describe-table --table-name "$NAME" --region $REGION > /dev/null 2>&1; then
-    echo "  ✓ Table $NAME already exists"
-  else
-    aws dynamodb create-table \
-      --table-name "$NAME" \
-      --attribute-definitions "AttributeName=${KEY},AttributeType=S" \
-      --key-schema "AttributeName=${KEY},KeyType=HASH" \
-      --billing-mode PAY_PER_REQUEST \
-      --region $REGION > /dev/null
-    echo "  ✓ Table $NAME created"
-  fi
-}
 
 ensure_composite_table() {
   local NAME=$1 PK=$2 SK=$3
