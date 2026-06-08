@@ -84,6 +84,7 @@ import WorkIntegrity from "./pages/WorkIntegrity";
 import FacilityMemory from "./pages/FacilityMemory";
 import OperationalDNA from "./pages/OperationalDNA";
 import EventIntegrity from "./pages/EventIntegrity";
+import DriftIntelligence from "./pages/DriftIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -412,6 +413,10 @@ export const router = createBrowserRouter([
           {
             path: "event-integrity",
             element: <EventIntegrity />,
+          },
+          {
+            path: "drift-intelligence",
+            element: <DriftIntelligence />,
           },
         ],
       },

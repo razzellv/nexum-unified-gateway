@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
-  Brain, Cpu,
+  Brain, Cpu, TrendingDown,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -119,6 +119,7 @@ const allNavItems: NavItem[] = [
   { name: 'Facility Memory', href: '/facility-memory', icon: Brain, access: 'leadership', tier: 'facility_memory' },
   { name: 'Operational DNA', href: '/operational-dna', icon: Cpu, access: 'leadership', tier: 'operational_dna' },
   { name: 'Event Integrity', href: '/event-integrity', icon: ShieldCheck, access: 'leadership', tier: 'event_integrity' },
+  { name: 'Drift Intelligence', href: '/drift-intelligence', icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },

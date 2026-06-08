@@ -274,6 +274,16 @@ ensure_table "NexumResourcePlanning" \
   "PAY_PER_REQUEST"
 
 # ── Facility Memory, Operational DNA, Event Integrity tables ─────────────────
+ensure_table "NexumDriftAnalysis" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumDriftReadings" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 ensure_table "NexumEventIntegrity" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
@@ -337,7 +347,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -418,6 +428,9 @@ aws iam put-role-policy --role-name fi-operational-dna-role --policy-name policy
 
 aws iam put-role-policy --role-name fi-event-integrity-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumEventIntegrity\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumIntegritySnapshots\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-drift-intelligence-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftAnalysis\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftReadings\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -575,6 +588,10 @@ deploy_lambda "nexum-fi-operational-dna" "fi-operational-dna.mjs" "fi-operationa
 # Event-to-Record Integrity Engine
 deploy_lambda "nexum-fi-event-integrity" "fi-event-integrity.mjs" "fi-event-integrity-role" \
   "TABLE=NexumEventIntegrity,SNAP_TABLE=NexumIntegritySnapshots,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents,LOG_TABLE=FacilityLogs-v2"
+
+# Performance & Sequencing Drift Intelligence Engine
+deploy_lambda "nexum-fi-drift-intelligence" "fi-drift-intelligence.mjs" "fi-drift-intelligence-role" \
+  "TABLE=NexumDriftAnalysis,RDGS=NexumDriftReadings,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -790,6 +807,13 @@ add_route "GET /event-integrity/records"              "nexum-fi-event-integrity"
 add_route "GET /event-integrity/trends"               "nexum-fi-event-integrity"  "jwt"
 add_route "GET /event-integrity/records/{type}"       "nexum-fi-event-integrity"  "jwt"
 
+# Drift Intelligence Engine — 5 routes
+add_route "GET /drift-intelligence"                   "nexum-fi-drift-intelligence"  "jwt"
+add_route "POST /drift-intelligence/analyze"          "nexum-fi-drift-intelligence"  "jwt"
+add_route "POST /drift-intelligence/readings"         "nexum-fi-drift-intelligence"  "jwt"
+add_route "GET /drift-intelligence/readings"          "nexum-fi-drift-intelligence"  "jwt"
+add_route "GET /drift-intelligence/trends"            "nexum-fi-drift-intelligence"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
@@ -863,6 +887,11 @@ echo "  GET   /work-integrity/critical-path"
 echo "  GET   /work-integrity/competency-match"
 echo "  GET   /work-integrity/performance"
 echo "  POST  /work-integrity/ai-critique"
+echo ""
+echo "  DRIFT INTELLIGENCE ENGINE"
+echo "  GET /drift-intelligence   POST /drift-intelligence/analyze"
+echo "  POST/GET /drift-intelligence/readings"
+echo "  GET /drift-intelligence/trends"
 echo ""
 echo "  EVENT-TO-RECORD INTEGRITY ENGINE™"
 echo "  GET /event-integrity   POST /event-integrity/audit"

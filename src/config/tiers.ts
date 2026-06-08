@@ -78,6 +78,7 @@ export type TierFeature =
   | 'facility_memory'
   | 'operational_dna'
   | 'event_integrity'
+  | 'drift_intelligence'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -131,7 +132,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'operations_center', 'decision_intelligence', 'multi_facility',
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
-      'facility_memory', 'event_integrity',
+      'facility_memory', 'event_integrity', 'drift_intelligence',
     ],
   },
   premium: {
@@ -154,7 +155,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
-      'facility_memory', 'operational_dna', 'event_integrity',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
     ],
   },
   enterprise: {
@@ -177,7 +178,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
-      'facility_memory', 'operational_dna', 'event_integrity',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
     ],
   },
   admin: {
@@ -204,7 +205,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'waste_tracking', 'supplier_management',
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
-      'facility_memory', 'operational_dna', 'event_integrity',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
     ],
   },
 
@@ -441,4 +442,5 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   facility_memory:       'business',
   operational_dna:       'premium',
   event_integrity:       'business',
+  drift_intelligence:    'business',
 };
