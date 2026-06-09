@@ -50,6 +50,9 @@ deploy_lambda() {
       --function-name "$NAME" \
       --zip-file "fileb://$TMPDIR/$NAME.zip" \
       --region $REGION > /dev/null
+    aws lambda wait function-updated \
+      --function-name "$NAME" \
+      --region $REGION 2>/dev/null || sleep 5
     aws lambda update-function-configuration \
       --function-name "$NAME" \
       --environment "Variables={$ENV_VARS}" \
@@ -561,10 +564,6 @@ deploy_lambda "nexum-fi-vendor-pluck" "fi-vendor-pluck.mjs" "fi-vendor-pluck-rol
 # Observation Journal
 deploy_lambda "nexum-fi-observation-journal" "fi-observation-journal.mjs" "fi-observation-journal-role" \
   "OBS_TABLE=ObservationJournal,EVENTS_TABLE=ObservationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
-aws lambda update-function-configuration \
-  --function-name "nexum-fi-observation-journal" \
-  --environment "Variables={OBS_TABLE=ObservationJournal,EVENTS_TABLE=ObservationEvents,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY}" \
-  --region $REGION --output json > /dev/null
 
 # Cost Intelligence
 deploy_lambda "nexum-fi-cost-intelligence" "fi-cost-intelligence.mjs" "fi-cost-intelligence-role" \
