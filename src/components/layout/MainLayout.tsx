@@ -26,7 +26,7 @@ function LayoutInner({ children }: MainLayoutProps) {
       {/* Sidebar — fixed overlay on mobile, static on desktop */}
       <div className={
         isMobile
-          ? `fixed inset-y-0 left-0 z-40 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+          ? `fixed inset-y-0 left-0 z-40 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
           : ''
       }>
         <AppSidebar />
@@ -34,7 +34,7 @@ function LayoutInner({ children }: MainLayoutProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
           {children}
         </main>
       </div>

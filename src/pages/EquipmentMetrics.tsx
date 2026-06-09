@@ -65,7 +65,7 @@ export default function EquipmentMetrics() {
   
   // Filters
   const [equipmentType, setEquipmentType] = useState('all');
-  const [timeRange, setTimeRange] = useState('24h');
+  const [timeRange, setTimeRange] = useState('7d');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -476,10 +476,12 @@ export default function EquipmentMetrics() {
                         const logKey = `${log.SK}-${index}`;
                         const isExpanded = expandedRows.has(logKey);
 
-                        // Get all metrics from flattened log (data was merged to top level by Lambda)
-                        const allMetrics = Object.entries(log)
-                          .filter(([key]) => !['PK', 'SK', 'id', 'facilityId', 'equipmentId', 'systemType', 'equipmentType', 'timestamp', 'operator', 'operatorId', 'notes', 'createdBy', 'createdRole', 'facility_id', 'system', 'system_asset', 'data'].includes(key))
-                          .filter(([_, value]) => value !== null && value !== undefined && value !== '');
+                        // Merge top-level fields and nested log.data (Lambda may return readings in either place)
+                        const EXCLUDE_KEYS = new Set(['PK', 'SK', 'id', 'facilityId', 'equipmentId', 'systemType', 'equipmentType', 'timestamp', 'operator', 'operatorId', 'notes', 'createdBy', 'createdRole', 'facility_id', 'system', 'system_asset', 'data', 'TTL']);
+                        const allMetrics = [
+                          ...Object.entries(log).filter(([key]) => !EXCLUDE_KEYS.has(key)),
+                          ...Object.entries((log as any).data || {}),
+                        ].filter(([_, value]) => value !== null && value !== undefined && value !== '');
 
                         return (
                           <React.Fragment key={logKey}>

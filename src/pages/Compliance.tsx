@@ -874,7 +874,8 @@ export default function Compliance() {
     finally { setIssuesLoading(false); }
   };
 
-  const violationForm = useForm({ defaultValues: { operatorId: '', severity: isCustodianMode ? 'low' : 'medium' } });
+  const [violationFormKey, setViolationFormKey] = useState(0);
+  const violationForm = useForm({ defaultValues: { operatorId: '', severity: isCustodianMode ? 'low' : 'medium', violationType: '' } });
   const pmForm = useForm({ defaultValues: { operatorId: '' } });
   const safetyForm = useForm({ defaultValues: { operatorId: '' } });
 
@@ -902,6 +903,10 @@ export default function Compliance() {
   }, [orgType]);
 
   const handleViolationSubmit = async (data: any) => {
+    if (!data.violationType) {
+      toast({ title: 'Violation type required', description: 'Please select a violation type before submitting.', variant: 'destructive' });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const token = getToken();
@@ -933,7 +938,7 @@ export default function Compliance() {
           timestamp:        new Date().toISOString(),
           notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
         }),
-      }).catch(() => {}); // fire-and-forget if endpoint unavailable
+      }).catch(err => console.warn('Violations endpoint unavailable:', err));
 
       // Also log via legacy compliance event for backward compat
       const response = await logComplianceEvent({
@@ -976,7 +981,8 @@ export default function Compliance() {
         console.warn('Issue Origin creation failed (non-critical):', issueErr);
         // Non-critical — don't fail the main submission
       }
-      violationForm.reset({ operatorId: '', severity: 'medium' });
+      violationForm.reset({ operatorId: '', severity: isCustodianMode ? 'low' : 'medium', violationType: '' });
+      setViolationFormKey(k => k + 1);
     } catch (error: any) {
       toast({ title: 'Error Logging Violation', description: error.message, variant: 'destructive' });
     } finally {
@@ -1146,7 +1152,7 @@ export default function Compliance() {
                       {/* Violation Type — org-filtered & grouped */}
                       <div className="space-y-2">
                         <Label>Violation Type *</Label>
-                        <Select onValueChange={(v) => {
+                        <Select key={violationFormKey} onValueChange={(v) => {
                           violationForm.setValue('violationType', v);
                           if (v !== 'other_custom') setOtherTypeNotes('');
                         }}>

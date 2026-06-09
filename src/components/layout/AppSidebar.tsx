@@ -220,7 +220,7 @@ export function AppSidebar() {
   return (
     <aside className={cn(
       "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
-      collapsed ? "w-0 md:w-16 overflow-hidden" : "w-64"
+      collapsed ? "w-64 md:w-16 md:overflow-hidden" : "w-64"
     )}>
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
