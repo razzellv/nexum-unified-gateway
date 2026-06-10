@@ -11,11 +11,12 @@
 import { DynamoDBClient }                       from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand,
          QueryCommand }                         from "@aws-sdk/lib-dynamodb";
-import { randomUUID }                           from "crypto";
+import { randomUUID, createHash }               from "crypto";
 
 const ddb       = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
 const TABLE     = process.env.TABLE     || "NexumSystemViolations";
 const OBS_TABLE = process.env.OBS_TABLE || "ObservationJournal";
+const DC_TABLE  = process.env.DC_TABLE  || "NexumDCVault";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function json(statusCode, body) {
@@ -138,6 +139,94 @@ async function writeJournalEntry(item, actor, actRole, phase) {
   };
   await ddb.send(new PutCommand({ TableName: OBS_TABLE, Item: record }))
     .catch(err => console.warn("[SystemViolations] ObservationJournal write failed:", err));
+}
+
+// ── DC Vault cross-write ─────────────────────────────────────────────────────
+const DC_SIGNAL_TYPE_MAP = {
+  open:          "observation",
+  investigating: "assessment",
+  authorized:    "authorization",
+  resolved:      "execution",
+  verified:      "outcome",
+  closed:        "lessons_learned",
+};
+
+async function writeDCVaultEntry(item, actor, actRole, phase, isNew) {
+  const now = new Date().toISOString();
+  const fid = item.facilityId || "facility-001";
+
+  // On new violation: create chain + observation signal
+  if (isNew) {
+    const chainId = randomUUID();
+    const sigId   = randomUUID();
+    const raw     = item.observation || item.observationCustom || "";
+    const cHash   = createHash("sha256").update(`${raw}||${actor}||${item.observedAt || now}`).digest("hex");
+    const lHash   = createHash("sha256").update(`${cHash}||GENESIS`).digest("hex");
+
+    const chain = {
+      PK: `FACILITY#${fid}`, SK: `CHAIN#${now}#${chainId}`,
+      id: chainId, facilityId: fid,
+      title: `${item.observation || item.observationCustom || "Violation"} — ${item.equipment || ""}`.trim(),
+      sourceType: "system_violation", sourceId: item.id,
+      phases: { observation: sigId }, signalCount: 1,
+      headHash: lHash, lastSignalId: sigId,
+      metrics: { knowledgePreservationScore: 14, authorizationQuality: 0, assessmentAccuracy: null, decisionAccuracyRate: null, repeatFailureRisk: 0, admissibilityRate: 0 },
+      admissibilityVerified: false, status: "active",
+      createdAt: now, updatedAt: now, createdBy: actor, TTL: ttlOneYear(),
+    };
+    const signal = {
+      PK: `FACILITY#${fid}`, SK: `SIG#${now}#${sigId}`,
+      id: sigId, facilityId: fid, chainId,
+      signalType: "observation", sourceType: "system_violation", sourceId: item.id,
+      rawContent: raw, actor, actorRole: actRole,
+      recordedAt: item.observedAt || now,
+      assetName: item.equipment || "", building: item.building || "", area: item.area || "",
+      contentHash: cHash, prevSignalId: null, prevChainHash: null, chainHash: lHash,
+      normalized: {
+        assetCategory: "Facility Equipment", riskCategory: item.safetyImpact ? "Safety" : item.complianceImpact ? "Compliance" : "Operational",
+        violationType: item.observation || null, workOrderType: null, complianceCategory: null,
+      },
+      interpretation: null, assessmentOutcomeMatch: null,
+      admissibilityStatus: "normalized",
+      createdAt: now, TTL: ttlOneYear(),
+    };
+    // Store dcChainId on violation so subsequent phases can find it
+    item.dcChainId = chainId;
+    await ddb.send(new PutCommand({ TableName: DC_TABLE, Item: chain })).catch(() => {});
+    await ddb.send(new PutCommand({ TableName: DC_TABLE, Item: signal })).catch(() => {});
+    return;
+  }
+
+  // On phase transition: add signal to existing chain
+  if (!item.dcChainId) return;
+  const signalType = DC_SIGNAL_TYPE_MAP[phase];
+  if (!signalType) return;
+
+  const sigId   = randomUUID();
+  const raw     = `${phase.toUpperCase()} — ${item.howResolved || item.authorizationNote || item.verificationNotes || item.lessonsLearned || phase}`;
+  const prevHash = item.dcHeadHash || "GENESIS";
+  const cHash   = createHash("sha256").update(`${raw}||${actor}||${now}`).digest("hex");
+  const lHash   = createHash("sha256").update(`${cHash}||${prevHash}`).digest("hex");
+
+  const signal = {
+    PK: `FACILITY#${fid}`, SK: `SIG#${now}#${sigId}`,
+    id: sigId, facilityId: fid, chainId: item.dcChainId,
+    signalType, sourceType: "system_violation", sourceId: item.id,
+    rawContent: raw, actor, actorRole: actRole, recordedAt: now,
+    assetName: item.equipment || "", building: item.building || "", area: item.area || "",
+    contentHash: cHash, prevSignalId: item.dcLastSignalId || null, prevChainHash: prevHash, chainHash: lHash,
+    normalized: {
+      assetCategory: "Facility Equipment", riskCategory: "Operational",
+      violationType: null, workOrderType: phase === "resolved" ? "Corrective Maintenance" : null, complianceCategory: null,
+    },
+    interpretation: null,
+    assessmentOutcomeMatch: signalType === "outcome" ? (item.wasAssumptionCorrect || null) : null,
+    admissibilityStatus: "normalized",
+    createdAt: now, TTL: ttlOneYear(),
+  };
+  item.dcHeadHash     = lHash;
+  item.dcLastSignalId = sigId;
+  await ddb.send(new PutCommand({ TableName: DC_TABLE, Item: signal })).catch(() => {});
 }
 
 // ── Status phase ordering ─────────────────────────────────────────────────────
@@ -344,6 +433,7 @@ export const handler = async (event) => {
 
       await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
       await writeJournalEntry(item, actor, role, "open");
+      await writeDCVaultEntry(item, actor, role, "open", true).catch(err => console.warn("[DC Vault] cross-write failed:", err));
 
       return json(201, { violation: item });
     } catch (err) {
@@ -422,6 +512,7 @@ export const handler = async (event) => {
 
       if (statusChanged) {
         await writeJournalEntry(updated, actor, role, newStatus);
+        await writeDCVaultEntry(updated, actor, role, newStatus, false).catch(err => console.warn("[DC Vault] cross-write failed:", err));
       }
 
       return json(200, { violation: updated });

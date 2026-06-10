@@ -368,6 +368,12 @@ ensure_table "NexumSystemViolations" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+# ── Decision Continuity™ Vault table ─────────────────────────────────────────
+ensure_table "NexumDCVault" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 # ── Observation Journal tables ────────────────────────────────────────────────
 ensure_table "ObservationJournal" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
@@ -411,7 +417,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -497,7 +503,10 @@ aws iam put-role-policy --role-name fi-drift-intelligence-role --policy-name pol
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftAnalysis\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftReadings\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-system-violations-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSystemViolations\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationJournal\"]}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSystemViolations\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationJournal\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDCVault\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name nexum-fi-dc-vault-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDCVault\"}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -658,7 +667,10 @@ deploy_lambda "nexum-fi-drift-intelligence" "fi-drift-intelligence.mjs" "fi-drif
 
 # System Violations & Resolution Intelligence™
 deploy_lambda "nexum-fi-system-violations" "fi-system-violations.mjs" "fi-system-violations-role" \
-  "TABLE=NexumSystemViolations,OBS_TABLE=ObservationJournal"
+  "TABLE=NexumSystemViolations,OBS_TABLE=ObservationJournal,DC_TABLE=NexumDCVault"
+
+# Decision Continuity™ Vault & Admissibility Engine™
+deploy_lambda "nexum-fi-dc-vault" "fi-dc-vault.mjs" "nexum-fi-dc-vault-role" "TABLE=NexumDCVault"
 
 echo ""
 echo "3/4  API Gateway Routes"
@@ -890,6 +902,14 @@ add_route "GET /system-violations/stats"    "nexum-fi-system-violations"  "jwt"
 add_route "GET /system-violations/{id}"     "nexum-fi-system-violations"  "jwt"
 add_route "PATCH /system-violations/{id}"   "nexum-fi-system-violations"  "jwt"
 
+# Decision Continuity™ Vault & Admissibility Engine™ — 6 routes
+add_route "GET /dc-vault"                              "nexum-fi-dc-vault"  "jwt"
+add_route "POST /dc-vault"                             "nexum-fi-dc-vault"  "jwt"
+add_route "GET /dc-vault/stats"                        "nexum-fi-dc-vault"  "jwt"
+add_route "GET /dc-vault/{chainId}"                    "nexum-fi-dc-vault"  "jwt"
+add_route "POST /dc-vault/{chainId}/signals"           "nexum-fi-dc-vault"  "jwt"
+add_route "PATCH /dc-vault/{chainId}/signals/{sigId}"  "nexum-fi-dc-vault"  "jwt"
+
 echo ""
 echo "4/4  Verify routes"
 aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
@@ -988,6 +1008,13 @@ echo "  SYSTEM VIOLATIONS & RESOLUTION INTELLIGENCE™"
 echo "  GET/POST /system-violations"
 echo "  GET /system-violations/stats"
 echo "  GET/PATCH /system-violations/{id}"
+echo ""
+echo "  DECISION CONTINUITY™ VAULT & ADMISSIBILITY ENGINE™"
+echo "  GET/POST /dc-vault"
+echo "  GET /dc-vault/stats"
+echo "  GET /dc-vault/{chainId}"
+echo "  POST /dc-vault/{chainId}/signals"
+echo "  PATCH /dc-vault/{chainId}/signals/{sigId}"
 echo ""
 echo "  OTHER"
 echo "  GET /quality-intelligence   POST /quality-intelligence"

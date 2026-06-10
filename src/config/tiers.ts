@@ -80,6 +80,7 @@ export type TierFeature =
   | 'event_integrity'
   | 'drift_intelligence'
   | 'system_violations'
+  | 'dc_vault'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -158,7 +159,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations',
+      'system_violations', 'dc_vault',
     ],
   },
   enterprise: {
@@ -182,6 +183,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'dc_vault',
     ],
   },
   admin: {
@@ -209,7 +211,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations',
+      'system_violations', 'dc_vault',
     ],
   },
 
@@ -448,4 +450,5 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   event_integrity:       'business',
   drift_intelligence:    'business',
   system_violations:     'business',
+  dc_vault:              'premium',
 };

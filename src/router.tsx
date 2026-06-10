@@ -86,6 +86,7 @@ import OperationalDNA from "./pages/OperationalDNA";
 import EventIntegrity from "./pages/EventIntegrity";
 import DriftIntelligence from "./pages/DriftIntelligence";
 import SystemViolations from "./pages/SystemViolations";
+import DecisionContinuityVault from "./pages/DecisionContinuityVault";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -422,6 +423,10 @@ export const router = createBrowserRouter([
           {
             path: "system-violations",
             element: <SystemViolations />,
+          },
+          {
+            path: "dc-vault",
+            element: <DecisionContinuityVault />,
           },
         ],
       },
