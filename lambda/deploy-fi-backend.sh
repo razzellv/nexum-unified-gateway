@@ -75,12 +75,58 @@ deploy_lambda() {
   rm -rf "$TMPDIR"
 }
 
+# ── Helper: delete integrations not referenced by any route ───────────────────
+purge_unused_integrations() {
+  echo "▶ Purging orphaned integrations (frees capacity)..."
+
+  # Integration IDs currently wired to a route
+  USED_IDS=$(aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" \
+    --query 'Items[].Target' --output text 2>/dev/null \
+    | tr '\t' '\n' | sed 's|integrations/||g' | grep -v '^$' | sort -u)
+
+  # All integration IDs that exist
+  ALL_IDS=$(aws apigatewayv2 get-integrations --api-id "$API_ID" --region "$REGION" \
+    --query 'Items[].IntegrationId' --output text 2>/dev/null \
+    | tr '\t' '\n' | grep -v '^$')
+
+  DELETED=0
+  for INT_ID in $ALL_IDS; do
+    if ! echo "$USED_IDS" | grep -qx "$INT_ID"; then
+      aws apigatewayv2 delete-integration \
+        --api-id "$API_ID" \
+        --integration-id "$INT_ID" \
+        --region "$REGION" > /dev/null 2>&1 && DELETED=$((DELETED + 1))
+    fi
+  done
+  echo "  ✓ Removed $DELETED orphaned integrations"
+}
+
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
+# Reuses the existing integration for a Lambda rather than creating a new one
+# each time — prevents the 300-integration hard limit from being hit on re-deploys.
 add_route() {
   local ROUTE_KEY=$1 LAMBDA_NAME=$2 AUTH=$3
 
-  LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region $REGION \
+  LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region "$REGION" \
     --query 'Configuration.FunctionArn' --output text)
+
+  local INT_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
+
+  # Reuse existing integration for this Lambda URI (avoids creating duplicates)
+  INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
+    --api-id "$API_ID" --region "$REGION" \
+    --query "Items[?IntegrationUri=='${INT_URI}'] | [0].IntegrationId" \
+    --output text 2>/dev/null)
+
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+      --api-id "$API_ID" \
+      --integration-type AWS_PROXY \
+      --integration-uri "$INT_URI" \
+      --payload-format-version 2.0 \
+      --region "$REGION" \
+      --query 'IntegrationId' --output text)
+  fi
 
   STMT_ID="apigw-$(echo "$ROUTE_KEY" | tr '/ {}' '----' | tr '[:upper:]' '[:lower:]' | tr -s '-')"
   aws lambda add-permission \
@@ -89,53 +135,45 @@ add_route() {
     --action lambda:InvokeFunction \
     --principal apigateway.amazonaws.com \
     --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${API_ID}/*/*" \
-    --region $REGION > /dev/null 2>&1 || true
+    --region "$REGION" > /dev/null 2>&1 || true
 
-  INTEGRATION_ID=$(aws apigatewayv2 create-integration \
-    --api-id $API_ID \
-    --integration-type AWS_PROXY \
-    --integration-uri "arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations" \
-    --payload-format-version 2.0 \
-    --region $REGION \
-    --query 'IntegrationId' --output text)
-
-  EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
+  EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" \
     --query "Items[?RouteKey=='${ROUTE_KEY}'].RouteId" --output text 2>/dev/null)
 
   if [ -n "$EXISTING_ROUTE" ] && [ "$EXISTING_ROUTE" != "None" ]; then
     if [ "$AUTH" = "jwt" ]; then
-      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id $API_ID --region $REGION \
+      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
         --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 update-route --api-id $API_ID \
+      aws apigatewayv2 update-route --api-id "$API_ID" \
         --route-id "$EXISTING_ROUTE" \
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type JWT \
         --authorizer-id "$AUTHORIZER_ID" \
-        --region $REGION > /dev/null
+        --region "$REGION" > /dev/null
     else
-      aws apigatewayv2 update-route --api-id $API_ID \
+      aws apigatewayv2 update-route --api-id "$API_ID" \
         --route-id "$EXISTING_ROUTE" \
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type NONE \
-        --region $REGION > /dev/null
+        --region "$REGION" > /dev/null
     fi
     echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
   else
     if [ "$AUTH" = "jwt" ]; then
-      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id $API_ID --region $REGION \
+      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
         --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 create-route --api-id $API_ID \
+      aws apigatewayv2 create-route --api-id "$API_ID" \
         --route-key "$ROUTE_KEY" \
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type JWT \
         --authorizer-id "$AUTHORIZER_ID" \
-        --region $REGION > /dev/null
+        --region "$REGION" > /dev/null
     else
-      aws apigatewayv2 create-route --api-id $API_ID \
+      aws apigatewayv2 create-route --api-id "$API_ID" \
         --route-key "$ROUTE_KEY" \
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type NONE \
-        --region $REGION > /dev/null
+        --region "$REGION" > /dev/null
     fi
     echo "  ✓ Route $ROUTE_KEY created → $LAMBDA_NAME"
   fi
@@ -608,6 +646,8 @@ deploy_lambda "nexum-fi-system-violations" "fi-system-violations.mjs" "fi-system
 echo ""
 echo "3/4  API Gateway Routes"
 echo "     (existing routes updated in-place; new ones created)"
+
+purge_unused_integrations
 
 # Violations — 4 routes
 add_route "GET /violations"          "nexum-fi-violations"  "jwt"
