@@ -10,13 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   BookOpen, Plus, ArrowLeft, CheckCircle, AlertTriangle, UserCheck, Wrench,
   ShieldCheck, Lock, RefreshCw, Edit3, Lightbulb, FileText, Clock,
-  Shield, Activity, ChevronRight, X, Loader2,
+  Shield, Activity, ChevronRight, X, Loader2, Zap, TrendingUp, BarChart3,
+  CalendarClock, Repeat2, Target,
 } from 'lucide-react';
 import {
   listObservations, createObservation, getObservation,
   validateObservation, escalateObservation, assignObservation,
   addObservationAction, verifyObservation, closeObservation,
   reopenObservation, amendObservation, getObservationAISummary,
+  getWorkOrders,
 } from '@/lib/nexum-api';
 import type {
   Observation, ObservationEvent, ObservationTimelineEntry, ObservationScores,
@@ -111,6 +113,252 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+// ── Right Moment™ Intelligence View ───────────────────────────────────────────
+
+function computeRightMoment(workOrders: any[], violations: any[]) {
+  const now = Date.now();
+  const openWOs  = workOrders.filter(w => !['completed', 'closed', 'cancelled'].includes((w.status || '').toLowerCase()));
+  const openSVs  = violations.filter(v => !['closed'].includes(v.status));
+
+  // Workload pressure: open WOs weighted by priority
+  const priorityWeight: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+  const workloadPressure = Math.min(100, openWOs.reduce((sum, w) => {
+    return sum + (priorityWeight[(w.priority || 'low').toLowerCase()] ?? 1) * 10;
+  }, 0));
+
+  // Recurrence flags: same equipment in violations within 90 days
+  const ninetyDays = 90 * 24 * 3600 * 1000;
+  const equipmentCounts: Record<string, number> = {};
+  for (const sv of violations) {
+    const age = now - new Date(sv.createdAt || now).getTime();
+    if (age <= ninetyDays && sv.equipment) {
+      equipmentCounts[sv.equipment] = (equipmentCounts[sv.equipment] || 0) + 1;
+    }
+  }
+  const recurring = Object.entries(equipmentCounts)
+    .filter(([, cnt]) => cnt >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([equipment, count]) => ({ equipment, count }));
+
+  // Top open WOs by priority for action focus
+  const focusItems = openWOs
+    .sort((a, b) => (priorityWeight[(b.priority || 'low').toLowerCase()] ?? 1) - (priorityWeight[(a.priority || 'low').toLowerCase()] ?? 1))
+    .slice(0, 8);
+
+  // Right Moment Score: inverse of pressure + recurrence penalty
+  const recurrencePenalty = Math.min(30, recurring.length * 6);
+  const violationPressure = Math.min(30, openSVs.filter(v => ['critical', 'high'].includes(v.severity)).length * 5);
+  const rightMomentScore  = Math.max(0, 100 - workloadPressure * 0.4 - recurrencePenalty - violationPressure);
+
+  return { openWOs, openSVs, workloadPressure, recurring, focusItems, rightMomentScore };
+}
+
+interface RightMomentViewProps {
+  workOrders: any[];
+  violations: any[];
+  loading: boolean;
+  onRefresh: () => void;
+}
+
+function RightMomentView({ workOrders, violations, loading, onRefresh }: RightMomentViewProps) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
+
+  const { openWOs, openSVs, workloadPressure, recurring, focusItems, rightMomentScore } = computeRightMoment(workOrders, violations);
+
+  const scoreColor = rightMomentScore >= 70 ? 'text-green-400' : rightMomentScore >= 40 ? 'text-amber-400' : 'text-red-400';
+  const pressureColor = workloadPressure <= 30 ? 'text-green-400' : workloadPressure <= 60 ? 'text-amber-400' : 'text-red-400';
+
+  const woStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      open:        'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      in_progress: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      pending:     'bg-orange-500/20 text-orange-300 border-orange-500/30',
+    };
+    return map[status?.toLowerCase()] || 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+  };
+
+  const priorityBadge = (p: string) => {
+    const map: Record<string, string> = {
+      critical: 'bg-red-500/20 text-red-300 border-red-500/30',
+      high:     'bg-orange-500/20 text-orange-300 border-orange-500/30',
+      medium:   'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      low:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    };
+    return map[(p || 'low').toLowerCase()] || 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header bar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-amber-400" />
+          <span className="text-sm font-semibold text-amber-300">Right Moment™ Intelligence</span>
+          <span className="text-xs text-muted-foreground">— Optimal action window analysis</span>
+        </div>
+        <button onClick={onRefresh} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <RefreshCw className="h-3.5 w-3.5" />Refresh
+        </button>
+      </div>
+
+      {/* Score cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="h-3 w-3" />Right Moment Score™</p>
+            <p className={`text-3xl font-black ${scoreColor}`}>{Math.round(rightMomentScore)}</p>
+            <p className="text-[10px] text-muted-foreground">/100</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><BarChart3 className="h-3 w-3" />Workload Pressure</p>
+            <p className={`text-3xl font-black ${pressureColor}`}>{Math.round(workloadPressure)}</p>
+            <p className="text-[10px] text-muted-foreground">{openWOs.length} open WOs</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><Repeat2 className="h-3 w-3" />Recurring Issues</p>
+            <p className={`text-3xl font-black ${recurring.length > 0 ? 'text-orange-400' : 'text-green-400'}`}>{recurring.length}</p>
+            <p className="text-[10px] text-muted-foreground">assets, 90-day window</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1"><AlertTriangle className="h-3 w-3" />Critical Violations</p>
+            <p className={`text-3xl font-black ${openSVs.filter(v => v.severity === 'critical').length > 0 ? 'text-red-400' : 'text-green-400'}`}>
+              {openSVs.filter(v => v.severity === 'critical').length}
+            </p>
+            <p className="text-[10px] text-muted-foreground">unresolved</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Priority Action Focus */}
+        <Card className="bg-card/60 border-border/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-amber-300 uppercase tracking-wide flex items-center gap-1">
+              <TrendingUp className="h-3.5 w-3.5" />Priority Action Focus
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {focusItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-4">No open work orders.</p>
+            ) : (
+              <div className="divide-y divide-border/20">
+                {focusItems.map((wo, i) => (
+                  <div key={wo.id || wo.SK || i} className="flex items-start gap-2 px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <Badge className={`text-[10px] px-1.5 py-0 border ${priorityBadge(wo.priority)}`}>{wo.priority || 'low'}</Badge>
+                        <Badge className={`text-[10px] px-1.5 py-0 border ${woStatusBadge(wo.status)}`}>{wo.status || 'open'}</Badge>
+                      </div>
+                      <p className="text-xs text-foreground truncate">{wo.title || wo.description || wo.workOrderNumber || '—'}</p>
+                      {wo.assignedTo && <p className="text-[10px] text-muted-foreground">{wo.assignedTo}</p>}
+                    </div>
+                    {wo.dueDate && (
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap flex items-center gap-0.5">
+                        <CalendarClock className="h-2.5 w-2.5" />{new Date(wo.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recurrence Flags */}
+        <Card className="bg-card/60 border-border/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-orange-300 uppercase tracking-wide flex items-center gap-1">
+              <Repeat2 className="h-3.5 w-3.5" />Recurrence Flags — 90-Day Window
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recurring.length === 0 ? (
+              <div className="p-4 text-xs text-green-400 flex items-center gap-1.5">
+                <CheckCircle className="h-3.5 w-3.5" />No recurring equipment violations in the last 90 days.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/20">
+                {recurring.map(({ equipment, count }) => (
+                  <div key={equipment} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-foreground">{equipment}</span>
+                    </div>
+                    <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px]">
+                      {count}× violations
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Open System Violations summary */}
+        {openSVs.length > 0 && (
+          <Card className="bg-card/60 border-border/40 lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-red-300 uppercase tracking-wide flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />Open System Violations Requiring Attention
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      {['Observation', 'Equipment', 'Severity', 'Status', 'Age'].map(h => (
+                        <th key={h} className="text-left text-muted-foreground font-medium py-2 px-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openSVs.slice(0, 10).map((sv, i) => {
+                      const sevMap: Record<string, string> = {
+                        critical: 'bg-red-500/20 text-red-300 border-red-500/30',
+                        high:     'bg-orange-500/20 text-orange-300 border-orange-500/30',
+                        medium:   'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+                        low:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                      };
+                      const age = Math.floor((Date.now() - new Date(sv.createdAt || Date.now()).getTime()) / 86400000);
+                      return (
+                        <tr key={sv.id || i} className="border-b border-border/20 hover:bg-muted/10">
+                          <td className="py-2 px-3 max-w-[200px] truncate">{sv.observation || sv.observationCustom || '—'}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{sv.equipment || '—'}</td>
+                          <td className="py-2 px-3">
+                            <Badge className={`text-[10px] px-1.5 py-0 border ${sevMap[(sv.severity || 'low').toLowerCase()] || ''}`}>
+                              {sv.severity || 'low'}
+                            </Badge>
+                          </td>
+                          <td className="py-2 px-3 capitalize text-muted-foreground">{(sv.status || '').replace('_', ' ')}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{age === 0 ? 'Today' : `${age}d`}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ObservationJournal() {
@@ -129,6 +377,12 @@ export default function ObservationJournal() {
   const [dialogSubmitting, setDialogSubmitting] = useState(false);
   const [aiNarrative, setAiNarrative] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [rmData, setRmData] = useState<{
+    workOrders: any[];
+    violations: any[];
+    loaded: boolean;
+  }>({ workOrders: [], violations: [], loaded: false });
+  const [rmLoading, setRmLoading] = useState(false);
 
   const loadObservations = useCallback(async (status?: string) => {
     setLoading(true);
@@ -146,11 +400,38 @@ export default function ObservationJournal() {
     loadObservations();
   }, [loadObservations]);
 
+  const loadRightMoment = useCallback(async () => {
+    if (rmData.loaded) return;
+    setRmLoading(true);
+    try {
+      const [woRes, svRes] = await Promise.allSettled([
+        getWorkOrders(),
+        fetch(
+          'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod/system-violations',
+          { headers: { Authorization: `Bearer ${localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || ''}` } }
+        ).then(r => r.json()),
+      ]);
+      setRmData({
+        workOrders: woRes.status === 'fulfilled' ? (woRes.value?.workOrders || woRes.value?.items || []) : [],
+        violations: svRes.status === 'fulfilled' ? (svRes.value?.violations || []) : [],
+        loaded: true,
+      });
+    } catch {
+      setRmData({ workOrders: [], violations: [], loaded: true });
+    } finally {
+      setRmLoading(false);
+    }
+  }, [rmData.loaded]);
+
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
     setSelected(null);
-    loadObservations(tab === 'all' ? undefined : tab);
-  }, [loadObservations]);
+    if (tab === 'right-moment') {
+      loadRightMoment();
+    } else {
+      loadObservations(tab === 'all' ? undefined : tab);
+    }
+  }, [loadObservations, loadRightMoment]);
 
   const handleSelectRow = useCallback(async (sk: string) => {
     setDetailLoading(true);
@@ -240,7 +521,7 @@ export default function ObservationJournal() {
     }
   }, [selected]);
 
-  const TABS = ['all', 'open', 'validated', 'escalated', 'in-progress', 'verified', 'closed'];
+  const TABS = ['all', 'open', 'validated', 'escalated', 'in-progress', 'verified', 'closed', 'right-moment'];
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (detailLoading) {
@@ -739,19 +1020,34 @@ export default function ObservationJournal() {
             <button
               key={tab}
               onClick={() => handleTabChange(tab)}
-              className={`px-3 py-1.5 text-xs rounded-t font-medium capitalize transition-colors ${
+              className={`px-3 py-1.5 text-xs rounded-t font-medium capitalize transition-colors flex items-center gap-1 ${
                 activeTab === tab
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  ? tab === 'right-moment'
+                    ? 'bg-amber-500 text-black'
+                    : 'bg-primary text-primary-foreground'
+                  : tab === 'right-moment'
+                    ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
               }`}
             >
-              {tab === 'all' ? 'All' : tab.replace('-', ' ')}
+              {tab === 'right-moment' && <Zap className="h-3 w-3" />}
+              {tab === 'all' ? 'All' : tab === 'right-moment' ? 'Right Moment™' : tab.replace('-', ' ')}
             </button>
           ))}
         </div>
 
+        {/* Right Moment™ View */}
+        {activeTab === 'right-moment' && (
+          <RightMomentView
+            workOrders={rmData.workOrders}
+            violations={rmData.violations}
+            loading={rmLoading}
+            onRefresh={() => { setRmData({ workOrders: [], violations: [], loaded: false }); loadRightMoment(); }}
+          />
+        )}
+
         {/* List */}
-        <Card className="bg-card/60 border-border/40">
+        {activeTab !== 'right-moment' && <Card className="bg-card/60 border-border/40">
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-16">
@@ -803,7 +1099,7 @@ export default function ObservationJournal() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Create Dialog */}
