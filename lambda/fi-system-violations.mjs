@@ -14,8 +14,8 @@ import { DynamoDBDocumentClient, PutCommand,
 import { randomUUID }                           from "crypto";
 
 const ddb       = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-2" }));
-const TABLE     = process.env.SVIOL_TABLE  || "NexumSystemViolations";
-const OBS_TABLE = process.env.OBS_TABLE    || "ObservationJournal";
+const TABLE     = process.env.TABLE     || "NexumSystemViolations";
+const OBS_TABLE = process.env.OBS_TABLE || "ObservationJournal";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function json(statusCode, body) {
