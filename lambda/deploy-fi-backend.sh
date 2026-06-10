@@ -79,18 +79,20 @@ deploy_lambda() {
 purge_unused_integrations() {
   echo "▶ Purging orphaned integrations (frees capacity)..."
 
-  # Integration IDs currently wired to a route
-  USED_IDS=$(aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" \
+  # --max-results 300 is the service hard limit; avoids pagination issues
+  USED_IDS=$(aws apigatewayv2 get-routes \
+    --api-id "$API_ID" --region "$REGION" --max-results 500 \
     --query 'Items[].Target' --output text 2>/dev/null \
     | tr '\t' '\n' | sed 's|integrations/||g' | grep -v '^$' | sort -u)
 
-  # All integration IDs that exist
-  ALL_IDS=$(aws apigatewayv2 get-integrations --api-id "$API_ID" --region "$REGION" \
+  ALL_IDS=$(aws apigatewayv2 get-integrations \
+    --api-id "$API_ID" --region "$REGION" --max-results 300 \
     --query 'Items[].IntegrationId' --output text 2>/dev/null \
     | tr '\t' '\n' | grep -v '^$')
 
-  DELETED=0
+  TOTAL=0; DELETED=0
   for INT_ID in $ALL_IDS; do
+    TOTAL=$((TOTAL + 1))
     if ! echo "$USED_IDS" | grep -qx "$INT_ID"; then
       aws apigatewayv2 delete-integration \
         --api-id "$API_ID" \
@@ -98,12 +100,14 @@ purge_unused_integrations() {
         --region "$REGION" > /dev/null 2>&1 && DELETED=$((DELETED + 1))
     fi
   done
-  echo "  ✓ Removed $DELETED orphaned integrations"
+  REMAINING=$((TOTAL - DELETED))
+  echo "  ✓ Removed $DELETED orphaned integrations ($REMAINING remaining of 300 max)"
 }
 
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
 # Reuses the existing integration for a Lambda rather than creating a new one
 # each time — prevents the 300-integration hard limit from being hit on re-deploys.
+# Uses --max-results 300 to avoid pagination truncating the integrations list.
 add_route() {
   local ROUTE_KEY=$1 LAMBDA_NAME=$2 AUTH=$3
 
@@ -112,11 +116,14 @@ add_route() {
 
   local INT_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
 
-  # Reuse existing integration for this Lambda URI (avoids creating duplicates)
+  # Reuse existing integration for this Lambda URI (--max-results 300 avoids pagination miss)
   INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
-    --api-id "$API_ID" --region "$REGION" \
+    --api-id "$API_ID" --region "$REGION" --max-results 300 \
     --query "Items[?IntegrationUri=='${INT_URI}'] | [0].IntegrationId" \
     --output text 2>/dev/null)
+
+  # Strip any trailing whitespace/newlines that might sneak through
+  INTEGRATION_ID="${INTEGRATION_ID//[$'\t\r\n ']}"
 
   if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
     INTEGRATION_ID=$(aws apigatewayv2 create-integration \
@@ -125,7 +132,15 @@ add_route() {
       --integration-uri "$INT_URI" \
       --payload-format-version 2.0 \
       --region "$REGION" \
-      --query 'IntegrationId' --output text)
+      --query 'IntegrationId' --output text 2>/dev/null)
+    INTEGRATION_ID="${INTEGRATION_ID//[$'\t\r\n ']}"
+  fi
+
+  # Guard: if INTEGRATION_ID is still empty, skip this route rather than corrupting it
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    echo "  ✗ SKIPPED $ROUTE_KEY — could not obtain integration ID (limit reached?)"
+    echo "    Run: bash ./purge-integrations.sh  then re-run this script"
+    return 1
   fi
 
   STMT_ID="apigw-$(echo "$ROUTE_KEY" | tr '/ {}' '----' | tr '[:upper:]' '[:lower:]' | tr -s '-')"
@@ -138,7 +153,9 @@ add_route() {
     --region "$REGION" > /dev/null 2>&1 || true
 
   EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" \
+    --max-results 500 \
     --query "Items[?RouteKey=='${ROUTE_KEY}'].RouteId" --output text 2>/dev/null)
+  EXISTING_ROUTE="${EXISTING_ROUTE//[$'\t\r\n ']}"
 
   if [ -n "$EXISTING_ROUTE" ] && [ "$EXISTING_ROUTE" != "None" ]; then
     if [ "$AUTH" = "jwt" ]; then
