@@ -85,6 +85,7 @@ import FacilityMemory from "./pages/FacilityMemory";
 import OperationalDNA from "./pages/OperationalDNA";
 import EventIntegrity from "./pages/EventIntegrity";
 import DriftIntelligence from "./pages/DriftIntelligence";
+import SystemViolations from "./pages/SystemViolations";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -417,6 +418,10 @@ export const router = createBrowserRouter([
           {
             path: "drift-intelligence",
             element: <DriftIntelligence />,
+          },
+          {
+            path: "system-violations",
+            element: <SystemViolations />,
           },
         ],
       },

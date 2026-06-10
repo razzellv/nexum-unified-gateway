@@ -79,6 +79,7 @@ export type TierFeature =
   | 'operational_dna'
   | 'event_integrity'
   | 'drift_intelligence'
+  | 'system_violations'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -133,6 +134,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'facility_memory', 'event_integrity', 'drift_intelligence',
+      'system_violations',
     ],
   },
   premium: {
@@ -156,6 +158,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'system_violations',
     ],
   },
   enterprise: {
@@ -206,6 +209,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'system_violations',
     ],
   },
 
@@ -443,4 +447,5 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   operational_dna:       'premium',
   event_integrity:       'business',
   drift_intelligence:    'business',
+  system_violations:     'business',
 };

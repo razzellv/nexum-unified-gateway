@@ -120,6 +120,7 @@ const allNavItems: NavItem[] = [
   { name: 'Operational DNA', href: '/operational-dna', icon: Cpu, access: 'leadership', tier: 'operational_dna' },
   { name: 'Event Integrity', href: '/event-integrity', icon: ShieldCheck, access: 'leadership', tier: 'event_integrity' },
   { name: 'Drift Intelligence', href: '/drift-intelligence', icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
+  { name: 'System Violations™', href: '/system-violations', icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
