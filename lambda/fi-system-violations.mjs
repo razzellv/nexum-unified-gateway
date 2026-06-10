@@ -87,7 +87,8 @@ function computeDefensibilityScore(item) {
   if (item.rootCauseCategory) score += 20;
   if (item.wasAssumptionCorrect) score += 10;
   if (item.lessonsLearned && String(item.lessonsLearned).trim()) score += 10;
-  if (item.workOrderId)  score += 10;
+  if (item.workOrderId)  score += 5;
+  if (item.authorizedBy && String(item.authorizedBy).trim()) score += 5;
   return Math.min(100, score);
 }
 
@@ -140,7 +141,7 @@ async function writeJournalEntry(item, actor, actRole, phase) {
 }
 
 // ── Status phase ordering ─────────────────────────────────────────────────────
-const STATUS_ORDER = ["open", "investigating", "wo_created", "in_progress", "resolved", "verified", "closed"];
+const STATUS_ORDER = ["open", "investigating", "wo_created", "in_progress", "resolved", "verified", "authorized", "closed"];
 
 function nextStatus(current) {
   const idx = STATUS_ORDER.indexOf(current);
@@ -213,7 +214,7 @@ export const handler = async (event) => {
     try {
       const items = await queryFacility(fid, {});
 
-      const byStatus = { open: 0, investigating: 0, wo_created: 0, in_progress: 0, resolved: 0, verified: 0, closed: 0 };
+      const byStatus = { open: 0, investigating: 0, wo_created: 0, in_progress: 0, resolved: 0, verified: 0, authorized: 0, closed: 0 };
       let critical = 0;
       let pendingRca = 0;
       const resolutionDays = [];
@@ -384,6 +385,11 @@ export const handler = async (event) => {
         if (newStatus === "verified" && !updated.verifiedAt) {
           updated.verifiedAt  = now;
           updated.verifiedBy  = actor;
+        }
+        if (newStatus === "authorized" && !updated.authorizedAt) {
+          updated.authorizedAt = now;
+          // authorizedBy / authorizedByRole / authorizationNote / riskAccepted / riskAcceptanceNote
+          // are already merged from b via the spread above
         }
         if (newStatus === "closed" && !updated.closedAt) {
           updated.closedAt  = now;

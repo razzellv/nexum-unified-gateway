@@ -153,6 +153,7 @@ const STATUS_PHASES: StatusPhase[] = [
   { key: 'in_progress',   label: 'In Progress',    shortLabel: 'Active',  color: 'text-blue-400',   bg: 'bg-blue-500/20',   border: 'border-blue-500/40',   icon: Zap },
   { key: 'resolved',      label: 'Resolved',       shortLabel: 'Resolv',  color: 'text-teal-400',   bg: 'bg-teal-500/20',   border: 'border-teal-500/40',   icon: CheckCircle2 },
   { key: 'verified',      label: 'Verified',       shortLabel: 'Verif',   color: 'text-cyan-400',   bg: 'bg-cyan-500/20',   border: 'border-cyan-500/40',   icon: Shield },
+  { key: 'authorized',    label: 'Authorized',     shortLabel: 'Auth',    color: 'text-violet-400', bg: 'bg-violet-500/20', border: 'border-violet-500/40', icon: FileText },
   { key: 'closed',        label: 'Closed',         shortLabel: 'Closed',  color: 'text-gray-400',   bg: 'bg-gray-500/20',   border: 'border-gray-500/40',   icon: XCircle },
 ];
 
@@ -231,6 +232,12 @@ interface SystemViolation {
   createdBy?: string;
   resolvedAt?: string;
   verifiedAt?: string;
+  authorizedAt?: string;
+  authorizedBy?: string;
+  authorizedByRole?: string;
+  authorizationNote?: string;
+  riskAccepted?: boolean;
+  riskAcceptanceNote?: string;
   closedAt?: string;
   investigationStartedAt?: string;
   investigatedBy?: string;
@@ -1158,6 +1165,13 @@ function PhaseAdvanceForm({ violation, onUpdated }: PhaseAdvanceFormProps) {
   const [verificationNotes, setVerificationNotes] = useState('');
   const [confirmedBy, setConfirmedBy]             = useState('');
 
+  // authorized
+  const [authorizedBy, setAuthorizedBy]           = useState('');
+  const [authorizedByRole, setAuthorizedByRole]   = useState('');
+  const [authorizationNote, setAuthorizationNote] = useState('');
+  const [riskAccepted, setRiskAccepted]           = useState<boolean | null>(null);
+  const [riskAcceptanceNote, setRiskAcceptanceNote] = useState('');
+
   // closed — defensibility
   const [wasAssumptionCorrect, setWasAssumptionCorrect] = useState<'yes' | 'partially' | 'no' | ''>('');
   const [missingInformation, setMissingInformation]     = useState('');
@@ -1190,6 +1204,13 @@ function PhaseAdvanceForm({ violation, onUpdated }: PhaseAdvanceFormProps) {
       }
       if (next === 'verified') {
         Object.assign(body, { verificationNotes, confirmedBy });
+      }
+      if (next === 'authorized') {
+        Object.assign(body, {
+          authorizedBy, authorizedByRole, authorizationNote,
+          riskAccepted: riskAccepted ?? false,
+          riskAcceptanceNote: riskAccepted ? riskAcceptanceNote : undefined,
+        });
       }
       if (next === 'closed') {
         Object.assign(body, {
@@ -1372,6 +1393,60 @@ function PhaseAdvanceForm({ violation, onUpdated }: PhaseAdvanceFormProps) {
         </>
       )}
 
+      {/* authorized */}
+      {next === 'authorized' && (
+        <>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-white/60 uppercase tracking-wide flex items-center gap-1">
+              <FileText className="w-3.5 h-3.5 text-violet-400" /> Decision Continuity™ — Management Authorization
+            </p>
+            <p className="text-xs text-muted-foreground">A leadership sign-off is required before this violation chain can be closed. This creates an auditable authorization record.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Authorized By <span className="text-red-400">*</span></Label>
+              <Input value={authorizedBy} onChange={e => setAuthorizedBy(e.target.value)} placeholder="Name of authorizing manager" className="mt-1 h-8 text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs">Role / Title</Label>
+              <Input value={authorizedByRole} onChange={e => setAuthorizedByRole(e.target.value)} placeholder="e.g. Facility Director" className="mt-1 h-8 text-sm" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Authorization Statement <span className="text-red-400">*</span></Label>
+            <Textarea value={authorizationNote} onChange={e => setAuthorizationNote(e.target.value)} placeholder="State formally why this resolution is accepted and the violation chain is authorized to close..." className="mt-1 text-sm resize-none" rows={3} />
+          </div>
+          <div>
+            <Label className="text-xs mb-2 block">Residual Risk Accepted?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {([false, true] as const).map(opt => (
+                <button
+                  key={String(opt)}
+                  type="button"
+                  onClick={() => setRiskAccepted(opt)}
+                  className={cn(
+                    'py-2 rounded-lg border font-semibold text-sm transition-all',
+                    riskAccepted === opt
+                      ? opt
+                        ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                        : 'bg-green-500/20 border-green-500/50 text-green-300'
+                      : 'bg-white/5 border-white/15 text-white/40 hover:bg-white/10',
+                  )}
+                >
+                  {opt ? 'Yes — Risk Accepted' : 'No — Fully Resolved'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {riskAccepted && (
+            <div>
+              <Label className="text-xs">Risk Acceptance Note <span className="text-red-400">*</span></Label>
+              <Textarea value={riskAcceptanceNote} onChange={e => setRiskAcceptanceNote(e.target.value)} placeholder="Describe the residual risk being accepted and any mitigations in place..." className="mt-1 text-sm resize-none" rows={3} />
+            </div>
+          )}
+        </>
+      )}
+
       {/* closed */}
       {next === 'closed' && (
         <>
@@ -1434,7 +1509,7 @@ function PhaseAdvanceForm({ violation, onUpdated }: PhaseAdvanceFormProps) {
       <div className="flex justify-end pt-2">
         <Button
           onClick={handleSubmit}
-          disabled={submitting || (next === 'resolved' && (!actualIssueFound || !howResolved)) || (next === 'closed' && !lessonsLearned)}
+          disabled={submitting || (next === 'resolved' && (!actualIssueFound || !howResolved)) || (next === 'authorized' && (!authorizedBy || !authorizationNote || (riskAccepted === true && !riskAcceptanceNote))) || (next === 'closed' && !lessonsLearned)}
           className={cn('gap-1.5', nextPhase.bg, nextPhase.color, 'border', nextPhase.border)}
           size="sm"
         >
@@ -1901,6 +1976,44 @@ function DetailPanel({ violation, onUpdated, onClose }: DetailPanelProps) {
                     <Brain className="w-3 h-3" /> Lessons Learned
                   </p>
                   <p className="text-sm leading-relaxed">{violation.lessonsLearned}</p>
+                </div>
+              )}
+
+              {violation.authorizedBy && (
+                <div className="bg-violet-500/8 border border-violet-500/25 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-violet-400 uppercase tracking-wide flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Decision Continuity™ — Authorization
+                  </p>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <User className="w-3 h-3 text-muted-foreground" />
+                      <span className="font-medium">{violation.authorizedBy}</span>
+                      {violation.authorizedByRole && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                          {violation.authorizedByRole}
+                        </Badge>
+                      )}
+                    </div>
+                    {violation.authorizedAt && (
+                      <p className="text-[10px] text-muted-foreground">{formatDate(violation.authorizedAt)}</p>
+                    )}
+                    {violation.authorizationNote && (
+                      <p className="text-sm leading-relaxed mt-1 italic text-white/80">{violation.authorizationNote}</p>
+                    )}
+                    {violation.riskAccepted !== undefined && (
+                      <div className={cn(
+                        'mt-2 px-2 py-1.5 rounded border text-xs font-medium',
+                        violation.riskAccepted
+                          ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
+                          : 'bg-green-500/10 border-green-500/30 text-green-300',
+                      )}>
+                        {violation.riskAccepted ? '⚠ Residual risk accepted' : '✓ Fully resolved — no residual risk'}
+                      </div>
+                    )}
+                    {violation.riskAccepted && violation.riskAcceptanceNote && (
+                      <p className="text-xs text-orange-200/70 mt-1">{violation.riskAcceptanceNote}</p>
+                    )}
+                  </div>
                 </div>
               )}
 
