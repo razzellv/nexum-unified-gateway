@@ -13,9 +13,17 @@ import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, g
 import { cn } from '@/lib/utils';
 import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 
+const LEADERSHIP_ROLES = new Set([
+  'executive', 'director', 'manager', 'supervisor', 'compliance_officer',
+  'admin', 'owner', 'chief', 'lieutenant', 'captain', 'shift_lead',
+  'operations_manager', 'dispatch_manager',
+]);
+
 const CommandDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const role = user?.role || user?.['custom:role'] || 'staff';
+  const isLeadership = LEADERSHIP_ROLES.has(role);
   const [metrics, setMetrics] = useState([
     { label: 'Active Tasks', value: '--', change: 0, trend: 'stable', status: 'warning' },
     { label: 'Critical Issues', value: '--', change: 0, trend: 'stable', status: 'critical' },
@@ -111,7 +119,10 @@ const CommandDashboard = () => {
       const [obsRes, boardsRes, dcRes] = await Promise.allSettled([
         fetch(baseUrl + '/observations?limit=5', { headers }).then(r => r.ok ? r.json() : null),
         fetch(baseUrl + '/evidence-boards', { headers }).then(r => r.ok ? r.json() : null),
-        fetch(baseUrl + '/dc-vault?limit=4', { headers }).then(r => r.ok ? r.json() : null),
+        // Only fetch DC chains for leadership roles — staff don't see decision chains
+        isLeadership
+          ? fetch(baseUrl + '/dc-vault?limit=4', { headers }).then(r => r.ok ? r.json() : null)
+          : Promise.resolve(null),
       ]);
 
       const observations: any[] = (obsRes.status === 'fulfilled' && obsRes.value)

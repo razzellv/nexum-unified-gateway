@@ -576,8 +576,8 @@ export default function OperationCenter() {
               <KPICard label="Total Staff"   value={data.personnelSummary?.totalFieldStaff || 0} icon={HardHat} />
             </div>
 
-            {/* Decision Continuity™ compact health indicator */}
-            <DCIntelligencePanel compact roleScope="supervisor" limit={3} />
+            {/* Decision Continuity™ compact health indicator — role & tier auto-gated */}
+            <DCIntelligencePanel compact limit={3} />
 
             {/* Tab Nav */}
             <div className="flex gap-1 border-b border-border/40 overflow-x-auto pb-0">

@@ -670,9 +670,8 @@ export default function ManagerDashboard() {
           </span>
         </div>
 
-        {/* Decision Continuity™ — department-filtered decision quality */}
+        {/* Decision Continuity™ — department-filtered, role & tier auto-gated */}
         <DCIntelligencePanel
-          roleScope="manager"
           department={selectedDept !== 'All' ? selectedDept : undefined}
           limit={5}
         />

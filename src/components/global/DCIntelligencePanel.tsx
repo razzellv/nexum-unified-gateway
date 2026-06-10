@@ -1,17 +1,18 @@
 // Decision Continuity™ Intelligence Panel
-// Reusable card any dashboard can drop in.
-// Shows: chain health bar, KPS, admissibility rate, DAR, recent chains.
+// Self-gating: only renders for leadership roles with dc_vault tier access.
+// Admin always sees full data. Staff roles see nothing (null).
 
-import { Shield, Link, TrendingUp, AlertTriangle, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { Shield, Link, TrendingUp, AlertTriangle, ArrowRight, Loader2, RefreshCw, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useDCIntelligence, type UseDCIntelligenceOptions } from '@/lib/dc-intelligence';
+import { useTier } from '@/hooks/useTier';
 import { cn } from '@/lib/utils';
 
 interface Props extends UseDCIntelligenceOptions {
-  /** Show compact single-row mode (for KPI grids) */
+  /** Show compact single-row mode (for KPI strips) */
   compact?: boolean;
   className?: string;
 }
@@ -39,21 +40,51 @@ function ScoreCell({ label, value, color, unit = '%' }: { label: string; value: 
 
 export function DCIntelligencePanel({ compact, className, ...options }: Props) {
   const navigate = useNavigate();
-  const { stats, chains, loading, error, refresh } = useDCIntelligence(options);
+  const { can } = useTier();
+  const { stats, chains, loading, error, accessDenied, refresh } = useDCIntelligence(options);
+
+  // ── Access denied: non-leadership or below premium tier ──────────────────────
+  if (accessDenied) {
+    if (compact) return null; // Don't clutter KPI strips
+    // Full panel: show upgrade prompt if they have role but lack tier
+    if (can('system_violations')) {
+      // Has business tier (system_violations) but not premium (dc_vault)
+      return (
+        <div className={cn('flex items-center gap-3 px-4 py-3 rounded-lg border border-violet-500/20 bg-violet-500/5', className)}>
+          <Lock className="w-4 h-4 text-violet-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-violet-300">Decision Continuity™ Vault</p>
+            <p className="text-xs text-muted-foreground">Upgrade to Premium to unlock immutable decision chains &amp; KPS intelligence.</p>
+          </div>
+          <Button size="sm" variant="outline" className="border-violet-500/40 text-violet-300 hover:bg-violet-500/10 shrink-0"
+            onClick={() => navigate('/pricing')}>
+            Upgrade
+          </Button>
+        </div>
+      );
+    }
+    // Below business or not leadership — hide entirely
+    return null;
+  }
 
   if (compact) {
     // ── KPI-grid-friendly single row ──────────────────────────────────────────
     return (
-      <div className={cn('flex items-center gap-3 px-3 py-2 rounded-lg border border-violet-500/20 bg-violet-500/5 cursor-pointer hover:bg-violet-500/10 transition-colors', className)}
-        onClick={() => navigate('/dc-vault')} role="button">
+      <div
+        className={cn('flex items-center gap-3 px-3 py-2 rounded-lg border border-violet-500/20 bg-violet-500/5 cursor-pointer hover:bg-violet-500/10 transition-colors', className)}
+        onClick={() => navigate('/dc-vault')}
+        role="button"
+      >
         <Shield className="w-4 h-4 text-violet-400 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">DC Vault</p>
+          <p className="text-xs text-muted-foreground">DC Vault™</p>
           {loading ? (
             <Loader2 className="w-3 h-3 animate-spin text-violet-400 mt-0.5" />
           ) : (
             <p className="text-sm font-semibold text-violet-300">
-              {stats ? `KPS ${stats.avgKPS ?? '—'}% · ${stats.activeChains} active` : 'No data'}
+              {stats
+                ? `KPS ${stats.avgKPS ?? '—'}% · ${stats.activeChains} active`
+                : 'No chains yet'}
             </p>
           )}
         </div>
@@ -75,8 +106,11 @@ export function DCIntelligencePanel({ compact, className, ...options }: Props) {
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={refresh} disabled={loading}>
               <RefreshCw className={cn('w-3 h-3', loading && 'animate-spin')} />
             </Button>
-            <Button variant="ghost" size="sm" className="h-6 text-xs text-violet-400 hover:text-violet-300 px-2"
-              onClick={() => navigate('/dc-vault')}>
+            <Button
+              variant="ghost" size="sm"
+              className="h-6 text-xs text-violet-400 hover:text-violet-300 px-2"
+              onClick={() => navigate('/dc-vault')}
+            >
               View All <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
@@ -101,10 +135,10 @@ export function DCIntelligencePanel({ compact, className, ...options }: Props) {
           <>
             {/* ── Metric grid ── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <ScoreCell label="Avg KPS™"         value={stats.avgKPS}           color="text-violet-400" />
-              <ScoreCell label="Admissibility"    value={stats.admissibilityRate} color="text-emerald-400" />
-              <ScoreCell label="Decision Accuracy" value={stats.avgDAR}           color="text-blue-400" />
-              <ScoreCell label="Active Chains"    value={stats.activeChains}     color="text-amber-400" unit="" />
+              <ScoreCell label="Avg KPS™"          value={stats.avgKPS}           color="text-violet-400" />
+              <ScoreCell label="Admissibility"     value={stats.admissibilityRate} color="text-emerald-400" />
+              <ScoreCell label="Decision Accuracy" value={stats.avgDAR}            color="text-blue-400" />
+              <ScoreCell label="Active Chains"     value={stats.activeChains}      color="text-amber-400" unit="" />
             </div>
 
             {/* ── Chain count badges ── */}
@@ -130,8 +164,11 @@ export function DCIntelligencePanel({ compact, className, ...options }: Props) {
             {chains.slice(0, 4).map(chain => {
               const kps = chain.metrics?.knowledgePreservationScore;
               return (
-                <div key={chain.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors cursor-pointer group"
-                  onClick={() => navigate(`/dc-vault`)}>
+                <div
+                  key={chain.id}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/dc-vault')}
+                >
                   <TrendingUp className="w-3.5 h-3.5 text-violet-400 shrink-0" />
                   <span className="text-xs truncate flex-1 text-foreground/80 group-hover:text-foreground transition-colors">
                     {chain.title}

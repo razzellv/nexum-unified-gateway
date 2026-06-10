@@ -578,9 +578,9 @@ export default function OCCAE() {
   const [expandedPF, setExpandedPF]     = useState<string | null>(null);
 
   // DC intelligence — loads when user opens Probability Feed tab
+  // roleScope auto-derived from logged-in user's role; tier-gated internally
   const { stats: dcStats, chains: dcChains } = useDCIntelligence({
     enabled: activeTab === 'probability',
-    roleScope: 'executive',
     limit: 10,
   });
 

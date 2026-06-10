@@ -589,8 +589,8 @@ export default function ExecutiveDashboard() {
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
                 </div>
-                {/* Decision Continuity™ intelligence panel */}
-                <DCIntelligencePanel roleScope="executive" limit={5} />
+                {/* Decision Continuity™ intelligence panel — role & tier auto-gated */}
+                <DCIntelligencePanel limit={5} />
                 {/* Capital KPI cards */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   {(() => {
