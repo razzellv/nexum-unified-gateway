@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, type CostSummary } from '@/lib/nexum-api';
 import { cn } from '@/lib/utils';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 
 const CommandDashboard = () => {
   const { user } = useAuth();
@@ -107,9 +108,10 @@ const CommandDashboard = () => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
     try {
-      const [obsRes, boardsRes] = await Promise.allSettled([
+      const [obsRes, boardsRes, dcRes] = await Promise.allSettled([
         fetch(baseUrl + '/observations?limit=5', { headers }).then(r => r.ok ? r.json() : null),
         fetch(baseUrl + '/evidence-boards', { headers }).then(r => r.ok ? r.json() : null),
+        fetch(baseUrl + '/dc-vault?limit=4', { headers }).then(r => r.ok ? r.json() : null),
       ]);
 
       const observations: any[] = (obsRes.status === 'fulfilled' && obsRes.value)
@@ -117,6 +119,9 @@ const CommandDashboard = () => {
         : [];
       const boards: any[] = (boardsRes.status === 'fulfilled' && boardsRes.value)
         ? (boardsRes.value.boards || []).filter((b: any) => b.status === 'open' || b.status === 'active').slice(0, 3)
+        : [];
+      const dcChains: any[] = (dcRes.status === 'fulfilled' && dcRes.value)
+        ? (dcRes.value.chains || []).slice(0, 4)
         : [];
 
       const feed = [
@@ -138,7 +143,16 @@ const CommandDashboard = () => {
           severity: b.priority === 'critical' ? 100 : b.priority === 'high' ? 75 : null,
           href: '/evidence-board',
         })),
-      ].sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime()).slice(0, 8);
+        ...dcChains.map((c: any) => ({
+          type: 'dc_chain',
+          id: c.id,
+          title: c.title,
+          detail: `KPS ${c.metrics?.knowledgePreservationScore ?? '—'}% · ${c.signalCount || 0} signals · ${c.status}`,
+          time: c.createdAt,
+          severity: null,
+          href: '/dc-vault',
+        })),
+      ].sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime()).slice(0, 10);
 
       setFeedItems(feed);
     } catch { /* feed stays empty */ } finally {
@@ -313,7 +327,7 @@ const CommandDashboard = () => {
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold">Intelligence Feed</h2>
-              <span className="text-xs text-muted-foreground">Observations · Investigations · Signals</span>
+              <span className="text-xs text-muted-foreground">Observations · Investigations · DC Chains</span>
             </div>
             <button onClick={loadIntelligenceFeed} className="text-muted-foreground hover:text-foreground">
               <RefreshCw className={cn('w-4 h-4', feedLoading && 'animate-spin')} />
@@ -332,10 +346,15 @@ const CommandDashboard = () => {
           ) : (
             <div className="space-y-2">
               {feedItems.map((item, i) => {
-                const Icon = item.type === 'observation' ? BookOpen : LayoutGrid;
-                const typeColor = item.type === 'observation' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5'
-                                                               : 'text-amber-400 border-amber-400/20 bg-amber-400/5';
-                const typeLabel = item.type === 'observation' ? 'Observation' : 'Investigation';
+                const Icon = item.type === 'observation' ? BookOpen : item.type === 'dc_chain' ? Activity : LayoutGrid;
+                const typeColor = item.type === 'observation'
+                  ? 'text-blue-400 border-blue-400/20 bg-blue-400/5'
+                  : item.type === 'dc_chain'
+                    ? 'text-violet-400 border-violet-400/20 bg-violet-400/5'
+                    : 'text-amber-400 border-amber-400/20 bg-amber-400/5';
+                const typeLabel = item.type === 'observation' ? 'Observation'
+                  : item.type === 'dc_chain' ? 'DC Chain'
+                  : 'Investigation';
                 return (
                   <div
                     key={item.id || i}

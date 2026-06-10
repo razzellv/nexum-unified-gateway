@@ -10,6 +10,7 @@ import { NexumError } from '@/components/global/NexumError';
 import { FacilityGauge } from '@/components/global/FacilityGauge';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 import { TierGate } from '@/components/TierGate';
 import { getExecutiveDashboard, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from '@/lib/nexum-api';
 import { getAvailableFacilities } from '@/lib/role-filters';
@@ -588,6 +589,8 @@ export default function ExecutiveDashboard() {
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
                 </div>
+                {/* Decision Continuity™ intelligence panel */}
+                <DCIntelligencePanel roleScope="executive" limit={5} />
                 {/* Capital KPI cards */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   {(() => {

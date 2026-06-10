@@ -185,6 +185,33 @@ function BulkImportTab() {
 
     if (successCount > 0) {
       toast.success(`${successCount} record${successCount !== 1 ? 's' : ''} imported successfully`);
+
+      // DC Vault cross-write: record this batch import as a DC observation signal (non-critical)
+      try {
+        const token = localStorage.getItem('nexum_id_token') || localStorage.getItem('nexum_access_token') || '';
+        const systemTypes = [...new Set(rows.map(r => r.systemType?.trim()).filter(Boolean))];
+        const chainRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/dc-vault`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            title: `Facility Data Import — ${successCount} records (${systemTypes.join(', ')})`,
+            sourceType: 'facility_data_source',
+            description: `CSV batch import: ${successCount} successful, ${errs.length} failed. Systems: ${systemTypes.join(', ')}.`,
+          }),
+        });
+        if (chainRes.ok) {
+          const { chain } = await chainRes.json();
+          // Append an observation signal with the import summary
+          await fetch(`${import.meta.env.VITE_API_BASE_URL}/dc-vault/${chain.id}/signals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              signalType: 'observation',
+              rawContent: `Facility Data Source batch import completed. ${successCount} records ingested across systems: ${systemTypes.join(', ')}. ${errs.length > 0 ? `${errs.length} rows failed validation.` : 'No errors.'}`,
+            }),
+          }).catch(() => {});
+        }
+      } catch { /* non-critical — do not surface to user */ }
     }
     if (errs.length > 0) {
       toast.error(`${errs.length} row${errs.length !== 1 ? 's' : ''} failed — see error list`);

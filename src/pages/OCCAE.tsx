@@ -3,6 +3,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { TierGate } from '@/components/global/TierGate';
 import { useTier } from '@/hooks/useTier';
 import { apiRequest } from '@/lib/api';
+import { useDCIntelligence } from '@/lib/dc-intelligence';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -576,6 +577,13 @@ export default function OCCAE() {
   const [liveOpsAt, setLiveOpsAt]       = useState<Date | null>(null);
   const [expandedPF, setExpandedPF]     = useState<string | null>(null);
 
+  // DC intelligence — loads when user opens Probability Feed tab
+  const { stats: dcStats, chains: dcChains } = useDCIntelligence({
+    enabled: activeTab === 'probability',
+    roleScope: 'executive',
+    limit: 10,
+  });
+
   const fetchLiveOps = useCallback(async () => {
     setLiveOpsLoading(true);
     try {
@@ -607,10 +615,64 @@ export default function OCCAE() {
     }
   }, [activeTab, liveOps, liveOpsLoading, fetchLiveOps]);
 
-  const probabilityFindings = useMemo(
-    () => buildOCCAEProbabilityFeed(liveOps, dataPoints, analysisResult),
-    [liveOps, dataPoints, analysisResult]
-  );
+  const probabilityFindings = useMemo(() => {
+    const base = buildOCCAEProbabilityFeed(liveOps, dataPoints, analysisResult);
+
+    // Inject DC chain signals: low KPS or high repeat-failure risk → probability finding
+    if (dcStats && dcChains.length > 0) {
+      const avgKPS = dcStats.avgKPS ?? 100;
+      const lowKPSChains = dcChains.filter(c => (c.metrics?.knowledgePreservationScore ?? 100) < 50);
+      const repeatRiskChains = dcChains.filter(c => (c.metrics?.repeatFailureRisk ?? 0) >= 50);
+
+      if (avgKPS < 60 || lowKPSChains.length > 0) {
+        base.push({
+          id: 'dc-knowledge-gap',
+          title: 'Decision Knowledge Gap Detected',
+          system: 'compliance',
+          probability: Math.min(90, Math.round((1 - avgKPS / 100) * 80 + 20)),
+          urgency: avgKPS < 40 ? 'Critical' : 'High',
+          confidence: 'Medium',
+          signals: [
+            `Avg Knowledge Preservation Score™: ${avgKPS}% (below 60% threshold)`,
+            ...(lowKPSChains.length > 0 ? [`${lowKPSChains.length} chain(s) with KPS < 50%`] : []),
+          ],
+          rootCauses: [
+            'Decision processes not fully documented through all 7 signal phases',
+            'Outcome and lessons-learned signals missing from closed events',
+            'Insufficient authorization documentation on resolved violations',
+          ],
+          recommendation: 'Review DC Vault chains with low KPS. Ensure outcomes and lessons-learned are captured for every resolved event.',
+          vvfiRecommended: avgKPS < 40,
+          occaeLink: 'data-input',
+        });
+      }
+
+      if (repeatRiskChains.length > 0) {
+        base.push({
+          id: 'dc-repeat-failure',
+          title: 'Repeat Failure Pattern Detected',
+          system: 'multiple systems',
+          probability: Math.min(95, 30 + repeatRiskChains.length * 20),
+          urgency: repeatRiskChains.length >= 3 ? 'Critical' : 'High',
+          confidence: 'High',
+          signals: [
+            `${repeatRiskChains.length} DC chain(s) flagged for repeat failure risk`,
+            ...repeatRiskChains.slice(0, 3).map(c => `"${c.title}" — repeat risk ${c.metrics?.repeatFailureRisk ?? '?'}%`),
+          ],
+          rootCauses: [
+            'Root cause of prior events not fully resolved',
+            'Corrective actions not verified to completion',
+            'Same asset/system experiencing recurrent failures',
+          ],
+          recommendation: 'Open the DC Vault, review repeat-risk chains, and ensure lessons-learned signals are completed. Cross-reference with active work orders.',
+          vvfiRecommended: true,
+          occaeLink: 'data-input',
+        });
+      }
+    }
+
+    return base;
+  }, [liveOps, dataPoints, analysisResult, dcStats, dcChains]);
 
   // CSV upload
   const handleCsvUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

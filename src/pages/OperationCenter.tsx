@@ -4,6 +4,7 @@ import { useTier } from '@/hooks/useTier';
 import { NexumBranding } from "@/components/NexumBranding";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -574,6 +575,9 @@ export default function OperationCenter() {
               <KPICard label="Active Staff"  value={data.kpis?.activeStaffToday ?? 0} icon={Users}         accent="text-primary" sub="today" />
               <KPICard label="Total Staff"   value={data.personnelSummary?.totalFieldStaff || 0} icon={HardHat} />
             </div>
+
+            {/* Decision Continuity™ compact health indicator */}
+            <DCIntelligencePanel compact roleScope="supervisor" limit={3} />
 
             {/* Tab Nav */}
             <div className="flex gap-1 border-b border-border/40 overflow-x-auto pb-0">

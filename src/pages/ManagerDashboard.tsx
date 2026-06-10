@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -668,6 +669,13 @@ export default function ManagerDashboard() {
             governance-checked entries feed these metrics. Incomplete logs are excluded from this view.
           </span>
         </div>
+
+        {/* Decision Continuity™ — department-filtered decision quality */}
+        <DCIntelligencePanel
+          roleScope="manager"
+          department={selectedDept !== 'All' ? selectedDept : undefined}
+          limit={5}
+        />
 
         {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

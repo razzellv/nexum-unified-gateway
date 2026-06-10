@@ -207,12 +207,22 @@ async function putItem(item) {
 
 // ── Route handlers ────────────────────────────────────────────────────────────
 
-// GET /dc-vault — list chains for a facility
-async function listChains(facilityId) {
+// GET /dc-vault — list chains for a facility (supports ?status=, ?department=, ?limit=)
+async function listChains(facilityId, queryParams = {}) {
   const PK = `FACILITY#${facilityId}`;
-  const items = await queryItems(PK, "CHAIN#");
+  let items = await queryItems(PK, "CHAIN#");
+
+  // Apply filters
+  if (queryParams.status)     items = items.filter(c => c.status === queryParams.status);
+  if (queryParams.department) items = items.filter(c => c.department === queryParams.department);
+
   // Sort newest first
   items.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+
+  // Apply limit
+  const limit = queryParams.limit ? parseInt(queryParams.limit, 10) : 0;
+  if (limit > 0) items = items.slice(0, limit);
+
   return ok({ chains: items });
 }
 
@@ -518,7 +528,8 @@ export const handler = async (event) => {
 
     // GET /dc-vault
     if (method === "GET" && /^\/dc-vault\/?$/.test(rawPath)) {
-      return await listChains(facilityId);
+      const qp = event.queryStringParameters ?? {};
+      return await listChains(facilityId, qp);
     }
 
     // POST /dc-vault
