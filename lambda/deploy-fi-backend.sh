@@ -157,7 +157,10 @@ add_route() {
     --query "Items[?RouteKey=='${ROUTE_KEY}'].RouteId" --output text 2>/dev/null)
   EXISTING_ROUTE="${EXISTING_ROUTE//[$'\t\r\n ']}"
 
+  local ROUTE_ACTION="created"
   if [ -n "$EXISTING_ROUTE" ] && [ "$EXISTING_ROUTE" != "None" ]; then
+    # Try to update in-place; if the route is malformed, delete it and fall through to create
+    local UPDATE_OK=true
     if [ "$AUTH" = "jwt" ]; then
       AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
         --query 'Items[0].AuthorizerId' --output text)
@@ -166,34 +169,41 @@ add_route() {
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type JWT \
         --authorizer-id "$AUTHORIZER_ID" \
-        --region "$REGION" > /dev/null
+        --region "$REGION" > /dev/null 2>&1 || UPDATE_OK=false
     else
       aws apigatewayv2 update-route --api-id "$API_ID" \
         --route-id "$EXISTING_ROUTE" \
         --target "integrations/${INTEGRATION_ID}" \
         --authorization-type NONE \
-        --region "$REGION" > /dev/null
+        --region "$REGION" > /dev/null 2>&1 || UPDATE_OK=false
     fi
-    echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
-  else
-    if [ "$AUTH" = "jwt" ]; then
-      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
-        --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 create-route --api-id "$API_ID" \
-        --route-key "$ROUTE_KEY" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type JWT \
-        --authorizer-id "$AUTHORIZER_ID" \
-        --region "$REGION" > /dev/null
-    else
-      aws apigatewayv2 create-route --api-id "$API_ID" \
-        --route-key "$ROUTE_KEY" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type NONE \
-        --region "$REGION" > /dev/null
+    if [ "$UPDATE_OK" = true ]; then
+      echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
+      return 0
     fi
-    echo "  ✓ Route $ROUTE_KEY created → $LAMBDA_NAME"
+    # Update failed (malformed/orphaned route) — delete and recreate cleanly
+    aws apigatewayv2 delete-route --api-id "$API_ID" \
+      --route-id "$EXISTING_ROUTE" --region "$REGION" > /dev/null 2>&1 || true
+    ROUTE_ACTION="recreated"
   fi
+
+  if [ "$AUTH" = "jwt" ]; then
+    AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
+      --query 'Items[0].AuthorizerId' --output text)
+    aws apigatewayv2 create-route --api-id "$API_ID" \
+      --route-key "$ROUTE_KEY" \
+      --target "integrations/${INTEGRATION_ID}" \
+      --authorization-type JWT \
+      --authorizer-id "$AUTHORIZER_ID" \
+      --region "$REGION" > /dev/null
+  else
+    aws apigatewayv2 create-route --api-id "$API_ID" \
+      --route-key "$ROUTE_KEY" \
+      --target "integrations/${INTEGRATION_ID}" \
+      --authorization-type NONE \
+      --region "$REGION" > /dev/null
+  fi
+  echo "  ✓ Route $ROUTE_KEY $ROUTE_ACTION → $LAMBDA_NAME"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
