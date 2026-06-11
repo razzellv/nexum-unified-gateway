@@ -5,6 +5,7 @@ import { NexumBranding } from "@/components/NexumBranding";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
 import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -625,6 +626,49 @@ export default function OperationCenter() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Scope & DC Intelligence — side by side, auto role+tier gated */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ScopeAlignmentPanel limit={12} />
+                  <DCIntelligencePanel compact limit={3} />
+                </div>
+
+                {/* Top probability signals surfaced in overview */}
+                {probabilityFindings.filter(f => f.urgency === 'Critical' || f.urgency === 'High').length > 0 && (
+                  <Card className="neon-border border-orange-500/20">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Brain className="w-4 h-4 text-orange-400" />
+                        Top Probability Signals
+                        <Badge variant="outline" className="ml-auto border-orange-500/40 text-orange-300 text-xs">
+                          {probabilityFindings.filter(f => f.urgency === 'Critical' || f.urgency === 'High').length} high-priority
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {probabilityFindings.filter(f => f.urgency === 'Critical' || f.urgency === 'High').slice(0, 3).map(f => (
+                        <div key={f.id} className="flex items-start gap-3 p-2.5 rounded-lg border border-border/30 bg-muted/20">
+                          <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0',
+                            f.urgency === 'Critical' ? 'bg-red-400' : 'bg-orange-400')} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{f.title}</span>
+                              <Badge variant="outline" className={cn('text-[10px] h-4 px-1',
+                                f.urgency === 'Critical' ? 'border-red-500/40 text-red-300' : 'border-orange-500/40 text-orange-300')}>
+                                {f.probability}% probability
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">{f.recommendation}</p>
+                          </div>
+                          <button onClick={() => setActiveTab('probability')}
+                            className="text-xs text-primary hover:underline shrink-0 mt-0.5">
+                            Details
+                          </button>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card className="neon-border">
                   <CardHeader>

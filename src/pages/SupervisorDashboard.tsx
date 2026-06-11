@@ -6,6 +6,8 @@ import { NexumBranding } from "@/components/NexumBranding";
 import { getSupervisorDashboard } from "@/lib/nexum-api";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -478,6 +480,18 @@ export default function SupervisorDashboard() {
                 </Card>
               </div>
             )}
+
+            {/* Scope & DC Intelligence — auto role+tier gated */}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ScopeAlignmentPanel
+                department={selectedDept !== 'All' ? selectedDept : undefined}
+                limit={10}
+              />
+              <DCIntelligencePanel
+                department={selectedDept !== 'All' ? selectedDept : undefined}
+                limit={4}
+              />
+            </div>
 
             {/* Employee Status Table */}
             <EmployeeStatusTable employees={filteredViolations} />

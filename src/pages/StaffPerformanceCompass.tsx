@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { NexumLoader } from '@/components/global/NexumLoader';
 import { ParticleBackground } from '@/components/ParticleBackground';
 import { NexumBranding } from '@/components/NexumBranding';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 import {
   Users,
   TrendingUp,
@@ -296,6 +298,12 @@ export default function StaffPerformanceCompass() {
           <p className="text-muted-foreground mt-1">
             Organizational Virtue Performance Index (OVPI) - Team Overview
           </p>
+        </div>
+
+        {/* Team Decision Quality — DC + Scope Alignment, auto role+tier gated */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ScopeAlignmentPanel limit={10} />
+          <DCIntelligencePanel limit={4} />
         </div>
 
         {/* Summary Cards */}

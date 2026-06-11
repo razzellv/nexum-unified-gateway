@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -670,11 +671,17 @@ export default function ManagerDashboard() {
           </span>
         </div>
 
-        {/* Decision Continuity™ — department-filtered, role & tier auto-gated */}
-        <DCIntelligencePanel
-          department={selectedDept !== 'All' ? selectedDept : undefined}
-          limit={5}
-        />
+        {/* Decision Intelligence + Scope Alignment — dept-filtered, role & tier auto-gated */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DCIntelligencePanel
+            department={selectedDept !== 'All' ? selectedDept : undefined}
+            limit={5}
+          />
+          <ScopeAlignmentPanel
+            department={selectedDept !== 'All' ? selectedDept : undefined}
+            limit={15}
+          />
+        </div>
 
         {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

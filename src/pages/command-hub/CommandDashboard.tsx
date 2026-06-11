@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, type CostSummary } from '@/lib/nexum-api';
 import { cn } from '@/lib/utils';
 import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 
 const LEADERSHIP_ROLES = new Set([
   'executive', 'director', 'manager', 'supervisor', 'compliance_officer',
@@ -246,6 +247,14 @@ const CommandDashboard = () => {
             <MetricCard key={metric.label} metric={metric} delay={index * 50} />
           ))}
         </div>
+
+        {/* Scope & Decision Intelligence — leadership only, tier-gated */}
+        {isLeadership && (
+          <div className="grid md:grid-cols-2 gap-4">
+            <ScopeAlignmentPanel compact={false} limit={15} />
+            <DCIntelligencePanel limit={4} />
+          </div>
+        )}
 
         {/* Main Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
