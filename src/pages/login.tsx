@@ -109,17 +109,39 @@ export default function Login() {
       }
 
       // Check for pending plan checkout
-      const pendingPlan    = sessionStorage.getItem('nexum_pending_plan');
-      const pendingPilot   = sessionStorage.getItem('nexum_pending_pilot');
+      const pendingPlan    = localStorage.getItem('nexum_pending_plan');
+      const pendingPriceId = localStorage.getItem('nexum_pending_price_id');
+      const pendingPilot   = localStorage.getItem('nexum_pending_pilot');
       const facilityId     = localStorage.getItem('nexum_active_facility_id') ||
                              localStorage.getItem('nexum_facility_id');
 
       if (pendingPilot) {
-        sessionStorage.removeItem('nexum_pending_pilot');
+        localStorage.removeItem('nexum_pending_pilot');
         navigate('/onboarding?pilot=true');
-      } else if (pendingPlan) {
-        sessionStorage.removeItem('nexum_pending_plan');
-        sessionStorage.removeItem('nexum_pending_price_id');
+      } else if (pendingPlan && pendingPriceId) {
+        // Clear pending keys before redirect so a failed checkout doesn't loop
+        localStorage.removeItem('nexum_pending_plan');
+        localStorage.removeItem('nexum_pending_price_id');
+        try {
+          const token = localStorage.getItem('nexum_access_token') || '';
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              lineItems: [{ price: pendingPriceId, quantity: 1 }],
+              tier: pendingPlan,
+              allowPromotionCodes: true,
+              successUrl: `${window.location.origin}/welcome?tier=${encodeURIComponent(pendingPlan)}&session_id={CHECKOUT_SESSION_ID}`,
+              cancelUrl:  `${window.location.origin}/pricing`,
+            }),
+          });
+          const data = await res.json();
+          if (data.url) {
+            window.location.href = data.url;
+            return;
+          }
+        } catch {}
+        // Stripe call failed — fall back to pricing so user can retry
         navigate('/pricing');
       } else if (!facilityId) {
         navigate('/onboarding');

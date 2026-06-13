@@ -182,9 +182,9 @@ export default function Register() {
       else if (form.orgType)   sessionStorage.setItem('nexum_org_type', form.orgType);
 
       if (!inviteMode) {
-        if (planName)  sessionStorage.setItem('nexum_pending_plan',    planName);
-        if (priceId)   sessionStorage.setItem('nexum_pending_price_id', priceId);
-        if (isPilot)   sessionStorage.setItem('nexum_pending_pilot',   'true');
+        if (planName)  localStorage.setItem('nexum_pending_plan',    planName);
+        if (priceId)   localStorage.setItem('nexum_pending_price_id', priceId);
+        if (isPilot)   localStorage.setItem('nexum_pending_pilot',   'true');
       }
 
       navigate(`/verify-email?email=${encodeURIComponent(form.email.trim())}`);

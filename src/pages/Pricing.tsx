@@ -1278,8 +1278,8 @@ export default function Pricing() {
     // If user is not logged in, send them to register first
     const token = localStorage.getItem('nexum_access_token');
     if (!token) {
-      sessionStorage.setItem('nexum_pending_plan',     plan.name);
-      sessionStorage.setItem('nexum_pending_price_id', priceId);
+      localStorage.setItem('nexum_pending_plan',     plan.name);
+      localStorage.setItem('nexum_pending_price_id', priceId);
       navigate(`/register?plan=${encodeURIComponent(plan.name)}&priceId=${encodeURIComponent(priceId)}`);
       return;
     }
