@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
-  Brain, Cpu, TrendingDown,
+  Brain, Cpu, TrendingDown, Thermometer,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -109,6 +109,7 @@ const allNavItems: NavItem[] = [
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
   { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
+  { name: 'Climate Intelligence™', href: '/climate-intelligence', icon: Thermometer, access: 'leadership' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
   { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },

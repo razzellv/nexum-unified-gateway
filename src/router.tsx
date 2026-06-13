@@ -87,6 +87,7 @@ import EventIntegrity from "./pages/EventIntegrity";
 import DriftIntelligence from "./pages/DriftIntelligence";
 import SystemViolations from "./pages/SystemViolations";
 import DecisionContinuityVault from "./pages/DecisionContinuityVault";
+import ClimateIntelligence from "./pages/ClimateIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -319,6 +320,10 @@ export const router = createBrowserRouter([
           {
             path: "optimize-learn",
             element: <Courses />,
+          },
+          {
+            path: "climate-intelligence",
+            element: <ClimateIntelligence />,
           },
           {
             path: "apprentice",
