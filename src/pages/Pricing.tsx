@@ -1275,9 +1275,28 @@ export default function Pricing() {
     const priceId = effectivePriceId || plan.priceId;
     if (!priceId) return;
 
-    // If user is not logged in, send them to register first
+    // If user is not logged in, pay first then create account
     const token = localStorage.getItem('nexum_access_token');
     if (!token) {
+      setLoadingPlan(plan.name);
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lineItems: [{ price: priceId, quantity: 1 }],
+            tier: plan.name,
+            allowPromotionCodes: true,
+            successUrl: `${window.location.origin}/register?plan=${encodeURIComponent(plan.name)}&session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/pricing`,
+          }),
+        });
+        const data = await res.json();
+        if (data.url) { window.location.href = data.url; return; }
+      } catch { /* fall through */ } finally {
+        setLoadingPlan(null);
+      }
+      // Stripe failed — fall back to register with pending plan
       localStorage.setItem('nexum_pending_plan',     plan.name);
       localStorage.setItem('nexum_pending_price_id', priceId);
       navigate(`/register?plan=${encodeURIComponent(plan.name)}&priceId=${encodeURIComponent(priceId)}`);

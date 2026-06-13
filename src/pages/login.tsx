@@ -108,6 +108,16 @@ export default function Login() {
         return;
       }
 
+      // Check for paid session (pay-first flow: Stripe → Register → Login → Welcome)
+      const paidSessionId = localStorage.getItem('nexum_paid_session_id');
+      const paidPlan      = localStorage.getItem('nexum_paid_plan');
+      if (paidSessionId) {
+        localStorage.removeItem('nexum_paid_session_id');
+        localStorage.removeItem('nexum_paid_plan');
+        navigate(`/welcome?session_id=${encodeURIComponent(paidSessionId)}&tier=${encodeURIComponent(paidPlan || '')}`);
+        return;
+      }
+
       // Check for pending plan checkout
       const pendingPlan    = localStorage.getItem('nexum_pending_plan');
       const pendingPriceId = localStorage.getItem('nexum_pending_price_id');

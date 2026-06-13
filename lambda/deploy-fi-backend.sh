@@ -427,7 +427,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role nexum-fi-trial-manager-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -517,6 +517,9 @@ aws iam put-role-policy --role-name fi-system-violations-role --policy-name poli
 
 aws iam put-role-policy --role-name nexum-fi-dc-vault-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDCVault\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name nexum-fi-trial-manager-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminDeleteUser\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\"},{\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"*\"}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -681,6 +684,41 @@ deploy_lambda "nexum-fi-system-violations" "fi-system-violations.mjs" "fi-system
 
 # Decision Continuity™ Vault & Admissibility Engine™
 deploy_lambda "nexum-fi-dc-vault" "fi-dc-vault.mjs" "nexum-fi-dc-vault-role" "TABLE=NexumDCVault"
+
+# Trial Manager — daily cleanup of expired trial accounts (no API route; CloudWatch schedule)
+deploy_lambda "nexum-fi-trial-manager" "fi-trial-manager.mjs" "nexum-fi-trial-manager-role" \
+  "COGNITO_USER_POOL=us-east-2_mKMqaRq70,USERS_TABLE=NexumUsers"
+
+# ── CloudWatch Events rule: run trial manager daily at 06:00 UTC ──────────────
+TRIAL_RULE_NAME="nexum-fi-trial-manager-daily"
+TRIAL_LAMBDA_ARN=$(aws lambda get-function --function-name nexum-fi-trial-manager \
+  --region "$REGION" --query 'Configuration.FunctionArn' --output text 2>/dev/null || true)
+
+if [ -n "$TRIAL_LAMBDA_ARN" ] && [ "$TRIAL_LAMBDA_ARN" != "None" ]; then
+  # Create or update the rule
+  aws events put-rule \
+    --name "$TRIAL_RULE_NAME" \
+    --schedule-expression "cron(0 6 * * ? *)" \
+    --state ENABLED \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  # Add Lambda as target (idempotent)
+  aws events put-targets \
+    --rule "$TRIAL_RULE_NAME" \
+    --targets "Id=TrialManager,Arn=$TRIAL_LAMBDA_ARN" \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  # Grant Events permission to invoke Lambda (idempotent via SID)
+  aws lambda add-permission \
+    --function-name nexum-fi-trial-manager \
+    --statement-id "AllowCloudWatchEvents" \
+    --action "lambda:InvokeFunction" \
+    --principal events.amazonaws.com \
+    --source-arn "arn:aws:events:${REGION}:758027491272:rule/${TRIAL_RULE_NAME}" \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  echo "  ✓ CloudWatch schedule → nexum-fi-trial-manager (daily 06:00 UTC)"
+fi
 
 echo ""
 echo "3/4  API Gateway Routes"

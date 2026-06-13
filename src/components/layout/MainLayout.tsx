@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { AppSidebar } from './AppSidebar';
 import { Header } from './Header';
 import { WeatherBar } from '@/components/global/WeatherBar';
+import { TrialBanner } from '@/components/global/TrialBanner';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -36,6 +37,7 @@ function LayoutInner({ children }: MainLayoutProps) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header />
         <WeatherBar />
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
           {children}
         </main>

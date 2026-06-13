@@ -26,6 +26,7 @@ export function cognitoSignUp(params: {
   orgName: string;
   phone?: string;
   orgType?: string;
+  tier?: string;
   // Invite-mode: pre-assigned from invitation record
   facilityId?: string;
   role?: string;
@@ -41,6 +42,7 @@ export function cognitoSignUp(params: {
       new CognitoUserAttribute({ Name: 'custom:orgId',     Value: orgId }),
     ];
     if (params.orgType)    attrs.push(new CognitoUserAttribute({ Name: 'custom:orgType',    Value: params.orgType }));
+    if (params.tier)       attrs.push(new CognitoUserAttribute({ Name: 'custom:tier',       Value: params.tier }));
     if (params.phone)      attrs.push(new CognitoUserAttribute({ Name: 'phone_number',      Value: params.phone }));
     if (params.facilityId) attrs.push(new CognitoUserAttribute({ Name: 'custom:facilityId', Value: params.facilityId }));
     if (params.role)       attrs.push(new CognitoUserAttribute({ Name: 'custom:role',       Value: params.role }));

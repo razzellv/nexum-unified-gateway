@@ -2,6 +2,7 @@
 // Central source of truth for all tier-based feature gating
 
 export type SubscriptionTier =
+  | 'trial'
   | 'basic' | 'standard' | 'business' | 'premium' | 'enterprise' | 'admin'
   | 'retail_starter' | 'retail_pro'
   | 'command_basic' | 'command_standard' | 'command_pro';
@@ -84,6 +85,20 @@ export type TierFeature =
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
+  // ── Trial ──────────────────────────────────────────────────────────────────────────────
+  trial: {
+    id: 'trial',
+    name: 'Free Trial',
+    price: 0,
+    description: '7-day trial — same features as Basic',
+    maxFacilities: 2,
+    maxUsers: 10,
+    maxEquipment: 50,
+    features: [
+      'facility_data_source', 'equipment_library', 'work_orders',
+      'violations_tracking', 'basic_dashboards', 'compliance_logging', 'email_alerts',
+    ],
+  },
   // ── Facility tiers ──────────────────────────────────────────────────────────────────────
   basic: {
     id: 'basic',
@@ -360,6 +375,7 @@ export function getTierFromRole(role: string, subscription?: string): Subscripti
 }
 
 export const TIER_NAMES: Record<SubscriptionTier, string> = {
+  trial:            'Free Trial',
   basic:            'Basic',
   standard:         'Standard',
   business:         'Business',
