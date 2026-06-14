@@ -89,6 +89,7 @@ import SystemViolations from "./pages/SystemViolations";
 import DecisionContinuityVault from "./pages/DecisionContinuityVault";
 import ClimateIntelligence from "./pages/ClimateIntelligence";
 import ProjectControls from "./pages/ProjectControls";
+import DecisionOutcomeTracking from "./pages/DecisionOutcomeTracking";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -329,6 +330,10 @@ export const router = createBrowserRouter([
           {
             path: "project-controls",
             element: <ProjectControls />,
+          },
+          {
+            path: "decision-outcomes",
+            element: <DecisionOutcomeTracking />,
           },
           {
             path: "apprentice",

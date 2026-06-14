@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
-  Brain, Cpu, TrendingDown, Thermometer, Target,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -124,6 +124,7 @@ const allNavItems: NavItem[] = [
   { name: 'Drift Intelligence', href: '/drift-intelligence', icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
   { name: 'System Violations™', href: '/system-violations', icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
   { name: 'Decision Continuity™ Vault', href: '/dc-vault', icon: ShieldCheck, access: 'leadership', tier: 'dc_vault' },
+  { name: 'Decision Outcome Tracking™', href: '/decision-outcomes', icon: ClipboardCheck, access: 'leadership', tier: 'decision_outcomes' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
