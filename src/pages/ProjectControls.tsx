@@ -55,13 +55,19 @@ export function calcEVM(bac: number, pv: number, ev: number, ac: number) {
   const eac  = cpi > 0 ? bac / cpi : bac;
   const etc  = eac - ac;
   const vac  = bac - eac;
+  // TCPI: cost efficiency required on remaining work to finish within BAC
   const tcpi = (bac - ac) > 0 ? (bac - ev) / (bac - ac) : 0;
-  const ppc  = bac > 0 ? (pv / bac) * 100 : 0;
-  const apc  = bac > 0 ? (ev / bac) * 100 : 0;
+  // PCIB: Percent Complete Index Budget — fraction of total budget earned (EV / BAC)
+  const pcib = bac > 0 ? ev / bac : 0;
+  // PCIC: Percent Complete Index Cost — fraction of estimated total cost spent (AC / EAC)
+  const pcic = eac > 0 ? ac / eac : 0;
+  // Legacy percentage aliases used by progress bars (0–100 scale)
+  const ppc  = bac > 0 ? (pv / bac) * 100 : 0;   // Planned % complete (PV/BAC)
+  const apc  = pcib * 100;                          // Physical % complete (EV/BAC)
   let health: ProjectHealth = 'red';
   if (spi >= 0.95 && cpi >= 0.95) health = 'green';
   else if (spi >= 0.80 && cpi >= 0.80) health = 'yellow';
-  return { sv, cv, spi, cpi, eac, etc, vac, tcpi, ppc, apc, health };
+  return { sv, cv, spi, cpi, eac, etc, vac, tcpi, pcib, pcic, ppc, apc, health };
 }
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
@@ -341,7 +347,9 @@ export default function ProjectControls() {
     { metric: 'EAC',    question: 'Expected total cost at current efficiency (BAC / CPI)',          value: fmt$(evm.eac), color: evm.eac <= form.bac ? 'text-green-400' : 'text-red-400' },
     { metric: 'ETC',    question: 'Expected cost to finish all remaining work (EAC − AC)',          value: fmt$(evm.etc) },
     { metric: 'VAC',    question: 'Projected over/under budget at completion (BAC − EAC)',          value: fmt$(evm.vac), color: evm.vac >= 0 ? 'text-green-400' : 'text-red-400', badge: evm.vac >= 0 ? 'Under' : 'Over', badgeCls: evm.vac >= 0 ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
-    { metric: 'TCPI',   question: 'Cost efficiency needed on remaining work to hit BAC',            value: fmtIdx(evm.tcpi), color: evm.tcpi <= 1.0 ? 'text-green-400' : evm.tcpi <= 1.1 ? 'text-yellow-400' : 'text-red-400' },
+    { metric: 'TCPI',   question: 'Cost efficiency needed on all remaining work to finish within BAC — (BAC−EV)/(BAC−AC)', value: fmtIdx(evm.tcpi), color: evm.tcpi <= 1.0 ? 'text-green-400' : evm.tcpi <= 1.1 ? 'text-yellow-400' : 'text-red-400', badge: evm.tcpi <= 1.0 ? 'Achievable' : evm.tcpi <= 1.1 ? 'Challenging' : 'High Risk', badgeCls: evm.tcpi <= 1.0 ? 'border-green-500/40 text-green-400' : evm.tcpi <= 1.1 ? 'border-yellow-500/40 text-yellow-400' : 'border-red-500/40 text-red-400' },
+    { metric: 'PCIB',   question: 'Percent Complete Index Budget — what fraction of total budget has been earned (EV / BAC)', value: fmtPct(evm.pcib * 100), color: 'text-foreground', badge: evm.pcib >= evm.pcic ? 'On/Under Budget' : 'Behind Budget', badgeCls: evm.pcib >= evm.pcic ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
+    { metric: 'PCIC',   question: 'Percent Complete Index Cost — what fraction of estimated final cost has been spent (AC / EAC)', value: fmtPct(evm.pcic * 100), color: 'text-foreground', badge: evm.pcic <= evm.pcib ? 'Spending In Control' : 'Spending Ahead', badgeCls: evm.pcic <= evm.pcib ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
     { metric: 'Status', question: 'Overall project health classification',                          value: evm.health.toUpperCase(), color: evm.health === 'green' ? 'text-green-400' : evm.health === 'yellow' ? 'text-yellow-400' : 'text-red-400' },
   ];
 
@@ -570,6 +578,133 @@ export default function ProjectControls() {
                 </CardContent>
               </Card>
 
+              {/* ── PCIB / PCIC / TCPI Analysis Card ── */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Badge className="bg-primary/20 text-primary text-xs px-2 font-mono">§8</Badge>
+                    Performance Control Index Analysis
+                  </CardTitle>
+                  <CardDescription>PCIB vs PCIC budget control indicators — are you spending in line with earned work?</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+
+                  {/* PCIB */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-mono">PCIB = EV / BAC</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-xs">
+                          Percent Complete Index Budget: the fraction of the total approved budget that has been earned through completed work.
+                          PCIB tracks how far you are through the project in budget terms.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic mb-2">"What fraction of the total budget has been earned through completed work?"</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-muted-foreground">Budget Earned</span>
+                      <span className="text-xl font-bold font-mono text-foreground">{fmtPct(evm.pcib * 100)}</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${Math.min(evm.pcib * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Target: tracks to 100% at project completion</p>
+                  </div>
+
+                  {/* PCIC */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-mono">PCIC = AC / EAC</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-xs">
+                          Percent Complete Index Cost: the fraction of the estimated final cost (EAC) that has already been spent.
+                          Comparing PCIC to PCIB reveals whether spending is tracking with work progress.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic mb-2">"What fraction of the estimated total cost has already been spent?"</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-muted-foreground">Cost Consumed</span>
+                      <span className="text-xl font-bold font-mono text-foreground">{fmtPct(evm.pcic * 100)}</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all duration-500', evm.pcic <= evm.pcib ? 'bg-green-500' : 'bg-red-500')}
+                        style={{ width: `${Math.min(evm.pcic * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {evm.pcic > 0 && evm.pcib > 0
+                        ? evm.pcic <= evm.pcib
+                          ? `✓ Spending (${fmtPct(evm.pcic * 100)}) is at or below work progress (${fmtPct(evm.pcib * 100)}) — favorable`
+                          : `⚠ Spending (${fmtPct(evm.pcic * 100)}) is outpacing work progress (${fmtPct(evm.pcib * 100)}) — unfavorable`
+                        : 'Enter BAC, EV, AC, and CPI to compute'}
+                    </p>
+                  </div>
+
+                  {/* TCPI */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide font-mono">TCPI = (BAC−EV) / (BAC−AC)</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild><Info className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="text-xs max-w-xs">
+                          To-Complete Performance Index: the cost efficiency that must be achieved on all remaining work to finish within BAC.
+                          TCPI &gt; 1.0 means you need to work cheaper than current CPI. TCPI &gt; 1.2 is generally considered unachievable.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic mb-2">"How efficiently must remaining work be executed to finish within the approved budget?"</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Required Efficiency</span>
+                      <span className={cn('text-xl font-bold font-mono',
+                        evm.tcpi <= 1.0 ? 'text-green-400' : evm.tcpi <= 1.1 ? 'text-yellow-400' : 'text-red-400'
+                      )}>{fmtIdx(evm.tcpi)}</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden mt-1.5">
+                      <div
+                        className={cn('h-full rounded-full transition-all duration-500',
+                          evm.tcpi <= 1.0 ? 'bg-green-500' : evm.tcpi <= 1.1 ? 'bg-yellow-500' : 'bg-red-500'
+                        )}
+                        style={{ width: `${Math.min((evm.tcpi / 1.5) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>Achievable (&lt;1.0)</span>
+                      <span>Challenging (1.0–1.1)</span>
+                      <span>High Risk (&gt;1.1)</span>
+                    </div>
+                  </div>
+
+                  {/* PCIB vs PCIC vs CPI vs SPI quick-read */}
+                  <div className="pt-2 border-t border-border/30">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Index Comparison</p>
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      {[
+                        { label: 'PCIB', val: fmtPct(evm.pcib * 100), clr: 'text-blue-400' },
+                        { label: 'PCIC', val: fmtPct(evm.pcic * 100), clr: evm.pcic <= evm.pcib ? 'text-green-400' : 'text-red-400' },
+                        { label: 'SPI',  val: fmtIdx(evm.spi),  clr: evm.spi >= 0.95 ? 'text-green-400' : evm.spi >= 0.80 ? 'text-yellow-400' : 'text-red-400' },
+                        { label: 'CPI',  val: fmtIdx(evm.cpi),  clr: evm.cpi >= 0.95 ? 'text-green-400' : evm.cpi >= 0.80 ? 'text-yellow-400' : 'text-red-400' },
+                      ].map(({ label, val, clr }) => (
+                        <div key={label} className="rounded-lg bg-muted/30 border border-border/40 p-2">
+                          <p className="text-xs font-mono font-bold text-muted-foreground">{label}</p>
+                          <p className={cn('text-base font-bold font-mono mt-0.5', clr)}>{val}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      <span className="font-medium text-foreground">PCIB vs PCIC:</span> When PCIB &gt; PCIC, earned work exceeds spending rate — favorable.
+                      When PCIC &gt; PCIB, spending is outpacing work completion — requires corrective action.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Completion Forecasts */}
               <Card>
                 <CardHeader className="pb-3">
@@ -606,7 +741,7 @@ export default function ProjectControls() {
                     ))}
                   </div>
 
-                  {/* Progress bars */}
+                  {/* Progress bars — PV/BAC · PCIB · PCIC */}
                   <div className="space-y-2.5 pt-1 border-t border-border/30">
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -617,10 +752,24 @@ export default function ProjectControls() {
                     </div>
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Physical % Complete (EV / BAC)</span>
-                        <span className="font-mono font-medium">{fmtPct(evm.apc)}</span>
+                        <span>PCIB — Budget Earned (EV / BAC)</span>
+                        <span className="font-mono font-medium text-blue-400">{fmtPct(evm.pcib * 100)}</span>
                       </div>
-                      <Progress value={evm.apc} className="h-1.5" />
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(evm.pcib * 100, 100)}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>PCIC — Cost Consumed (AC / EAC)</span>
+                        <span className={cn('font-mono font-medium', evm.pcic <= evm.pcib ? 'text-green-400' : 'text-red-400')}>{fmtPct(evm.pcic * 100)}</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn('h-full rounded-full transition-all', evm.pcic <= evm.pcib ? 'bg-green-500' : 'bg-red-500')}
+                          style={{ width: `${Math.min(evm.pcic * 100, 100)}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
