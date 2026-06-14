@@ -82,6 +82,8 @@ export type TierFeature =
   | 'drift_intelligence'
   | 'system_violations'
   | 'dc_vault'
+  // Project Controls / EVM
+  | 'project_controls'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -150,7 +152,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'facility_memory', 'event_integrity', 'drift_intelligence',
-      'system_violations',
+      'system_violations', 'project_controls',
     ],
   },
   premium: {
@@ -174,7 +176,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'dc_vault',
+      'system_violations', 'dc_vault', 'project_controls',
     ],
   },
   enterprise: {
@@ -198,7 +200,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'dc_vault',
+      'dc_vault', 'project_controls',
     ],
   },
   admin: {
@@ -226,7 +228,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'dc_vault',
+      'system_violations', 'dc_vault', 'project_controls',
     ],
   },
 
@@ -310,7 +312,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'inventory_library', 'compliance_documents',
       'ai_compliance', 'lms', 'dedicated_manager',
       'operations_center', 'kanban', 'messages', 'vendors', 'calendar',
-      'workload', 'violations_tracking', 'priority_support',
+      'workload', 'violations_tracking', 'priority_support', 'project_controls',
     ],
   },
 };

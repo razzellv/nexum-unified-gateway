@@ -88,6 +88,7 @@ import DriftIntelligence from "./pages/DriftIntelligence";
 import SystemViolations from "./pages/SystemViolations";
 import DecisionContinuityVault from "./pages/DecisionContinuityVault";
 import ClimateIntelligence from "./pages/ClimateIntelligence";
+import ProjectControls from "./pages/ProjectControls";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -324,6 +325,10 @@ export const router = createBrowserRouter([
           {
             path: "climate-intelligence",
             element: <ClimateIntelligence />,
+          },
+          {
+            path: "project-controls",
+            element: <ProjectControls />,
           },
           {
             path: "apprentice",

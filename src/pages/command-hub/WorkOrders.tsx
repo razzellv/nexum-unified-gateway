@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Trash2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ShieldCheck, XCircle, Target } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { WorkOrderStats } from '@/components/command-hub/workorders/WorkOrderStats';
@@ -31,6 +32,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export default function WorkOrders() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // State
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -371,6 +373,10 @@ const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/project-controls')}>
+              <Target className="w-4 h-4 mr-2" />
+              Project Controls
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh

@@ -18,7 +18,7 @@ import {
   User, Bell, Shield, Users, Zap, Database, Save,
   DollarSign, Flame, Lock, Eye, Plus, Trash2, RefreshCw,
   FileText, Upload, Download, Search, X, FolderOpen, Calendar,
-  CreditCard, ExternalLink, AlertTriangle, CheckCircle, ArrowUpCircle,
+  CreditCard, ExternalLink, AlertTriangle, CheckCircle, ArrowUpCircle, Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +43,7 @@ const ALL_TABS = [
   { id: 'team',          label: 'Team & Roles',     icon: Users,      access: LEADERSHIP_ROLES },
   { id: 'documents',     label: 'Documents',        icon: FileText,   access: MANAGER_ROLES },
   { id: 'budget',        label: 'Budget',           icon: DollarSign, access: MANAGER_ROLES },
+  { id: 'project-controls', label: 'Project Controls', icon: Target,     access: MANAGER_ROLES },
   { id: 'utilities',     label: 'Utility Rates',    icon: Flame,      access: EXECUTIVE_ROLES },
   { id: 'approvals',     label: 'Approvals',        icon: Shield,     access: EXECUTIVE_ROLES },
   { id: 'billing',       label: 'Plan & Billing',   icon: CreditCard, access: EXECUTIVE_ROLES },
@@ -1265,6 +1266,76 @@ const Settings = () => {
                   </>
                 )}
               </div>
+            )}
+
+            {/* ── Project Controls ── */}
+            {activeTab === 'project-controls' && (
+              !can(userRole, MANAGER_ROLES) ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <Lock className="w-10 h-10 text-muted-foreground/40" />
+                  <p className="font-medium">Access restricted to managers and above</p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                        <Target className="w-5 h-5 text-primary" />
+                        Project Controls — EVM
+                      </h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Earned Value Management for budget, schedule, and performance governance
+                      </p>
+                    </div>
+                    <a
+                      href="/project-controls"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+                    >
+                      <Target className="w-4 h-4" />
+                      Open Project Controls
+                    </a>
+                  </div>
+
+                  {/* Quick stat summary from localStorage */}
+                  {(() => {
+                    const fid = user?.facilityId || 'facility-001';
+                    const cached = localStorage.getItem(`nexum_pc_${fid}`);
+                    const projects = cached ? JSON.parse(cached) : [];
+                    if (projects.length === 0) return (
+                      <div className="p-6 rounded-xl border border-dashed border-border/60 text-center">
+                        <Target className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No projects yet. Open Project Controls to create your first EVM project.</p>
+                      </div>
+                    );
+                    return (
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{projects.length} Active Project{projects.length !== 1 ? 's' : ''}</p>
+                        {projects.map((p: any) => {
+                          const spi = p.pv > 0 ? p.ev / p.pv : 0;
+                          const cpi = p.ac > 0 ? p.ev / p.ac : 0;
+                          const health = p.health || (spi >= 0.95 && cpi >= 0.95 ? 'green' : spi >= 0.80 && cpi >= 0.80 ? 'yellow' : 'red');
+                          const hCls = health === 'green' ? 'bg-green-600' : health === 'yellow' ? 'bg-yellow-600' : 'bg-red-600';
+                          return (
+                            <div key={p.projectId} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20">
+                              <div>
+                                <p className="text-sm font-medium">{p.projectName}</p>
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                  SPI {spi.toFixed(3)} · CPI {cpi.toFixed(3)}
+                                </p>
+                              </div>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white ${hCls}`}>{health.toUpperCase()}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-primary">Single Source of Truth</span> — EVM metrics (BAC, PV, EV, AC, SV, CV, SPI, CPI) sync across Work Orders, Executive Insights, Equipment Intelligence, Energy Dashboard, Compliance, and all PDF exports.
+                  </div>
+                </div>
+              )
             )}
 
             {/* ── Approvals ── */}

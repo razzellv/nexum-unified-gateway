@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket,
-  Brain, Cpu, TrendingDown, Thermometer,
+  Brain, Cpu, TrendingDown, Thermometer, Target,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,7 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
   { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
+  { name: 'Project Controls', href: '/project-controls', icon: Target, access: 'leadership', tier: 'project_controls' },
   { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
   { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'leadership', tier: 'messages' },
   { name: 'Kanban', href: '/kanban', icon: Columns3, access: 'leadership', tier: 'kanban' },
