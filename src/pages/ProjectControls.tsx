@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Target, Plus, Save, Trash2, RefreshCw, Info, TrendingUp, TrendingDown,
   Minus, AlertTriangle, CheckCircle2, XCircle, DollarSign, BarChart3,
-  FileText, Pencil,
+  FileText, Pencil, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,9 +52,20 @@ export function calcEVM(bac: number, pv: number, ev: number, ac: number) {
   const cv   = ev - ac;
   const spi  = pv > 0 ? ev / pv  : 0;
   const cpi  = ac > 0 ? ev / ac  : 0;
-  const eac  = cpi > 0 ? bac / cpi : bac;
-  const etc  = eac - ac;
-  const vac  = bac - eac;
+
+  // ── Three standard PMBOK EAC methods ──────────────────────────────────────
+  // EAC₁ (CPI method): assumes current cost efficiency continues for all remaining work
+  const eacCpi       = cpi > 0 ? bac / cpi : bac;
+  // EAC₂ (Budget rate): assumes remaining work is performed at the originally planned rate
+  const eacBudget    = ac + (bac - ev);
+  // EAC₃ (Composite): accounts for both cost and schedule efficiency on remaining work
+  const eacComposite = (cpi * spi) > 0 ? ac + (bac - ev) / (cpi * spi) : bac;
+
+  // Primary EAC used for downstream calcs (CPI method — most statistically reliable)
+  const eac = eacCpi;
+  const etc = eac - ac;
+  const vac = bac - eac;
+
   // TCPI: cost efficiency required on remaining work to finish within BAC
   const tcpi = (bac - ac) > 0 ? (bac - ev) / (bac - ac) : 0;
   // PCIB: Percent Complete Index Budget — fraction of total budget earned (EV / BAC)
@@ -62,12 +73,12 @@ export function calcEVM(bac: number, pv: number, ev: number, ac: number) {
   // PCIC: Percent Complete Index Cost — fraction of estimated total cost spent (AC / EAC)
   const pcic = eac > 0 ? ac / eac : 0;
   // Legacy percentage aliases used by progress bars (0–100 scale)
-  const ppc  = bac > 0 ? (pv / bac) * 100 : 0;   // Planned % complete (PV/BAC)
-  const apc  = pcib * 100;                          // Physical % complete (EV/BAC)
+  const ppc  = bac > 0 ? (pv / bac) * 100 : 0;
+  const apc  = pcib * 100;
   let health: ProjectHealth = 'red';
   if (spi >= 0.95 && cpi >= 0.95) health = 'green';
   else if (spi >= 0.80 && cpi >= 0.80) health = 'yellow';
-  return { sv, cv, spi, cpi, eac, etc, vac, tcpi, pcib, pcic, ppc, apc, health };
+  return { sv, cv, spi, cpi, eac, eacCpi, eacBudget, eacComposite, etc, vac, tcpi, pcib, pcic, ppc, apc, health };
 }
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
@@ -344,9 +355,11 @@ export default function ProjectControls() {
     { metric: 'CV',     question: 'Are we under or over budget? (EV − AC)',                        value: fmt$(evm.cv),  color: evm.cv >= 0 ? 'text-green-400' : 'text-red-400', badge: evm.cv >= 0 ? 'Under Budget' : 'Over Budget', badgeCls: evm.cv >= 0 ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
     { metric: 'SPI',    question: 'How efficiently are we progressing against the schedule? (EV / PV)', value: fmtIdx(evm.spi), color: evm.spi >= 0.95 ? 'text-green-400' : evm.spi >= 0.80 ? 'text-yellow-400' : 'text-red-400', badge: evm.spi >= 0.95 ? 'On Track' : evm.spi >= 0.80 ? 'Watch' : 'At Risk', badgeCls: evm.spi >= 0.95 ? 'border-green-500/40 text-green-400' : evm.spi >= 0.80 ? 'border-yellow-500/40 text-yellow-400' : 'border-red-500/40 text-red-400' },
     { metric: 'CPI',    question: 'How efficiently is the project spending money? (EV / AC)',       value: fmtIdx(evm.cpi), color: evm.cpi >= 0.95 ? 'text-green-400' : evm.cpi >= 0.80 ? 'text-yellow-400' : 'text-red-400', badge: evm.cpi >= 0.95 ? 'Efficient' : evm.cpi >= 0.80 ? 'Watch' : 'Over Cost', badgeCls: evm.cpi >= 0.95 ? 'border-green-500/40 text-green-400' : evm.cpi >= 0.80 ? 'border-yellow-500/40 text-yellow-400' : 'border-red-500/40 text-red-400' },
-    { metric: 'EAC',    question: 'Expected total cost at current efficiency (BAC / CPI)',          value: fmt$(evm.eac), color: evm.eac <= form.bac ? 'text-green-400' : 'text-red-400' },
-    { metric: 'ETC',    question: 'Expected cost to finish all remaining work (EAC − AC)',          value: fmt$(evm.etc) },
-    { metric: 'VAC',    question: 'Projected over/under budget at completion (BAC − EAC)',          value: fmt$(evm.vac), color: evm.vac >= 0 ? 'text-green-400' : 'text-red-400', badge: evm.vac >= 0 ? 'Under' : 'Over', badgeCls: evm.vac >= 0 ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
+    { metric: 'EAC₁',   question: 'Estimate At Completion — CPI method, assumes current efficiency continues (BAC / CPI) [Primary]', value: fmt$(evm.eacCpi),       color: evm.eacCpi <= form.bac ? 'text-green-400' : 'text-red-400' },
+    { metric: 'EAC₂',   question: 'Estimate At Completion — budget rate, remaining work at planned rate (AC + BAC − EV) [Optimistic]', value: fmt$(evm.eacBudget),    color: evm.eacBudget <= form.bac ? 'text-green-400' : 'text-red-400' },
+    { metric: 'EAC₃',   question: 'Estimate At Completion — composite method, both CPI and SPI applied (AC + (BAC−EV)/(CPI×SPI)) [Conservative]', value: fmt$(evm.eacComposite), color: evm.eacComposite <= form.bac ? 'text-green-400' : 'text-red-400' },
+    { metric: 'ETC',    question: 'Estimate To Complete — remaining cost to finish all work at current CPI (EAC₁ − AC)',  value: fmt$(evm.etc) },
+    { metric: 'VAC',    question: 'Variance At Completion — projected over/under budget at completion (BAC − EAC₁)',       value: fmt$(evm.vac), color: evm.vac >= 0 ? 'text-green-400' : 'text-red-400', badge: evm.vac >= 0 ? 'Under Budget' : 'Over Budget', badgeCls: evm.vac >= 0 ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
     { metric: 'TCPI',   question: 'Cost efficiency needed on all remaining work to finish within BAC — (BAC−EV)/(BAC−AC)', value: fmtIdx(evm.tcpi), color: evm.tcpi <= 1.0 ? 'text-green-400' : evm.tcpi <= 1.1 ? 'text-yellow-400' : 'text-red-400', badge: evm.tcpi <= 1.0 ? 'Achievable' : evm.tcpi <= 1.1 ? 'Challenging' : 'High Risk', badgeCls: evm.tcpi <= 1.0 ? 'border-green-500/40 text-green-400' : evm.tcpi <= 1.1 ? 'border-yellow-500/40 text-yellow-400' : 'border-red-500/40 text-red-400' },
     { metric: 'PCIB',   question: 'Percent Complete Index Budget — what fraction of total budget has been earned (EV / BAC)', value: fmtPct(evm.pcib * 100), color: 'text-foreground', badge: evm.pcib >= evm.pcic ? 'On/Under Budget' : 'Behind Budget', badgeCls: evm.pcib >= evm.pcic ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
     { metric: 'PCIC',   question: 'Percent Complete Index Cost — what fraction of estimated final cost has been spent (AC / EAC)', value: fmtPct(evm.pcic * 100), color: 'text-foreground', badge: evm.pcic <= evm.pcib ? 'Spending In Control' : 'Spending Ahead', badgeCls: evm.pcic <= evm.pcib ? 'border-green-500/40 text-green-400' : 'border-red-500/40 text-red-400' },
@@ -423,8 +436,82 @@ export default function ProjectControls() {
             {form.plannedEndDate && <Badge variant="outline" className="text-xs">End: {form.plannedEndDate}</Badge>}
           </div>
 
-          {/* ── Health Banner (Section 8) ── */}
+          {/* ── Health Banner ── */}
           <HealthBanner health={evm.health} spi={evm.spi} cpi={evm.cpi} />
+
+          {/* ── EVM Process Flow ── */}
+          <div className="rounded-xl border border-border/40 bg-muted/20 px-4 py-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">EVM Calculation Pipeline</p>
+            <div className="flex items-center gap-0 flex-wrap">
+              {[
+                {
+                  step: '1',
+                  title: 'Base Measures',
+                  subtitle: 'Inputs',
+                  items: ['BAC', 'PV', 'EV', 'AC'],
+                  active: form.bac > 0 && form.pv > 0 && form.ev > 0 && form.ac > 0,
+                  color: 'border-blue-500/50 bg-blue-500/10',
+                  dot: 'bg-blue-500',
+                  textColor: 'text-blue-400',
+                },
+                {
+                  step: '2',
+                  title: 'Variances',
+                  subtitle: 'Computed',
+                  items: ['SV = EV−PV', 'CV = EV−AC'],
+                  active: form.pv > 0 && form.ev > 0 && form.ac > 0,
+                  color: evm.sv >= 0 && evm.cv >= 0 ? 'border-green-500/50 bg-green-500/10' : 'border-yellow-500/50 bg-yellow-500/10',
+                  dot: evm.sv >= 0 && evm.cv >= 0 ? 'bg-green-500' : 'bg-yellow-500',
+                  textColor: evm.sv >= 0 && evm.cv >= 0 ? 'text-green-400' : 'text-yellow-400',
+                },
+                {
+                  step: '3',
+                  title: 'Indices',
+                  subtitle: 'Computed',
+                  items: ['SPI = EV/PV', 'CPI = EV/AC'],
+                  active: form.pv > 0 && form.ac > 0,
+                  color: evm.spi >= 0.95 && evm.cpi >= 0.95 ? 'border-green-500/50 bg-green-500/10' : evm.spi >= 0.80 && evm.cpi >= 0.80 ? 'border-yellow-500/50 bg-yellow-500/10' : 'border-red-500/50 bg-red-500/10',
+                  dot: evm.spi >= 0.95 && evm.cpi >= 0.95 ? 'bg-green-500' : evm.spi >= 0.80 && evm.cpi >= 0.80 ? 'bg-yellow-500' : 'bg-red-500',
+                  textColor: evm.spi >= 0.95 && evm.cpi >= 0.95 ? 'text-green-400' : evm.spi >= 0.80 && evm.cpi >= 0.80 ? 'text-yellow-400' : 'text-red-400',
+                },
+                {
+                  step: '4',
+                  title: 'Forecasts',
+                  subtitle: 'Computed',
+                  items: ['EAC', 'ETC', 'TCPI', 'VAC', 'PCIB', 'PCIC'],
+                  active: form.bac > 0 && form.ac > 0,
+                  color: evm.vac >= 0 ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10',
+                  dot: evm.vac >= 0 ? 'bg-green-500' : 'bg-red-500',
+                  textColor: evm.vac >= 0 ? 'text-green-400' : 'text-red-400',
+                },
+              ].map((stage, i, arr) => (
+                <div key={stage.step} className="flex items-center">
+                  <div className={cn('rounded-lg border p-3 min-w-[130px]', stage.active ? stage.color : 'border-border/30 bg-muted/10')}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <div className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white', stage.active ? stage.dot : 'bg-muted-foreground/30')}>
+                        {stage.step}
+                      </div>
+                      <span className={cn('text-xs font-semibold', stage.active ? stage.textColor : 'text-muted-foreground/50')}>{stage.title}</span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wide mb-1">{stage.subtitle}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {stage.items.map(item => (
+                        <span key={item} className={cn('text-[10px] font-mono px-1 py-0.5 rounded',
+                          stage.active ? 'bg-background/60 text-foreground' : 'bg-background/20 text-muted-foreground/40'
+                        )}>{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div className="flex items-center px-1">
+                      <div className={cn('w-6 h-0.5', stage.active ? 'bg-primary/50' : 'bg-border/30')} />
+                      <ChevronRight className={cn('w-3 h-3 -ml-1', stage.active ? 'text-primary/50' : 'text-border/30')} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* ── Two-column layout ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -705,44 +792,150 @@ export default function ProjectControls() {
                 </CardContent>
               </Card>
 
-              {/* Completion Forecasts */}
+              {/* EAC Analysis — all three PMBOK methods */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Badge className="bg-primary/20 text-primary text-xs px-2 font-mono">FORECAST</Badge>
-                    Completion Estimates
+                    EAC Analysis — Estimate At Completion
                   </CardTitle>
-                  <CardDescription>Projected final cost and remaining work at current efficiency</CardDescription>
+                  <CardDescription>Three PMBOK EAC methods give a cost range — from optimistic (budget rate) to conservative (composite)</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                <CardContent className="space-y-4">
+
+                  {/* Three EAC method cards */}
+                  <div className="space-y-2">
                     {[
-                      { label: 'EAC', name: 'Estimate At Completion', formula: 'BAC / CPI', val: fmt$(evm.eac), colored: evm.eac <= form.bac, tip: 'Expected total project cost at the current CPI. If CPI stays constant, this is your likely final cost.' },
-                      { label: 'ETC', name: 'Estimate To Complete',   formula: 'EAC − AC',  val: fmt$(evm.etc), colored: false, tip: 'Expected cost to finish all remaining project work from today.' },
-                      { label: 'VAC', name: 'Variance At Completion', formula: 'BAC − EAC', val: fmt$(evm.vac), colored: true, tip: 'Projected over/under budget at project completion. Positive = finish under budget.' },
-                      { label: 'TCPI', name: 'To-Complete Perf. Index', formula: '(BAC−EV)/(BAC−AC)', val: fmtIdx(evm.tcpi), colored: false, tip: 'The CPI that must be maintained on all remaining work to finish within BAC. > 1.0 means work harder/cheaper.' },
+                      {
+                        label: 'EAC₁ — CPI Method',
+                        formula: 'BAC / CPI',
+                        val: evm.eacCpi,
+                        tag: 'Primary',
+                        tagCls: 'bg-primary text-primary-foreground',
+                        tip: 'Assumes current cost efficiency (CPI) continues unchanged for all remaining work. The most statistically reliable estimate for projects already past 20% completion.',
+                        assumption: 'Past performance predicts future performance',
+                        highlight: true,
+                      },
+                      {
+                        label: 'EAC₂ — Budget Rate',
+                        formula: 'AC + (BAC − EV)',
+                        val: evm.eacBudget,
+                        tag: 'Optimistic',
+                        tagCls: 'bg-blue-600 text-white',
+                        tip: 'Assumes all remaining work is completed exactly at the planned/budgeted rate, regardless of current overruns. Used when past variances are considered non-recurring.',
+                        assumption: 'Remaining work performed at planned efficiency',
+                        highlight: false,
+                      },
+                      {
+                        label: 'EAC₃ — Composite',
+                        formula: 'AC + (BAC−EV) / (CPI × SPI)',
+                        val: evm.eacComposite,
+                        tag: 'Conservative',
+                        tagCls: 'bg-orange-600 text-white',
+                        tip: 'Factors both schedule (SPI) and cost (CPI) inefficiency into the remaining work estimate. Produces the most conservative (highest) cost projection.',
+                        assumption: 'Both schedule and cost pressures persist',
+                        highlight: false,
+                      },
                     ].map(item => (
-                      <div key={item.label} className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-1">
+                      <div
+                        key={item.label}
+                        className={cn(
+                          'rounded-lg border p-3',
+                          item.highlight
+                            ? 'border-primary/40 bg-primary/5'
+                            : 'border-border/50 bg-muted/20'
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">{item.label}</span>
+                            <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', item.tagCls)}>{item.tag}</span>
+                          </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild><Info className="w-3 h-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
+                            <TooltipContent className="text-xs max-w-xs">{item.tip}</TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <span className={cn(
+                            'text-lg font-bold font-mono',
+                            item.val <= form.bac ? 'text-green-400' : 'text-red-400'
+                          )}>{fmt$(item.val)}</span>
+                          <span className="text-xs font-mono text-muted-foreground/60">{item.formula}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 italic">{item.assumption}</p>
+                        {/* EAC vs BAC bar */}
+                        {form.bac > 0 && (
+                          <div className="mt-2">
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={cn('h-full rounded-full transition-all duration-500', item.val <= form.bac ? 'bg-green-500' : 'bg-red-500')}
+                                style={{ width: `${Math.min((item.val / Math.max(evm.eacComposite, form.bac)) * 100, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* EAC Range Summary */}
+                  {form.bac > 0 && (
+                    <div className="rounded-lg border border-border/40 bg-muted/10 p-3">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Cost Projection Range</p>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-muted-foreground">Budget (BAC)</span>
+                        <span className="font-mono font-medium">{fmt$(form.bac)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-blue-400">Best Case (EAC₂)</span>
+                        <span className={cn('font-mono font-medium', evm.eacBudget <= form.bac ? 'text-green-400' : 'text-red-400')}>{fmt$(evm.eacBudget)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-primary">Expected (EAC₁)</span>
+                        <span className={cn('font-mono font-medium', evm.eacCpi <= form.bac ? 'text-green-400' : 'text-red-400')}>{fmt$(evm.eacCpi)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-orange-400">Worst Case (EAC₃)</span>
+                        <span className={cn('font-mono font-medium', evm.eacComposite <= form.bac ? 'text-green-400' : 'text-red-400')}>{fmt$(evm.eacComposite)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ETC / VAC / TCPI row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'ETC', name: 'Estimate To Complete', formula: 'EAC − AC', val: fmt$(evm.etc), clr: 'text-foreground', tip: 'Remaining cost to finish all work based on the CPI method EAC.' },
+                      { label: 'VAC', name: 'Variance At Completion', formula: 'BAC − EAC', val: fmt$(evm.vac), clr: evm.vac >= 0 ? 'text-green-400' : 'text-red-400', tip: 'Projected over/under budget at completion. Positive means finish under budget.' },
+                      { label: 'TCPI', name: 'To-Complete Index', formula: '(BAC−EV)/(BAC−AC)', val: fmtIdx(evm.tcpi), clr: evm.tcpi <= 1.0 ? 'text-green-400' : evm.tcpi <= 1.1 ? 'text-yellow-400' : 'text-red-400', tip: 'CPI required on all remaining work to finish within BAC. Above 1.1 is generally considered unachievable.' },
+                    ].map(item => (
+                      <div key={item.label} className="p-2.5 rounded-lg bg-muted/30 border border-border/40 space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-muted-foreground font-mono">{item.label}</span>
+                          <span className="text-[10px] font-bold font-mono text-muted-foreground">{item.label}</span>
                           <Tooltip>
                             <TooltipTrigger asChild><Info className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
                             <TooltipContent className="text-xs max-w-xs">{item.tip}</TooltipContent>
                           </Tooltip>
                         </div>
-                        <p className={cn('text-base font-bold font-mono',
-                          item.label === 'VAC' ? (evm.vac >= 0 ? 'text-green-400' : 'text-red-400') :
-                          item.label === 'EAC' ? (evm.eac <= form.bac ? 'text-green-400' : 'text-red-400') :
-                          'text-foreground'
-                        )}>{item.val}</p>
-                        <p className="text-xs text-muted-foreground leading-tight">{item.name}</p>
-                        <p className="text-xs text-primary/50 font-mono">{item.formula}</p>
+                        <p className={cn('text-sm font-bold font-mono', item.clr)}>{item.val}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{item.name}</p>
+                        <p className="text-[10px] text-primary/50 font-mono">{item.formula}</p>
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
 
-                  {/* Progress bars — PV/BAC · PCIB · PCIC */}
-                  <div className="space-y-2.5 pt-1 border-t border-border/30">
+              {/* Progress bars — PV/BAC · PCIB · PCIC (extracted to separate mini-card) */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Badge className="bg-primary/20 text-primary text-xs px-2 font-mono">PROGRESS</Badge>
+                    Completion Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2.5">
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
                         <span>Planned % Complete (PV / BAC)</span>
@@ -774,6 +967,7 @@ export default function ProjectControls() {
                   </div>
                 </CardContent>
               </Card>
+
             </div>
           </div>
 
