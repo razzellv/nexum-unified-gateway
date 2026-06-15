@@ -125,6 +125,7 @@ const allNavItems: NavItem[] = [
   { name: 'System Violations™', href: '/system-violations', icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
   { name: 'Decision Continuity™ Vault', href: '/dc-vault', icon: ShieldCheck, access: 'leadership', tier: 'dc_vault' },
   { name: 'Decision Outcome Tracking™', href: '/decision-outcomes', icon: ClipboardCheck, access: 'leadership', tier: 'decision_outcomes' },
+  { name: 'Continuity Intelligence™',   href: '/continuity-intelligence', icon: Shield, access: 'leadership', tier: 'continuity_intelligence' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { calcDOTPerformance } from '@/pages/DecisionOutcomeTracking';
 import type { DOTRecord } from '@/pages/DecisionOutcomeTracking';
+import { ContinuityWidget } from '@/components/continuity/ContinuityWidget';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -778,18 +779,21 @@ export default function ExecutiveDashboard() {
         {error && <NexumError message={error} onRetry={fetchData} />}
 
         <Tabs defaultValue="operations" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-            <TabsTrigger value="operations" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />Operations
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+            <TabsTrigger value="operations" className="flex items-center gap-1 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" />Operations
             </TabsTrigger>
-            <TabsTrigger value="ovpi" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />OVPI
+            <TabsTrigger value="ovpi" className="flex items-center gap-1 text-xs">
+              <Activity className="w-3.5 h-3.5" />OVPI
             </TabsTrigger>
-            <TabsTrigger value="project-controls" className="flex items-center gap-2">
-              <Target className="w-4 h-4" />Project Controls
+            <TabsTrigger value="project-controls" className="flex items-center gap-1 text-xs">
+              <Target className="w-3.5 h-3.5" />Projects
             </TabsTrigger>
-            <TabsTrigger value="decision-outcomes" className="flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4" />Decisions
+            <TabsTrigger value="decision-outcomes" className="flex items-center gap-1 text-xs">
+              <ClipboardCheck className="w-3.5 h-3.5" />Decisions
+            </TabsTrigger>
+            <TabsTrigger value="continuity" className="flex items-center gap-1 text-xs">
+              <Shield className="w-3.5 h-3.5" />Continuity
             </TabsTrigger>
           </TabsList>
 
@@ -1114,6 +1118,14 @@ export default function ExecutiveDashboard() {
           {/* ── Decision Outcomes Tab ── */}
           <TabsContent value="decision-outcomes">
             <DOTExecTab facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'} />
+          </TabsContent>
+
+          {/* ── Continuity Intelligence™ Tab ── */}
+          <TabsContent value="continuity">
+            <ContinuityWidget
+              facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+              embedded
+            />
           </TabsContent>
         </Tabs>
 

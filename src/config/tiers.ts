@@ -86,6 +86,8 @@ export type TierFeature =
   | 'project_controls'
   // Decision Outcome Tracking™
   | 'decision_outcomes'
+  // Continuity Intelligence™
+  | 'continuity_intelligence'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -178,7 +180,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes',
+      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
   enterprise: {
@@ -202,7 +204,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'dc_vault', 'project_controls', 'decision_outcomes',
+      'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
   admin: {
@@ -230,7 +232,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes',
+      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
 
@@ -314,7 +316,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'inventory_library', 'compliance_documents',
       'ai_compliance', 'lms', 'dedicated_manager',
       'operations_center', 'kanban', 'messages', 'vendors', 'calendar',
-      'workload', 'violations_tracking', 'priority_support', 'project_controls', 'decision_outcomes',
+      'workload', 'violations_tracking', 'priority_support', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
 };
@@ -474,5 +476,7 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   // Project Controls / EVM
   project_controls:      'business',
   // Decision Outcome Tracking™
-  decision_outcomes:     'premium',
+  decision_outcomes:       'premium',
+  // Continuity Intelligence™
+  continuity_intelligence: 'premium',
 };

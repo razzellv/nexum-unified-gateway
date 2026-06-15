@@ -90,6 +90,7 @@ import DecisionContinuityVault from "./pages/DecisionContinuityVault";
 import ClimateIntelligence from "./pages/ClimateIntelligence";
 import ProjectControls from "./pages/ProjectControls";
 import DecisionOutcomeTracking from "./pages/DecisionOutcomeTracking";
+import ContinuityIntelligence from "./pages/ContinuityIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -334,6 +335,10 @@ export const router = createBrowserRouter([
           {
             path: "decision-outcomes",
             element: <DecisionOutcomeTracking />,
+          },
+          {
+            path: "continuity-intelligence",
+            element: <ContinuityIntelligence />,
           },
           {
             path: "apprentice",

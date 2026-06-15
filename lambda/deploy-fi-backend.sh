@@ -422,6 +422,11 @@ ensure_table "DecisionOutcomes" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
+ensure_table "ContinuityScores" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
 ensure_table "NexumVendorPlucks" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S" \
@@ -437,7 +442,7 @@ aws dynamodb create-table \
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role nexum-fi-trial-manager-role fi-project-controls-role fi-dot-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role nexum-fi-trial-manager-role fi-project-controls-role fi-dot-role fi-continuity-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -533,6 +538,9 @@ aws iam put-role-policy --role-name fi-project-controls-role --policy-name polic
 
 aws iam put-role-policy --role-name fi-dot-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/DecisionOutcomes\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-continuity-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ContinuityScores\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name nexum-fi-trial-manager-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminDeleteUser\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\"},{\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"*\"}]}" > /dev/null
@@ -706,6 +714,9 @@ deploy_lambda "nexum-fi-project-controls" "fi-project-controls.mjs" "fi-project-
 
 # Decision Outcome Tracking™
 deploy_lambda "nexum-fi-dot" "fi-dot.mjs" "fi-dot-role" "TABLE=DecisionOutcomes"
+
+# Continuity Intelligence™
+deploy_lambda "nexum-fi-continuity" "fi-continuity.mjs" "fi-continuity-role" "TABLE=ContinuityScores"
 
 # Trial Manager — daily cleanup of expired trial accounts (no API route; CloudWatch schedule)
 deploy_lambda "nexum-fi-trial-manager" "fi-trial-manager.mjs" "nexum-fi-trial-manager-role" \
@@ -989,6 +1000,10 @@ add_route "DELETE /project-controls/{projectId}" "nexum-fi-project-controls" "jw
 add_route "GET /decision-outcomes"                    "nexum-fi-dot"  "jwt"
 add_route "POST /decision-outcomes"                   "nexum-fi-dot"  "jwt"
 add_route "DELETE /decision-outcomes/{decisionId}"    "nexum-fi-dot"  "jwt"
+
+# Continuity Intelligence™ — 2 routes
+add_route "GET /continuity"   "nexum-fi-continuity"  "jwt"
+add_route "POST /continuity"  "nexum-fi-continuity"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"
