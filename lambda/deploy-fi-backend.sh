@@ -159,25 +159,30 @@ add_route() {
 
   local ROUTE_ACTION="created"
   if [ -n "$EXISTING_ROUTE" ] && [ "$EXISTING_ROUTE" != "None" ]; then
-    # Try to update in-place; if the route is malformed, delete it and fall through to create
-    local UPDATE_OK=true
+    # Try to update in-place; if route is malformed, delete it and fall through to create.
+    # Use `if cmd; then` (not `cmd || var=false`) — bash suppresses set -e inside `if` conditions.
+    local UPDATE_SUCCEEDED=false
     if [ "$AUTH" = "jwt" ]; then
       AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
-        --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 update-route --api-id "$API_ID" \
-        --route-id "$EXISTING_ROUTE" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type JWT \
-        --authorizer-id "$AUTHORIZER_ID" \
-        --region "$REGION" > /dev/null 2>&1 || UPDATE_OK=false
+        --query 'Items[0].AuthorizerId' --output text 2>/dev/null) || true
+      if aws apigatewayv2 update-route --api-id "$API_ID" \
+          --route-id "$EXISTING_ROUTE" \
+          --target "integrations/${INTEGRATION_ID}" \
+          --authorization-type JWT \
+          --authorizer-id "$AUTHORIZER_ID" \
+          --region "$REGION" > /dev/null 2>&1; then
+        UPDATE_SUCCEEDED=true
+      fi
     else
-      aws apigatewayv2 update-route --api-id "$API_ID" \
-        --route-id "$EXISTING_ROUTE" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type NONE \
-        --region "$REGION" > /dev/null 2>&1 || UPDATE_OK=false
+      if aws apigatewayv2 update-route --api-id "$API_ID" \
+          --route-id "$EXISTING_ROUTE" \
+          --target "integrations/${INTEGRATION_ID}" \
+          --authorization-type NONE \
+          --region "$REGION" > /dev/null 2>&1; then
+        UPDATE_SUCCEEDED=true
+      fi
     fi
-    if [ "$UPDATE_OK" = true ]; then
+    if [ "$UPDATE_SUCCEEDED" = true ]; then
       echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
       return 0
     fi
@@ -427,17 +432,18 @@ ensure_table "ContinuityScores" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
-ensure_table "NexumVendorPlucks" \
-  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
-  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S" \
-  "PAY_PER_REQUEST" || \
-aws dynamodb create-table \
-  --table-name "NexumVendorPlucks" \
-  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
-  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
-  --billing-mode PAY_PER_REQUEST \
-  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
-  --region $REGION > /dev/null 2>&1 || true
+if aws dynamodb describe-table --table-name "NexumVendorPlucks" --region $REGION > /dev/null 2>&1; then
+  echo "  ✓ Table NexumVendorPlucks already exists"
+else
+  aws dynamodb create-table \
+    --table-name "NexumVendorPlucks" \
+    --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+    --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
+    --billing-mode PAY_PER_REQUEST \
+    --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
+    --region $REGION > /dev/null
+  echo "  ✓ Table NexumVendorPlucks created"
+fi
 
 echo ""
 echo "1/4  IAM Roles"
