@@ -15,16 +15,6 @@ interface KanbanColumnProps {
   onLocalStatusChange?: (taskId: string, status: TaskStatus) => void;
 }
 
-const statusColors: Record<TaskStatus, string> = {
-  'backlog':        'bg-muted-foreground/20',
-  'ready':          'bg-primary/20',
-  'in-progress':    'bg-chart-4/20',
-  'waiting-vendor': 'bg-warning/20',
-  'qa':             'bg-chart-2/20',
-  'completed':      'bg-success/20',
-  'archived':       'bg-muted/20',
-};
-
 const statusDotColors: Record<TaskStatus, string> = {
   'backlog':        'bg-muted-foreground',
   'ready':          'bg-primary',
@@ -33,6 +23,26 @@ const statusDotColors: Record<TaskStatus, string> = {
   'qa':             'bg-chart-2',
   'completed':      'bg-success',
   'archived':       'bg-muted',
+};
+
+const statusBorderColors: Record<TaskStatus, string> = {
+  'backlog':        'border-t-slate-400',
+  'ready':          'border-t-primary',
+  'in-progress':    'border-t-amber-400',
+  'waiting-vendor': 'border-t-orange-400',
+  'qa':             'border-t-violet-400',
+  'completed':      'border-t-emerald-400',
+  'archived':       'border-t-slate-300',
+};
+
+const statusBadgeColors: Record<TaskStatus, string> = {
+  'backlog':        'bg-slate-400/20 text-slate-400',
+  'ready':          'bg-primary/20 text-primary',
+  'in-progress':    'bg-amber-400/20 text-amber-400',
+  'waiting-vendor': 'bg-orange-400/20 text-orange-400',
+  'qa':             'bg-violet-400/20 text-violet-400',
+  'completed':      'bg-emerald-400/20 text-emerald-400',
+  'archived':       'bg-slate-300/20 text-slate-400',
 };
 
 export function KanbanColumn({ title, status, tasks, onTaskCreated, onLocalStatusChange }: KanbanColumnProps) {
@@ -46,51 +56,55 @@ export function KanbanColumn({ title, status, tasks, onTaskCreated, onLocalStatu
 
   return (
     <>
-      <div className="kanban-column min-w-[300px] flex-shrink-0">
+      <div className={cn(
+        'flex flex-col bg-muted/20 rounded-xl p-3 min-w-[280px] max-w-[320px] flex-shrink-0',
+        'border border-border/30 border-t-4',
+        statusBorderColors[status],
+      )}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className={cn('w-2 h-2 rounded-full', statusDotColors[status])} />
-            <h3 className="text-sm font-semibold">{title}</h3>
-            <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={cn('w-2 h-2 rounded-full shrink-0', statusDotColors[status])} />
+            <h3 className="text-sm font-bold truncate">{title}</h3>
+            <span className={cn(
+              'inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold shrink-0',
+              statusBadgeColors[status],
+            )}>
+              {tasks.length}
+            </span>
             {criticalCount > 0 && (
-              <Badge variant="destructive" className="text-xs animate-pulse">
-                {criticalCount} Critical
+              <Badge variant="destructive" className="text-xs animate-pulse shrink-0">
+                {criticalCount}!
               </Badge>
             )}
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 shrink-0"
             onClick={() => setShowNewTask(true)}
           >
             <Plus className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Tasks */}
-        <div className="space-y-0">
+        {/* Scrollable task area */}
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto pr-1 space-y-2">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onRefresh={onTaskCreated} onLocalStatusChange={onLocalStatusChange} />
           ))}
-        </div>
 
-        {/* Empty state */}
-        {tasks.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <p className="text-sm">No tasks</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
+          {/* Empty state */}
+          {tasks.length === 0 && (
+            <div
+              className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border/30 rounded-lg text-muted-foreground cursor-pointer hover:border-border/60 transition-colors"
               onClick={() => setShowNewTask(true)}
             >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Task
-            </Button>
-          </div>
-        )}
+              <Plus className="w-4 h-4 mb-1 opacity-50" />
+              <p className="text-xs">Drop here</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <NewTaskDialog

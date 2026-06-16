@@ -118,6 +118,7 @@ const allNavItems: NavItem[] = [
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
   { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
 
+  { type: 'separator', name: 'Prestige Intelligence™', access: 'leadership' },
   { name: 'OCCAE', href: '/occae', icon: BrainCircuit, access: 'leadership', tier: 'occae' },
   { name: 'Operational Intelligence', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Facility Memory', href: '/facility-memory', icon: Brain, access: 'leadership', tier: 'facility_memory' },

@@ -88,7 +88,12 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
             <div className="flex items-center gap-2 md:gap-4">
               <Badge variant="outline" className="hidden sm:flex border-neon-cyan/30">
-                {roleScope?.assignedFacilities?.[0] || 'Main Campus'}
+                {(() => {
+                  const f = roleScope?.assignedFacilities?.[0];
+                  if (!f) return 'Main Campus';
+                  if (typeof f === 'string') return f;
+                  return (f as any).name || (f as any).id || 'Main Campus';
+                })()}
               </Badge>
               <RoleSelector />
               <NotificationBell />

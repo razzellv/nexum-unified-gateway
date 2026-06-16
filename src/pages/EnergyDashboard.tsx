@@ -134,10 +134,15 @@ export default function EnergyDashboard() {
     setIsLoading(true);
     try {
       const apiData = await getEnergyDashboard();
-      setData(apiData);
-      setUsingDemo(false);
+      const valid = apiData?.summary?.total_energy_equivalent_kwh !== undefined && apiData?.by_utility;
+      if (valid) {
+        setData(apiData);
+        setUsingDemo(false);
+      } else {
+        setData(DEMO_ENERGY_DATA);
+        setUsingDemo(true);
+      }
     } catch {
-      // API endpoint not yet live — show demo data so the dashboard is usable
       setData(DEMO_ENERGY_DATA);
       setUsingDemo(true);
     } finally {

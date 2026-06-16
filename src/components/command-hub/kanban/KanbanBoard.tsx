@@ -114,27 +114,69 @@ export function KanbanBoard({ onStatsChange }: KanbanBoardProps) {
   const getTasksByStatus = (status: TaskStatus): Task[] =>
     tasks.filter(t => t.status === status);
 
+  // Read workflow baselines from localStorage for banner
+  const workflowBaselines: any[] = (() => {
+    try { return JSON.parse(localStorage.getItem('nexum_workflow_baselines') || '[]'); } catch { return []; }
+  })();
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-3" />
-        Loading work orders...
+      <div className="space-y-4">
+        {/* Loading skeleton: 3 columns, 2 placeholder cards each */}
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
+          {[1, 2, 3].map(col => (
+            <div key={col} className="flex flex-col bg-muted/20 rounded-xl p-3 min-w-[280px] max-w-[320px] flex-shrink-0 border border-border/30 border-t-4 border-t-muted-foreground/30 animate-pulse">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                <div className="h-4 w-24 rounded bg-muted-foreground/20" />
+                <div className="h-4 w-6 rounded-full bg-muted-foreground/20" />
+              </div>
+              {[1, 2].map(card => (
+                <div key={card} className="mb-3 rounded-xl border border-border/30 bg-card/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-muted-foreground/20" />
+                    <div className="h-4 w-16 rounded bg-muted-foreground/20" />
+                  </div>
+                  <div className="h-4 w-3/4 rounded bg-muted-foreground/20" />
+                  <div className="h-3 w-1/2 rounded bg-muted-foreground/15" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
-      {columns.map((column) => (
-        <KanbanColumn
-          key={column.status}
-          title={column.title}
-          status={column.status}
-          tasks={getTasksByStatus(column.status)}
-          onTaskCreated={fetchTasks}
-          onLocalStatusChange={handleLocalStatusChange}
-        />
-      ))}
+    <div className="space-y-3">
+      {/* Workflow baselines banner */}
+      {workflowBaselines.length > 0 && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground overflow-x-auto">
+          <span className="shrink-0 font-medium text-primary">Baselines:</span>
+          {workflowBaselines.slice(0, 5).map((b: any) => (
+            <span key={b.id} className="shrink-0 px-2 py-0.5 rounded-md bg-muted/50 border border-border/40">
+              {b.workflowName} · {b.targetHours ?? '?'}h target
+            </span>
+          ))}
+          {workflowBaselines.length > 5 && (
+            <span className="shrink-0 text-muted-foreground">+{workflowBaselines.length - 5} more</span>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.status}
+            title={column.title}
+            status={column.status}
+            tasks={getTasksByStatus(column.status)}
+            onTaskCreated={fetchTasks}
+            onLocalStatusChange={handleLocalStatusChange}
+          />
+        ))}
+      </div>
     </div>
   );
 }

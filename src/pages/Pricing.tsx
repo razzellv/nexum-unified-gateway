@@ -116,21 +116,24 @@ const FACILITY_PLANS: Plan[] = [
     ],
   },
   {
-    name: 'Premium',
+    name: 'Prestige',
     priceId: 'price_1TAbPLDfw4bOR2dfeT4Posk4',
     price: 83988,
     billingLabel: '/yr',
     annualLicense: true,
     icon: Crown,
-    color: 'text-purple-400',
-    border: 'border-purple-400/40',
-    bg: 'bg-purple-400/5',
+    color: 'text-amber-400',
+    border: 'border-amber-400/40',
+    bg: 'bg-amber-400/5',
     badge: 'Full Platform',
-    description: 'Complete Facility Intelligence™ platform — every module, every intelligence engine, and the full Decision Continuity™ layer.',
+    description: 'The complete Nexum Prestige platform — every intelligence engine, the full Prestige Intelligence™ suite, and the Decision Continuity™ layer.',
     features: [
       'Unlimited facilities',
       'Everything in Business',
+      '── Prestige Intelligence™ Suite ──',
       'Decision Continuity™ Vault',
+      'Decision Outcome Tracking™',
+      'Continuity Intelligence™',
       'Scope Alignment™ Intelligence',
       'Admissibility Engine™',
       'Operational DNA™',
@@ -2347,12 +2350,25 @@ export default function Pricing() {
 
                 <CardContent className="flex-1 flex flex-col gap-4">
                   <div className="space-y-2">
-                    {plan.features.map((f, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm">
-                        <Check className={`w-4 h-4 mt-0.5 shrink-0 ${plan.color}`} />
-                        <span>{f}</span>
-                      </div>
-                    ))}
+                    {plan.features.map((f, i) => {
+                      if (f.startsWith('──')) {
+                        return (
+                          <div key={i} className="flex items-center gap-2 pt-1">
+                            <div className="h-px flex-1 bg-border/60" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 shrink-0">
+                              {f.replace(/^──\s*/, '').replace(/\s*──$/, '')}
+                            </span>
+                            <div className="h-px flex-1 bg-border/60" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={i} className="flex items-start gap-2 text-sm">
+                          <Check className={`w-4 h-4 mt-0.5 shrink-0 ${plan.color}`} />
+                          <span>{f}</span>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Standard facility add-ons */}

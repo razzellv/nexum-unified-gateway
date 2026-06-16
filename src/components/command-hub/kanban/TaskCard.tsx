@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Building2, Paperclip, MessageSquare, AlertTriangle, X, User, Calendar, Wrench, CheckCircle, RefreshCw } from 'lucide-react';
+import { Clock, Building2, Paperclip, MessageSquare, AlertTriangle, User, Calendar, Wrench, CheckCircle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,14 +15,21 @@ interface TaskCardProps {
   onLocalStatusChange?: (taskId: string, status: TaskStatus) => void;
 }
 
-const priorityStyles = {
+const priorityStyles: Record<string, string> = {
   low:      'border-l-muted-foreground',
   medium:   'border-l-primary',
   high:     'border-l-warning',
-  critical: 'border-l-critical animate-pulse',
+  critical: 'border-l-destructive animate-pulse',
 };
 
-const priorityBadge = {
+const priorityDotColors: Record<string, string> = {
+  low:      'bg-muted-foreground',
+  medium:   'bg-primary',
+  high:     'bg-yellow-400',
+  critical: 'bg-destructive',
+};
+
+const priorityBadge: Record<string, string> = {
   low:      'bg-muted/50 text-muted-foreground',
   medium:   'bg-primary/20 text-primary border-primary/30',
   high:     'bg-warning/20 text-warning border-warning/30',
@@ -210,76 +217,104 @@ function WorkOrderDetailDialog({
 
 export function TaskCard({ task, onClick, onRefresh, onLocalStatusChange }: TaskCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+  const isCritical = task.priority === 'critical';
 
   return (
     <>
       <div
-        className={cn('task-card border-l-4 mb-3 cursor-pointer', priorityStyles[task.priority])}
+        className={cn(
+          'group relative mb-3 rounded-xl border bg-card/80 backdrop-blur-sm p-3 cursor-pointer',
+          'shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200',
+          'border-l-4',
+          priorityStyles[task.priority],
+          isCritical && 'bg-destructive/5',
+        )}
         onClick={() => setShowDetail(true)}
       >
-        {/* Header */}
+        {/* Critical top accent bar */}
+        {isCritical && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-destructive/60" />
+        )}
+
+        {/* Header: icon circle + system badge on left, priority dot on right */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{systemIcons[task.system] || '🔧'}</span>
+            <div className={cn(
+              'w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0',
+              isCritical ? 'bg-destructive/15' : 'bg-muted/50',
+            )}>
+              {systemIcons[task.system] || '🔧'}
+            </div>
             <Badge variant="outline" className="text-xs capitalize">{task.system}</Badge>
           </div>
-          {task.priority === 'critical' && (
-            <AlertTriangle className="w-4 h-4 text-critical animate-pulse" />
-          )}
+          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+            {isCritical && <AlertTriangle className="w-3.5 h-3.5 text-destructive animate-pulse" />}
+            <div
+              className={cn('w-2.5 h-2.5 rounded-full ring-2 ring-card', priorityDotColors[task.priority])}
+              title={`Priority: ${task.priority}`}
+            />
+          </div>
         </div>
 
         {/* Title */}
-        <h4 className="text-sm font-medium mb-2 line-clamp-2">{task.title}</h4>
+        <h4 className="text-sm font-semibold leading-snug mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+          {task.title}
+        </h4>
 
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-3">
+        {/* Risk badge + hours */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <Badge
             variant="outline"
             className={cn(
-              'text-xs',
-              task.riskCategory === 'safety' && 'border-critical/50 text-critical',
+              'text-xs capitalize',
+              task.riskCategory === 'safety' && 'border-destructive/50 text-destructive',
               task.riskCategory === 'compliance' && 'border-warning/50 text-warning',
-              task.riskCategory === 'production' && 'border-primary/50 text-primary'
+              task.riskCategory === 'production' && 'border-primary/50 text-primary',
             )}
           >
             {task.riskCategory}
           </Badge>
           {task.estimatedHours > 0 && (
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
               {task.actualHours || 0}/{task.estimatedHours}h
             </span>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-          <div className="flex items-center gap-2">
+        {/* Footer strip */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/40">
+          <div className="flex items-center gap-1.5">
             {task.assignedPersonnel.length > 0 && (
-              <div className="flex -space-x-2">
+              <div className="flex -space-x-1.5">
                 {task.assignedPersonnel.slice(0, 3).map((person, i) => (
                   <div
                     key={i}
-                    className="w-6 h-6 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center text-xs font-medium text-primary"
+                    className="w-5 h-5 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center text-[10px] font-semibold text-primary"
                     title={person}
                   >
                     {person.charAt(0)}
                   </div>
                 ))}
+                {task.assignedPersonnel.length > 3 && (
+                  <div className="w-5 h-5 rounded-full bg-muted border-2 border-card flex items-center justify-center text-[10px] text-muted-foreground">
+                    +{task.assignedPersonnel.length - 3}
+                  </div>
+                )}
               </div>
             )}
             {task.assignedVendor && (
-              <Building2 className="w-3 h-3 text-muted-foreground" />
+              <Building2 className="w-3 h-3 text-muted-foreground" title={task.assignedVendor} />
             )}
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             {task.attachments.length > 0 && (
-              <span className="flex items-center gap-1 text-xs">
+              <span className="flex items-center gap-0.5 text-xs">
                 <Paperclip className="w-3 h-3" />{task.attachments.length}
               </span>
             )}
             {task.comments.length > 0 && (
-              <span className="flex items-center gap-1 text-xs">
+              <span className="flex items-center gap-0.5 text-xs">
                 <MessageSquare className="w-3 h-3" />{task.comments.length}
               </span>
             )}
@@ -289,11 +324,11 @@ export function TaskCard({ task, onClick, onRefresh, onLocalStatusChange }: Task
         {/* Due date */}
         {task.dueDate && (
           <div className={cn(
-            'mt-2 pt-2 border-t border-border/50 text-xs flex items-center gap-1',
-            new Date(task.dueDate) < new Date() ? 'text-critical' : 'text-muted-foreground'
+            'mt-2 pt-1.5 border-t border-border/30 text-xs flex items-center gap-1',
+            new Date(task.dueDate) < new Date() ? 'text-destructive font-medium' : 'text-muted-foreground',
           )}>
-            <Clock className="w-3 h-3" />
-            Due: {new Date(task.dueDate).toLocaleDateString()}
+            <Calendar className="w-3 h-3" />
+            Due {new Date(task.dueDate).toLocaleDateString()}
           </div>
         )}
       </div>

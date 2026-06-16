@@ -167,6 +167,8 @@ export default function CustodianDashboard() {
             </Button>
             <Button variant="outline" onClick={() => window.location.href = '/compliance-logger'}><Shield className="w-4 h-4 mr-2" />Safety Checks</Button>
             <Button variant="outline" onClick={() => window.location.href = '/messages'}>My Messages</Button>
+            <Button variant="outline" onClick={() => window.location.href = '/observations'}>Observation Journal</Button>
+            <Button variant="outline" onClick={() => window.location.href = '/violations'}>Report Violation</Button>
           </CardContent>
         </Card>
       </div>

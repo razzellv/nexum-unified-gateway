@@ -180,6 +180,22 @@ const Workflows = () => {
       const updated = [entry, ...runLog].slice(0, 50);
       setRunLog(updated);
       localStorage.setItem(RUN_LOG_KEY, JSON.stringify(updated));
+
+      // Capture run baseline
+      const runBaseline = {
+        id: `run-${Date.now()}`,
+        workflowId: template.id,
+        workflowName: template.name,
+        system: template.system,
+        targetHours: totalHours,
+        slaHours,
+        startedAt: new Date().toISOString(),
+        source: 'workflow_run',
+      };
+      const existing = JSON.parse(localStorage.getItem('nexum_workflow_baselines') || '[]');
+      const filtered = existing.filter((b: any) => b.workflowId !== template.id || b.source !== 'workflow_run');
+      localStorage.setItem('nexum_workflow_baselines', JSON.stringify([runBaseline, ...filtered].slice(0, 50)));
+
       await fetchRecentRuns();
     } catch {
       // Fallback: log locally even if API failed
@@ -216,9 +232,26 @@ const Workflows = () => {
     const updated = [...customTemplates, newTemplate];
     setCustomTemplates(updated);
     localStorage.setItem(CUSTOM_KEY, JSON.stringify(updated));
+
+    // Capture a performance baseline for the new workflow
+    const totalHours = newTemplate.steps.reduce((s, st) => s + st.estimatedHours, 0);
+    const baselineEntry = {
+      id: `bl-${Date.now()}`,
+      workflowId: newTemplate.id,
+      workflowName: newTemplate.name,
+      system: newTemplate.system,
+      targetHours: totalHours,
+      steps: newTemplate.steps.length,
+      capturedAt: new Date().toISOString(),
+      source: 'workflow_created',
+    };
+    const existingBaselines = JSON.parse(localStorage.getItem('nexum_workflow_baselines') || '[]');
+    localStorage.setItem('nexum_workflow_baselines', JSON.stringify([baselineEntry, ...existingBaselines]));
+
     setDraftTemplate(emptyTemplate());
     setShowCreate(false);
     toast({ title: 'Workflow Saved', description: `"${newTemplate.name}" is now available.` });
+    toast({ title: 'Performance Baseline Set', description: `"${newTemplate.name}" is now a tracked performance baseline (${totalHours.toFixed(1)}h target).` });
   };
 
   // Insights: runs per template
@@ -463,6 +496,47 @@ const Workflows = () => {
                     <span className="text-sm font-semibold text-primary">{count}×</span>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            {/* Performance Baselines section */}
+            <Card className="glass-panel">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  Performance Baselines
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {(() => {
+                  const baselines: any[] = (() => {
+                    try { return JSON.parse(localStorage.getItem('nexum_workflow_baselines') || '[]'); } catch { return []; }
+                  })();
+                  if (baselines.length === 0) {
+                    return <p className="text-xs text-muted-foreground">No baselines captured yet. Save a custom workflow or run a template to start tracking.</p>;
+                  }
+                  return baselines.slice(0, 10).map((b: any) => (
+                    <div key={b.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{b.workflowName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.targetHours != null ? `${Number(b.targetHours).toFixed(1)}h target` : '—'}
+                          {b.steps ? ` · ${b.steps} steps` : ''}
+                          {b.slaHours ? ` · SLA ${b.slaHours}h` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <Badge variant="outline" className={cn(
+                          'text-[10px] mb-0.5',
+                          b.source === 'workflow_created' ? 'text-primary border-primary/30' : 'text-emerald-400 border-emerald-400/30',
+                        )}>
+                          {b.source === 'workflow_created' ? 'Created' : 'Run'}
+                        </Badge>
+                        <p className="text-[10px] text-muted-foreground">{new Date(b.capturedAt || b.startedAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </CardContent>
             </Card>
 

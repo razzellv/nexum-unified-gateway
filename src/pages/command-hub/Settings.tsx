@@ -129,10 +129,10 @@ const FACILITY_PLAN_TIERS: PlanTier[] = [
   },
   {
     id: 'premium',
-    name: 'Premium',
+    name: 'Prestige',
     price: '$83,988/yr',
     sub: '~$6,999/mo',
-    features: ['Unlimited facilities', 'Everything in Business', 'VVFI AI Facility Instructor', 'OVPI Performance Intelligence', 'Optimize & Learn LMS', 'Custom onboarding', 'Dedicated account manager', '24/7 priority support'],
+    features: ['Unlimited facilities', 'Everything in Business', 'Prestige Intelligence™ Suite', 'VVFI AI Facility Instructor', 'OVPI Performance Intelligence', 'OCCAE Probability Intelligence', 'Decision Continuity™ Vault', 'Optimize & Learn LMS', 'Custom onboarding', 'Dedicated account manager', '24/7 priority support'],
     highlight: false,
   },
 ];

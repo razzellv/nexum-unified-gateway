@@ -27,9 +27,9 @@ const TIER_DETAILS: Record<string, {
     features: ['Everything in Standard', 'Executive Dashboard', 'Multi-facility Analytics', 'Compliance Analyzer AI', 'Full Command Hub'],
   },
   PREMIUM: {
-    icon: Crown, color: 'text-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/30',
-    description: 'Your Premium plan is active. Full platform access including all AI-powered features.',
-    features: ['Everything in Business', 'VVFI Facility Instructor AI', 'OVPI Performance Intelligence', 'Optimize & Learn Training', 'Dedicated Account Manager'],
+    icon: Crown, color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/40',
+    description: 'Your Prestige plan is active. Full platform access including the complete Prestige Intelligence™ suite.',
+    features: ['Everything in Business', 'Prestige Intelligence™ Suite', 'VVFI Facility Instructor AI', 'OVPI Performance Intelligence', 'Optimize & Learn Training', 'Dedicated Account Manager'],
   },
 };
 

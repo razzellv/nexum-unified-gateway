@@ -29,6 +29,7 @@ import {
   Zap,
   Shield,
   Flame,
+  Thermometer,
   Snowflake,
   Wind,
   Droplets,
@@ -658,6 +659,14 @@ const Index = () => {
               icon={<GraduationCap className="w-5 h-5" />}
               status="in-progress"
               colorTheme="secondary"
+            />
+            <ModuleCard
+              title="Climate Intelligence™"
+              description="Environmental monitoring, thermal analysis, and climate risk scoring"
+              route="/climate-intelligence"
+              icon={<Thermometer className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
             />
           </div>
         </section>
