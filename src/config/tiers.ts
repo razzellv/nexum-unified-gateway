@@ -156,7 +156,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
       'facility_memory', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'project_controls',
+      'system_violations',
     ],
   },
   premium: {
@@ -180,7 +180,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
-      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
+      'system_violations', 'dc_vault', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
   enterprise: {

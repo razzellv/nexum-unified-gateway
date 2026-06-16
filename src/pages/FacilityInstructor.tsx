@@ -12,7 +12,7 @@ import { TierGate } from '@/components/TierGate';
 import {
   MessageSquare, Camera, Shield, Send, Loader2,
   Bot, User, Upload, AlertTriangle,
-  Phone, CheckCircle, Sparkles
+  Phone, CheckCircle, Sparkles, Target
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -370,6 +370,112 @@ const EthicsAdvisor = () => {
   );
 };
 
+// ─── Project Advisor ─────────────────────────────────────────────────────────
+const ProjectAdvisor = () => {
+  const [question, setQuestion] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleSubmit = async () => {
+    if (!question.trim()) return;
+    const token = localStorage.getItem('nexum_access_token') || '';
+    const userMsg: Message = { role: 'user', content: question.trim(), timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+    setQuestion('');
+    setLoading(true);
+    try {
+      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+      const data = await callVVFI('project-advisor', { question: userMsg.content, conversationHistory: history }, token);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response, timestamp: new Date().toISOString() }]);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to get response', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-card/30 border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="w-4 h-4 text-primary" />
+            Project Advisor
+            <Badge variant="outline" className="text-xs">Enterprise</Badge>
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Capital project planning, EVM, contractor management, scope control, schedule risk, and budget forecasting for facility operations. Get structured, actionable project guidance.
+          </p>
+        </CardHeader>
+      </Card>
+
+      <ScrollArea className="h-[380px] border rounded-lg p-4 bg-background/50" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-3">
+            <Target className="w-12 h-12 opacity-20" />
+            <div>
+              <p className="font-medium">Capital project guidance</p>
+              <p className="text-xs mt-1">Try: "How do I set up an EVM baseline for a chiller replacement?" or "My contractor is 3 weeks behind — what are my options?"</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-1">
+                    <Target className="w-4 h-4 text-primary" />
+                  </div>
+                )}
+                <div className={`max-w-[80%] rounded-lg p-3 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card border border-border'}`}>
+                  <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+                  <p className="text-xs opacity-50 mt-1">{new Date(msg.timestamp).toLocaleTimeString()}</p>
+                </div>
+                {msg.role === 'user' && (
+                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-1">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <Target className="w-4 h-4 text-primary" />
+                </div>
+                <div className="bg-card border border-border rounded-lg p-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ScrollArea>
+
+      <div className="flex gap-2">
+        <Textarea
+          value={question}
+          onChange={e => setQuestion(e.target.value)}
+          placeholder="Ask about capital projects, EVM, contractor management, scope control, budget, schedule risk..."
+          className="resize-none"
+          rows={3}
+          onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) handleSubmit(); }}
+        />
+        <Button onClick={handleSubmit} disabled={loading || !question.trim()} className="self-end">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">Cmd+Enter to send</p>
+    </div>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function FacilityInstructorPage() {
   const { user } = useAuth();
@@ -378,7 +484,7 @@ export default function FacilityInstructorPage() {
     <TierGate
       featureName="VVFI Facility Instructor"
       requiredTier="PREMIUM"
-      description="AI-powered technical mentoring, photo analysis, and ethics guidance is available on the Premium plan."
+      description="AI-powered technical mentoring, photo analysis, ethics guidance, and project advisory is available on the Prestige plan."
     >
       <MainLayout>
         <div className="space-y-6 p-6">
@@ -394,21 +500,25 @@ export default function FacilityInstructorPage() {
           </div>
 
           <Tabs defaultValue="instructor" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="instructor" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />Text Instructor
+                <MessageSquare className="w-4 h-4" /><span className="hidden sm:inline">Text</span> Instructor
               </TabsTrigger>
               <TabsTrigger value="analyzer" className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />Photo Analyzer
+                <Camera className="w-4 h-4" /><span className="hidden sm:inline">Photo</span> Analyzer
               </TabsTrigger>
               <TabsTrigger value="ethics" className="flex items-center gap-2">
                 <Shield className="w-4 h-4" />Ethics Advisor
+              </TabsTrigger>
+              <TabsTrigger value="project" className="flex items-center gap-2">
+                <Target className="w-4 h-4" />Project Advisor
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="instructor"><TextInstructor /></TabsContent>
             <TabsContent value="analyzer"><PhotoAnalyzer /></TabsContent>
             <TabsContent value="ethics"><EthicsAdvisor /></TabsContent>
+            <TabsContent value="project"><ProjectAdvisor /></TabsContent>
           </Tabs>
         </div>
       </MainLayout>
