@@ -202,7 +202,7 @@ function AssetCard({ name, location, badge, badgeBg, rows }: {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'chillers' | 'air' | 'boilers' | 'forecast';
+type Tab = 'overview' | 'chillers' | 'air' | 'boilers' | 'forecast' | 'chain';
 
 export default function ClimateIntelligence() {
   const { user } = useAuth();
@@ -334,10 +334,11 @@ export default function ClimateIntelligence() {
 
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview',  label: 'Overview' },
-    { id: 'chillers',  label: 'Chillers',      count: chillers.length },
-    { id: 'air',       label: 'Air Handlers',   count: ahus.length },
-    { id: 'boilers',   label: 'Boilers',        count: boilers.length },
+    { id: 'chillers',  label: 'Chillers',        count: chillers.length },
+    { id: 'air',       label: 'Air Handlers',     count: ahus.length },
+    { id: 'boilers',   label: 'Boilers',          count: boilers.length },
     { id: 'forecast',  label: '24h Forecast' },
+    { id: 'chain',     label: 'Operational Chain™' },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -830,6 +831,148 @@ export default function ClimateIntelligence() {
               </Card>
             </div>
           )}
+
+          {/* ── Operational Chain™ tab ────────────────────────────────────── */}
+          {tab === 'chain' && (() => {
+            const isEco = ah.mode === 'economizer';
+            const energySavingsPct = oat < 50 ? 30 : oat < 65 ? 20 : oat < 80 ? 8 : -5;
+            const comfortOk = oat >= 40 && oat <= 88 && (weather?.humidity ?? 50) < 80;
+            const riskLevel = oat < 20 || oat > 95 ? 'High' : oat < 32 || oat > 85 ? 'Elevated' : 'Low';
+            const thermalLoad = oat > 85 ? 'Peak Thermal Load' : oat > 65 ? 'Normal Cooling Load' : oat > 50 ? 'Reduced Load — Economizer Range' : 'Heating Load';
+            const maintItems = [
+              ...(isEco ? ['Verify economizer dampers at 100% OA position'] : []),
+              ...(oat > 60 && ch.cop > 0 ? ['Check condenser water flow and approach temperatures'] : []),
+              ...(bo.loadPct > 50 ? ['Inspect burner operation and flue gas analysis'] : []),
+              ...(oat < 32 ? ['Monitor freeze protection on CT basin and exposed piping'] : []),
+            ].slice(0, 3);
+            const recommendations = [
+              ...(isEco ? ['Enable or verify economizer sequence is active — free cooling available now'] : []),
+              ...(energySavingsPct > 15 ? [`Consider reducing chiller staging — current COP est. ${ch.cop}`] : []),
+              ...(bo.loadPct === 0 ? ['Boiler in standby — verify HHW isolation valves are properly seated'] : []),
+              ...(oat < 32 ? ['Activate freeze protection monitoring protocol'] : []),
+              'Log current conditions in Observation Journal for operational trending',
+            ].slice(0, 4);
+
+            const chain = [
+              {
+                step: 1, title: 'Weather Input',
+                icon: Thermometer, iconBg: 'bg-sky-500/10', iconColor: 'text-sky-400', border: 'border-sky-500/20',
+                value: `${oat}°F OAT · ${weather?.humidity ?? '—'}% RH · ${weather ? wmoLabel(weather.code) : '—'}`,
+                detail: `Wet bulb ${weather?.wetBulb ?? '—'}°F · Dew point ${weather?.dewPoint ?? '—'}°F · Wind ${weather?.windSpeed ?? '—'} mph`,
+                status: isEco ? 'Economizer Band' : oat > 85 ? 'Heat Stress' : oat < 32 ? 'Freeze Risk' : 'Normal',
+                statusClass: isEco ? 'text-green-400 border-green-500/30' : oat > 85 ? 'text-red-400 border-red-500/30' : oat < 32 ? 'text-blue-400 border-blue-500/30' : 'text-muted-foreground border-border',
+              },
+              {
+                step: 2, title: 'Building Thermal Response',
+                icon: Gauge, iconBg: 'bg-amber-500/10', iconColor: 'text-amber-400', border: 'border-amber-500/20',
+                value: thermalLoad,
+                detail: `Building envelope heat gain/loss: ${oat > 80 ? 'High' : oat > 65 ? 'Moderate' : 'Low'} · Occupancy-driven internal load applies`,
+                status: oat > 85 ? 'Peak Demand' : oat < 45 ? 'Heating Demand' : 'Reduced Load',
+                statusClass: oat > 85 ? 'text-red-400 border-red-500/30' : oat < 45 ? 'text-orange-400 border-orange-500/30' : 'text-green-400 border-green-500/30',
+              },
+              {
+                step: 3, title: 'Equipment Response',
+                icon: Activity, iconBg: 'bg-blue-500/10', iconColor: 'text-blue-400', border: 'border-blue-500/20',
+                value: `Chiller ${ch.eff} · AHU ${ah.modeLabel} · Boiler ${bo.loadPct > 0 ? `${bo.loadPct}% Load` : 'Standby'}`,
+                detail: `COP ${ch.cop} · ${ch.kwPerTon} kW/ton · AHU OA ${ah.oaPct}% · HWS ${bo.hws}°F · Supply Air ${ah.sat}°F`,
+                status: ch.eff,
+                statusClass: `${ch.effColor} border-current/30`,
+              },
+              {
+                step: 4, title: 'Energy Response',
+                icon: Zap, iconBg: 'bg-yellow-500/10', iconColor: 'text-yellow-400', border: 'border-yellow-500/20',
+                value: energySavingsPct > 0 ? `~${energySavingsPct}% below peak energy consumption estimated` : 'Near peak — design-day energy consumption conditions',
+                detail: `Cooling plant at ${ch.kwPerTon} kW/ton vs 0.80 kW/ton design · ${isEco ? 'Economizer offsetting mechanical cooling' : 'Full mechanical cooling in service'}`,
+                status: energySavingsPct > 15 ? 'Below Baseline' : energySavingsPct > 0 ? 'Moderate Savings' : 'Peak Consumption',
+                statusClass: energySavingsPct > 15 ? 'text-green-400 border-green-500/30' : energySavingsPct > 0 ? 'text-blue-400 border-blue-500/30' : 'text-red-400 border-red-500/30',
+              },
+              {
+                step: 5, title: 'Occupant Comfort',
+                icon: Droplets, iconBg: 'bg-cyan-500/10', iconColor: 'text-cyan-400', border: 'border-cyan-500/20',
+                value: comfortOk ? 'Comfort conditions met — no thermal discomfort expected' : 'Elevated comfort risk — conditions outside optimal zone',
+                detail: `Supply air ${ah.sat}°F → space setpoint ~72°F · ${isEco ? 'Economizer providing enhanced ventilation' : 'Mechanical conditioning maintaining setpoints'}`,
+                status: comfortOk ? 'Comfortable' : 'Risk',
+                statusClass: comfortOk ? 'text-green-400 border-green-500/30' : 'text-amber-400 border-amber-500/30',
+              },
+              {
+                step: 6, title: 'Maintenance Implications',
+                icon: AlertTriangle, iconBg: 'bg-orange-500/10', iconColor: 'text-orange-400', border: 'border-orange-500/20',
+                value: maintItems.length > 0 ? maintItems.join(' · ') : 'No immediate maintenance concerns at current conditions',
+                detail: `Based on OAT ${oat}°F and active equipment state — review seasonal checklist`,
+                status: maintItems.length > 1 ? 'Action Items' : 'Routine',
+                statusClass: maintItems.length > 1 ? 'text-amber-400 border-amber-500/30' : 'text-green-400 border-green-500/30',
+              },
+              {
+                step: 7, title: 'Financial Impact',
+                icon: Zap, iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-400', border: 'border-emerald-500/20',
+                value: energySavingsPct > 10 ? 'Below-average energy spend projected for today' : energySavingsPct > 0 ? 'Near-average energy costs expected' : 'Above-average energy spend — peak load conditions',
+                detail: `Cooling plant ${ch.kwPerTon} kW/ton · ${isEco ? 'Economizer reducing compressor runtime and demand charges' : 'Full mechanical conditioning active'}`,
+                status: energySavingsPct > 10 ? 'Favorable' : energySavingsPct > 0 ? 'Neutral' : 'Elevated',
+                statusClass: energySavingsPct > 10 ? 'text-green-400 border-green-500/30' : energySavingsPct > 0 ? 'text-blue-400 border-blue-500/30' : 'text-red-400 border-red-500/30',
+              },
+              {
+                step: 8, title: 'Risk Assessment',
+                icon: CheckCircle2,
+                iconBg: riskLevel === 'Low' ? 'bg-green-500/10' : riskLevel === 'Elevated' ? 'bg-amber-500/10' : 'bg-red-500/10',
+                iconColor: riskLevel === 'Low' ? 'text-green-400' : riskLevel === 'Elevated' ? 'text-amber-400' : 'text-red-400',
+                border: riskLevel === 'Low' ? 'border-green-500/20' : riskLevel === 'Elevated' ? 'border-amber-500/20' : 'border-red-500/20',
+                value: riskLevel === 'Low' ? 'Low operational risk — no weather-driven threats detected' : riskLevel === 'Elevated' ? 'Elevated risk — temperature conditions outside comfortable range' : 'High risk — extreme temperature range for equipment and personnel',
+                detail: oat < 20 ? 'Freeze risk to exposed equipment and piping systems' : oat > 95 ? 'Equipment heat stress conditions — personnel safety monitoring required' : 'Weather conditions within normal operational parameters',
+                status: `${riskLevel} Risk`,
+                statusClass: riskLevel === 'Low' ? 'text-green-400 border-green-500/30' : riskLevel === 'Elevated' ? 'text-amber-400 border-amber-500/30' : 'text-red-400 border-red-500/30',
+              },
+              {
+                step: 9, title: 'Operational Recommendations',
+                icon: CheckCircle2, iconBg: 'bg-primary/10', iconColor: 'text-primary', border: 'border-primary/20',
+                value: recommendations.join(' · '),
+                detail: `${recommendations.length} recommended ${recommendations.length === 1 ? 'action' : 'actions'} based on current climate and equipment state`,
+                status: `${recommendations.length} Actions`,
+                statusClass: 'text-primary border-primary/30',
+              },
+            ];
+
+            return (
+              <div className="space-y-2 max-w-3xl mx-auto">
+                <div className="text-center pb-4">
+                  <p className="text-sm font-semibold">Operational Intelligence Chain</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    How today's {oat}°F OAT cascades through your facility operations
+                  </p>
+                </div>
+                {chain.map((node, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className={cn('w-full rounded-xl border p-4 bg-card/50', node.border)}>
+                      <div className="flex items-start gap-3">
+                        <div className={cn('p-2 rounded-lg shrink-0 mt-0.5', node.iconBg)}>
+                          <node.icon className={cn('w-4 h-4', node.iconColor)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Step {node.step}</span>
+                              <span className="text-xs font-semibold">{node.title}</span>
+                            </div>
+                            <Badge variant="outline" className={cn('text-[10px] h-5 shrink-0', node.statusClass)}>
+                              {node.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium text-foreground mb-1 leading-snug">{node.value}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{node.detail}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {i < chain.length - 1 && (
+                      <div className="flex flex-col items-center py-0.5">
+                        <div className="w-px h-3 bg-primary/20" />
+                        <span className="text-primary/40 text-[10px] leading-none">▼</span>
+                        <div className="w-px h-3 bg-primary/20" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </>
       ) : (
         /* No location configured */

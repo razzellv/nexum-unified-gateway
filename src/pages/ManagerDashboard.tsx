@@ -562,9 +562,9 @@ export default function ManagerDashboard() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
               <BarChart3 className="w-8 h-8 text-neon-cyan" />
-              Manager Dashboard
+              Operations Intelligence Center™
             </h1>
-            <p className="text-muted-foreground mt-1">Operations overview and facility management</p>
+            <p className="text-muted-foreground mt-1">Operational intelligence and facility performance</p>
           </div>
           <div className="flex gap-3 items-center">
             <Button
@@ -575,7 +575,7 @@ export default function ManagerDashboard() {
               <Users className="w-4 h-4 mr-2" />
               Staff Performance
             </Button>
-            <ExportButtons data={data} filename="manager-dashboard" title="Manager Dashboard Report" />
+            <ExportButtons data={data} filename="operations-intelligence" title="Operations Intelligence Center Report" />
             <NexumBranding />
           </div>
         </div>

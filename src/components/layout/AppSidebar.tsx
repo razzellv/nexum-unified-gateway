@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
-  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -62,80 +62,98 @@ type NavItem = {
 const allNavItems: NavItem[] = [
   { name: 'Main Hub',          href: '/',                   icon: Home,    access: 'all' },
   { name: 'Onboarding Status', href: '/onboarding-status',  icon: Rocket,  access: 'all' },
+
+  // ── Command Hub — AI-assisted operational execution ───────────────────────
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
-  { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
-  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
-  { name: 'Project Controls', href: '/project-controls', icon: Target, access: 'leadership', tier: 'project_controls' },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
-  { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'leadership', tier: 'messages' },
-  { name: 'Kanban', href: '/kanban', icon: Columns3, access: 'leadership', tier: 'kanban' },
-  { name: 'Emergency', href: '/emergency', icon: AlertOctagon, access: 'leadership' },
-  { name: 'Vendors', href: '/vendors', icon: Building2, access: 'leadership', tier: 'vendors' },
-  { name: 'Calendar', href: '/calendar', icon: Calendar, access: 'leadership', tier: 'calendar' },
-  { name: 'Workflows', href: '/workflows', icon: Workflow, access: 'leadership', tier: 'operations_center' },
-  { name: 'Workload', href: '/workload', icon: Users, access: 'leadership', tier: 'workload' },
-  { name: 'Settings', href: '/settings', icon: Settings, access: 'leadership' },
+  { name: 'Command Hub',    href: '/command-hub',    icon: Command,       access: 'leadership' },
+  { name: 'Work Orders',    href: '/work-orders',    icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
+  { name: 'Project Controls', href: '/project-controls', icon: Target,   access: 'leadership', tier: 'project_controls' },
+  { name: 'Violations',     href: '/violations',     icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
+  { name: 'Messages',       href: '/messages',       icon: MessageSquare, access: 'leadership', tier: 'messages' },
+  { name: 'Kanban',         href: '/kanban',         icon: Columns3,      access: 'leadership', tier: 'kanban' },
+  { name: 'Emergency',      href: '/emergency',      icon: AlertOctagon,  access: 'leadership' },
+  { name: 'Vendors',        href: '/vendors',        icon: Building2,     access: 'leadership', tier: 'vendors' },
+  { name: 'Calendar',       href: '/calendar',       icon: Calendar,      access: 'leadership', tier: 'calendar' },
+  { name: 'Workflows',      href: '/workflows',      icon: Workflow,      access: 'leadership', tier: 'operations_center' },
+  { name: 'Workload',       href: '/workload',       icon: Users,         access: 'leadership', tier: 'workload' },
+  { name: 'Settings',       href: '/settings',       icon: Settings,      access: 'leadership' },
 
-  // Retail-staff-only items (minimal nav)
+  // Retail-staff minimal nav
   { type: 'separator', name: 'My Work', access: 'retail_staff' },
-  { name: 'Checklist', href: '/employee-dashboard', icon: ClipboardList, access: 'retail_staff' },
-  { name: 'Inventory', href: '/inventory-library', icon: Boxes, access: 'retail_staff', tier: 'inventory_library' },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'retail_staff', tier: 'violations_tracking' },
+  { name: 'Checklist',  href: '/employee-dashboard', icon: ClipboardList, access: 'retail_staff' },
+  { name: 'Inventory',  href: '/inventory-library',  icon: Boxes,         access: 'retail_staff', tier: 'inventory_library' },
+  { name: 'Violations', href: '/violations',          icon: AlertTriangle, access: 'retail_staff', tier: 'violations_tracking' },
 
-  // Govt-staff-only items (minimal nav)
+  // Govt-staff minimal nav
   { type: 'separator', name: 'My Work', access: 'govt_staff' },
-  { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'govt_staff', tier: 'work_orders' },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'govt_staff', tier: 'violations_tracking' },
-  { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'govt_staff', tier: 'messages' },
-  { name: 'Personnel', href: '/employee-dashboard', icon: Users, access: 'govt_staff' },
+  { name: 'Work Orders', href: '/work-orders',       icon: ClipboardList, access: 'govt_staff', tier: 'work_orders' },
+  { name: 'Violations',  href: '/violations',        icon: AlertTriangle, access: 'govt_staff', tier: 'violations_tracking' },
+  { name: 'Messages',    href: '/messages',          icon: MessageSquare, access: 'govt_staff', tier: 'messages' },
+  { name: 'Personnel',   href: '/employee-dashboard',icon: Users,         access: 'govt_staff' },
 
-  { type: 'separator', name: 'Operations', access: 'all' },
-  { name: 'Equipment Intelligence', href: '/equipment-intelligence', icon: Camera, access: 'all' },
-  { name: 'Facility Data Source', href: '/data-source', icon: Upload, access: 'all', tier: 'facility_data_source' },
-  { name: 'Equipment Metrics', href: '/equipment', icon: Activity, access: 'all', tier: 'equipment_metrics' },
-  { name: 'Equipment Library', href: '/equipment-library', icon: Package, access: 'all', tier: 'equipment_library' },
-  { name: 'Inventory Library', href: '/inventory-library', icon: Boxes, access: 'all', tier: 'inventory_library' },
-  { name: 'Compliance Documents', href: '/compliance-documents', icon: ShieldCheck, access: 'all', tier: 'compliance_documents' },
-  { name: 'Retail Dashboard', href: '/retail-dashboard', icon: ShoppingCart, access: 'all', tier: 'retail_inventory', orgTypes: ['retail'] },
-  { name: 'Gov / Public Safety', href: '/government-dashboard', icon: Shield, access: 'all', tier: 'retail_inventory', orgTypes: ['government'] },
-  { name: 'Equipment Systems', href: '/equipment-systems', icon: Network, access: 'leadership' },
-  { name: 'Observation Journal', href: '/observations', icon: BookOpen, access: 'all', tier: 'compliance_logging' },
-  { name: 'Evidence Board', href: '/evidence-board', icon: LayoutGrid, access: 'all', tier: 'compliance_logging' },
-  { name: 'Compliance Logger', href: '/compliance-logger', icon: ShieldCheck, access: 'all', tier: 'compliance_logging' },
-  { name: 'Compliance Dashboard', href: '/dashboard/compliance', icon: ShieldCheck, access: 'leadership' },
-  { name: 'Chemical & Hazmat', href: '/inventory-library', icon: FlaskConical, access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
-  { name: 'OSHA 300 Log', href: '/osha-300', icon: ClipboardList, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
-  { name: 'Environmental', href: '/environmental', icon: Leaf, access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
-  { name: 'Consulting Services', href: '/consulting', icon: Briefcase, access: 'leadership' },
+  // ── Perception Layer™ — What is happening right now? ──────────────────────
+  { type: 'separator', name: 'Perception Layer™', access: 'all' },
+  { name: 'Observation Journal™',   href: '/observations',        icon: BookOpen,   access: 'all',        tier: 'compliance_logging' },
+  { name: 'Equipment Intelligence™',href: '/equipment-intelligence', icon: Camera,  access: 'all' },
+  { name: 'Facility Data Source™',  href: '/data-source',         icon: Upload,     access: 'all',        tier: 'facility_data_source' },
+  { name: 'Compliance Logger™',     href: '/compliance-logger',   icon: ShieldCheck,access: 'all',        tier: 'compliance_logging' },
+  { name: 'Climate Intelligence™',  href: '/climate-intelligence',icon: Thermometer,access: 'leadership' },
+  { name: 'Energy Intelligence™',   href: '/dashboard/energy',    icon: Zap,        access: 'leadership', tier: 'energy_dashboard' },
+  { name: 'Evidence Board',         href: '/evidence-board',      icon: LayoutGrid, access: 'all',        tier: 'compliance_logging' },
 
-  { type: 'separator', name: 'Dashboards', access: 'all' },
-  { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
-  { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
-  { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
-  { name: 'Climate Intelligence™', href: '/climate-intelligence', icon: Thermometer, access: 'leadership' },
-  { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
-  { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
-  { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
-  { name: 'Supervisor Dashboard', href: '/dashboard/supervisor', icon: Gauge, access: 'leadership', tier: 'supervisor_dashboard' },
+  // ── Memory Layer™ — What must never be forgotten? ─────────────────────────
+  { type: 'separator', name: 'Memory Layer™', access: 'leadership' },
+  { name: 'Facility Memory™',   href: '/facility-memory',  icon: Brain, access: 'leadership', tier: 'facility_memory' },
+  { name: 'Operational DNA™',   href: '/operational-dna',  icon: Cpu,   access: 'leadership', tier: 'operational_dna' },
 
-  { type: 'separator', name: 'Prestige Intelligence™', access: 'leadership' },
-  { name: 'OCCAE', href: '/occae', icon: BrainCircuit, access: 'leadership', tier: 'occae' },
-  { name: 'Operational Intelligence', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
-  { name: 'Facility Memory', href: '/facility-memory', icon: Brain, access: 'leadership', tier: 'facility_memory' },
-  { name: 'Operational DNA', href: '/operational-dna', icon: Cpu, access: 'leadership', tier: 'operational_dna' },
-  { name: 'Event Integrity', href: '/event-integrity', icon: ShieldCheck, access: 'leadership', tier: 'event_integrity' },
-  { name: 'Drift Intelligence', href: '/drift-intelligence', icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
-  { name: 'System Violations™', href: '/system-violations', icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
-  { name: 'Decision Continuity™ Vault', href: '/dc-vault', icon: ShieldCheck, access: 'leadership', tier: 'dc_vault' },
-  { name: 'Decision Outcome Tracking™', href: '/decision-outcomes', icon: ClipboardCheck, access: 'leadership', tier: 'decision_outcomes' },
-  { name: 'Continuity Intelligence™',   href: '/continuity-intelligence', icon: Shield, access: 'leadership', tier: 'continuity_intelligence' },
+  // ── Integrity Layer™ — Can this information be trusted? ───────────────────
+  { type: 'separator', name: 'Integrity Layer™', access: 'leadership' },
+  { name: 'Event Integrity™',         href: '/event-integrity',       icon: ShieldCheck,  access: 'leadership', tier: 'event_integrity' },
+  { name: 'Decision Continuity™ Vault',href: '/dc-vault',             icon: Shield,       access: 'leadership', tier: 'dc_vault' },
+  { name: 'Decision Outcomes™',        href: '/decision-outcomes',    icon: ClipboardCheck,access: 'leadership', tier: 'decision_outcomes' },
 
-  // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
+  // ── Intelligence Layer™ — What does this mean? ────────────────────────────
+  { type: 'separator', name: 'Intelligence Layer™', access: 'leadership' },
+  { name: 'Operational Intelligence™', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'OCCAE™',                    href: '/occae',                    icon: BrainCircuit, access: 'leadership', tier: 'occae' },
+  { name: 'Drift Intelligence™',       href: '/drift-intelligence',       icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
+  { name: 'System Violations™',        href: '/system-violations',        icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
+  { name: 'Continuity Intelligence™',  href: '/continuity-intelligence',  icon: Shield,       access: 'leadership', tier: 'continuity_intelligence' },
+
+  // ── Decision Layer™ — What should we do? ─────────────────────────────────
+  { type: 'separator', name: 'Decision Layer™', access: 'all' },
+  { name: 'Executive Intelligence Center™',  href: '/dashboard/executive', icon: TrendingUp,     access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'Operations Intelligence Center™', href: '/dashboard/manager',   icon: LayoutDashboard,access: 'leadership', tier: 'manager_dashboard' },
+  { name: 'Field Intelligence Center™',      href: '/dashboard/supervisor',icon: Gauge,          access: 'leadership', tier: 'supervisor_dashboard' },
+  { name: 'Facility Intelligence',           href: '/facility-intelligence',icon: BarChart3,     access: 'leadership' },
+  { name: 'Operation Center',                href: '/employee-dashboard',   icon: Users,          access: 'all',        tier: 'operations_center' },
+
+  // ── Learning Layer™ — How do we become better? ────────────────────────────
+  { type: 'separator', name: 'Learning Layer™', access: 'leadership' },
+  { name: 'Optimize & Learn™',   href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
+  { name: 'Facility Instructor™',href: '/instructor',     icon: MessageSquare, access: 'leadership', tier: 'vvfi' },
+
+  // ── Toolkit — Reference & Configuration ───────────────────────────────────
+  { type: 'separator', name: 'Toolkit', access: 'all' },
+  { name: 'Equipment Library',     href: '/equipment-library',    icon: Package,    access: 'all',        tier: 'equipment_library' },
+  { name: 'Equipment Metrics',     href: '/equipment',            icon: Activity,   access: 'all',        tier: 'equipment_metrics' },
+  { name: 'Inventory Library',     href: '/inventory-library',    icon: Boxes,      access: 'all',        tier: 'inventory_library' },
+  { name: 'Compliance Documents',  href: '/compliance-documents', icon: ShieldCheck,access: 'all',        tier: 'compliance_documents' },
+  { name: 'Compliance Intelligence™', href: '/dashboard/compliance', icon: ShieldCheck, access: 'leadership' },
+  { name: 'Equipment Systems',     href: '/equipment-systems',    icon: Network,    access: 'leadership' },
+  { name: 'Chemical & Hazmat',     href: '/inventory-library',    icon: FlaskConical,access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
+  { name: 'OSHA 300 Log',          href: '/osha-300',             icon: ClipboardList,access: 'leadership',tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
+  { name: 'Environmental',         href: '/environmental',        icon: Leaf,       access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
+  { name: 'Consulting Services',   href: '/consulting',           icon: Briefcase,  access: 'leadership' },
+  { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart,access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
+  { name: 'Gov / Public Safety',   href: '/government-dashboard', icon: Shield,     access: 'all',        tier: 'retail_inventory',   orgTypes: ['government'] },
+
+  // ── Nexum Internal (admin only) ───────────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
-  { name: 'Workspace', href: '/nexum-workspace', icon: LayoutDashboard, access: 'admin_only' },
-  { name: 'Implementation Guide', href: '/implementation-guide', icon: Rocket, access: 'admin_only' },
-  { name: 'FIAS Assessment', href: '/fias', icon: Activity, access: 'admin_only' },
-  { name: 'Contractor Installs', href: '/contractor-installs', icon: Wrench, access: 'admin_only' },
+  { name: 'Workspace',            href: '/nexum-workspace',      icon: LayoutDashboard, access: 'admin_only' },
+  { name: 'Implementation Guide', href: '/implementation-guide', icon: Rocket,          access: 'admin_only' },
+  { name: 'FIAS Assessment',      href: '/fias',                 icon: Activity,        access: 'admin_only' },
+  { name: 'Contractor Installs',  href: '/contractor-installs',  icon: Wrench,          access: 'admin_only' },
 ];
 
 // ── Nav visibility logic ─────────────────────────────────────────────────────

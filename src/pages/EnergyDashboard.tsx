@@ -179,9 +179,9 @@ export default function EnergyDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Energy Dashboard</h1>
+            <h1 className="text-3xl font-bold mb-2">Energy Intelligence™</h1>
             <p className="text-muted-foreground">
-              Multi-utility consumption and cost analysis
+              Multi-utility consumption, cost analysis, and energy optimization
             </p>
           </div>
           <div className="flex gap-2">

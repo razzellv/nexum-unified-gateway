@@ -745,10 +745,10 @@ export default function ExecutiveDashboard() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <BarChart3 className="w-8 h-8 text-primary" />Executive Dashboard
+              <BarChart3 className="w-8 h-8 text-primary" />Executive Intelligence Center™
             </h1>
             <p className="text-muted-foreground mt-1">
-              30-day facility intelligence overview
+              30-day operational intelligence overview
               {lastUpdated && <span className="ml-2 text-xs">· Updated {lastUpdated.toLocaleTimeString()}</span>}
             </p>
           </div>

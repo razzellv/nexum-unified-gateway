@@ -510,7 +510,7 @@ const Index = () => {
             </h1>
           </div>
           <p className="text-muted-foreground text-sm ml-14">
-            Unified Operations Hub • Multi-Facility Command Center
+            Operational Intelligence Engine™ • Multi-Facility Command Center
           </p>
         </div>
       </header>
@@ -553,36 +553,36 @@ const Index = () => {
       )}
 
       <main className="container mx-auto px-4 py-8 space-y-10">
-        {/* Active Modules */}
+        {/* Active Intelligence Capabilities */}
         <section className="rounded-xl border border-green-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <div className="h-px flex-1 bg-gradient-to-r from-green-500/50 to-transparent" />
             <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              Active Modules
+              Active Intelligence Capabilities
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-green-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <ModuleCard
               title="Facility Intelligence"
-              description="Real-time dashboards for energy, operations, and performance analytics"
+              description="Integrated intelligence dashboards for energy, operations, and performance"
               route="/facility-intelligence"
               icon={<BarChart3 className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Employee Dashboards"
-              description="Role-specific portals for technicians, operators, engineers, and custodians"
+              title="Field Intelligence Portals"
+              description="Role-specific intelligence for technicians, operators, engineers, and custodians"
               route="/dashboard/employees"
               icon={<Users className="w-5 h-5" />}
               status="active"
               colorTheme="secondary"
             />
             <ModuleCard
-              title="Equipment Intelligence"
-              description="AI-powered nameplate analysis and equipment specs extraction"
+              title="Equipment Intelligence™"
+              description="AI-powered nameplate analysis, specs extraction, and asset knowledge capture"
               route="/equipment-intelligence"
               icon={<Camera className="w-5 h-5" />}
               status="active"
@@ -590,23 +590,23 @@ const Index = () => {
             />
             <ModuleCard
               title="Equipment Metrics"
-              description="Real-time equipment performance and operational data"
+              description="Real-time equipment performance data and operational health indicators"
               route="/equipment"
               icon={<Activity className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Facility Data Source"
-              description="Log daily operational readings and equipment data"
+              title="Facility Data Source™"
+              description="Capture daily operational readings — the foundation of organizational knowledge"
               route="/data-source"
               icon={<Upload className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Compliance Logger"
-              description="Log violations, PM checks, and safety observations"
+              title="Compliance Logger™"
+              description="Capture violations, PM checks, and safety observations into defensible records"
               route="/compliance-logger"
               icon={<Shield className="w-5 h-5" />}
               status="active"
@@ -614,59 +614,58 @@ const Index = () => {
             />
             <ModuleCard
               title="Command Hub"
-              subtitle="Operations Control"
-              description="Centralized facility operations with real-time alerts and system monitoring"
+              subtitle="AI-Assisted Operational Execution"
+              description="AI accelerates execution — humans make decisions. Real-time operations control."
               route="/command-hub"
               icon={<Command className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Compliance Analyzer"
-              description="Automated compliance analysis and regulatory tracking"
+              title="Compliance Intelligence™"
+              description="Automated compliance analysis, regulatory tracking, and audit readiness"
               route="/compliance-analyzer"
               icon={<ShieldCheck className="w-5 h-5" />}
               status="active"
               colorTheme="primary"
             />
             <ModuleCard
-              title="Facility Instructor"
-              description="AI chat assistant for technical, safety, and HR questions"
+              title="Climate Intelligence™"
+              description="Operational chain analysis — from weather to equipment to energy to financial impact"
+              route="/climate-intelligence"
+              icon={<Thermometer className="w-5 h-5" />}
+              status="active"
+              colorTheme="primary"
+            />
+            <ModuleCard
+              title="Facility Instructor™"
+              description="AI technical mentor for HVAC, boilers, safety, capital projects, and ethics guidance"
               route="/instructor"
               icon={<MessageSquare className="w-5 h-5" />}
-              status="in-progress"
+              status="active"
               colorTheme="accent"
-            />          
+            />
           </div>
         </section>
 
-        {/* Modules In Progress */}
+        {/* Intelligence Expanding */}
         <section className="rounded-xl border border-blue-500/20 bg-card/30 backdrop-blur-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent" />
             <h2 className="text-lg font-semibold text-foreground px-3 flex items-center gap-2">
               <Clock className="w-4 h-4 text-blue-500" />
-              Modules In Progress
+              Intelligence Expanding
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-
             <ModuleCard
-              title="Optimize & Learn"
-              description="Training modules and continuous improvement programs"
+              title="Optimize & Learn™"
+              description="Organizational learning, training intelligence, and continuous improvement programs"
               route="/optimize-learn"
               icon={<GraduationCap className="w-5 h-5" />}
               status="in-progress"
               colorTheme="secondary"
-            />
-            <ModuleCard
-              title="Climate Intelligence™"
-              description="Environmental monitoring, thermal analysis, and climate risk scoring"
-              route="/climate-intelligence"
-              icon={<Thermometer className="w-5 h-5" />}
-              status="active"
-              colorTheme="primary"
             />
           </div>
         </section>
