@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -667,6 +669,18 @@ export default function ManagerDashboard() {
             Analysis based on <strong className="text-blue-400">{loggingConsistency} verified records (7d)</strong> — only admissible,
             governance-checked entries feed these metrics. Incomplete logs are excluded from this view.
           </span>
+        </div>
+
+        {/* Decision Intelligence + Scope Alignment — dept-filtered, role & tier auto-gated */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DCIntelligencePanel
+            department={selectedDept !== 'All' ? selectedDept : undefined}
+            limit={5}
+          />
+          <ScopeAlignmentPanel
+            department={selectedDept !== 'All' ? selectedDept : undefined}
+            limit={15}
+          />
         </div>
 
         {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}

@@ -332,6 +332,22 @@ export default function Onboarding() {
       // Persist org type choice
       if (orgType) localStorage.setItem('nexum_org_type', orgType);
 
+      // Persist facility location for weather service
+      const _weatherCity =
+        orgType === 'retail'     ? retailStore.city :
+        orgType === 'government' ? govAgency.city   :
+        org.city;
+      const _weatherState =
+        orgType === 'retail'     ? retailStore.state :
+        orgType === 'government' ? govAgency.state   :
+        org.state;
+      if (_weatherCity)  localStorage.setItem('nexum_facility_city',  _weatherCity.trim());
+      if (_weatherState) localStorage.setItem('nexum_facility_state', _weatherState.trim());
+      if (org.zip)       localStorage.setItem('nexum_facility_zip',   org.zip.trim());
+      // Invalidate cached coords so the new location geocodes on next load
+      localStorage.removeItem('nexum_weather_coords');
+      localStorage.removeItem('nexum_weather_cache');
+
       // ── Observation Journal — capture onboarding as system of origin ──────────
       try {
         const equipList  = equipment.filter(e => e.equipmentType && e.manufacturer);

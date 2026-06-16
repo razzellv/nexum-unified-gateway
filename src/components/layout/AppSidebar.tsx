@@ -25,6 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck,
 } from "lucide-react";
 import { NavLink } from '@/components/NavLink';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,7 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub', href: '/command-hub', icon: Command, access: 'leadership' },
   { name: 'Work Orders', href: '/work-orders', icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
+  { name: 'Project Controls', href: '/project-controls', icon: Target, access: 'leadership', tier: 'project_controls' },
   { name: 'Violations', href: '/violations', icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
   { name: 'Messages', href: '/messages', icon: MessageSquare, access: 'leadership', tier: 'messages' },
   { name: 'Kanban', href: '/kanban', icon: Columns3, access: 'leadership', tier: 'kanban' },
@@ -110,6 +112,7 @@ const allNavItems: NavItem[] = [
   { name: 'Facility Intelligence', href: '/facility-intelligence', icon: BarChart3, access: 'leadership' },
   { name: 'Operation Center', href: '/employee-dashboard', icon: Users, access: 'all', tier: 'operations_center' },
   { name: 'Optimize & Learn', href: '/optimize-learn', icon: GraduationCap, access: 'leadership', tier: 'lms' },
+  { name: 'Climate Intelligence™', href: '/climate-intelligence', icon: Thermometer, access: 'leadership' },
   { name: 'Energy Dashboard', href: '/dashboard/energy', icon: BarChart3, access: 'leadership', tier: 'energy_dashboard' },
   { name: 'Executive Dashboard', href: '/dashboard/executive', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
   { name: 'Manager Dashboard', href: '/dashboard/manager', icon: LayoutDashboard, access: 'leadership', tier: 'manager_dashboard' },
@@ -117,6 +120,14 @@ const allNavItems: NavItem[] = [
 
   { name: 'OCCAE', href: '/occae', icon: BrainCircuit, access: 'leadership', tier: 'occae' },
   { name: 'Operational Intelligence', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'Facility Memory', href: '/facility-memory', icon: Brain, access: 'leadership', tier: 'facility_memory' },
+  { name: 'Operational DNA', href: '/operational-dna', icon: Cpu, access: 'leadership', tier: 'operational_dna' },
+  { name: 'Event Integrity', href: '/event-integrity', icon: ShieldCheck, access: 'leadership', tier: 'event_integrity' },
+  { name: 'Drift Intelligence', href: '/drift-intelligence', icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
+  { name: 'System Violations™', href: '/system-violations', icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },
+  { name: 'Decision Continuity™ Vault', href: '/dc-vault', icon: ShieldCheck, access: 'leadership', tier: 'dc_vault' },
+  { name: 'Decision Outcome Tracking™', href: '/decision-outcomes', icon: ClipboardCheck, access: 'leadership', tier: 'decision_outcomes' },
+  { name: 'Continuity Intelligence™',   href: '/continuity-intelligence', icon: Shield, access: 'leadership', tier: 'continuity_intelligence' },
 
   // ── Nexum Internal Tools (admin only) ──────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },
@@ -218,7 +229,7 @@ export function AppSidebar() {
   return (
     <aside className={cn(
       "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
-      collapsed ? "w-0 md:w-16 overflow-hidden" : "w-64"
+      collapsed ? "w-64 md:w-16 md:overflow-hidden" : "w-64"
     )}>
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">

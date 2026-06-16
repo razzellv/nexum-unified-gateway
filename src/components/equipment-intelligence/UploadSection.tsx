@@ -191,6 +191,32 @@ Format the response with clear labels and values.`,
               });
             }
             window.dispatchEvent(new CustomEvent('equipment-updated'));
+
+            // DC Vault cross-write: record AI equipment analysis as an observation signal (non-critical)
+            try {
+              const dcBaseUrl = import.meta.env.VITE_API_BASE_URL;
+              const chainRes = await fetch(`${dcBaseUrl}/dc-vault`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                body: JSON.stringify({
+                  title: `Equipment Intelligence — ${equipmentData.manufacturer} ${equipmentData.model}`,
+                  sourceType: 'equipment_intelligence',
+                  sourceId: saveResult.equipmentId || serialNumber,
+                  description: `AI nameplate analysis: ${equipmentData.equipmentType}, ${equipmentData.capacity || 'N/A'} capacity, serial ${serialNumber}.`,
+                }),
+              });
+              if (chainRes.ok) {
+                const { chain } = await chainRes.json();
+                await fetch(`${dcBaseUrl}/dc-vault/${chain.id}/signals`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                  body: JSON.stringify({
+                    signalType: 'observation',
+                    rawContent: `Equipment nameplate scanned and analyzed via AI. Type: ${equipmentData.equipmentType}. Manufacturer: ${equipmentData.manufacturer}. Model: ${equipmentData.model}. Serial: ${serialNumber}. Capacity: ${equipmentData.capacity || 'N/A'}. Voltage: ${equipmentData.voltage || 'N/A'}. Category: ${equipmentData.category}. Asset role: ${equipmentData.assetRole}.`,
+                  }),
+                }).catch(() => {});
+              }
+            } catch { /* non-critical */ }
           } else {
             const errorData = await saveResponse.json();
             setUploadStatus('warning');

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Filter, SortAsc, Search } from 'lucide-react';
-import { mockTasks } from '@/data/mockData';
 import { NewTaskDialog } from '@/components/command-hub/dialogs/NewTaskDialog';
 import { FilterDialog } from '@/components/command-hub/dialogs/FilterDialog';
 import { toast } from '@/hooks/use-toast';
@@ -14,9 +13,8 @@ const Kanban = () => {
   const [showNewTask, setShowNewTask] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-
-  const criticalCount = mockTasks.filter(t => t.priority === 'critical' && t.status !== 'completed').length;
-  const activeCount = mockTasks.filter(t => t.status !== 'completed' && t.status !== 'archived').length;
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [criticalCount, setCriticalCount] = useState(0);
 
   const handleSort = () => {
     toast({ title: 'Sorted', description: 'Tasks sorted by priority' });
@@ -36,7 +34,7 @@ const Kanban = () => {
             <div>
               <h1 className="text-xl md:text-2xl font-bold">Agile/Lean Board</h1>
               <p className="text-sm text-muted-foreground">
-                {activeCount} active tasks 
+                {activeCount === null ? 'Loading…' : `${activeCount} active tasks`}
                 {criticalCount > 0 && (
                   <span className="text-critical"> • {criticalCount} critical</span>
                 )}
@@ -121,7 +119,7 @@ const Kanban = () => {
         </div>
 
         {/* Kanban Board */}
-        <KanbanBoard />
+        <KanbanBoard onStatsChange={(a, c) => { setActiveCount(a); setCriticalCount(c); }} />
       </div>
 
       <NewTaskDialog open={showNewTask} onOpenChange={setShowNewTask} />

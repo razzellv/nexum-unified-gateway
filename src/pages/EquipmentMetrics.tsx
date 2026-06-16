@@ -72,7 +72,7 @@ export default function EquipmentMetrics() {
   
   // Filters
   const [equipmentType, setEquipmentType] = useState('all');
-  const [timeRange, setTimeRange] = useState('24h');
+  const [timeRange, setTimeRange] = useState('7d');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -486,10 +486,21 @@ export default function EquipmentMetrics() {
                         const logKey = `${log.SK}-${index}`;
                         const isExpanded = expandedRows.has(logKey);
 
-                        // Get all metrics from flattened log (data was merged to top level by Lambda)
-                        const allMetrics = Object.entries(log)
-                          .filter(([key]) => !['PK', 'SK', 'id', 'facilityId', 'equipmentId', 'systemType', 'equipmentType', 'timestamp', 'operator', 'operatorId', 'notes', 'createdBy', 'createdRole', 'facility_id', 'system', 'system_asset', 'data'].includes(key))
-                          .filter(([_, value]) => value !== null && value !== undefined && value !== '');
+                        // Collect numeric/string readings — exclude all metadata keys
+                        const EXCLUDE_KEYS = new Set([
+                          'PK','SK','id','facilityId','facility_id','equipmentId','equipment_id',
+                          'systemType','system_type','systemId','system_id','equipmentType',
+                          'timestamp','createdAt','operator','operatorId','operator_id','operatorName',
+                          'notes','operatorNotes','operator_notes','shift','measurementType',
+                          'measurement_type','abnormalCondition','abnormal_condition','source',
+                          'createdBy','createdRole','system','system_asset','data','metrics',
+                          'buildingId','building_id','TTL','flagged',
+                        ]);
+                        const allMetrics = [
+                          ...Object.entries(log).filter(([key]) => !EXCLUDE_KEYS.has(key)),
+                          ...Object.entries((log as any).data    || {}),
+                          ...Object.entries((log as any).metrics || {}),
+                        ].filter(([_, value]) => value !== null && value !== undefined && value !== '' && typeof value !== 'object');
 
                         return (
                           <React.Fragment key={logKey}>

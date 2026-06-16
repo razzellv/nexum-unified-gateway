@@ -114,19 +114,39 @@ function mapEquipment(item, fid) {
 }
 
 function mapLog(item) {
-  const data = item.data || {};
+  // Support both storage formats: nested under "data", nested under "metrics",
+  // or spread directly at the top level (all three appear in the wild)
+  const SYSTEM_KEYS = new Set([
+    'PK','SK','TTL','facilityId','facility_id','buildingId','building_id',
+    'equipmentId','equipment_id','systemId','system_id','systemType','system_type',
+    'equipmentType','timestamp','createdAt','operator','operatorName','operatorId',
+    'operator_id','operatorNotes','operator_notes','shift','measurementType',
+    'measurement_type','abnormalCondition','abnormal_condition','source',
+    'flagged','createdBy','createdRole','data','metrics','notes','system','system_asset',
+  ]);
+  const data    = item.data    || {};
+  const metrics = item.metrics || {};
+  // Also pick up any unknown top-level fields that look like readings
+  const extra   = Object.fromEntries(
+    Object.entries(item).filter(([k]) => !SYSTEM_KEYS.has(k))
+  );
   return {
     PK:            item.PK,
     SK:            item.SK,
-    equipmentId:   item.equipmentId   || "",
-    equipmentType: item.equipmentType || item.systemType || "",
-    systemType:    item.systemType    || item.equipmentType || "",
-    timestamp:     item.timestamp     || item.createdAt || "",
-    operator:      item.operator      || item.operatorName || "",
-    operatorId:    item.operatorId    || "",
-    facilityId:    item.facilityId    || "",
-    notes:         item.notes         || "",
+    equipmentId:   item.equipmentId   || item.equipment_id || item.systemId || item.system_id || "",
+    equipmentType: item.equipmentType || item.systemType    || item.system_type || "",
+    systemType:    item.systemType    || item.system_type   || item.equipmentType || "",
+    timestamp:     item.timestamp     || item.createdAt     || "",
+    operator:      item.operator      || item.operatorName  || "",
+    operatorId:    item.operatorId    || item.operator_id   || "",
+    facilityId:    item.facilityId    || item.facility_id   || "",
+    notes:         item.notes         || item.operatorNotes || item.operator_notes || "",
+    shift:         item.shift         || "",
+    measurementType: item.measurementType || item.measurement_type || "",
+    abnormalCondition: item.abnormalCondition || item.abnormal_condition || false,
+    ...extra,
     ...data,
+    ...metrics,
   };
 }
 

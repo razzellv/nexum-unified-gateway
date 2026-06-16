@@ -54,11 +54,14 @@ export default function Register() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // ── URL params ───────────────────────────────────────────────────────────────
-  const planName  = params.get('plan')    || '';
-  const priceId   = params.get('priceId') || '';
-  const isPilot   = params.get('pilot')   === 'true';
-  const inviteId  = params.get('invite')  || '';
+  const planName  = params.get('plan')       || '';
+  const priceId   = params.get('priceId')    || '';
+  const sessionId = params.get('session_id') || '';
+  const isPilot   = params.get('pilot')      === 'true';
+  const inviteId  = params.get('invite')     || '';
   const inviteEmail = (params.get('email') || '').toLowerCase();
+  // Payment was completed before account creation
+  const isPaidFlow = !!sessionId;
 
   // ── Invite-mode state ────────────────────────────────────────────────────────
   const [inviteData, setInviteData]     = useState<InviteData | null>(null);
@@ -163,6 +166,11 @@ export default function Register() {
     if (err) { setError(err); return; }
     setLoading(true);
     try {
+      // Derive tier: paid flow uses plan name → tier id; otherwise trial
+      const paidTier = planName
+        ? planName.toLowerCase().replace(/\s+/g, '_')
+        : undefined;
+
       await cognitoSignUp({
         email:      form.email.trim(),
         password:   form.password,
@@ -170,6 +178,7 @@ export default function Register() {
         orgName:    inviteData?.orgName || form.orgName.trim(),
         phone:      form.phone.trim() || undefined,
         orgType:    inviteData?.orgType || form.orgType || undefined,
+        tier:       inviteMode ? undefined : (isPaidFlow ? paidTier : 'trial'),
         // Invite-mode attributes
         facilityId: inviteData?.facilityId,
         role:       inviteData?.role,
@@ -182,9 +191,20 @@ export default function Register() {
       else if (form.orgType)   sessionStorage.setItem('nexum_org_type', form.orgType);
 
       if (!inviteMode) {
-        if (planName)  sessionStorage.setItem('nexum_pending_plan',    planName);
-        if (priceId)   sessionStorage.setItem('nexum_pending_price_id', priceId);
-        if (isPilot)   sessionStorage.setItem('nexum_pending_pilot',   'true');
+        if (isPaidFlow) {
+          // Store paid session so login.tsx can redirect to /welcome for tier activation
+          localStorage.setItem('nexum_paid_session_id', sessionId);
+          if (planName) localStorage.setItem('nexum_paid_plan', planName);
+          // Clear any old pending keys
+          localStorage.removeItem('nexum_pending_plan');
+          localStorage.removeItem('nexum_pending_price_id');
+        } else {
+          // Trial — record start time for banner + cleanup Lambda
+          localStorage.setItem('nexum_trial_start', new Date().toISOString());
+          if (planName)  localStorage.setItem('nexum_pending_plan',     planName);
+          if (priceId)   localStorage.setItem('nexum_pending_price_id', priceId);
+          if (isPilot)   localStorage.setItem('nexum_pending_pilot',    'true');
+        }
       }
 
       navigate(`/verify-email?email=${encodeURIComponent(form.email.trim())}`);
@@ -292,8 +312,21 @@ export default function Register() {
                   </div>
                 )}
 
-                {/* Plan / pilot banner (non-invite) */}
-                {!inviteMode && (planName || isPilot) && (
+                {/* Payment confirmed banner (paid-first flow) */}
+                {!inviteMode && isPaidFlow && (
+                  <div style={{ marginBottom: 18, padding: '14px 16px', borderRadius: 12, background: 'rgba(0,255,100,0.07)', border: '1px solid rgba(0,255,100,0.35)', color: '#4ade80', fontSize: 13 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <CheckCircle2 size={16} color="#4ade80" /> Payment Confirmed!
+                    </div>
+                    <div style={{ color: '#a7f3d0', lineHeight: 1.6 }}>
+                      Your <strong style={{ color: '#4ade80' }}>{planName}</strong> subscription is active.
+                      Create your account below to access the platform.
+                    </div>
+                  </div>
+                )}
+
+                {/* Plan / pilot banner (non-invite, non-paid) */}
+                {!inviteMode && !isPaidFlow && (planName || isPilot) && (
                   <div style={{ marginBottom: 18, padding: '10px 14px', borderRadius: 10, background: 'rgba(0,255,225,0.07)', border: '1px solid rgba(0,255,225,0.25)', color: '#00ffe1', fontSize: 13 }}>
                     {isPilot
                       ? 'You\'re signing up for the Pilot Program — create your account to continue.'

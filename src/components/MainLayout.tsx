@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Flame, Wrench, Shield, Users, LayoutDashboard, ClipboardList, UserCog, Zap, BarChart3, History } from 'lucide-react';
+import { Flame, Wrench, Shield, LayoutDashboard, History, Menu, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/contexts/RoleContext';
 import { Badge } from '@/components/ui/badge';
@@ -14,52 +15,23 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const { isAuthenticated, loading } = useAuth();
   const { currentRole, canAccessApp, roleScope } = useRole();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Role-based navigation based on view role
   const getNavigation = () => {
     const roleDef = ROLE_DEFINITIONS[currentRole];
-    
     if (!roleDef?.canAccessApp) return [];
 
     const baseNav = [
-      { 
-        name: 'Dashboard', 
-        path: '/dashboard/manager', 
-        icon: LayoutDashboard,
-        roles: ['manager', 'supervisor', 'executive']
-      },
-      { 
-        name: 'Equipment Intelligence', 
-        path: '/equipment-intelligence', 
-        icon: Wrench,
-        roles: ['all']
-      },
-      { 
-        name: 'Equipment', 
-        path: '/equipment', 
-        icon: Flame,
-        roles: ['employee', 'supervisor', 'manager']
-      },
-      { 
-        name: 'Facility Data Source', 
-        path: '/data-source', 
-        icon: History,
-        roles: ['all']
-      },
-      { 
-        name: 'Compliance Logger', 
-        path: '/compliance-logger', 
-        icon: Shield,
-        roles: ['supervisor', 'manager', 'executive']
-      },
+      { name: 'Dashboard',              path: '/dashboard/manager',     icon: LayoutDashboard, roles: ['manager', 'supervisor', 'executive'] },
+      { name: 'Equipment Intelligence', path: '/equipment-intelligence', icon: Wrench,          roles: ['all'] },
+      { name: 'Equipment',              path: '/equipment',              icon: Flame,           roles: ['employee', 'supervisor', 'manager'] },
+      { name: 'Facility Data Source',   path: '/data-source',            icon: History,         roles: ['all'] },
+      { name: 'Compliance Logger',      path: '/compliance-logger',      icon: Shield,          roles: ['supervisor', 'manager', 'executive'] },
     ];
 
-    return baseNav.filter(item => 
-      item.roles.includes('all') || item.roles.includes(currentRole)
-    );
+    return baseNav.filter(item => item.roles.includes('all') || item.roles.includes(currentRole));
   };
 
-  // ✅ Wait for auth to resolve before enforcing any access checks
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -71,16 +43,11 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // ✅ Don't block render while auth is still resolving on navigation
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   const navigation = getNavigation();
 
-  if (!canAccessApp) {
-    return <NoAccessScreen currentRole={currentRole} />;
-  }
+  if (!canAccessApp) return <NoAccessScreen currentRole={currentRole} />;
 
   return (
     <PageWrapper>
@@ -88,17 +55,15 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
       <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center gap-2">
+            <div className="flex items-center gap-4 md:gap-8">
+              <Link to="/" className="flex items-center gap-2 shrink-0">
                 <Flame className="w-6 h-6 text-neon-cyan drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
-                <span className="font-bold text-lg" style={{
-                  color: '#06b6d4',
-                  textShadow: '0 0 20px rgba(6, 182, 212, 0.6)'
-                }}>
+                <span className="font-bold text-lg" style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.6)' }}>
                   Nexum Suum
                 </span>
               </Link>
-              
+
+              {/* Desktop nav links */}
               <div className="hidden md:flex items-center gap-4">
                 {navigation.map((item) => {
                   const Icon = item.icon;
@@ -121,19 +86,55 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               <Badge variant="outline" className="hidden sm:flex border-neon-cyan/30">
                 {roleScope?.assignedFacilities?.[0] || 'Main Campus'}
               </Badge>
               <RoleSelector />
               <NotificationBell />
+
+              {/* Mobile hamburger */}
+              <button
+                className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                onClick={() => setMobileMenuOpen(o => !o)}
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile nav drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-card/95 backdrop-blur-sm">
+            <div className="px-4 py-3 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-neon-cyan/10 text-neon-cyan'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-hidden">
         {children}
       </main>
     </PageWrapper>

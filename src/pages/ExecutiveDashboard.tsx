@@ -10,6 +10,8 @@ import { NexumError } from '@/components/global/NexumError';
 import { FacilityGauge } from '@/components/global/FacilityGauge';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { ScopeFilters } from '@/components/global/ScopeFilters';
+import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
+import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { TierGate } from '@/components/TierGate';
 import { getExecutiveDashboard, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from '@/lib/nexum-api';
 import { getAvailableFacilities } from '@/lib/role-filters';
@@ -21,8 +23,12 @@ import {
 import {
   Flame, DollarSign, AlertTriangle, Clock,
   TrendingUp, BarChart3, ClipboardList, Building2, Users, RefreshCw, Shield, Activity,
-  CalendarClock, Cpu, TrendingDown, PieChart, Layers
+  CalendarClock, Cpu, TrendingDown, PieChart, Layers, Target, ClipboardCheck,
+  CheckCircle2, XCircle,
 } from 'lucide-react';
+import { calcDOTPerformance } from '@/pages/DecisionOutcomeTracking';
+import type { DOTRecord } from '@/pages/DecisionOutcomeTracking';
+import { ContinuityWidget } from '@/components/continuity/ContinuityWidget';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -162,6 +168,216 @@ function ComplianceBar({ label, count, total, color }: { label: string; count: n
       <div className="h-1.5 rounded-full bg-border overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
+    </div>
+  );
+}
+
+// ── Decision Outcome Tracking™ Executive Tab ──────────────────────────────────
+function DOTExecTab({ facilityId }: { facilityId: string }) {
+  const [records, setRecords] = useState<DOTRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('nexum_access_token') || '';
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+    fetch(`${API_BASE}/decision-outcomes?facilityId=${facilityId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setRecords(data))
+      .catch(() => {
+        const cached = localStorage.getItem(`nexum_dot_${facilityId}`);
+        if (cached) setRecords(JSON.parse(cached));
+      })
+      .finally(() => setLoading(false));
+  }, [facilityId]);
+
+  const perfs = records.map(r => ({ record: r, perf: calcDOTPerformance(r) }));
+  const green  = perfs.filter(p => p.perf.health === 'Green').length;
+  const yellow = perfs.filter(p => p.perf.health === 'Yellow').length;
+  const red    = perfs.filter(p => p.perf.health === 'Red').length;
+  const avgScore = perfs.length > 0
+    ? Math.round(perfs.reduce((s, p) => s + p.perf.overallScore, 0) / perfs.length)
+    : 0;
+
+  const healthBadge = (h: string) =>
+    h === 'Green'  ? 'bg-green-600 text-white' :
+    h === 'Yellow' ? 'bg-yellow-600 text-white' :
+                     'bg-red-600 text-white';
+
+  if (loading) return (
+    <div className="flex justify-center py-16 text-muted-foreground">
+      <RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading decision records…
+    </div>
+  );
+
+  if (records.length === 0) return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <ClipboardCheck className="w-10 h-10 text-muted-foreground/40" />
+      <p className="font-medium text-muted-foreground">No decisions tracked yet</p>
+      <p className="text-sm text-muted-foreground/60">Start tracking whether your decisions produced their intended outcomes.</p>
+      <a href="/decision-outcomes" className="mt-2 text-sm text-primary hover:underline">Open Decision Outcome Tracking™ →</a>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Portfolio summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: 'Total Decisions', val: records.length.toString() },
+          { label: 'Avg Outcome Score', val: `${avgScore}/100`, clr: avgScore >= 80 ? 'text-green-400' : avgScore >= 60 ? 'text-yellow-400' : 'text-red-400' },
+          { label: 'On Track', val: green.toString(), clr: 'text-green-400' },
+          { label: 'At Risk', val: yellow.toString(), clr: 'text-yellow-400' },
+          { label: 'Critical', val: red.toString(), clr: 'text-red-400' },
+        ].map(({ label, val, clr }) => (
+          <div key={label} className="p-3 rounded-lg border border-border/50 bg-muted/20">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={`text-base font-bold font-mono mt-0.5 ${clr || 'text-foreground'}`}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Decisions table */}
+      <div className="overflow-x-auto rounded-lg border border-border/50">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/50 bg-muted/20">
+              {['Decision', 'Type', 'Status', 'Outcomes', 'Score', 'Health'].map(h => (
+                <th key={h} className={`py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${h === 'Decision' ? 'text-left' : 'text-right'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/20">
+            {perfs.map(({ record: r, perf }) => {
+              const achieved = r.actualOutcomes.filter(a => a.achieved).length;
+              return (
+                <tr key={r.decisionId} className="hover:bg-muted/20 transition-colors">
+                  <td className="py-2.5 px-3 font-medium max-w-[200px] truncate">
+                    <a href={`/decision-outcomes?id=${r.decisionId}`} className="hover:text-primary hover:underline">{r.decisionName}</a>
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-xs text-muted-foreground">{r.decisionType || '—'}</td>
+                  <td className="py-2.5 px-3 text-right text-xs">{r.status}</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-xs">
+                    {achieved}/{r.expectedOutcomes.length}
+                  </td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-xs font-bold ${perf.health === 'Green' ? 'text-green-400' : perf.health === 'Yellow' ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {Math.round(perf.overallScore)}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${healthBadge(perf.health)}`}>{perf.health}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground text-right">
+        <a href="/decision-outcomes" className="text-primary hover:underline">Open full Decision Outcome Tracking™ →</a>
+      </p>
+    </div>
+  );
+}
+
+// ── Project Controls Executive Tab ───────────────────────────────────────────
+function ProjectControlsExecTab({ facilityId }: { facilityId: string }) {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Try API first, fall back to localStorage cache
+    const token = localStorage.getItem('nexum_access_token') || '';
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+
+    fetch(`${API_BASE}/project-controls?facilityId=${facilityId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setProjects(data))
+      .catch(() => {
+        const cached = localStorage.getItem(`nexum_pc_${facilityId}`);
+        if (cached) setProjects(JSON.parse(cached));
+      })
+      .finally(() => setLoading(false));
+  }, [facilityId]);
+
+  const fmt$ = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const fmtIdx = (n: number) => n.toFixed(3);
+  const healthCls = (h: string) => h === 'green' ? 'bg-green-600 text-white' : h === 'yellow' ? 'bg-yellow-600 text-white' : 'bg-red-600 text-white';
+
+  const totals = projects.reduce((acc, p) => ({
+    bac: acc.bac + (p.bac || 0),
+    ev:  acc.ev  + (p.ev  || 0),
+    ac:  acc.ac  + (p.ac  || 0),
+    sv:  acc.sv  + ((p.ev || 0) - (p.pv || 0)),
+    cv:  acc.cv  + ((p.ev || 0) - (p.ac || 0)),
+  }), { bac: 0, ev: 0, ac: 0, sv: 0, cv: 0 });
+
+  if (loading) return <div className="flex justify-center py-16 text-muted-foreground"><RefreshCw className="w-5 h-5 animate-spin mr-2" />Loading projects…</div>;
+
+  if (projects.length === 0) return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <Target className="w-10 h-10 text-muted-foreground/40" />
+      <p className="font-medium text-muted-foreground">No projects yet</p>
+      <p className="text-sm text-muted-foreground/60">Create your first EVM project in Project Controls.</p>
+      <a href="/project-controls" className="mt-2 text-sm text-primary hover:underline">Open Project Controls →</a>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Portfolio summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: 'Total BAC', val: fmt$(totals.bac) },
+          { label: 'Total Earned (EV)', val: fmt$(totals.ev) },
+          { label: 'Total Spent (AC)', val: fmt$(totals.ac) },
+          { label: 'Schedule Var.', val: fmt$(totals.sv), clr: totals.sv >= 0 ? 'text-green-400' : 'text-red-400' },
+          { label: 'Cost Var.', val: fmt$(totals.cv), clr: totals.cv >= 0 ? 'text-green-400' : 'text-red-400' },
+        ].map(({ label, val, clr }) => (
+          <div key={label} className="p-3 rounded-lg border border-border/50 bg-muted/20">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={`text-base font-bold font-mono mt-0.5 ${clr || 'text-foreground'}`}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Projects table */}
+      <div className="overflow-x-auto rounded-lg border border-border/50">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/50 bg-muted/20">
+              {['Project', 'BAC', 'SPI', 'CPI', 'SV', 'CV', 'Health'].map(h => (
+                <th key={h} className={`py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${h === 'Project' ? 'text-left' : 'text-right'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/20">
+            {projects.map(p => {
+              const pv = p.pv || 0; const ev = p.ev || 0; const ac = p.ac || 0;
+              const spi = pv > 0 ? ev / pv : 0;
+              const cpi = ac > 0 ? ev / ac : 0;
+              const sv  = ev - pv; const cv = ev - ac;
+              let health = p.health || (spi >= 0.95 && cpi >= 0.95 ? 'green' : spi >= 0.80 && cpi >= 0.80 ? 'yellow' : 'red');
+              return (
+                <tr key={p.projectId} className="hover:bg-muted/20 transition-colors">
+                  <td className="py-2.5 px-3 font-medium">
+                    <a href={`/project-controls?projectId=${p.projectId}`} className="hover:text-primary hover:underline">{p.projectName}</a>
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono text-xs">{fmt$(p.bac || 0)}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-xs font-bold ${spi >= 0.95 ? 'text-green-400' : spi >= 0.80 ? 'text-yellow-400' : 'text-red-400'}`}>{fmtIdx(spi)}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-xs font-bold ${cpi >= 0.95 ? 'text-green-400' : cpi >= 0.80 ? 'text-yellow-400' : 'text-red-400'}`}>{fmtIdx(cpi)}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-xs ${sv >= 0 ? 'text-green-400' : 'text-red-400'}`}>{sv >= 0 ? '+' : ''}{fmt$(sv)}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-xs ${cv >= 0 ? 'text-green-400' : 'text-red-400'}`}>{cv >= 0 ? '+' : ''}{fmt$(cv)}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${healthCls(health)}`}>{health.toUpperCase()}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground text-right">
+        <a href="/project-controls" className="text-primary hover:underline">Open full Project Controls module →</a>
+      </p>
     </div>
   );
 }
@@ -563,12 +779,21 @@ export default function ExecutiveDashboard() {
         {error && <NexumError message={error} onRetry={fetchData} />}
 
         <Tabs defaultValue="operations" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-sm">
-            <TabsTrigger value="operations" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />Operations
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+            <TabsTrigger value="operations" className="flex items-center gap-1 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" />Operations
             </TabsTrigger>
-            <TabsTrigger value="ovpi" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />OVPI
+            <TabsTrigger value="ovpi" className="flex items-center gap-1 text-xs">
+              <Activity className="w-3.5 h-3.5" />OVPI
+            </TabsTrigger>
+            <TabsTrigger value="project-controls" className="flex items-center gap-1 text-xs">
+              <Target className="w-3.5 h-3.5" />Projects
+            </TabsTrigger>
+            <TabsTrigger value="decision-outcomes" className="flex items-center gap-1 text-xs">
+              <ClipboardCheck className="w-3.5 h-3.5" />Decisions
+            </TabsTrigger>
+            <TabsTrigger value="continuity" className="flex items-center gap-1 text-xs">
+              <Shield className="w-3.5 h-3.5" />Continuity
             </TabsTrigger>
           </TabsList>
 
@@ -587,6 +812,11 @@ export default function ExecutiveDashboard() {
                   <KPICard title="ROI %"             value={data.metrics.roi}              unit="%"  icon={BarChart3}     delay={250} />
                   <KPICard title="Open Work Orders"  value={data.metrics.openWorkOrders}          icon={ClipboardList}  delay={300} />
                   <KPICard title="Total Readings"    value={data.metrics.totalReadings}           icon={Clock}          delay={350} />
+                </div>
+                {/* Decision Continuity™ + Scope Alignment — both role & tier auto-gated */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <DCIntelligencePanel limit={5} />
+                  <ScopeAlignmentPanel limit={15} />
                 </div>
                 {/* Capital KPI cards */}
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -878,6 +1108,24 @@ export default function ExecutiveDashboard() {
             >
               <OVPITab />
             </TierGate>
+          </TabsContent>
+
+          {/* ── Project Controls Tab ── */}
+          <TabsContent value="project-controls">
+            <ProjectControlsExecTab facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'} />
+          </TabsContent>
+
+          {/* ── Decision Outcomes Tab ── */}
+          <TabsContent value="decision-outcomes">
+            <DOTExecTab facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'} />
+          </TabsContent>
+
+          {/* ── Continuity Intelligence™ Tab ── */}
+          <TabsContent value="continuity">
+            <ContinuityWidget
+              facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+              embedded
+            />
           </TabsContent>
         </Tabs>
 

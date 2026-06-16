@@ -98,7 +98,7 @@ const FACILITY_PLANS: Plan[] = [
     border: 'border-orange-400/40',
     bg: 'bg-orange-400/5',
     badge: 'Most Popular',
-    description: 'Multi-site intelligence for complex operations. Advanced analytics and AI-powered compliance analysis.',
+    description: 'Multi-site intelligence for complex operations. Advanced analytics, AI compliance, and the full decision-defense layer.',
     features: [
       'Up to 15 facilities',
       'Everything in Standard',
@@ -107,6 +107,11 @@ const FACILITY_PLANS: Plan[] = [
       'Compliance Analyzer AI',
       'Staff Performance Compass',
       'Command Hub (full)',
+      'System Violations™ lifecycle',
+      'Facility Memory™',
+      'Event Integrity™',
+      'Drift Intelligence™',
+      'Operation Center',
       'Phone + email support',
     ],
   },
@@ -121,13 +126,18 @@ const FACILITY_PLANS: Plan[] = [
     border: 'border-purple-400/40',
     bg: 'bg-purple-400/5',
     badge: 'Full Platform',
-    description: 'Unlimited access to every feature including AI-powered tools. Includes dedicated account manager and 24/7 support.',
+    description: 'Complete Facility Intelligence™ platform — every module, every intelligence engine, and the full Decision Continuity™ layer.',
     features: [
       'Unlimited facilities',
       'Everything in Business',
+      'Decision Continuity™ Vault',
+      'Scope Alignment™ Intelligence',
+      'Admissibility Engine™',
+      'Operational DNA™',
+      'OCCAE Probability Intelligence',
       'VVFI Facility Instructor AI',
       'OVPI Performance Intelligence',
-      'Optimize & Learn training',
+      'Optimize & Learn LMS',
       'Custom onboarding',
       'Dedicated account manager',
       '24/7 priority support',
@@ -299,12 +309,15 @@ const GOVERNMENT_PLANS: Plan[] = [
     border: 'border-purple-400/40',
     bg: 'bg-purple-400/5',
     badge: 'Most Capable',
-    description: 'Full platform access for large public safety agencies. AI compliance analysis, unlimited units, and a dedicated account manager.',
+    description: 'Full platform access for large public safety agencies. AI compliance, decision-defense layer, and a dedicated account manager.',
     features: [
       'Everything in Standard',
       'AI compliance analysis',
       'Unlimited units',
       'Full Command Hub',
+      'System Violations™ lifecycle',
+      'Decision Continuity™ Vault',
+      'Scope Alignment™ Intelligence',
       'Optimize & Learn LMS',
       'Dedicated account manager',
       'Unlimited users',
@@ -1271,11 +1284,30 @@ export default function Pricing() {
     const priceId = effectivePriceId || plan.priceId;
     if (!priceId) return;
 
-    // If user is not logged in, send them to register first
+    // If user is not logged in, pay first then create account
     const token = localStorage.getItem('nexum_access_token');
     if (!token) {
-      sessionStorage.setItem('nexum_pending_plan',     plan.name);
-      sessionStorage.setItem('nexum_pending_price_id', priceId);
+      setLoadingPlan(plan.name);
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/stripe/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lineItems: [{ price: priceId, quantity: 1 }],
+            tier: plan.name,
+            allowPromotionCodes: true,
+            successUrl: `${window.location.origin}/register?plan=${encodeURIComponent(plan.name)}&session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/pricing`,
+          }),
+        });
+        const data = await res.json();
+        if (data.url) { window.location.href = data.url; return; }
+      } catch { /* fall through */ } finally {
+        setLoadingPlan(null);
+      }
+      // Stripe failed — fall back to register with pending plan
+      localStorage.setItem('nexum_pending_plan',     plan.name);
+      localStorage.setItem('nexum_pending_price_id', priceId);
       navigate(`/register?plan=${encodeURIComponent(plan.name)}&priceId=${encodeURIComponent(priceId)}`);
       return;
     }

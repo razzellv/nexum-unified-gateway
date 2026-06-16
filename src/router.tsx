@@ -84,6 +84,16 @@ import VideoLibrary from "./pages/VideoLibrary";
 import ObservationJournal from "./pages/ObservationJournal";
 import WorkIntegrity from "./pages/WorkIntegrity";
 import EvidenceBoard from "./pages/EvidenceBoard";
+import FacilityMemory from "./pages/FacilityMemory";
+import OperationalDNA from "./pages/OperationalDNA";
+import EventIntegrity from "./pages/EventIntegrity";
+import DriftIntelligence from "./pages/DriftIntelligence";
+import SystemViolations from "./pages/SystemViolations";
+import DecisionContinuityVault from "./pages/DecisionContinuityVault";
+import ClimateIntelligence from "./pages/ClimateIntelligence";
+import ProjectControls from "./pages/ProjectControls";
+import DecisionOutcomeTracking from "./pages/DecisionOutcomeTracking";
+import ContinuityIntelligence from "./pages/ContinuityIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -318,6 +328,22 @@ export const router = createBrowserRouter([
             element: <Courses />,
           },
           {
+            path: "climate-intelligence",
+            element: <ClimateIntelligence />,
+          },
+          {
+            path: "project-controls",
+            element: <ProjectControls />,
+          },
+          {
+            path: "decision-outcomes",
+            element: <DecisionOutcomeTracking />,
+          },
+          {
+            path: "continuity-intelligence",
+            element: <ContinuityIntelligence />,
+          },
+          {
             path: "apprentice",
             element: <ApprenticeLMSPage />,
           },
@@ -412,6 +438,30 @@ export const router = createBrowserRouter([
           {
             path: "video-library",
             element: <VideoLibrary />,
+          },
+          {
+            path: "facility-memory",
+            element: <FacilityMemory />,
+          },
+          {
+            path: "operational-dna",
+            element: <OperationalDNA />,
+          },
+          {
+            path: "event-integrity",
+            element: <EventIntegrity />,
+          },
+          {
+            path: "drift-intelligence",
+            element: <DriftIntelligence />,
+          },
+          {
+            path: "system-violations",
+            element: <SystemViolations />,
+          },
+          {
+            path: "dc-vault",
+            element: <DecisionContinuityVault />,
           },
         ],
       },

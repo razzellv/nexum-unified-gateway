@@ -12,9 +12,6 @@ ACCOUNT_ID="758027491272"
 REGION="us-east-2"
 API_ID="vflco2pvo3"
 
-# Anthropic key is optional — AI features degrade gracefully without it
-ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-placeholder}"
-
 # ── Helper: create DynamoDB table if it does not already exist ─────────────────
 ensure_table() {
   local NAME=$1 KEY_SCHEMA=$2 ATTR_DEFS=$3 BILLING=$4
@@ -53,15 +50,13 @@ deploy_lambda() {
       --function-name "$NAME" \
       --zip-file "fileb://$TMPDIR/$NAME.zip" \
       --region $REGION > /dev/null
-    aws lambda wait function-updated --function-name "$NAME" --region $REGION
-    for _i in 1 2 3 4 5; do
-      aws lambda update-function-configuration \
-        --function-name "$NAME" \
-        --environment "Variables={$ENV_VARS}" \
-        --region $REGION > /dev/null 2>&1 && break
-      echo "  ⏳ Config not ready yet, retrying ($_i/5)..."
-      sleep 5
-    done
+    aws lambda wait function-updated \
+      --function-name "$NAME" \
+      --region $REGION 2>/dev/null || sleep 5
+    aws lambda update-function-configuration \
+      --function-name "$NAME" \
+      --environment "Variables={$ENV_VARS}" \
+      --region $REGION > /dev/null 2>&1 || true
     echo "  ✓ $NAME updated"
   else
     aws lambda create-function \
@@ -74,23 +69,98 @@ deploy_lambda() {
       --environment "Variables={$ENV_VARS}" \
       --timeout 15 \
       --region $REGION > /dev/null
-    echo "  ⏳ Waiting for $NAME to become Active..."
-    aws lambda wait function-active --function-name "$NAME" --region $REGION
     echo "  ✓ $NAME created"
   fi
 
   rm -rf "$TMPDIR"
 }
 
+# ── Helper: delete integrations not referenced by any route ───────────────────
+purge_unused_integrations() {
+  echo "▶ Purging orphaned integrations (frees capacity)..."
+
+  # --max-results 300 is the service hard limit; avoids pagination issues
+  USED_IDS=$(aws apigatewayv2 get-routes \
+    --api-id "$API_ID" --region "$REGION" --max-results 500 \
+    --query 'Items[].Target' --output text 2>/dev/null \
+    | tr '\t' '\n' | sed 's|integrations/||g' | grep -v '^$' | sort -u)
+
+  ALL_IDS=$(aws apigatewayv2 get-integrations \
+    --api-id "$API_ID" --region "$REGION" --max-results 300 \
+    --query 'Items[].IntegrationId' --output text 2>/dev/null \
+    | tr '\t' '\n' | grep -v '^$')
+
+  TOTAL=0; DELETED=0
+  for INT_ID in $ALL_IDS; do
+    TOTAL=$((TOTAL + 1))
+    if ! echo "$USED_IDS" | grep -qx "$INT_ID"; then
+      aws apigatewayv2 delete-integration \
+        --api-id "$API_ID" \
+        --integration-id "$INT_ID" \
+        --region "$REGION" > /dev/null 2>&1 && DELETED=$((DELETED + 1))
+    fi
+  done
+  REMAINING=$((TOTAL - DELETED))
+  echo "  ✓ Removed $DELETED orphaned integrations ($REMAINING remaining of 300 max)"
+
+  # Delete routes whose target is not in integrations/<id> format.
+  # These are leftovers from broken deploys; trying to update-route on them
+  # causes a BadRequestException that can kill the script on macOS bash 3.2.
+  TMPFILE=$(mktemp)
+  aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" --max-results 500 \
+    --query 'Items[].[RouteId, Target]' --output text 2>/dev/null > "$TMPFILE" || true
+  MALFORMED_DEL=0
+  while IFS=$(printf '\t') read -r rid target; do
+    [[ -z "$rid" || "$rid" == "None" ]] && continue
+    case "$target" in
+      integrations/*) continue ;;  # valid target — skip
+    esac
+    aws apigatewayv2 delete-route --api-id "$API_ID" --route-id "$rid" \
+      --region "$REGION" > /dev/null 2>&1 && MALFORMED_DEL=$((MALFORMED_DEL + 1)) || true
+    echo "  ✓ Removed malformed route $rid (bad target: ${target:-empty})"
+  done < "$TMPFILE"
+  rm -f "$TMPFILE"
+  if [ $MALFORMED_DEL -eq 0 ]; then echo "  ✓ No malformed routes found"; fi
+}
+
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
-# Reuses one integration per Lambda ARN — never creates duplicates.
-# Uses grep+awk lookup instead of JMESPath filter (more portable on macOS bash 3).
+# Reuses the existing integration for a Lambda rather than creating a new one
+# each time — prevents the 300-integration hard limit from being hit on re-deploys.
+# Uses --max-results 300 to avoid pagination truncating the integrations list.
 add_route() {
   local ROUTE_KEY=$1 LAMBDA_NAME=$2 AUTH=$3
 
-  local LAMBDA_ARN
-  LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region $REGION \
+  LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --region "$REGION" \
     --query 'Configuration.FunctionArn' --output text)
+
+  local INT_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
+
+  # Reuse existing integration for this Lambda URI (--max-results 300 avoids pagination miss)
+  INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
+    --api-id "$API_ID" --region "$REGION" --max-results 300 \
+    --query "Items[?IntegrationUri=='${INT_URI}'] | [0].IntegrationId" \
+    --output text 2>/dev/null)
+
+  # Strip any trailing whitespace/newlines that might sneak through
+  INTEGRATION_ID="${INTEGRATION_ID//[$'\t\r\n ']}"
+
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+      --api-id "$API_ID" \
+      --integration-type AWS_PROXY \
+      --integration-uri "$INT_URI" \
+      --payload-format-version 2.0 \
+      --region "$REGION" \
+      --query 'IntegrationId' --output text 2>/dev/null)
+    INTEGRATION_ID="${INTEGRATION_ID//[$'\t\r\n ']}"
+  fi
+
+  # Guard: if INTEGRATION_ID is still empty, skip this route rather than corrupting it
+  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
+    echo "  ✗ SKIPPED $ROUTE_KEY — could not obtain integration ID (limit reached?)"
+    echo "    Run: bash ./purge-integrations.sh  then re-run this script"
+    return 1
+  fi
 
   STMT_ID="apigw-$(echo "$ROUTE_KEY" | tr '/ {}' '----' | tr '[:upper:]' '[:lower:]' | tr -s '-')"
   aws lambda add-permission \
@@ -99,127 +169,69 @@ add_route() {
     --action lambda:InvokeFunction \
     --principal apigateway.amazonaws.com \
     --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${API_ID}/*/*" \
-    --region $REGION > /dev/null 2>&1 || true
+    --region "$REGION" > /dev/null 2>&1 || true
 
-  # Look up existing integration for this Lambda (tab-separated URI IntegrationId per line)
-  local INTEGRATION_ID
-  INTEGRATION_ID=$(aws apigatewayv2 get-integrations \
-    --api-id "$API_ID" --region "$REGION" \
-    --query 'Items[*].[IntegrationUri,IntegrationId]' \
-    --output text \
-    | grep "$LAMBDA_ARN" \
-    | awk '{print $2}' \
-    | head -1)
-
-  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
-    local INTEGRATION_URI="arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/${LAMBDA_ARN}/invocations"
-    INTEGRATION_ID=$(aws apigatewayv2 create-integration \
-      --api-id "$API_ID" \
-      --integration-type AWS_PROXY \
-      --integration-uri "$INTEGRATION_URI" \
-      --payload-format-version 2.0 \
-      --region "$REGION" \
-      --query 'IntegrationId' --output text) || true
-  fi
-
-  if [ -z "$INTEGRATION_ID" ] || [ "$INTEGRATION_ID" = "None" ]; then
-    echo "  ✗ ERROR: Cannot get or create integration for $LAMBDA_NAME"
-    echo "    Integration limit may still be hit. Check count:"
-    echo "    aws apigatewayv2 get-integrations --api-id $API_ID --region $REGION --query 'length(Items)'"
-    exit 1
-  fi
-
-  local EXISTING_ROUTE
-  EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id $API_ID --region $REGION \
+  EXISTING_ROUTE=$(aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" \
+    --max-results 500 \
     --query "Items[?RouteKey=='${ROUTE_KEY}'].RouteId" --output text 2>/dev/null)
+  EXISTING_ROUTE="${EXISTING_ROUTE//[$'\t\r\n ']}"
 
+  local ROUTE_ACTION="created"
   if [ -n "$EXISTING_ROUTE" ] && [ "$EXISTING_ROUTE" != "None" ]; then
+    # Try to update in-place; if route is malformed, delete it and fall through to create.
+    # Use `if cmd; then` (not `cmd || var=false`) — bash suppresses set -e inside `if` conditions.
+    local UPDATE_SUCCEEDED=false
     if [ "$AUTH" = "jwt" ]; then
-      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id $API_ID --region $REGION \
-        --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 update-route --api-id $API_ID \
-        --route-id "$EXISTING_ROUTE" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type JWT \
-        --authorizer-id "$AUTHORIZER_ID" \
-        --region $REGION > /dev/null
+      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
+        --query 'Items[0].AuthorizerId' --output text 2>/dev/null) || true
+      if aws apigatewayv2 update-route --api-id "$API_ID" \
+          --route-id "$EXISTING_ROUTE" \
+          --target "integrations/${INTEGRATION_ID}" \
+          --authorization-type JWT \
+          --authorizer-id "$AUTHORIZER_ID" \
+          --region "$REGION" > /dev/null 2>&1; then
+        UPDATE_SUCCEEDED=true
+      fi
     else
-      aws apigatewayv2 update-route --api-id $API_ID \
-        --route-id "$EXISTING_ROUTE" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type NONE \
-        --region $REGION > /dev/null
+      if aws apigatewayv2 update-route --api-id "$API_ID" \
+          --route-id "$EXISTING_ROUTE" \
+          --target "integrations/${INTEGRATION_ID}" \
+          --authorization-type NONE \
+          --region "$REGION" > /dev/null 2>&1; then
+        UPDATE_SUCCEEDED=true
+      fi
     fi
-    echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
-  else
-    if [ "$AUTH" = "jwt" ]; then
-      AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id $API_ID --region $REGION \
-        --query 'Items[0].AuthorizerId' --output text)
-      aws apigatewayv2 create-route --api-id $API_ID \
-        --route-key "$ROUTE_KEY" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type JWT \
-        --authorizer-id "$AUTHORIZER_ID" \
-        --region $REGION > /dev/null
-    else
-      aws apigatewayv2 create-route --api-id $API_ID \
-        --route-key "$ROUTE_KEY" \
-        --target "integrations/${INTEGRATION_ID}" \
-        --authorization-type NONE \
-        --region $REGION > /dev/null
+    if [ "$UPDATE_SUCCEEDED" = true ]; then
+      echo "  ✓ Route $ROUTE_KEY updated → $LAMBDA_NAME"
+      return 0
     fi
-    echo "  ✓ Route $ROUTE_KEY created → $LAMBDA_NAME"
+    # Update failed (malformed/orphaned route) — delete and recreate cleanly
+    aws apigatewayv2 delete-route --api-id "$API_ID" \
+      --route-id "$EXISTING_ROUTE" --region "$REGION" > /dev/null 2>&1 || true
+    ROUTE_ACTION="recreated"
   fi
-}
 
-
-ensure_composite_table() {
-  local NAME=$1 PK=$2 SK=$3
-  if aws dynamodb describe-table --table-name "$NAME" --region $REGION > /dev/null 2>&1; then
-    echo "  ✓ Table $NAME already exists"
+  if [ "$AUTH" = "jwt" ]; then
+    AUTHORIZER_ID=$(aws apigatewayv2 get-authorizers --api-id "$API_ID" --region "$REGION" \
+      --query 'Items[0].AuthorizerId' --output text)
+    aws apigatewayv2 create-route --api-id "$API_ID" \
+      --route-key "$ROUTE_KEY" \
+      --target "integrations/${INTEGRATION_ID}" \
+      --authorization-type JWT \
+      --authorizer-id "$AUTHORIZER_ID" \
+      --region "$REGION" > /dev/null
   else
-    aws dynamodb create-table \
-      --table-name "$NAME" \
-      --attribute-definitions "AttributeName=${PK},AttributeType=S" "AttributeName=${SK},AttributeType=S" \
-      --key-schema "AttributeName=${PK},KeyType=HASH" "AttributeName=${SK},KeyType=RANGE" \
-      --billing-mode PAY_PER_REQUEST \
-      --region $REGION > /dev/null
-    echo "  ✓ Table $NAME created (composite key: ${PK}+${SK})"
+    aws apigatewayv2 create-route --api-id "$API_ID" \
+      --route-key "$ROUTE_KEY" \
+      --target "integrations/${INTEGRATION_ID}" \
+      --authorization-type NONE \
+      --region "$REGION" > /dev/null
   fi
+  echo "  ✓ Route $ROUTE_KEY $ROUTE_ACTION → $LAMBDA_NAME"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-echo "0/4  DynamoDB Tables"
-
-# Additional tables from extended platform modules
-ensure_table           "NexumOnboardingRecords"   "facilityId"
-ensure_table           "NexumCourses"             "courseId"
-ensure_table           "NexumBookings"            "bookingId"
-ensure_composite_table "NexumQualityIntelligence" "facilityId" "snapshotId"
-ensure_composite_table "NexumMessages"            "PK"         "SK"
-
-# Add orgId-index GSI to EquipmentLibrary if not present
-EQUIP_GSI=$(aws dynamodb describe-table --table-name "EquipmentLibrary" --region $REGION \
-  --query 'Table.GlobalSecondaryIndexes[?IndexName==`orgId-index`].IndexName' \
-  --output text 2>/dev/null || true)
-if [ -z "$EQUIP_GSI" ] || [ "$EQUIP_GSI" = "None" ]; then
-  echo "  ▶ Adding orgId-index GSI to EquipmentLibrary..."
-  aws dynamodb update-table \
-    --table-name "EquipmentLibrary" \
-    --region "$REGION" \
-    --attribute-definitions \
-      "AttributeName=orgId,AttributeType=S" \
-      "AttributeName=createdAt,AttributeType=S" \
-    --global-secondary-index-updates \
-      '[{"Create":{"IndexName":"orgId-index","KeySchema":[{"AttributeName":"orgId","KeyType":"HASH"},{"AttributeName":"createdAt","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}}]' \
-    > /dev/null 2>&1 && echo "  ✓ GSI creation started (activates in ~1 min)" \
-    || echo "  ! GSI creation skipped (may already be creating)"
-else
-  echo "  ✓ EquipmentLibrary orgId-index GSI already exists"
-fi
-echo ""
-
-echo "0/4  DynamoDB Tables"
+echo "0/4  DynamoDB Tables (Issue Origin & Reporting Intelligence)"
 
 # Core operational tables (created if they don't already exist)
 ensure_table "FacilityLogs-v2" \
@@ -353,7 +365,45 @@ ensure_table "NexumResourcePlanning" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
 
-ensure_table "NexumEvidenceBoards" \
+# ── Facility Memory, Operational DNA, Event Integrity tables ─────────────────
+ensure_table "NexumDriftAnalysis" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumDriftReadings" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumEventIntegrity" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumIntegritySnapshots" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumFacilityMemory" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "NexumOperationalDNA" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+# ── System Violations & Resolution Intelligence table ─────────────────────────
+ensure_table "NexumSystemViolations" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+# ── Decision Continuity™ Vault table ─────────────────────────────────────────
+ensure_table "NexumDCVault" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
   "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
   "PAY_PER_REQUEST"
@@ -386,22 +436,38 @@ ensure_table "NexumSuggestions" \
   "PAY_PER_REQUEST"
 
 # Vendor Pluck table (NexumVendorPlucks with GSI1 for vendor-side lookup)
-ensure_table "NexumVendorPlucks" \
+ensure_table "ProjectControls" \
   "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
-  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S" \
-  "PAY_PER_REQUEST" || \
-aws dynamodb create-table \
-  --table-name "NexumVendorPlucks" \
-  --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
-  --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
-  --billing-mode PAY_PER_REQUEST \
-  --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
-  --region $REGION > /dev/null 2>&1 || true
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "DecisionOutcomes" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+ensure_table "ContinuityScores" \
+  "AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE" \
+  "AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S" \
+  "PAY_PER_REQUEST"
+
+if aws dynamodb describe-table --table-name "NexumVendorPlucks" --region $REGION > /dev/null 2>&1; then
+  echo "  ✓ Table NexumVendorPlucks already exists"
+else
+  aws dynamodb create-table \
+    --table-name "NexumVendorPlucks" \
+    --key-schema AttributeName=PK,KeyType=HASH AttributeName=SK,KeyType=RANGE \
+    --attribute-definitions AttributeName=PK,AttributeType=S AttributeName=SK,AttributeType=S AttributeName=GSI1PK,AttributeType=S AttributeName=GSI1SK,AttributeType=S \
+    --billing-mode PAY_PER_REQUEST \
+    --global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"GSI1PK","KeyType":"HASH"},{"AttributeName":"GSI1SK","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
+    --region $REGION > /dev/null
+  echo "  ✓ Table NexumVendorPlucks created"
+fi
 
 echo ""
 echo "1/4  IAM Roles"
 
-for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-evidence-board-role; do
+for ROLE in fi-violations-role fi-work-orders-role fi-inventory-role fi-equipment-role fi-vvfi-role fi-messages-role fi-audit-reports-role fi-users-role fi-intake-role fi-onboarding-role fi-courses-role fi-manager-dashboard-role fi-issue-origin-role fi-bms-skids-role fi-risk-engine-role fi-vendor-pluck-role fi-observation-journal-role fi-cost-intelligence-role fi-work-integrity-role fi-resource-planning-role fi-facility-memory-role fi-operational-dna-role fi-event-integrity-role fi-drift-intelligence-role fi-system-violations-role nexum-fi-dc-vault-role nexum-fi-trial-manager-role fi-project-controls-role fi-dot-role fi-continuity-role; do
   if aws iam get-role --role-name "$ROLE" > /dev/null 2>&1; then
     echo "  ✓ Role $ROLE already exists"
   else
@@ -415,16 +481,16 @@ done
 
 # Scoped DynamoDB policies per Lambda
 aws iam put-role-policy --role-name fi-violations-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-work-orders-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\"}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-inventory-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumInventory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-equipment-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\",\"dynamodb:Scan\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary/index/*\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-vvfi-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFIASAssessments\"}]}" > /dev/null
@@ -433,7 +499,7 @@ aws iam put-role-policy --role-name fi-messages-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumMessages/index/*\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-audit-reports-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports/index/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOnboardingRecords\"}]}" > /dev/null
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/AuditReports/index/*\"]}]}" > /dev/null
 
 aws iam put-role-policy --role-name fi-users-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminGetUser\",\"cognito-idp:AdminUpdateUserAttributes\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers/index/*\"]}]}" > /dev/null
@@ -474,8 +540,35 @@ aws iam put-role-policy --role-name fi-work-integrity-role --policy-name policy 
 aws iam put-role-policy --role-name fi-resource-planning-role --policy-name policy \
   --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumResourcePlanning\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumInventory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/EquipmentLibrary\"]}]}" > /dev/null
 
-aws iam put-role-policy --role-name fi-evidence-board-role --policy-name policy \
-  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumEvidenceBoards\"}]}" > /dev/null
+aws iam put-role-policy --role-name fi-facility-memory-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumFacilityMemory\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-operational-dna-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumOperationalDNA\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-event-integrity-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumEventIntegrity\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumIntegritySnapshots\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/FacilityLogs-v2\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-drift-intelligence-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftAnalysis\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDriftReadings\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/WorkOrders\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ViolationEvents\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-system-violations-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumSystemViolations\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ObservationJournal\",\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDCVault\"]}]}" > /dev/null
+
+aws iam put-role-policy --role-name nexum-fi-dc-vault-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumDCVault\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-project-controls-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ProjectControls\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-dot-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/DecisionOutcomes\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name fi-continuity-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:DeleteItem\",\"dynamodb:Query\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/ContinuityScores\"}]}" > /dev/null
+
+aws iam put-role-policy --role-name nexum-fi-trial-manager-role --policy-name policy \
+  --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cognito-idp:ListUsers\",\"cognito-idp:AdminDeleteUser\"],\"Resource\":\"arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/us-east-2_mKMqaRq70\"},{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:DeleteItem\"],\"Resource\":\"arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/NexumUsers\"},{\"Effect\":\"Allow\",\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Resource\":\"*\"}]}" > /dev/null
 
 echo "▶ Ensuring fi-bookings-role..."
 BOOKINGS_POLICY='{
@@ -544,7 +637,7 @@ echo "  Waiting 12s for IAM propagation..."
 sleep 12
 
 echo ""
-echo "2/4  Lambda Functions (11 total)"
+echo "2/4  Lambda Functions"
 
 deploy_lambda "nexum-fi-violations" "fi-violations.mjs" "fi-violations-role" \
   "VIOLATIONS_TABLE=ViolationEvents"
@@ -573,7 +666,7 @@ deploy_lambda "nexum-fi-users" "fi-users.mjs" "fi-users-role" \
 deploy_lambda "nexum-fi-intake" "fi-intake.mjs" "fi-intake-role" \
   "LEADS_TABLE=NexumLeads,SES_FROM_EMAIL=info@nexumsuum-facilityintelligence.com,ADMIN_EMAIL=razzellv@nexumsuum.com"
 
-deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-onboarding-role" \
+deploy_lambda "nexum-fi-onboarding" "fi-onboarding.mjs" "fi-equipment-role" \
   "ONBOARDING_TABLE=NexumOnboardingRecords"
 
 deploy_lambda "nexum-fi-courses" "fi-courses.mjs" "fi-courses-role" \
@@ -618,13 +711,78 @@ deploy_lambda "nexum-fi-work-integrity" "fi-work-integrity.mjs" "fi-work-integri
 deploy_lambda "nexum-fi-resource-planning" "fi-resource-planning.mjs" "fi-resource-planning-role" \
   "RP_TABLE=NexumResourcePlanning,WO_TABLE=WorkOrders,INV_TABLE=NexumInventory,EQ_TABLE=EquipmentLibrary"
 
-# Evidence Board
-deploy_lambda "nexum-fi-evidence-board" "fi-evidence-board.mjs" "fi-evidence-board-role" \
-  "TABLE=NexumEvidenceBoards"
+# Facility Memory Engine
+deploy_lambda "nexum-fi-facility-memory" "fi-facility-memory.mjs" "fi-facility-memory-role" \
+  "TABLE=NexumFacilityMemory,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents"
+
+# Operational DNA Engine
+deploy_lambda "nexum-fi-operational-dna" "fi-operational-dna.mjs" "fi-operational-dna-role" \
+  "TABLE=NexumOperationalDNA,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents"
+
+# Event-to-Record Integrity Engine
+deploy_lambda "nexum-fi-event-integrity" "fi-event-integrity.mjs" "fi-event-integrity-role" \
+  "TABLE=NexumEventIntegrity,SNAP_TABLE=NexumIntegritySnapshots,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents,LOG_TABLE=FacilityLogs-v2"
+
+# Performance & Sequencing Drift Intelligence Engine
+deploy_lambda "nexum-fi-drift-intelligence" "fi-drift-intelligence.mjs" "fi-drift-intelligence-role" \
+  "TABLE=NexumDriftAnalysis,RDGS=NexumDriftReadings,WO_TABLE=WorkOrders,VE_TABLE=ViolationEvents"
+
+# System Violations & Resolution Intelligence™
+deploy_lambda "nexum-fi-system-violations" "fi-system-violations.mjs" "fi-system-violations-role" \
+  "TABLE=NexumSystemViolations,OBS_TABLE=ObservationJournal,DC_TABLE=NexumDCVault"
+
+# Decision Continuity™ Vault & Admissibility Engine™
+deploy_lambda "nexum-fi-dc-vault" "fi-dc-vault.mjs" "nexum-fi-dc-vault-role" "TABLE=NexumDCVault"
+
+# Project Controls — EVM (Earned Value Management)
+deploy_lambda "nexum-fi-project-controls" "fi-project-controls.mjs" "fi-project-controls-role" "TABLE=ProjectControls"
+
+# Decision Outcome Tracking™
+deploy_lambda "nexum-fi-dot" "fi-dot.mjs" "fi-dot-role" "TABLE=DecisionOutcomes"
+
+# Continuity Intelligence™
+deploy_lambda "nexum-fi-continuity" "fi-continuity.mjs" "fi-continuity-role" "TABLE=ContinuityScores"
+
+# Trial Manager — daily cleanup of expired trial accounts (no API route; CloudWatch schedule)
+deploy_lambda "nexum-fi-trial-manager" "fi-trial-manager.mjs" "nexum-fi-trial-manager-role" \
+  "COGNITO_USER_POOL=us-east-2_mKMqaRq70,USERS_TABLE=NexumUsers"
+
+# ── CloudWatch Events rule: run trial manager daily at 06:00 UTC ──────────────
+TRIAL_RULE_NAME="nexum-fi-trial-manager-daily"
+TRIAL_LAMBDA_ARN=$(aws lambda get-function --function-name nexum-fi-trial-manager \
+  --region "$REGION" --query 'Configuration.FunctionArn' --output text 2>/dev/null || true)
+
+if [ -n "$TRIAL_LAMBDA_ARN" ] && [ "$TRIAL_LAMBDA_ARN" != "None" ]; then
+  # Create or update the rule
+  aws events put-rule \
+    --name "$TRIAL_RULE_NAME" \
+    --schedule-expression "cron(0 6 * * ? *)" \
+    --state ENABLED \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  # Add Lambda as target (idempotent)
+  aws events put-targets \
+    --rule "$TRIAL_RULE_NAME" \
+    --targets "Id=TrialManager,Arn=$TRIAL_LAMBDA_ARN" \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  # Grant Events permission to invoke Lambda (idempotent via SID)
+  aws lambda add-permission \
+    --function-name nexum-fi-trial-manager \
+    --statement-id "AllowCloudWatchEvents" \
+    --action "lambda:InvokeFunction" \
+    --principal events.amazonaws.com \
+    --source-arn "arn:aws:events:${REGION}:758027491272:rule/${TRIAL_RULE_NAME}" \
+    --region "$REGION" > /dev/null 2>&1 || true
+
+  echo "  ✓ CloudWatch schedule → nexum-fi-trial-manager (daily 06:00 UTC)"
+fi
 
 echo ""
 echo "3/4  API Gateway Routes"
 echo "     (existing routes updated in-place; new ones created)"
+
+purge_unused_integrations
 
 # Violations — 4 routes
 add_route "GET /violations"          "nexum-fi-violations"  "jwt"
@@ -688,9 +846,9 @@ add_route "PATCH /users/{userId}"        "nexum-fi-users"           "jwt"
 add_route "POST /intake"                 "nexum-fi-intake"          "none"
 
 # Onboarding tracker
-add_route "GET /onboarding"                          "nexum-fi-onboarding"  "jwt"
+add_route "GET /onboarding"                         "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding"                         "nexum-fi-onboarding"  "jwt"
-add_route "GET /onboarding/all"                      "nexum-fi-onboarding"  "jwt"
+add_route "GET /onboarding/all"                     "nexum-fi-onboarding"  "jwt"
 add_route "POST /onboarding/{facilityId}/milestone"  "nexum-fi-onboarding"  "jwt"
 
 # Courses (Optimize & Learn)
@@ -720,20 +878,20 @@ add_route "GET /dashboard/executive"   "nexum-fi-manager-dashboard"  "jwt"
 add_route "GET /dashboard/energy"      "nexum-fi-manager-dashboard"  "jwt"
 
 # BMS Integration + Skids — 15 routes
-add_route "POST   /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
-add_route "PATCH  /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
+add_route "POST /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
+add_route "GET /bms/feeds"              "nexum-fi-bms-skids"  "jwt"
+add_route "GET /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
+add_route "PATCH /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
 add_route "DELETE /bms/feeds/{feedId}"     "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /bms/data/{feedId}"      "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /bms/metadata"           "nexum-fi-bms-skids"  "none"
-add_route "POST   /bms/ingest"             "nexum-fi-bms-skids"  "none"
-add_route "POST   /skids"                  "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /skids"                  "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
-add_route "PATCH  /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
+add_route "GET /bms/data/{feedId}"      "nexum-fi-bms-skids"  "jwt"
+add_route "GET /bms/metadata"           "nexum-fi-bms-skids"  "none"
+add_route "POST /bms/ingest"             "nexum-fi-bms-skids"  "none"
+add_route "POST /skids"                  "nexum-fi-bms-skids"  "jwt"
+add_route "GET /skids"                  "nexum-fi-bms-skids"  "jwt"
+add_route "GET /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
+add_route "PATCH /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
 add_route "DELETE /skids/{skidId}"         "nexum-fi-bms-skids"  "jwt"
-add_route "GET    /skids/{skidId}/data"    "nexum-fi-bms-skids"  "jwt"
+add_route "GET /skids/{skidId}/data"    "nexum-fi-bms-skids"  "jwt"
 
 # Issue Origin & Reporting Intelligence — 10 routes
 add_route "POST /issues"                     "nexum-fi-issue-origin"  "jwt"
@@ -748,24 +906,24 @@ add_route "GET /issues/{issueId}/links"      "nexum-fi-issue-origin"  "jwt"
 add_route "GET /issues/{issueId}/summary"    "nexum-fi-issue-origin"  "jwt"
 
 # Risk Engine — 8 routes
-add_route "GET  /risk/tolerance"                  "nexum-fi-risk-engine"  "jwt"
+add_route "GET /risk/tolerance"                  "nexum-fi-risk-engine"  "jwt"
 add_route "PATCH /risk/tolerance"                 "nexum-fi-risk-engine"  "jwt"
-add_route "GET  /risk/acceptance"                 "nexum-fi-risk-engine"  "jwt"
+add_route "GET /risk/acceptance"                 "nexum-fi-risk-engine"  "jwt"
 add_route "POST /risk/acceptance"                 "nexum-fi-risk-engine"  "jwt"
 add_route "POST /risk/acceptance/{sk}/expire"     "nexum-fi-risk-engine"  "jwt"
-add_route "GET  /suggestions"                     "nexum-fi-risk-engine"  "jwt"
+add_route "GET /suggestions"                     "nexum-fi-risk-engine"  "jwt"
 add_route "POST /suggestions/generate"            "nexum-fi-risk-engine"  "jwt"
 add_route "POST /suggestions/{sk}/dismiss"        "nexum-fi-risk-engine"  "jwt"
 add_route "POST /suggestions/{sk}/act"            "nexum-fi-risk-engine"  "jwt"
 
 # Vendor Pluck — 9 routes
-add_route "GET  /vendors"                         "nexum-fi-vendor-pluck"  "jwt"
-add_route "GET  /vendors/{id}"                    "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET /vendors"                         "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET /vendors/{id}"                    "nexum-fi-vendor-pluck"  "jwt"
 add_route "POST /vendors/{id}/pluck"              "nexum-fi-vendor-pluck"  "jwt"
-add_route "GET  /vendors/plucks"                  "nexum-fi-vendor-pluck"  "jwt"
-add_route "GET  /vendor/profile"                  "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET /vendors/plucks"                  "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET /vendor/profile"                  "nexum-fi-vendor-pluck"  "jwt"
 add_route "PATCH /vendor/profile"                 "nexum-fi-vendor-pluck"  "jwt"
-add_route "GET  /vendor/plucks"                   "nexum-fi-vendor-pluck"  "jwt"
+add_route "GET /vendor/plucks"                   "nexum-fi-vendor-pluck"  "jwt"
 add_route "POST /vendor/plucks/{sk}/respond"      "nexum-fi-vendor-pluck"  "jwt"
 
 # Observation Journal — 13 routes
@@ -811,14 +969,66 @@ add_route "POST /resources/parts"              "nexum-fi-resource-planning"  "jw
 add_route "GET /resources/float-time"          "nexum-fi-resource-planning"  "jwt"
 add_route "GET /resources/intervals"           "nexum-fi-resource-planning"  "jwt"
 
-add_route "GET /evidence-boards"                              "nexum-fi-evidence-board"  "jwt"
-add_route "POST /evidence-boards"                             "nexum-fi-evidence-board"  "jwt"
-add_route "GET /evidence-boards/{boardId}"                    "nexum-fi-evidence-board"  "jwt"
-add_route "PATCH /evidence-boards/{boardId}"                  "nexum-fi-evidence-board"  "jwt"
-add_route "DELETE /evidence-boards/{boardId}"                 "nexum-fi-evidence-board"  "jwt"
-add_route "POST /evidence-boards/{boardId}/evidence"          "nexum-fi-evidence-board"  "jwt"
-add_route "PATCH /evidence-boards/{boardId}/evidence/{itemId}" "nexum-fi-evidence-board" "jwt"
-add_route "DELETE /evidence-boards/{boardId}/evidence/{itemId}" "nexum-fi-evidence-board" "jwt"
+# Facility Memory Engine — 9 routes
+add_route "GET /facility-memory"                      "nexum-fi-facility-memory"  "jwt"
+add_route "POST /facility-memory"                     "nexum-fi-facility-memory"  "jwt"
+add_route "GET /facility-memory/{sk}"                 "nexum-fi-facility-memory"  "jwt"
+add_route "PATCH /facility-memory/{sk}"               "nexum-fi-facility-memory"  "jwt"
+add_route "DELETE /facility-memory/{sk}"              "nexum-fi-facility-memory"  "jwt"
+add_route "GET /facility-memory/scores"               "nexum-fi-facility-memory"  "jwt"
+add_route "GET /facility-memory/patterns"             "nexum-fi-facility-memory"  "jwt"
+add_route "POST /facility-memory/ingest"              "nexum-fi-facility-memory"  "jwt"
+add_route "GET /facility-memory/search"               "nexum-fi-facility-memory"  "jwt"
+
+# Operational DNA Engine — 5 routes
+add_route "GET /operational-dna"                      "nexum-fi-operational-dna"  "jwt"
+add_route "POST /operational-dna/analyze"             "nexum-fi-operational-dna"  "jwt"
+add_route "GET /operational-dna/patterns"             "nexum-fi-operational-dna"  "jwt"
+add_route "GET /operational-dna/predictions"          "nexum-fi-operational-dna"  "jwt"
+add_route "GET /operational-dna/clusters"             "nexum-fi-operational-dna"  "jwt"
+
+# Event-to-Record Integrity Engine — 6 routes
+add_route "GET /event-integrity"                      "nexum-fi-event-integrity"  "jwt"
+add_route "POST /event-integrity/audit"               "nexum-fi-event-integrity"  "jwt"
+add_route "GET /event-integrity/records"              "nexum-fi-event-integrity"  "jwt"
+add_route "GET /event-integrity/trends"               "nexum-fi-event-integrity"  "jwt"
+add_route "GET /event-integrity/records/{type}"       "nexum-fi-event-integrity"  "jwt"
+
+# Drift Intelligence Engine — 5 routes
+add_route "GET /drift-intelligence"                   "nexum-fi-drift-intelligence"  "jwt"
+add_route "POST /drift-intelligence/analyze"          "nexum-fi-drift-intelligence"  "jwt"
+add_route "POST /drift-intelligence/readings"         "nexum-fi-drift-intelligence"  "jwt"
+add_route "GET /drift-intelligence/readings"          "nexum-fi-drift-intelligence"  "jwt"
+add_route "GET /drift-intelligence/trends"            "nexum-fi-drift-intelligence"  "jwt"
+
+# System Violations & Resolution Intelligence™ — 5 routes
+add_route "GET /system-violations"          "nexum-fi-system-violations"  "jwt"
+add_route "POST /system-violations"         "nexum-fi-system-violations"  "jwt"
+add_route "GET /system-violations/stats"    "nexum-fi-system-violations"  "jwt"
+add_route "GET /system-violations/{id}"     "nexum-fi-system-violations"  "jwt"
+add_route "PATCH /system-violations/{id}"   "nexum-fi-system-violations"  "jwt"
+
+# Decision Continuity™ Vault & Admissibility Engine™ — 6 routes
+add_route "GET /dc-vault"                              "nexum-fi-dc-vault"  "jwt"
+add_route "POST /dc-vault"                             "nexum-fi-dc-vault"  "jwt"
+add_route "GET /dc-vault/stats"                        "nexum-fi-dc-vault"  "jwt"
+add_route "GET /dc-vault/{chainId}"                    "nexum-fi-dc-vault"  "jwt"
+add_route "POST /dc-vault/{chainId}/signals"           "nexum-fi-dc-vault"  "jwt"
+add_route "PATCH /dc-vault/{chainId}/signals/{sigId}"  "nexum-fi-dc-vault"  "jwt"
+
+# Project Controls — EVM — 3 routes
+add_route "GET /project-controls"               "nexum-fi-project-controls"  "jwt"
+add_route "POST /project-controls"              "nexum-fi-project-controls"  "jwt"
+add_route "DELETE /project-controls/{projectId}" "nexum-fi-project-controls" "jwt"
+
+# Decision Outcome Tracking™ — 3 routes
+add_route "GET /decision-outcomes"                    "nexum-fi-dot"  "jwt"
+add_route "POST /decision-outcomes"                   "nexum-fi-dot"  "jwt"
+add_route "DELETE /decision-outcomes/{decisionId}"    "nexum-fi-dot"  "jwt"
+
+# Continuity Intelligence™ — 2 routes
+add_route "GET /continuity"   "nexum-fi-continuity"  "jwt"
+add_route "POST /continuity"  "nexum-fi-continuity"  "jwt"
 
 echo ""
 echo "4/4  Verify routes"
@@ -893,6 +1103,38 @@ echo "  GET   /work-integrity/critical-path"
 echo "  GET   /work-integrity/competency-match"
 echo "  GET   /work-integrity/performance"
 echo "  POST  /work-integrity/ai-critique"
+echo ""
+echo "  DRIFT INTELLIGENCE ENGINE"
+echo "  GET /drift-intelligence   POST /drift-intelligence/analyze"
+echo "  POST/GET /drift-intelligence/readings"
+echo "  GET /drift-intelligence/trends"
+echo ""
+echo "  EVENT-TO-RECORD INTEGRITY ENGINE™"
+echo "  GET /event-integrity   POST /event-integrity/audit"
+echo "  GET /event-integrity/records   GET /event-integrity/records/{type}"
+echo "  GET /event-integrity/trends"
+echo ""
+echo "  FACILITY MEMORY ENGINE"
+echo "  GET/POST /facility-memory"
+echo "  GET/PATCH/DELETE /facility-memory/{sk}"
+echo "  GET /facility-memory/scores|patterns|search"
+echo "  POST /facility-memory/ingest"
+echo ""
+echo "  OPERATIONAL DNA ENGINE"
+echo "  GET /operational-dna   POST /operational-dna/analyze"
+echo "  GET /operational-dna/patterns|predictions|clusters"
+echo ""
+echo "  SYSTEM VIOLATIONS & RESOLUTION INTELLIGENCE™"
+echo "  GET/POST /system-violations"
+echo "  GET /system-violations/stats"
+echo "  GET/PATCH /system-violations/{id}"
+echo ""
+echo "  DECISION CONTINUITY™ VAULT & ADMISSIBILITY ENGINE™"
+echo "  GET/POST /dc-vault"
+echo "  GET /dc-vault/stats"
+echo "  GET /dc-vault/{chainId}"
+echo "  POST /dc-vault/{chainId}/signals"
+echo "  PATCH /dc-vault/{chainId}/signals/{sigId}"
 echo ""
 echo "  OTHER"
 echo "  GET /quality-intelligence   POST /quality-intelligence"

@@ -2,6 +2,7 @@
 // Central source of truth for all tier-based feature gating
 
 export type SubscriptionTier =
+  | 'trial'
   | 'basic' | 'standard' | 'business' | 'premium' | 'enterprise' | 'admin'
   | 'retail_starter' | 'retail_pro'
   | 'command_basic' | 'command_standard' | 'command_pro';
@@ -74,9 +75,36 @@ export type TierFeature =
   | 'response_metrics'
   | 'weapons_inventory'
   | 'compliance_reporting'
+  // Facility Intelligence engines
+  | 'facility_memory'
+  | 'operational_dna'
+  | 'event_integrity'
+  | 'drift_intelligence'
+  | 'system_violations'
+  | 'dc_vault'
+  // Project Controls / EVM
+  | 'project_controls'
+  // Decision Outcome Tracking™
+  | 'decision_outcomes'
+  // Continuity Intelligence™
+  | 'continuity_intelligence'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
+  // ── Trial ──────────────────────────────────────────────────────────────────────────────
+  trial: {
+    id: 'trial',
+    name: 'Free Trial',
+    price: 0,
+    description: '7-day trial — same features as Basic',
+    maxFacilities: 2,
+    maxUsers: 10,
+    maxEquipment: 50,
+    features: [
+      'facility_data_source', 'equipment_library', 'work_orders',
+      'violations_tracking', 'basic_dashboards', 'compliance_logging', 'email_alerts',
+    ],
+  },
   // ── Facility tiers ──────────────────────────────────────────────────────────────────────
   basic: {
     id: 'basic',
@@ -127,6 +155,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'operations_center', 'decision_intelligence', 'multi_facility',
       'equipment_metrics', 'workload', 'vendors', 'calendar',
       'advanced_compliance', 'mpcc',
+      'facility_memory', 'event_integrity', 'drift_intelligence',
+      'system_violations', 'project_controls',
     ],
   },
   premium: {
@@ -149,6 +179,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
   enterprise: {
@@ -171,6 +203,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'executive_dashboard', 'vvfi', 'ai_compliance', 'lms',
       'api_access', 'priority_support', 'audit_report',
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
   admin: {
@@ -197,6 +231,8 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'waste_tracking', 'supplier_management',
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
+      'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
+      'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
 
@@ -280,7 +316,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'inventory_library', 'compliance_documents',
       'ai_compliance', 'lms', 'dedicated_manager',
       'operations_center', 'kanban', 'messages', 'vendors', 'calendar',
-      'workload', 'violations_tracking', 'priority_support',
+      'workload', 'violations_tracking', 'priority_support', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
     ],
   },
 };
@@ -345,6 +381,7 @@ export function getTierFromRole(role: string, subscription?: string): Subscripti
 }
 
 export const TIER_NAMES: Record<SubscriptionTier, string> = {
+  trial:            'Free Trial',
   basic:            'Basic',
   standard:         'Standard',
   business:         'Business',
@@ -429,4 +466,17 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   response_metrics:      'command_standard',
   weapons_inventory:     'command_standard',
   compliance_reporting:  'command_standard',
+  // Facility Intelligence engines
+  facility_memory:       'business',
+  operational_dna:       'premium',
+  event_integrity:       'business',
+  drift_intelligence:    'business',
+  system_violations:     'business',
+  dc_vault:              'premium',
+  // Project Controls / EVM
+  project_controls:      'business',
+  // Decision Outcome Tracking™
+  decision_outcomes:       'premium',
+  // Continuity Intelligence™
+  continuity_intelligence: 'premium',
 };
