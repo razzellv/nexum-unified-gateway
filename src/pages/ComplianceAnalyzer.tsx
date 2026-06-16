@@ -237,8 +237,10 @@ export default function ComplianceAnalyzer() {
   // Data loading
   // ---------------------------------------------------------------------------
 
+  const facilityId = user?.facilityId || user?.['custom:facilityId'];
+
   const runAnalysis = useCallback(async () => {
-    if (!user?.facilityId && !user?.['custom:facilityId']) return;
+    if (!facilityId) return;
     setIsAnalyzing(true);
     setAnalysisError(null);
     try {
@@ -249,7 +251,7 @@ export default function ComplianceAnalyzer() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [days, user]);
+  }, [days, facilityId]);
 
   const loadIssues = useCallback(async () => {
     setIsLoadingIssues(true);

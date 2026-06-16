@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Sparkles, CheckCircle, Clock, BarChart3, Trophy, MapPin, RefreshCw, ClipboardList, Target, Award, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmployeeActivityFeed } from '@/components/employee/EmployeeActivityFeed';
 
 const getGreeting = (user: any) => {
   const name = user?.name || user?.email?.split('@')[0] || 'there';
@@ -171,6 +172,8 @@ export default function CustodianDashboard() {
             <Button variant="outline" onClick={() => window.location.href = '/violations'}>Report Violation</Button>
           </CardContent>
         </Card>
+
+        <EmployeeActivityFeed accentColor="text-orange-400" />
       </div>
     </MainLayout>
   );

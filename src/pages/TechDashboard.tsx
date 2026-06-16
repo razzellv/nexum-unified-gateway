@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmployeeActivityFeed } from '@/components/employee/EmployeeActivityFeed';
 
 const getGreeting = (user: any) => {
   const name = user?.name || user?.email?.split('@')[0] || 'there';
@@ -269,6 +270,8 @@ export default function TechDashboard() {
             <Button variant="outline" onClick={() => window.location.href = '/violations'}>Report Violation</Button>
           </CardContent>
         </Card>
+
+        <EmployeeActivityFeed accentColor="text-blue-400" />
       </div>
     </MainLayout>
   );

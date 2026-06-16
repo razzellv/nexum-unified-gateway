@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Gauge, Activity, CheckCircle, Clock, BarChart3, Trophy, Target, RefreshCw, Flame, Snowflake, Wind, Droplets, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmployeeActivityFeed } from '@/components/employee/EmployeeActivityFeed';
 
 const getGreeting = (user: any) => {
   const name = user?.name || user?.email?.split('@')[0] || 'there';
@@ -148,6 +149,8 @@ export default function OperatorDashboard() {
             <Button variant="outline" onClick={() => window.location.href = '/violations'}>Report Violation</Button>
           </CardContent>
         </Card>
+
+        <EmployeeActivityFeed accentColor="text-green-400" />
       </div>
     </MainLayout>
   );

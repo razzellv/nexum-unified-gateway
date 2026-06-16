@@ -27,7 +27,7 @@ import {
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
   Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap,
 } from "lucide-react";
-import { NavLink } from '@/components/NavLink';
+import { NavLink as RouterNavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,7 +35,6 @@ import { TierBadge } from '@/components/global/TierGate';
 import { useTier } from '@/hooks/useTier';
 import { useDevice } from '@/hooks/use-device';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom';
 import type { TierFeature } from '@/config/tiers';
 import { ROLES_BY_ORG_TYPE } from '@/config/roles';
 
@@ -234,7 +233,6 @@ export function AppSidebar() {
   const { userRole, logout } = useAuth();
   const { isAdmin } = useTier();
   const device = useDevice();
-  const navigate = useNavigate();
 
   const orgType   = localStorage.getItem('nexum_org_type') || 'facility';
   const role      = userRole || 'employee';
@@ -250,11 +248,6 @@ export function AppSidebar() {
   const { can } = useTier();
   const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin, can);
 
-  const handleNavClick = (href: string) => {
-    if (device === 'mobile') setCollapsed(true);
-    navigate(href);
-  };
-
   const renderNavItem = (item: NavItem, idx: number) => {
     if (item.type === 'separator') {
       return (
@@ -267,33 +260,28 @@ export function AppSidebar() {
       );
     }
 
-    const href    = item._locked ? '/pricing' : item.href!;
-    const locked  = !!item._locked;
-    const content = (
-      <button
-        key={item.href || item.name}
-        onClick={() => handleNavClick(href)}
-        className={cn(
-          'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-          'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
-          collapsed && 'justify-center px-2',
-          locked && 'opacity-40'
-        )}
-      >
-        {item.icon && <item.icon className="w-4 h-4 shrink-0" />}
-        {!collapsed && (
-          <>
-            <span className="flex-1 text-left truncate">{item.name}</span>
-            {item.tier && <TierBadge feature={item.tier} />}
-          </>
-        )}
-      </button>
-    );
+    const href   = item._locked ? '/pricing' : item.href!;
+    const locked = !!item._locked;
+    const itemKey = item.href || item.name || String(idx);
 
     if (collapsed && item.name) {
       return (
-        <Tooltip key={item.href || item.name} delayDuration={200}>
-          <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <Tooltip key={itemKey} delayDuration={200}>
+          <TooltipTrigger asChild>
+            <RouterNavLink
+              to={href}
+              onClick={() => { if (device === 'mobile') setCollapsed(true); }}
+              className={({ isActive }) => cn(
+                'flex items-center justify-center px-2 py-2 rounded-md text-sm font-medium transition-colors',
+                locked && 'opacity-40',
+                isActive && !locked
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+              )}
+            >
+              {item.icon && <item.icon className="w-4 h-4 shrink-0" />}
+            </RouterNavLink>
+          </TooltipTrigger>
           <TooltipContent side="right" className="text-xs">
             {item.name}
             {locked && ' (upgrade required)'}
@@ -302,7 +290,24 @@ export function AppSidebar() {
       );
     }
 
-    return content;
+    return (
+      <RouterNavLink
+        key={itemKey}
+        to={href}
+        onClick={() => { if (device === 'mobile') setCollapsed(true); }}
+        className={({ isActive }) => cn(
+          'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+          locked && 'opacity-40',
+          isActive && !locked
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+        )}
+      >
+        {item.icon && <item.icon className="w-4 h-4 shrink-0" />}
+        <span className="flex-1 truncate">{item.name}</span>
+        {item.tier && <TierBadge feature={item.tier} />}
+      </RouterNavLink>
+    );
   };
 
   return (
