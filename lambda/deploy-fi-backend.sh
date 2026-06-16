@@ -120,7 +120,7 @@ purge_unused_integrations() {
     echo "  ✓ Removed malformed route $rid (bad target: ${target:-empty})"
   done < "$TMPFILE"
   rm -f "$TMPFILE"
-  [ $MALFORMED_DEL -eq 0 ] && echo "  ✓ No malformed routes found"
+  if [ $MALFORMED_DEL -eq 0 ]; then echo "  ✓ No malformed routes found"; fi
 }
 
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
