@@ -137,7 +137,6 @@ const FACILITY_PLANS: Plan[] = [
       'Scope Alignment™ Intelligence',
       'Admissibility Engine™',
       'Operational DNA™',
-      'OCCAE Probability Intelligence',
       'VVFI Facility Instructor AI',
       'OVPI Performance Intelligence',
       'Optimize & Learn LMS',

@@ -88,7 +88,7 @@ export const handler = async (event) => {
     if (event.isBase64Encoded) raw = Buffer.from(raw, "base64").toString("utf-8");
     const body = JSON.parse(raw);
 
-    if (body.mode === "text-instructor" || body.mode === "ethics-advisor") {
+    if (body.mode === "text-instructor" || body.mode === "ethics-advisor" || body.mode === "project-advisor") {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) return json(500, { message: "ANTHROPIC_API_KEY not configured on Lambda" });
 
@@ -98,7 +98,8 @@ export const handler = async (event) => {
       }));
       const messages = [...history, { role: "user", content: String(body.question || "") }];
 
-      const isEthics = body.mode === "ethics-advisor";
+      const isEthics   = body.mode === "ethics-advisor";
+      const isProject  = body.mode === "project-advisor";
       const systemPrompt = isEthics
         ? `You are a Facility Ethics Advisor helping facility professionals navigate ethical dilemmas. Consider professional standards, safety obligations, regulatory compliance, and organizational integrity.
 
@@ -106,6 +107,16 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code fences):
 {"response":"your advisory text","isCritical":false}
 
 Set isCritical to true ONLY if the situation involves imminent physical danger, serious criminal activity, or life-safety emergencies requiring immediate action.`
+        : isProject
+        ? `You are a Facility Project Advisor — an expert in capital project management for facility and industrial operations. You specialize in:
+- Earned Value Management (EVM): SPI, CPI, EAC, BAC, BCWP, BCWS, ACWP calculations and interpretation
+- Capital project planning for mechanical/electrical/plumbing systems (boilers, chillers, HVAC, electrical upgrades)
+- Contractor management: scope definition, RFP/RFQ writing, bid evaluation, change order negotiation, performance tracking
+- Schedule risk analysis: critical path, float, delay mitigation strategies
+- Budget management: contingency planning, cost variance analysis, spend tracking
+- Project Controls integration: linking field operations to project schedule and cost baselines
+
+Give structured, actionable responses. When relevant, provide calculations, templates, or step-by-step frameworks. Reference industry standards (PMI, PMBOK, ASHRAE, SMACNA) where applicable. Be direct — facility project managers need clear answers, not ambiguity.`
         : `You are VVFI (Virtual Virtuous Facility Instructor), an AI-powered technical mentor for facility professionals. Provide expert guidance on HVAC, boilers, chillers, pumps, building systems, maintenance procedures, compliance, and safety. Give detailed, SOP-style responses with step-by-step guidance when appropriate. Be concise but thorough.`;
 
       try {

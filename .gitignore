@@ -22,4 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.claude/worktrees/
+
+# Claude Code internal files
+.claude/
