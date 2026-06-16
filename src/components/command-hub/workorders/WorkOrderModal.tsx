@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, AlertTriangle } from 'lucide-react';
+import { X, Plus, AlertTriangle, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,23 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { WorkOrder, WorkOrderType, WorkOrderPriority, EquipmentType, WorkOrderContextType } from '@/types/command-hub/workOrder';
-import { mockEquipment } from '@/data/command-hub/workOrderData';
-import { mockEmployees } from '@/data/mockData';
-import { getEquipmentTypeLabel } from '@/lib/command-hub/workOrderService';
+import { WorkOrder, WorkOrderType, WorkOrderPriority, WorkOrderContextType } from '@/types/command-hub/workOrder';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+
+interface LiveEquipment {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+}
+
+interface LiveEmployee {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+}
 
 interface WorkOrderModalProps {
   open: boolean;
@@ -24,12 +37,16 @@ interface WorkOrderModalProps {
   onSave: (workOrder: Partial<WorkOrder>) => void;
 }
 
-// Derive default contextType from orgType stored in localStorage
 function defaultContextType(): WorkOrderContextType {
   const orgType = localStorage.getItem('nexum_org_type') || 'facility';
   if (orgType === 'retail') return 'location';
   if (orgType === 'government') return 'general';
   return 'equipment';
+}
+
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOrderModalProps) {
@@ -53,12 +70,66 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
   const [newTag, setNewTag] = useState('');
   const [safetyPrecautions, setSafetyPrecautions] = useState('');
 
-  // Get equipment type from selected equipment
-  const selectedEquipment = mockEquipment.find(e => e.id === equipmentId);
-  const equipmentType = selectedEquipment?.type;
+  // Live data from API
+  const [equipment, setEquipment] = useState<LiveEquipment[]>([]);
+  const [employees, setEmployees] = useState<LiveEmployee[]>([]);
+  const [loadingEq, setLoadingEq] = useState(false);
+  const [loadingEmp, setLoadingEmp] = useState(false);
 
-  // Get assigned employee name
-  const assignedEmployee = mockEmployees.find(e => e.id === assignedTo);
+  // Fetch real equipment + employees when modal opens
+  useEffect(() => {
+    if (!open) return;
+
+    const facilityId = localStorage.getItem('nexum_facility_id') ||
+      (() => {
+        try {
+          const token = localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
+          if (!token) return 'facility-001';
+          const claims = JSON.parse(atob(token.split('.')[1]));
+          return claims['custom:facilityId'] || claims.facilityId || 'facility-001';
+        } catch { return 'facility-001'; }
+      })();
+
+    // Fetch equipment
+    setLoadingEq(true);
+    fetch(`${API_BASE_URL}/equipment?facilityId=${facilityId}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const items = data?.equipment ?? data?.items ?? [];
+        if (items.length > 0) {
+          setEquipment(items.map((eq: any) => ({
+            id:       eq.equipmentId || eq.id,
+            name:     eq.equipmentName || eq.name || eq.equipmentType || eq.equipmentId,
+            type:     eq.equipmentType || eq.type || 'general',
+            location: eq.location || eq.buildingId || '',
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEq(false));
+
+    // Fetch employees/users
+    setLoadingEmp(true);
+    fetch(`${API_BASE_URL}/users`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const items = data?.users ?? data?.items ?? [];
+        if (items.length > 0) {
+          setEmployees(items.map((u: any) => ({
+            id:         u.userId || u.sub || u.email || u.id,
+            name:       u.name || u.email || u.userId,
+            role:       u['custom:role'] || u.role || '',
+            department: u['custom:department'] || u.department || '',
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEmp(false));
+  }, [open]);
+
+  const selectedEquipment = equipment.find(e => e.id === equipmentId);
+  const equipmentType = selectedEquipment?.type;
+  const assignedEmployee = employees.find(e => e.id === assignedTo);
 
   // Reset form when opening/closing or when workOrder changes
   useEffect(() => {
@@ -135,9 +206,9 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
       type,
       priority,
       equipmentId: contextType === 'equipment' ? equipmentId : '',
-      equipmentType: contextType === 'equipment' ? (equipmentType as EquipmentType) : undefined,
+      equipmentType: contextType === 'equipment' ? (equipmentType as any) : undefined,
       assignedTo: assignedTo || undefined,
-      assignedToName: assignedEmployee?.name,
+      assignedToName: assignedEmployee?.name || assignedTo || undefined,
       dueDate: dueDate!.toISOString(),
       scheduledDate: scheduledDate?.toISOString(),
       estimatedHours: estimatedHours ? parseFloat(estimatedHours) : undefined,
@@ -253,20 +324,29 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
                       <SelectValue placeholder="Select equipment" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockEquipment.map((eq) => (
-                        <SelectItem key={eq.id} value={eq.id}>
-                          {eq.name}
-                        </SelectItem>
-                      ))}
+                      {loadingEq ? (
+                        <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Loading equipment…
+                        </div>
+                      ) : equipment.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">No equipment found</div>
+                      ) : (
+                        equipment.map((eq) => (
+                          <SelectItem key={eq.id} value={eq.id}>
+                            {eq.name}{eq.location ? ` — ${eq.location}` : ''}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Equipment Type</Label>
                   <Input
-                    value={equipmentType ? getEquipmentTypeLabel(equipmentType) : ''}
+                    value={equipmentType || ''}
                     disabled
                     className="bg-muted border-border"
+                    placeholder="Auto-filled"
                   />
                 </div>
                 {selectedEquipment && (
@@ -380,12 +460,19 @@ export function WorkOrderModal({ open, onOpenChange, workOrder, onSave }: WorkOr
                     <SelectValue placeholder="Select assignee" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Unassigned option removed - use placeholder instead */}
-                    {mockEmployees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.name} - {emp.role}
-                      </SelectItem>
-                    ))}
+                    {loadingEmp ? (
+                      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Loading staff…
+                      </div>
+                    ) : employees.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No staff found</div>
+                    ) : (
+                      employees.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.name}{emp.role ? ` — ${emp.role}` : ''}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
