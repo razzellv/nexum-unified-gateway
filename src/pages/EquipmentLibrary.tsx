@@ -12,11 +12,11 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, Shield, FileText, CalendarClock } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
-import { calculateOperationalDepreciation } from '@/lib/depreciationEngine';
+import { calculateOperationalDepreciation, calculatePMBOKLifecycle } from '@/lib/depreciationEngine';
 import { deriveBaseline } from '@/lib/engineeringCalcs';
 import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 
@@ -231,6 +231,7 @@ export default function EquipmentLibrary() {
   const [limitBanner, setLimitBanner] = useState<{ type: 'equipment' | 'users'; current: number; limit: number; tier: string } | null>(null);
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
   const [expandedIntelligence, setExpandedIntelligence] = useState<Record<string, boolean>>({});
+  const [expandedPMBOK, setExpandedPMBOK] = useState<Record<string, boolean>>({});
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -1028,6 +1029,143 @@ export default function EquipmentLibrary() {
                                       Decision Defensibility: <span className="text-primary">{dep.decisionDefensibilityRating}</span>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground leading-relaxed">{dep.boardReadyJustification}</p>
+                                  </div>
+
+                                  {/* PMBOK Lifecycle Analysis */}
+                                  <div className="border-t border-border/30 pt-3">
+                                    <button
+                                      onClick={() => setExpandedPMBOK(prev => ({ ...prev, [eq.equipmentId]: !prev[eq.equipmentId] }))}
+                                      className="flex items-center gap-2 text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors w-full text-left"
+                                    >
+                                      <Calculator className="w-3.5 h-3.5" />
+                                      PMBOK Lifecycle Analysis
+                                      {expandedPMBOK[eq.equipmentId] ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+                                    </button>
+                                    {expandedPMBOK[eq.equipmentId] && (() => {
+                                      const pmbok = calculatePMBOKLifecycle(eq);
+                                      return (
+                                        <div className="mt-3 space-y-4">
+                                          {/* Depreciation Methods */}
+                                          <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                                              <TrendingDown className="w-3 h-3" />Depreciation Method Comparison
+                                            </p>
+                                            <div className="grid grid-cols-3 gap-2 text-xs">
+                                              <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                                                <p className="text-[10px] text-muted-foreground">Straight-Line</p>
+                                                <p className="font-bold text-blue-400">${pmbok.depreciation.straightLine.bookValue.toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground">${pmbok.depreciation.straightLine.annual.toLocaleString()}/yr</p>
+                                              </div>
+                                              <div className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                                                <p className="text-[10px] text-muted-foreground">Dbl. Declining</p>
+                                                <p className="font-bold text-orange-400">${pmbok.depreciation.decliningBalance.bookValue.toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground">{pmbok.depreciation.decliningBalance.rate}% rate</p>
+                                              </div>
+                                              <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                                                <p className="text-[10px] text-muted-foreground">Sum-of-Yrs</p>
+                                                <p className="font-bold text-purple-400">${pmbok.depreciation.sumOfYearsDigits.bookValue.toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground">SYD method</p>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* EVM Metrics */}
+                                          <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                                              <BarChart3 className="w-3 h-3" />Earned Value Management (PMBOK 7th ed.)
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">CPI</span>
+                                                <span className={`font-bold ${pmbok.evm.cpi >= 1 ? 'text-green-400' : 'text-red-400'}`}>{pmbok.evm.cpi.toFixed(2)}</span>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">SPI</span>
+                                                <span className={`font-bold ${pmbok.evm.spi >= 1 ? 'text-green-400' : 'text-yellow-400'}`}>{pmbok.evm.spi.toFixed(2)}</span>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">Cost Variance</span>
+                                                <span className={`font-bold text-[11px] ${pmbok.evm.costVariance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                  {pmbok.evm.costVariance >= 0 ? '+$' : '-$'}{Math.abs(pmbok.evm.costVariance).toLocaleString()}
+                                                </span>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">EAC</span>
+                                                <span className="font-bold">${pmbok.evm.eac.toLocaleString()}</span>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">Planned Value</span>
+                                                <span className="font-bold">${pmbok.evm.plannedValue.toLocaleString()}</span>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30 flex justify-between items-center">
+                                                <span className="text-muted-foreground">Earned Value</span>
+                                                <span className="font-bold">${pmbok.evm.earnedValue.toLocaleString()}</span>
+                                              </div>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-1.5">CPI ≥ 1.0 = cost-efficient · SPI ≥ 1.0 = on lifecycle schedule</p>
+                                          </div>
+
+                                          {/* Capital Replacement Forecast */}
+                                          <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                                              <DollarSign className="w-3 h-3" />Capital Replacement Forecast (3.5% Inflation)
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                              <div className="p-2 rounded bg-muted/30">
+                                                <p className="text-muted-foreground">Today's Cost</p>
+                                                <p className="font-bold">${pmbok.capitalForecast.currentReplacementCost.toLocaleString()}</p>
+                                              </div>
+                                              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                                                <p className="text-muted-foreground">Inflation-Adjusted</p>
+                                                <p className="font-bold text-amber-400">${pmbok.capitalForecast.inflatedReplacement.toLocaleString()}</p>
+                                              </div>
+                                              <div className="p-2 rounded bg-muted/30">
+                                                <p className="text-muted-foreground">Yrs to Replacement</p>
+                                                <p className="font-bold">{pmbok.capitalForecast.yearsToReplacement} yrs</p>
+                                              </div>
+                                              <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                                                <p className="text-muted-foreground">Annual Reserve</p>
+                                                <p className="font-bold text-green-400">${pmbok.capitalForecast.annualReserveFunding.toLocaleString()}/yr</p>
+                                              </div>
+                                            </div>
+                                            {pmbok.capitalForecast.costDelta > 0 && (
+                                              <p className="text-[10px] text-amber-400 mt-1.5">
+                                                Inflation adds ${pmbok.capitalForecast.costDelta.toLocaleString()} to replacement cost over {pmbok.capitalForecast.yearsToReplacement} years
+                                              </p>
+                                            )}
+                                          </div>
+
+                                          {/* LCCA */}
+                                          <div>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                                              <FileText className="w-3 h-3" />Life Cycle Cost Analysis (ASTM E917)
+                                            </p>
+                                            <div className="space-y-1.5 text-xs">
+                                              {([
+                                                { label: 'Acquisition', value: pmbok.lcca.acquisition, color: 'bg-blue-500' },
+                                                { label: 'O&M to Date', value: pmbok.lcca.operationsAndMaintenance, color: 'bg-orange-500' },
+                                                { label: 'Projected Future O&M', value: pmbok.lcca.projectedFutureOM, color: 'bg-yellow-500' },
+                                                { label: 'Disposal Estimate', value: pmbok.lcca.disposalEstimate, color: 'bg-gray-500' },
+                                              ] as const).map(item => (
+                                                <div key={item.label}>
+                                                  <div className="flex justify-between text-[10px] mb-0.5">
+                                                    <span className="text-muted-foreground">{item.label}</span>
+                                                    <span className="font-semibold">${item.value.toLocaleString()}</span>
+                                                  </div>
+                                                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                                                    <div className={`h-full ${item.color} rounded-full`} style={{ width: `${pmbok.lcca.totalLCC > 0 ? Math.min(100, (item.value / pmbok.lcca.totalLCC) * 100) : 0}%` }} />
+                                                  </div>
+                                                </div>
+                                              ))}
+                                              <div className="flex justify-between text-xs font-bold pt-1.5 border-t border-border/30">
+                                                <span>Total LCC</span>
+                                                <span className="text-primary">${pmbok.lcca.totalLCC.toLocaleString()}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
 
                                   {/* Actions */}
