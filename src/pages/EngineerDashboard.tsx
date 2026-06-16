@@ -84,7 +84,7 @@ export default function EngineerDashboard() {
         fetch(`${baseUrl}/work-orders`, { headers }),
         fetch(`${baseUrl}/facility-logs?facilityId=${user?.facilityId}&limit=50`, { headers }),
         fetch(`${baseUrl}/violations?facilityId=${user?.facilityId}`, { headers }),
-        fetch(`${baseUrl}/equipment?facility_id=${user?.facilityId}`, { headers }),
+        fetch(`${baseUrl}/equipment`, { headers }),
       ]);
 
       // Work orders

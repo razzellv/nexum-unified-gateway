@@ -215,14 +215,41 @@ const handleCreateWorkOrder = async (data: Partial<WorkOrder>) => {
   }
 };
 
-  const handleUpdateWorkOrder = (data: Partial<WorkOrder>) => {
+  const handleUpdateWorkOrder = async (data: Partial<WorkOrder>) => {
     if (!data.workOrderId) return;
-    
-    setWorkOrders(workOrders.map(wo => 
+    try {
+      const token = localStorage.getItem('nexum_access_token');
+      const response = await fetch(`${API_BASE_URL}/work-orders/${data.workOrderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          title:          data.title,
+          description:    data.description,
+          status:         data.status,
+          priority:       data.priority,
+          type:           data.type,
+          assignedTo:     data.assignedTo,
+          assignedToName: data.assignedToName,
+          dueDate:        data.dueDate,
+          scheduledDate:  data.scheduledDate,
+          estimatedHours: data.estimatedHours,
+          estimatedCost:  data.estimatedCost,
+          partsRequired:  data.partsRequired,
+          tags:           data.tags,
+          safetyPrecautions: data.safetyPrecautions,
+          equipmentId:    data.equipmentId,
+          equipmentType:  data.equipmentType,
+          locationContext: data.locationContext,
+        }),
+      });
+      if (!response.ok) throw new Error('API error');
+    } catch {
+      // Best-effort: update locally even if API fails
+    }
+    setWorkOrders(workOrders.map(wo =>
       wo.workOrderId === data.workOrderId ? { ...wo, ...data } : wo
     ));
     setEditingWorkOrder(null);
-    
     toast({
       title: 'Work Order Updated',
       description: `${data.workOrderId.toUpperCase()} has been updated.`,

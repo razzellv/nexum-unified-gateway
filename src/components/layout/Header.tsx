@@ -67,7 +67,7 @@ export function Header() {
         const q       = encodeURIComponent(value);
 
         const [eqRes, woRes] = await Promise.allSettled([
-          fetch(`${baseUrl}/equipment?facility_id=${user?.facilityId}&search=${q}`, { headers }),
+          fetch(`${baseUrl}/equipment?search=${q}`, { headers }),
           fetch(`${baseUrl}/work-orders?search=${q}`, { headers }),
         ]);
 

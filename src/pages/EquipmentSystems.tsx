@@ -546,7 +546,7 @@ export default function EquipmentSystems() {
     try {
       setLoading(true);
       setSystemsError(null);
-      const data = await apiRequest(`/equipment-systems?facility_id=${facilityId}`);
+      const data = await apiRequest(`/equipment-systems`);
       setSystems(data.systems || []);
     } catch (error: any) {
       console.error('Failed to load systems:', error);
@@ -561,9 +561,8 @@ export default function EquipmentSystems() {
   };
 
   const loadEquipment = async () => {
-    if (!user?.facilityId) return;
     try {
-      const data = await apiRequest(`/equipment?facility_id=${user.facilityId}`);
+      const data = await apiRequest(`/equipment`);
       setEquipment(data.equipment || []);
     } catch (error) {
       console.error('Failed to load equipment:', error);

@@ -286,7 +286,7 @@ export default function ClimateIntelligence() {
       const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
 
       try {
-        const er = await fetch(`${baseUrl}/equipment?facility_id=${facilityId}&limit=200`, {
+        const er = await fetch(`${baseUrl}/equipment?limit=200`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (er.ok) {

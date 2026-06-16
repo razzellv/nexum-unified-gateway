@@ -242,9 +242,8 @@ export function WaterChemistryForm({ data, onChange, errors }: Props) {
   const [loadingEq, setLoadingEq] = useState(false);
 
   useEffect(() => {
-    if (!user?.facilityId) return;
     setLoadingEq(true);
-    apiRequest(`/equipment?facility_id=${user.facilityId}`)
+    apiRequest(`/equipment`)
       .then(res => {
         setEquipment((res.equipment || []).filter((e: any) => WATER_CHEM_TYPES.includes(e.equipmentType)));
       })

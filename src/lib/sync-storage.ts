@@ -91,7 +91,7 @@ export async function syncWrite<T>(
   const entry: SyncQueueEntry = {
     id:          `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     localKey:    local,
-    endpoint:    `${endpoint}?facility_id=${facilityId}`,
+    endpoint:    endpoint,
     method,
     payload:     data,
     enqueuedAt:  new Date().toISOString(),
@@ -127,7 +127,7 @@ export async function syncRead<T>(
 
   if (apiBase && token) {
     try {
-      const res = await fetch(`${apiBase}${endpoint}?facility_id=${facilityId}`, {
+      const res = await fetch(`${apiBase}${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(5000),
       });

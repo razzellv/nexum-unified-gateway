@@ -77,7 +77,7 @@ export function useFacilityEquipment() {
 
       let equipmentList: any[] = [];
       try {
-        const eRes = await fetch(`${baseUrl}/equipment?facility_id=${facilityId}`, { headers });
+        const eRes = await fetch(`${baseUrl}/equipment`, { headers });
         if (eRes.ok) {
           const eData = await eRes.json();
           equipmentList = eData.equipment || eData.items || [];

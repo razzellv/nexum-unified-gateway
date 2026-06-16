@@ -681,7 +681,7 @@ export default function ExecutiveDashboard() {
     const token = localStorage.getItem('nexum_access_token');
     const baseUrl = import.meta.env.VITE_API_BASE_URL;
     Promise.all([
-      fetch(`${baseUrl}/equipment?facility_id=${facilityId}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`${baseUrl}/equipment`, { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : { equipment: [] }).catch(() => ({ equipment: [] })),
       fetch(`${baseUrl}/inventory`, { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),

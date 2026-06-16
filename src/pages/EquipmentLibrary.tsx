@@ -281,7 +281,7 @@ export default function EquipmentLibrary() {
     if (!user?.facilityId) return;
     try {
       setLoading(true);
-      const data = await apiRequest(`/equipment?facility_id=${user.facilityId}`);
+      const data = await apiRequest(`/equipment`);
       setEquipment(data.equipment || []);
     } catch {
       toast({ title: 'Error', description: 'Failed to load equipment', variant: 'destructive' });
