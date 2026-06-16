@@ -57,6 +57,7 @@ interface Equipment {
   contractorCostAccumulated?: number;
   maintenanceCostTrend?: string;
   source?: string;
+  createdAt?: string;
 }
 
 function BaselineDerivedStrip({ derived, show, labels }: { derived: Record<string, string>; show: string[]; labels: Record<string, string> }) {
@@ -311,6 +312,7 @@ export default function EquipmentLibrary() {
       setSubmitting(true);
       await apiRequest('/equipment', { method: 'POST', body: JSON.stringify({
         ...formData,
+        createdAt: new Date().toISOString(),
         count: parseInt(formData.count) || 1,
         purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
         replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
@@ -920,6 +922,13 @@ export default function EquipmentLibrary() {
                           {eq.serialNumber && <p><strong>Serial:</strong> {cleanText(eq.serialNumber)}</p>}
                           {eq.location && <p><strong>Location:</strong> {eq.location}</p>}
                           {eq.installDate && <p><strong>Installed:</strong> {eq.installDate}</p>}
+                          {eq.createdAt && (
+                            <p className="flex items-center gap-1">
+                              <CalendarClock className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+                              <strong>Added to System:</strong>&nbsp;
+                              {new Date(eq.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                          )}
                           {eq.replacementCost ? (
                             <p><strong>Value:</strong> ${eq.replacementCost.toLocaleString()} (replacement cost)</p>
                           ) : eq.purchasePrice ? (

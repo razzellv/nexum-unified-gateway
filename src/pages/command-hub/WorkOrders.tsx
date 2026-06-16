@@ -62,13 +62,13 @@ export default function WorkOrders() {
 
   const loadWorkOrders = useCallback(async () => {
 
-    if (!user?.facilityId) return;
+    const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
 
     setIsLoading(true);
 
     try {
 
-      const response = await fetch(`${API_BASE_URL}/work-orders?facilityId=${user.facilityId}`, {
+      const response = await fetch(`${API_BASE_URL}/work-orders?facilityId=${facilityId}`, {
         
         headers: { 'Authorization': `Bearer ${localStorage.getItem('nexum_access_token')}` }
       });
@@ -119,7 +119,7 @@ export default function WorkOrders() {
 
     }
 
-  }, [user?.facilityId]);
+  }, [user?.facilityId, user?.['custom:facilityId']]);
 
   useEffect(() => { loadWorkOrders(); }, [loadWorkOrders]);
 

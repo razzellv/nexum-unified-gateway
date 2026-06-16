@@ -782,7 +782,7 @@ export default function InventoryLibrary() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {[{ key: 'name', label: 'Name' }, { key: 'category', label: 'Category' }, { key: 'partNumber', label: 'Part #' }, { key: 'quantity', label: 'Qty' }, { key: 'location', label: 'Location' }, { key: 'supplier', label: 'Supplier' }, { key: 'unitCost', label: 'Unit Cost' }].map(col => (
+                        {[{ key: 'name', label: 'Name' }, { key: 'category', label: 'Category' }, { key: 'partNumber', label: 'Part #' }, { key: 'quantity', label: 'Qty' }, { key: 'location', label: 'Location' }, { key: 'supplier', label: 'Supplier' }, { key: 'unitCost', label: 'Unit Cost' }, { key: 'createdAt', label: 'Date Added' }].map(col => (
                           <TableHead key={col.key} className="cursor-pointer hover:text-foreground" onClick={() => handleSort(col.key as keyof InventoryPart)}>
                             <div className="flex items-center gap-1">{col.label}{sortField === col.key && <ArrowUpDown className="w-3 h-3" />}</div>
                           </TableHead>
@@ -804,6 +804,9 @@ export default function InventoryLibrary() {
                             <TableCell className="text-sm">{item.location}</TableCell>
                             <TableCell className="text-sm">{item.supplier}</TableCell>
                             <TableCell className="text-sm">${item.unitCost?.toFixed(2) || '0.00'}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1 flex-wrap">
                                 <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
@@ -931,6 +934,7 @@ export default function InventoryLibrary() {
                         <TableHead>Status</TableHead><TableHead>Assigned To</TableHead>
                         <TableHead>Mileage / Qty</TableHead><TableHead>Last Service / Inspection</TableHead>
                         <TableHead>Next Service</TableHead><TableHead>Condition</TableHead>
+                        <TableHead>Date Added</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -955,6 +959,9 @@ export default function InventoryLibrary() {
                             <TableCell className="text-xs text-muted-foreground">{item.lastService || item.lastInspection || '—'}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{item.nextService || '—'}</TableCell>
                             <TableCell><span className={cn('text-xs font-medium', conditionColor)}>{item.condition || '—'}</span></TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                            </TableCell>
                           </TableRow>
                         );
                       })}
