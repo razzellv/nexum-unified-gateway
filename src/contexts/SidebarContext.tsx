@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useDevice } from '@/hooks/use-device';
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -10,15 +10,16 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const isMobile = useIsMobile();
-  const [collapsed, setCollapsed] = useState(isMobile);
+  const device = useDevice();
+  // desktop: expanded by default; mobile/tablet: collapsed by default
+  const [collapsed, setCollapsed] = useState(device !== 'desktop');
 
-  // Auto-collapse on mobile/tablet
   useEffect(() => {
-    setCollapsed(isMobile);
-  }, [isMobile]);
+    if (device === 'desktop') setCollapsed(false);
+    else setCollapsed(true);
+  }, [device]);
 
-  const toggle = () => setCollapsed(!collapsed);
+  const toggle = () => setCollapsed(c => !c);
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed, toggle }}>
@@ -29,8 +30,6 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
 export function useSidebar() {
   const context = useContext(SidebarContext);
-  if (!context) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
-  }
+  if (!context) throw new Error('useSidebar must be used within a SidebarProvider');
   return context;
 }

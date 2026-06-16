@@ -33,6 +33,9 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { TierBadge } from '@/components/global/TierGate';
 import { useTier } from '@/hooks/useTier';
+import { useDevice } from '@/hooks/use-device';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigate } from 'react-router-dom';
 import type { TierFeature } from '@/config/tiers';
 import { ROLES_BY_ORG_TYPE } from '@/config/roles';
 
@@ -227,9 +230,11 @@ function getVisibleItems(
 }
 
 export function AppSidebar() {
-  const { collapsed } = useSidebar();
+  const { collapsed, setCollapsed } = useSidebar();
   const { userRole, logout } = useAuth();
   const { isAdmin } = useTier();
+  const device = useDevice();
+  const navigate = useNavigate();
 
   const orgType   = localStorage.getItem('nexum_org_type') || 'facility';
   const role      = userRole || 'employee';
@@ -245,79 +250,107 @@ export function AppSidebar() {
   const { can } = useTier();
   const visibleItems = getVisibleItems(role, orgType, isLeadership, isAdmin, can);
 
+  const handleNavClick = (href: string) => {
+    if (device === 'mobile') setCollapsed(true);
+    navigate(href);
+  };
+
+  const renderNavItem = (item: NavItem, idx: number) => {
+    if (item.type === 'separator') {
+      return (
+        <div key={`sep-${item.name}-${idx}`} className={cn('px-3 pt-4 pb-2', collapsed && 'px-0 pt-3 pb-1')}>
+          {collapsed
+            ? <div className="h-px bg-sidebar-border/50 mx-2" />
+            : <h3 className="text-[10px] font-semibold text-sidebar-foreground/50 uppercase tracking-widest">{item.name}</h3>
+          }
+        </div>
+      );
+    }
+
+    const href    = item._locked ? '/pricing' : item.href!;
+    const locked  = !!item._locked;
+    const content = (
+      <button
+        key={item.href || item.name}
+        onClick={() => handleNavClick(href)}
+        className={cn(
+          'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+          'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
+          collapsed && 'justify-center px-2',
+          locked && 'opacity-40'
+        )}
+      >
+        {item.icon && <item.icon className="w-4 h-4 shrink-0" />}
+        {!collapsed && (
+          <>
+            <span className="flex-1 text-left truncate">{item.name}</span>
+            {item.tier && <TierBadge feature={item.tier} />}
+          </>
+        )}
+      </button>
+    );
+
+    if (collapsed && item.name) {
+      return (
+        <Tooltip key={item.href || item.name} delayDuration={200}>
+          <TooltipTrigger asChild>{content}</TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            {item.name}
+            {locked && ' (upgrade required)'}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return content;
+  };
+
   return (
     <aside className={cn(
-      "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
-      collapsed ? "w-64 md:w-16 md:overflow-hidden" : "w-64"
+      "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-300",
+      collapsed ? "w-16 overflow-hidden" : "w-64"
     )}>
-      <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Command className="w-5 h-5 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-foreground">Nexum Suum</span>
-              <span className="text-xs text-primary font-medium">Facility Intelligence™</span>
-            </div>
-          )}
+      {/* Logo */}
+      <div className={cn('flex items-center h-16 border-b border-sidebar-border shrink-0', collapsed ? 'justify-center px-2' : 'px-4')}>
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+          <Command className="w-5 h-5 text-primary-foreground" />
         </div>
+        {!collapsed && (
+          <div className="flex flex-col ml-3 min-w-0">
+            <span className="text-sm font-semibold text-sidebar-foreground truncate">Nexum Suum</span>
+            <span className="text-xs text-primary font-medium truncate">Operational Intelligence™</span>
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
-        <div className="space-y-1">
-          {visibleItems.map((item, idx) => {
-            if (item.type === 'separator') {
-              return (
-                <div key={`sep-${item.name}-${idx}`} className="px-3 pt-4 pb-2">
-                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
-                    {!collapsed && item.name}
-                  </h3>
-                </div>
-              );
-            }
-            if (item._locked) {
-              // Show locked items dimmed — click goes to pricing to upgrade
-              const Icon = item.icon!;
-              return (
-                <NavLink
-                  key={item.href || item.name}
-                  to="/pricing"
-                  icon={item.icon!}
-                  collapsed={collapsed}
-                  className="opacity-40 hover:opacity-60"
-                >
-                  {item.name}
-                  {!collapsed && item.tier && <TierBadge feature={item.tier} />}
-                </NavLink>
-              );
-            }
-            return (
-              <NavLink
-                key={item.href || item.name}
-                to={item.href!}
-                icon={item.icon!}
-                collapsed={collapsed}
-              >
-                {item.name}
-                {!collapsed && item.tier && <TierBadge feature={item.tier} />}
-              </NavLink>
-            );
-          })}
-        </div>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        {visibleItems.map((item, idx) => renderNavItem(item, idx))}
       </nav>
 
-      <div className="p-2 border-t border-sidebar-border">
-        <button
-          onClick={logout}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
-            collapsed && "justify-center"
-          )}
-        >
-          <LogOut className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>Sign Out</span>}
-        </button>
+      {/* Sign out */}
+      <div className="p-2 border-t border-sidebar-border shrink-0">
+        {collapsed ? (
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sign Out</TooltipContent>
+          </Tooltip>
+        ) : (
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span>Sign Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );
