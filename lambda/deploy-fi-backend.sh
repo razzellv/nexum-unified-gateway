@@ -102,6 +102,25 @@ purge_unused_integrations() {
   done
   REMAINING=$((TOTAL - DELETED))
   echo "  ✓ Removed $DELETED orphaned integrations ($REMAINING remaining of 300 max)"
+
+  # Delete routes whose target is not in integrations/<id> format.
+  # These are leftovers from broken deploys; trying to update-route on them
+  # causes a BadRequestException that can kill the script on macOS bash 3.2.
+  TMPFILE=$(mktemp)
+  aws apigatewayv2 get-routes --api-id "$API_ID" --region "$REGION" --max-results 500 \
+    --query 'Items[].[RouteId, Target]' --output text 2>/dev/null > "$TMPFILE" || true
+  MALFORMED_DEL=0
+  while IFS=$(printf '\t') read -r rid target; do
+    [[ -z "$rid" || "$rid" == "None" ]] && continue
+    case "$target" in
+      integrations/*) continue ;;  # valid target — skip
+    esac
+    aws apigatewayv2 delete-route --api-id "$API_ID" --route-id "$rid" \
+      --region "$REGION" > /dev/null 2>&1 && MALFORMED_DEL=$((MALFORMED_DEL + 1)) || true
+    echo "  ✓ Removed malformed route $rid (bad target: ${target:-empty})"
+  done < "$TMPFILE"
+  rm -f "$TMPFILE"
+  [ $MALFORMED_DEL -eq 0 ] && echo "  ✓ No malformed routes found"
 }
 
 # ── Helper: add / update an API Gateway route ──────────────────────────────────
