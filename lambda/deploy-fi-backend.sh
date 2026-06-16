@@ -652,7 +652,7 @@ deploy_lambda "nexum-fi-equipment" "fi-equipment.mjs" "fi-equipment-role" \
   "EQUIPMENT_TABLE=EquipmentLibrary,LOGS_TABLE=FacilityLogs-v2"
 
 deploy_lambda "nexum-fi-vvfi" "fi-vvfi.mjs" "fi-vvfi-role" \
-  "VVFI_TABLE=NexumFIASAssessments"
+  "VVFI_TABLE=NexumFIASAssessments,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
 
 deploy_lambda "nexum-fi-messages" "fi-messages.mjs" "fi-messages-role" \
   "MESSAGES_TABLE=NexumMessages"
