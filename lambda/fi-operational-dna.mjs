@@ -247,66 +247,64 @@ function calcRiskTrajectory(wos) {
 }
 
 // ── Pattern detection ──────────────────────────────────────────────────────────
+function riskScore2Severity(score) {
+  if (score >= 80) return "critical";
+  if (score >= 60) return "high";
+  if (score >= 40) return "medium";
+  return "low";
+}
+
 function detectPatterns(wos, violations) {
   const now     = Date.now();
   const cut30   = new Date(now - 30 * 86400000).toISOString();
   const cut60   = new Date(now - 60 * 86400000).toISOString();
   const patterns = [];
 
-  // 1. recurring_failure — top 5 systems with > 2 WOs
+  // 1. recurring_failure — systems with >= 2 WOs
   const systemCounts = {};
   for (const w of wos) {
     const sys = w.system || w.equipmentType || w.equipmentId || "";
     if (sys) systemCounts[sys] = (systemCounts[sys] || 0) + 1;
   }
   const topSystems = Object.entries(systemCounts)
-    .filter(([, c]) => c > 2)
+    .filter(([, c]) => c >= 2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
   for (const [system, count] of topSystems) {
-    const dnaId = randomUUID();
+    const riskScore = Math.min(100, 40 + count * 8);
     patterns.push({
-      dna_id:             dnaId,
-      pattern_type:       "recurring_failure",
-      asset_id:           system,
-      pattern_frequency:  count,
-      trend_direction:    "increasing",
-      confidence_score:   Math.min(95, 60 + count * 5),
-      risk_score:         Math.min(100, 40 + count * 8),
-      description:        `System "${system}" has ${count} work orders indicating recurring failures.`,
-      recommended_action: `Schedule a root cause analysis for ${system} and consider a PM program.`,
-      evidence:           wos.filter(w => (w.system || w.equipmentType || w.equipmentId || "") === system)
-                             .slice(0, 5)
-                             .map(w => ({ workOrderId: w.workOrderId || w.SK, title: w.title, createdAt: w.createdAt })),
+      type:        "recurring_failure",
+      title:       `Recurring Issue: ${system}`,
+      description: `System "${system}" has ${count} work orders on record, indicating a recurring maintenance pattern.`,
+      frequency:   count,
+      systems:     [system],
+      severity:    riskScore2Severity(riskScore),
     });
   }
 
-  // 2. seasonal_trend — peak month by WO count
+  // 2. seasonal_trend — peak month by WO count (needs >= 2 distinct months or at least 1 WO)
   const monthCounts = {};
   for (const w of wos) {
     const ts = w.createdAt || "";
     if (ts.length >= 7) {
-      const month = ts.slice(5, 7); // "01"-"12"
+      const month = ts.slice(5, 7);
       monthCounts[month] = (monthCounts[month] || 0) + 1;
     }
   }
   const sortedMonths = Object.entries(monthCounts).sort((a, b) => b[1] - a[1]);
-  if (sortedMonths.length > 0) {
+  if (sortedMonths.length >= 1 && wos.length >= 2) {
     const [peakMonth, peakCount] = sortedMonths[0];
     const monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const monthName  = monthNames[parseInt(peakMonth, 10)] || peakMonth;
+    const riskScore  = Math.min(80, 30 + peakCount * 3);
     patterns.push({
-      dna_id:             randomUUID(),
-      pattern_type:       "seasonal_trend",
-      asset_id:           "",
-      pattern_frequency:  peakCount,
-      trend_direction:    "seasonal",
-      confidence_score:   70,
-      risk_score:         Math.min(80, 30 + peakCount * 3),
-      description:        `Work order volume peaks in ${monthName} (${peakCount} WOs).`,
-      recommended_action: `Pre-position resources and schedule preventive maintenance before ${monthName}.`,
-      evidence:           [{ peak_month: peakMonth, peak_count: peakCount, all_months: Object.fromEntries(sortedMonths) }],
+      type:        "seasonal_trend",
+      title:       `Seasonal Work Order Peak: ${monthName}`,
+      description: `Work order volume is highest in ${monthName} (${peakCount} WOs). Plan resources accordingly.`,
+      frequency:   peakCount,
+      systems:     [],
+      severity:    riskScore2Severity(riskScore),
     });
   }
 
@@ -317,7 +315,6 @@ function detectPatterns(wos, violations) {
     const isOverdue = w.dueDate && w.dueDate < now_iso &&
                       !["completed", "closed"].includes((w.status || "").toLowerCase());
     if (!isOverdue) continue;
-    // assignedTo may be string or object
     let assignee = "";
     if (w.assignedTo && typeof w.assignedTo === "object") {
       assignee = w.assignedTo.id || w.assignedTo.name || w.assignedTo.email || JSON.stringify(w.assignedTo);
@@ -326,43 +323,46 @@ function detectPatterns(wos, violations) {
     }
     if (assignee) overdueCounts[assignee] = (overdueCounts[assignee] || 0) + 1;
   }
-  const overdueAssignees = Object.entries(overdueCounts).filter(([, c]) => c > 1);
+  const overdueAssignees = Object.entries(overdueCounts).filter(([, c]) => c >= 1);
   if (overdueAssignees.length > 0) {
+    const riskScore = Math.min(90, 30 + overdueAssignees.length * 10);
     patterns.push({
-      dna_id:             randomUUID(),
-      pattern_type:       "human_factor",
-      asset_id:           "",
-      pattern_frequency:  overdueAssignees.length,
-      trend_direction:    "stable",
-      confidence_score:   75,
-      risk_score:         Math.min(90, 30 + overdueAssignees.length * 10),
-      description:        `${overdueAssignees.length} assignee(s) have more than 1 overdue task, indicating possible capacity issues.`,
-      recommended_action: "Review workload distribution and consider reassigning or adding resources.",
-      evidence:           overdueAssignees.map(([assignee, count]) => ({ assignee, overdue_count: count })),
+      type:        "human_factor",
+      title:       "Workforce Capacity Strain",
+      description: `${overdueAssignees.length} assignee(s) have overdue tasks, indicating possible capacity or workload issues.`,
+      frequency:   overdueAssignees.length,
+      systems:     [],
+      severity:    riskScore2Severity(riskScore),
     });
   }
 
-  // 4. compliance_drift — recent 30d violations > previous 30d avg by > 30%
+  // 4. compliance_drift — recent 30d violations > previous 30d avg by > 20%
   const recentViolations = violations.filter(v => (v.timestamp || v.createdAt || "") >= cut30).length;
   const prevViolations   = violations.filter(v => {
     const ts = v.timestamp || v.createdAt || "";
     return ts >= cut60 && ts < cut30;
   }).length;
 
-  const prevAvg = prevViolations; // 30-day window
-  if (prevAvg > 0 && recentViolations > prevAvg * 1.30) {
-    const drift = Math.round(((recentViolations - prevAvg) / prevAvg) * 100);
+  if (prevViolations > 0 && recentViolations > prevViolations * 1.20) {
+    const drift = Math.round(((recentViolations - prevViolations) / prevViolations) * 100);
+    const riskScore = Math.min(100, 50 + drift);
     patterns.push({
-      dna_id:             randomUUID(),
-      pattern_type:       "compliance_drift",
-      asset_id:           "",
-      pattern_frequency:  recentViolations,
-      trend_direction:    "increasing",
-      confidence_score:   80,
-      risk_score:         Math.min(100, 50 + drift),
-      description:        `Violations increased by ${drift}% in the last 30 days vs prior period (${recentViolations} vs ${prevAvg}).`,
-      recommended_action: "Initiate a compliance audit and review recent inspection records.",
-      evidence:           [{ recent_30d: recentViolations, previous_30d: prevAvg, drift_pct: drift }],
+      type:        "compliance_drift",
+      title:       "Compliance Drift Detected",
+      description: `Violations rose ${drift}% in the last 30 days vs prior period (${recentViolations} vs ${prevViolations}).`,
+      frequency:   recentViolations,
+      systems:     [],
+      severity:    riskScore2Severity(riskScore),
+    });
+  } else if (recentViolations >= 1 && prevViolations === 0) {
+    const riskScore = Math.min(70, 30 + recentViolations * 8);
+    patterns.push({
+      type:        "compliance_drift",
+      title:       "New Violations Recorded",
+      description: `${recentViolations} violation(s) logged in the last 30 days — first recorded violations for this period.`,
+      frequency:   recentViolations,
+      systems:     [],
+      severity:    riskScore2Severity(riskScore),
     });
   }
 
@@ -370,71 +370,78 @@ function detectPatterns(wos, violations) {
 }
 
 // ── Prediction generation ──────────────────────────────────────────────────────
-function generatePredictions(scores, patterns) {
+function generatePredictions(scores, patterns, wos) {
   const predictions = [];
 
-  // 1. failure_risk if failureProbability > 60
-  if (scores.failure_probability > 60) {
+  // 1. failure_risk if failureProbability > 40
+  if (scores.failure_probability > 40) {
     predictions.push({
-      prediction_id:    randomUUID(),
-      prediction_type:  "failure_risk",
-      horizon:          "30_days",
-      probability:      scores.failure_probability,
-      confidence:       75,
-      title:            "Elevated Failure Risk Detected",
-      description:      `Failure probability is at ${scores.failure_probability}%. Immediate preventive action recommended.`,
-      recommended_action: "Audit high-priority open work orders and escalate unresolved critical issues.",
-      risk_level:       scores.failure_probability >= 80 ? "critical" : "high",
+      title:       "Elevated Failure Risk Detected",
+      description: `Failure probability is at ${scores.failure_probability}%. High-priority open work orders may be contributing to risk.`,
+      probability: scores.failure_probability,
+      timeframe:   "30 days",
+      action:      "Audit high-priority open work orders and escalate unresolved critical issues.",
     });
   }
 
   // 2. capacity_risk if human_factor patterns exist
-  const humanFactorPatterns = patterns.filter(p => p.pattern_type === "human_factor");
-  if (humanFactorPatterns.length > 0) {
+  const humanPatterns = patterns.filter(p => p.type === "human_factor");
+  if (humanPatterns.length > 0) {
     predictions.push({
-      prediction_id:    randomUUID(),
-      prediction_type:  "capacity_risk",
-      horizon:          "14_days",
-      probability:      Math.min(90, 40 + humanFactorPatterns[0].risk_score),
-      confidence:       70,
-      title:            "Workforce Capacity Risk",
-      description:      "Overdue task accumulation suggests maintenance staff may be at capacity.",
-      recommended_action: "Review staffing levels and redistribute workload across available technicians.",
-      risk_level:       "medium",
+      title:       "Workforce Capacity Risk",
+      description: "Overdue task accumulation suggests maintenance staff may be at or near capacity.",
+      probability: Math.min(90, 45 + humanPatterns[0].frequency * 5),
+      timeframe:   "14 days",
+      action:      "Review staffing levels and redistribute workload across available technicians.",
     });
   }
 
   // 3. seasonal_preparation if seasonal pattern detected
-  const seasonalPatterns = patterns.filter(p => p.pattern_type === "seasonal_trend");
+  const seasonalPatterns = patterns.filter(p => p.type === "seasonal_trend");
   if (seasonalPatterns.length > 0) {
     const sp = seasonalPatterns[0];
     predictions.push({
-      prediction_id:    randomUUID(),
-      prediction_type:  "seasonal_preparation",
-      horizon:          "60_days",
-      probability:      65,
-      confidence:       sp.confidence_score,
-      title:            "Seasonal Maintenance Surge Anticipated",
-      description:      sp.description,
-      recommended_action: sp.recommended_action,
-      risk_level:       "low",
+      title:       "Seasonal Maintenance Surge Anticipated",
+      description: sp.description,
+      probability: 65,
+      timeframe:   "60 days",
+      action:      "Pre-position parts and schedule preventive maintenance before the peak period.",
     });
   }
 
   // 4. trajectory_warning if degrading or critical
   if (scores.risk_trajectory === "degrading" || scores.risk_trajectory === "critical") {
     predictions.push({
-      prediction_id:    randomUUID(),
-      prediction_type:  "trajectory_warning",
-      horizon:          "30_days",
-      probability:      scores.risk_trajectory === "critical" ? 90 : 70,
-      confidence:       80,
-      title:            scores.risk_trajectory === "critical"
-                          ? "Critical Risk Trajectory — Immediate Action Required"
-                          : "Degrading Risk Trajectory",
-      description:      `Operational risk trajectory is "${scores.risk_trajectory}". Critical and high-priority incidents are increasing.`,
-      recommended_action: "Conduct an operational review and escalate to facility leadership immediately.",
-      risk_level:       scores.risk_trajectory === "critical" ? "critical" : "high",
+      title:       scores.risk_trajectory === "critical"
+                     ? "Critical Risk Trajectory — Immediate Action Required"
+                     : "Degrading Risk Trajectory",
+      description: `Operational risk trajectory is "${scores.risk_trajectory}". Critical and high-priority incidents are trending upward.`,
+      probability: scores.risk_trajectory === "critical" ? 90 : 70,
+      timeframe:   "30 days",
+      action:      "Conduct an operational review and escalate to facility leadership immediately.",
+    });
+  }
+
+  // 5. recurring equipment risk from patterns
+  const recurringPatterns = patterns.filter(p => p.type === "recurring_failure");
+  for (const rp of recurringPatterns.slice(0, 2)) {
+    predictions.push({
+      title:       `Equipment Reliability Risk: ${rp.systems[0] || "Asset"}`,
+      description: `${rp.frequency} work orders logged for this system. Without intervention, failures are likely to continue.`,
+      probability: Math.min(85, 45 + rp.frequency * 8),
+      timeframe:   "45 days",
+      action:      `Schedule a root cause analysis and preventive maintenance program for ${rp.systems[0] || "the affected system"}.`,
+    });
+  }
+
+  // 6. baseline prediction if nothing else triggers but there are work orders
+  if (predictions.length === 0 && wos.length > 0) {
+    predictions.push({
+      title:       "Maintain Preventive Maintenance Cadence",
+      description: `${wos.length} work order(s) on record. Operational history is building — continue logging to unlock deeper pattern detection.`,
+      probability: scores.reliability_index,
+      timeframe:   "Ongoing",
+      action:      "Continue regular PM scheduling and equipment inspections to maintain current reliability level.",
     });
   }
 
@@ -445,7 +452,7 @@ function generatePredictions(scores, patterns) {
 function buildRootCauseClusters(wos) {
   const systemCounts = {};
   for (const w of wos) {
-    const sys = w.system || w.equipmentType || w.equipmentId || "unknown";
+    const sys = w.system || w.equipmentType || w.equipmentId || "General";
     systemCounts[sys] = (systemCounts[sys] || 0) + 1;
   }
   const total = wos.length || 1;
@@ -480,9 +487,15 @@ async function runAnalysis(fid) {
     risk_trajectory:                riskTrajectory,
   };
 
-  const patterns         = detectPatterns(wos, violations);
-  const predictions      = generatePredictions(scores, patterns);
+  const patterns          = detectPatterns(wos, violations);
+  const predictions       = generatePredictions(scores, patterns, wos);
   const rootCauseClusters = buildRootCauseClusters(wos);
+
+  // Days of history: span from oldest WO to now
+  const timestamps = wos.map(w => w.createdAt || "").filter(Boolean).sort();
+  const daysOfHistory = timestamps.length > 0
+    ? Math.round((Date.now() - new Date(timestamps[0]).getTime()) / 86400000)
+    : 0;
 
   const now = new Date().toISOString();
 
@@ -490,8 +503,9 @@ async function runAnalysis(fid) {
     facility_id:               fid,
     generated_at:              now,
     data_points: {
-      total_work_orders:       wos.length,
-      total_violations:        violations.length,
+      work_orders_analyzed:    wos.length,
+      violations_analyzed:     violations.length,
+      days_of_history:         daysOfHistory,
     },
     scores,
     patterns,
