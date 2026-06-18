@@ -286,7 +286,11 @@ export default function Violations() {
                       {/* Details */}
                       <div className="text-xs text-muted-foreground space-y-0.5">
                         {(violation.employeeName || violation.operator) && (
-                          <p><span className="text-foreground/60">Personnel:</span> {violation.employeeName || violation.operator}</p>
+                          <p><span className="text-foreground/60">Personnel:</span> {
+                            typeof violation.employeeName === 'string' ? violation.employeeName
+                            : typeof violation.operator === 'string' ? violation.operator
+                            : (violation.employeeName as any)?.name || (violation.operator as any)?.name || String(violation.operatorId || '—')
+                          }</p>
                         )}
                         <p><span className="text-foreground/60">Severity:</span> {severity}/100 • {new Date(violation.issuedAt || violation.timestamp || Date.now()).toLocaleDateString()}</p>
                         {violation.description && <p className="truncate"><span className="text-foreground/60">Notes:</span> {violation.description}</p>}

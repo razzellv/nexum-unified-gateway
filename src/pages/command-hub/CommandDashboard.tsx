@@ -321,7 +321,7 @@ const CommandDashboard = () => {
                       <p className="font-medium text-sm">{(typeof v.type === 'string' ? v.type : v.type?.name || '').replace(/_/g, ' ')}</p>
                       <p className="text-xs text-muted-foreground mt-1">{v.description}</p>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Operator: {v.operator} | Equipment: {v.equipment}
+                        Operator: {typeof v.operator === 'string' ? v.operator : v.operator?.name || v.operator?.id || v.operatorId || '—'} | Equipment: {typeof v.equipment === 'string' ? v.equipment : v.equipment?.name || v.equipment?.id || v.equipmentId || '—'}
                       </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${
