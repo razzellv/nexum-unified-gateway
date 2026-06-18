@@ -102,12 +102,12 @@ export default function Violations() {
   const [lifecycleMap, setLifecycleMap] = useState<Record<string, 'open' | 'acknowledged' | 'inReview' | 'resolved'>>({});
 
   const loadViolations = useCallback(async () => {
-    if (!user?.facilityId) return;
+    const facilityId = user?.facilityId || user?.['custom:facilityId'] || user?.['custom:orgId'] || 'facility-001';
     setIsLoading(true);
     try {
       const token = localStorage.getItem('nexum_access_token') || localStorage.getItem('nexum_id_token');
       const response = await fetch(
-        `${API_BASE_URL}/violations?facilityId=${user.facilityId}&limit=100`,
+        `${API_BASE_URL}/violations?facilityId=${facilityId}&limit=100`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.ok) {
@@ -121,7 +121,7 @@ export default function Violations() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.facilityId]);
+  }, [user?.facilityId, user?.['custom:facilityId']]);
 
   useEffect(() => { loadViolations(); }, [loadViolations]);
 

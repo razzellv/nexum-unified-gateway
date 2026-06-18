@@ -34,6 +34,17 @@ const getToken = () =>
   localStorage.getItem("nexum_access_token") ||
   localStorage.getItem("accessToken") || "";
 
+function getFacilityId(): string {
+  const token = getToken();
+  if (!token) return 'facility-001';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload['custom:facilityId'] || payload['custom:orgId'] || 'facility-001';
+  } catch {
+    return 'facility-001';
+  }
+}
+
 const FACILITIES = ['Facility Alpha', 'Facility Beta', 'Facility Gamma', 'Facility Delta'];
 const BUILDINGS = ['Building A', 'Building B', 'Building C', 'Warehouse 1', 'Warehouse 2'];
 
@@ -910,11 +921,10 @@ export default function Compliance() {
     setIsSubmitting(true);
     try {
       const token = getToken();
-      const facilityId = localStorage.getItem('nexum_facility_id') || 'facility-001';
+      const facilityId = getFacilityId();
       const severityScore = SEVERITY_OPTIONS.find(s => s.value === data.severity)?.score ?? 50;
 
-      // POST to /violations endpoint
-      await fetch(`${API_BASE}/violations`, {
+      const res = await fetch(`${API_BASE}/violations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -938,26 +948,14 @@ export default function Compliance() {
           timestamp:        new Date().toISOString(),
           notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
         }),
-      }).catch(err => console.warn('Violations endpoint unavailable:', err));
-
-      // Also log via legacy compliance event for backward compat
-      const response = await logComplianceEvent({
-        type:             data.violationType,
-        operatorId:       data.operatorId,
-        operator:         data.operator || data.operatorId,
-        description:      data.violationType === 'other_custom' && otherTypeNotes
-          ? `[${otherTypeNotes}] ${data.description}`.trim()
-          : data.description,
-        equipmentId:      data.equipmentId,
-        equipmentType:    data.equipmentType,
-        notes:            data.notes,
-        correctiveAction: data.correctiveAction,
       });
-      const virtuousScore = response?.employeeScores?.virtuousScore || response?.virtuousScore || response?.score;
-      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Server error: ${res.status}`);
+      }
       toast({
         title: '✅ Violation Logged Successfully',
-        description: virtuousScore !== undefined ? `Employee Virtuous Score: ${virtuousScore}%` : 'The violation has been recorded.',
+        description: 'The violation has been recorded.',
       });
       // Create Issue Origin record for this compliance event
       try {
@@ -993,20 +991,30 @@ export default function Compliance() {
   const handlePMSubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        type: 'MISSED_ROUND',
-        operatorId: data.operatorId,
-        operator: data.operator || data.operatorId,
-        description: `PM Check: ${data.pmTask}`,
-        equipmentId: data.equipmentId,
-        equipmentType: data.equipmentType,
-        notes: `Scheduled: ${data.scheduledDate}. ${!data.completedOnTime ? 'LATE: ' + data.missedReason : 'On time'}`,
-        notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
-      };
-      const response = await logComplianceEvent(payload);
-      const virtuousScore = response?.employeeScores?.virtuousScore;
-      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
-      toast({ title: '✅ PM Check Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'PM check recorded.' });
+      const token = getToken();
+      const facilityId = getFacilityId();
+      const res = await fetch(`${API_BASE}/violations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          facilityId,
+          orgType,
+          type:             data.completedOnTime ? 'PM_COMPLETED' : 'MISSED_ROUND',
+          operatorId:       data.operatorId,
+          operator:         data.operator || data.operatorId,
+          description:      `PM Check: ${data.pmTask}`,
+          equipmentId:      data.equipmentId,
+          equipmentType:    data.equipmentType,
+          notes:            `Scheduled: ${data.scheduledDate}. ${!data.completedOnTime ? 'LATE: ' + (data.missedReason || 'No reason given') : 'Completed on time'}`,
+          timestamp:        new Date().toISOString(),
+          notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Server error: ${res.status}`);
+      }
+      toast({ title: '✅ PM Check Logged', description: 'PM check recorded.' });
       // Create Issue Origin record for this compliance event
       try {
         await createIssue({
@@ -1040,21 +1048,31 @@ export default function Compliance() {
   const handleSafetySubmit = async (data: any) => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        type: data.immediateRisk ? 'SAFETY_VIOLATION' : 'PROACTIVE_REPORTING',
-        operatorId: data.operatorId,
-        operator: data.operator || data.operatorId,
-        description: data.description,
-        equipmentId: data.equipmentId,
-        equipmentType: data.equipmentType,
-        notes: `Hazard: ${data.hazardType}. Action: ${data.actionTaken}`,
-        correctiveAction: data.actionTaken,
-        notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
-      };
-      const response = await logComplianceEvent(payload);
-      const virtuousScore = response?.employeeScores?.virtuousScore;
-      if (virtuousScore !== undefined) setLastVirtuousScore(virtuousScore);
-      toast({ title: '✅ Safety Observation Logged', description: virtuousScore !== undefined ? `Virtuous Score: ${virtuousScore}%` : 'Safety observation recorded.' });
+      const token = getToken();
+      const facilityId = getFacilityId();
+      const res = await fetch(`${API_BASE}/violations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          facilityId,
+          orgType,
+          type:             data.immediateRisk ? 'SAFETY_VIOLATION' : 'PROACTIVE_REPORTING',
+          operatorId:       data.operatorId,
+          operator:         data.operator || data.operatorId,
+          description:      data.description,
+          equipmentId:      data.equipmentId,
+          equipmentType:    data.equipmentType,
+          notes:            `Hazard: ${data.hazardType}. Action: ${data.actionTaken}`,
+          correctiveAction: data.actionTaken,
+          timestamp:        new Date().toISOString(),
+          notifyRecipients: notifyRecipients.length > 0 ? notifyRecipients : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Server error: ${res.status}`);
+      }
+      toast({ title: '✅ Safety Observation Logged', description: 'Safety observation recorded.' });
       // Create Issue Origin record for this compliance event
       try {
         await createIssue({
