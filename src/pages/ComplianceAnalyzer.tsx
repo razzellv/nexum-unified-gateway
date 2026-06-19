@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -215,6 +215,9 @@ export default function ComplianceAnalyzer() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [days, setDays] = useState(7);
+  const [autoRefreshActive, setAutoRefreshActive] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const runAnalysisRef = useRef<() => void>(() => {});
 
   // --- Issues state ---
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
@@ -253,6 +256,23 @@ export default function ComplianceAnalyzer() {
     }
   }, [days, facilityId]);
 
+  // Keep ref in sync so interval always calls the latest version
+  runAnalysisRef.current = runAnalysis;
+
+  const handleRunAnalysis = useCallback(() => {
+    if (autoRefreshActive) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setAutoRefreshActive(false);
+    } else {
+      runAnalysisRef.current();
+      intervalRef.current = setInterval(() => runAnalysisRef.current(), 60_000);
+      setAutoRefreshActive(true);
+    }
+  }, [autoRefreshActive]);
+
   const loadIssues = useCallback(async () => {
     setIsLoadingIssues(true);
     setIssuesError(null);
@@ -277,6 +297,12 @@ export default function ComplianceAnalyzer() {
   useEffect(() => {
     loadIssues();
   }, [loadIssues]);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -381,9 +407,15 @@ export default function ComplianceAnalyzer() {
               <option value={90}>Last 90 days</option>
             </select>
 
-            <Button onClick={runAnalysis} disabled={isAnalyzing} size="sm">
-              <RefreshCw className={cn('w-4 h-4 mr-2', isAnalyzing && 'animate-spin')} />
-              {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+            <Button
+              onClick={handleRunAnalysis}
+              disabled={isAnalyzing}
+              size="sm"
+              variant={autoRefreshActive ? 'default' : 'default'}
+              className={autoRefreshActive ? 'bg-primary/80 ring-2 ring-primary/40' : ''}
+            >
+              <RefreshCw className={cn('w-4 h-4 mr-2', (isAnalyzing || autoRefreshActive) && 'animate-spin')} />
+              {isAnalyzing ? 'Analyzing...' : autoRefreshActive ? 'Auto-Refreshing — Stop' : 'Run Analysis'}
             </Button>
 
             <Button variant="outline" size="sm">
