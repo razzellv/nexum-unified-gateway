@@ -124,6 +124,13 @@ const DEMO_ENERGY_DATA: EnergyData = {
   ],
 };
 
+function safeStr(val: any, fallback = ''): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'object') return val.name || val.id || fallback;
+  return String(val) || fallback;
+}
+
 export default function EnergyDashboard() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [data, setData] = useState<EnergyData | null>(null);
@@ -310,14 +317,14 @@ export default function EnergyDashboard() {
                   <CardContent>
                     {data.by_utility.electric.length > 0 ? (
                       <div className="space-y-4">
-                        {data.by_utility.electric.map((system) => (
-                          <div key={system.system_type} className="flex items-center gap-4">
+                        {data.by_utility.electric.map((system, index) => (
+                          <div key={safeStr(system.system_type, String(index))} className="flex items-center gap-4">
                             <div className="flex-shrink-0">
-                              {getSystemIcon(system.system_type)}
+                              {getSystemIcon(safeStr(system.system_type))}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm font-medium capitalize">{safeStr(system.system_type, 'Unknown')}</span>
                                 <span className="text-sm text-muted-foreground">
                                   {system.kwh} kWh ({(system.percentage_of_electric || 0).toFixed(1)}%)
                                 </span>
@@ -383,14 +390,14 @@ export default function EnergyDashboard() {
                   <CardContent>
                     {data.by_utility.gas.length > 0 ? (
                       <div className="space-y-4">
-                        {data.by_utility.gas.map((system) => (
-                          <div key={system.system_type} className="flex items-center gap-4">
+                        {data.by_utility.gas.map((system, index) => (
+                          <div key={safeStr(system.system_type, String(index))} className="flex items-center gap-4">
                             <div className="flex-shrink-0">
-                              {getSystemIcon(system.system_type)}
+                              {getSystemIcon(safeStr(system.system_type))}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm font-medium capitalize">{safeStr(system.system_type, 'Unknown')}</span>
                                 <span className="text-sm text-muted-foreground">
                                   {(system.therms || 0)} Therms ({(system.percentage_of_gas || 0).toFixed(1)}%)
                                 </span>
@@ -444,14 +451,14 @@ export default function EnergyDashboard() {
                   <CardContent>
                     {data.by_utility.water.length > 0 ? (
                       <div className="space-y-4">
-                        {data.by_utility.water.map((system) => (
-                          <div key={system.system_type} className="flex items-center gap-4">
+                        {data.by_utility.water.map((system, index) => (
+                          <div key={safeStr(system.system_type, String(index))} className="flex items-center gap-4">
                             <div className="flex-shrink-0">
-                              {getSystemIcon(system.system_type)}
+                              {getSystemIcon(safeStr(system.system_type))}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-medium capitalize">{system.system_type}</span>
+                                <span className="text-sm font-medium capitalize">{safeStr(system.system_type, 'Unknown')}</span>
                                 <span className="text-sm text-muted-foreground">
                                   {(system.gallons || 0).toLocaleString()} gal ({(system.percentage_of_water || 0).toFixed(1)}%)
                                 </span>
@@ -493,8 +500,8 @@ export default function EnergyDashboard() {
                     {data.equipment_breakdown.slice(0, 10).map((equip) => (
                       <div key={equip.equipment_id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <div>
-                          <p className="font-medium">{equip.name}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{equip.type}</p>
+                          <p className="font-medium">{safeStr(equip.name, 'Unknown')}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{safeStr(equip.type, 'Unknown')}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">{equip.total_kwh} kWh</p>
