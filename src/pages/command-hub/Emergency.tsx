@@ -13,6 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
+function safeStr(val: any, fallback = ''): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'object') return val.name || val.id || fallback;
+  return String(val) || fallback;
+}
+
 const FALLBACK_VENDORS = [
   { vendorId: 'v-001', name: 'Northeast HVAC Services' },
   { vendorId: 'v-002', name: 'CoolTech Refrigeration' },
@@ -204,16 +211,16 @@ const Emergency = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{v.violationType || v.type || 'Safety Violation'}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{v.description || v.notes || ''}</p>
+                          <p className="font-medium text-sm">{safeStr(v.violationType, safeStr(v.type, 'Safety Violation'))}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{safeStr(v.description, safeStr(v.notes, ''))}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
-                            {v.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{v.location}</span>}
-                            {v.operatorId && <span className="flex items-center gap-1"><User className="w-3 h-3" />{v.operatorId}</span>}
+                            {v.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{safeStr(v.location)}</span>}
+                            {v.operatorId && <span className="flex items-center gap-1"><User className="w-3 h-3" />{safeStr(v.operatorId)}</span>}
                             {v.timestamp && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(v.timestamp).toLocaleString()}</span>}
                           </div>
                         </div>
                         <Badge variant="destructive" className="text-xs shrink-0">
-                          Severity {v.severity || '!'}
+                          Severity {safeStr(v.severity, '!')}
                         </Badge>
                       </div>
                       <div className="flex justify-end mt-3">
@@ -221,7 +228,7 @@ const Emergency = () => {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs border-orange-400/30 text-orange-400 hover:bg-orange-400/10"
-                          onClick={() => openVendorAlert(v.violationType || v.type || 'Safety violation requiring vendor response')}
+                          onClick={() => openVendorAlert(safeStr(v.violationType, safeStr(v.type, 'Safety violation requiring vendor response')))}
                         >
                           <Bell className="w-3 h-3 mr-1" />Alert Vendor
                         </Button>
@@ -244,16 +251,16 @@ const Emergency = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{wo.title || wo.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{wo.reason || ''}</p>
+                          <p className="font-medium text-sm">{safeStr(wo.title, safeStr(wo.description, 'Work Order'))}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{safeStr(wo.reason, '')}</p>
                           <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
-                            {wo.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{wo.location}</span>}
-                            {wo.assignedTo && <span className="flex items-center gap-1"><User className="w-3 h-3" />{wo.assignedTo}</span>}
+                            {wo.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{safeStr(wo.location)}</span>}
+                            {wo.assignedTo && <span className="flex items-center gap-1"><User className="w-3 h-3" />{safeStr(wo.assignedTo)}</span>}
                             {wo.createdAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(wo.createdAt).toLocaleString()}</span>}
                           </div>
                         </div>
                         <Badge className="text-xs shrink-0 bg-orange-500/20 text-orange-400 border-orange-500/30">
-                          {wo.status || 'open'}
+                          {safeStr(wo.status, 'open')}
                         </Badge>
                       </div>
                       <div className="flex justify-end mt-3">
@@ -261,7 +268,7 @@ const Emergency = () => {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs border-orange-400/30 text-orange-400 hover:bg-orange-400/10"
-                          onClick={() => openVendorAlert(wo.title || wo.description || 'Critical work order requiring vendor response')}
+                          onClick={() => openVendorAlert(safeStr(wo.title, safeStr(wo.description, 'Critical work order requiring vendor response')))}
                         >
                           <Bell className="w-3 h-3 mr-1" />Alert Vendor
                         </Button>
