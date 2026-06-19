@@ -28,9 +28,11 @@ export function EmployeeAccountabilityTable({ data }: EmployeeAccountabilityTabl
             <TableRow key={employee.employeeId} className="border-border/50">
               <TableCell>
                 <div>
-                  <div className="font-medium text-foreground">{employee.employeeName}</div>
+                  <div className="font-medium text-foreground">
+                    {typeof employee.employeeName === 'string' ? employee.employeeName : (employee.employeeName as any)?.name || String(employee.employeeId || 'Unknown')}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    {employee.role} • {employee.department}
+                    {typeof employee.role === 'string' ? employee.role : 'Staff'} • {typeof employee.department === 'string' ? employee.department : 'Maintenance'}
                   </div>
                 </div>
               </TableCell>

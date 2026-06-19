@@ -21,6 +21,14 @@ const ORG_LABELS: Record<string, { title: string; badge: string }> = {
   government: { title: 'Violations & Compliance Log', badge: 'Gov / Public Safety' },
 };
 
+// Safe string extractor — handles fields that may arrive as {name, id} objects
+function extractStr(val: any): string | null {
+  if (!val) return null;
+  if (typeof val === 'string') return val || null;
+  if (typeof val === 'object') return val.name || val.id || null;
+  return String(val) || null;
+}
+
 // ── Build employee accountability from raw violations ─────────────────────────
 function buildAccountability(violations: any[]) {
   const now = Date.now();
@@ -37,10 +45,11 @@ function buildAccountability(violations: any[]) {
   }> = {};
 
   violations.forEach(v => {
-    const name = v.employeeName || v.operator || v.operatorId || 'Unknown';
-    const id   = v.operatorId || name;
+    const name = extractStr(v.employeeName) || extractStr(v.operator) || extractStr(v.operatorId) || 'Unknown';
+    const id   = extractStr(v.operatorId) || name;
+    const role = extractStr(v.equipmentType) || 'Staff';
     if (!byEmployee[name]) {
-      byEmployee[name] = { name, id, role: v.equipmentType || 'Staff', violations: [] };
+      byEmployee[name] = { name, id, role, violations: [] };
     }
     byEmployee[name].violations.push(v);
   });

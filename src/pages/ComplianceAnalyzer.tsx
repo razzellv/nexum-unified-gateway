@@ -96,6 +96,21 @@ function formatAge(timestamp: string): string {
   return `${days} days ago`;
 }
 
+function safeStr(val: any, fallback = ''): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'object') return val.name || val.id || fallback;
+  return String(val) || fallback;
+}
+
+function safeNum(val: any, fallback = 0): number {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'number') return isNaN(val) ? fallback : val;
+  if (typeof val === 'object') return fallback;
+  const n = Number(val);
+  return isNaN(n) ? fallback : n;
+}
+
 function severityColor(severity: IssueOrigin['severity']): string {
   switch (severity) {
     case 'critical': return 'bg-red-500/20 text-red-400 border-red-500/30';
