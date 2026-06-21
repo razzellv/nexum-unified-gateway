@@ -19,6 +19,15 @@ import {
 } from 'lucide-react';
 import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
 import {
+  analyzeDowntime,
+  type DowntimeAnalysisResult,
+  type DowntimeEvent,
+  type TimelineBucket,
+} from '@/lib/downtimeAnalysisEngine';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+import {
   runOIGAnalysis,
   type OIGAnalysisResult,
   type CorrelatedFinding,
@@ -565,6 +574,19 @@ function OIGContent() {
   const [expandedBlind, setExpandedBlind] = useState(false);
   const [wiCriticalPath, setWiCriticalPath] = useState<CriticalPathData | null>(null);
 
+  // Downtime analysis state
+  const [downtimeAnalysis, setDowntimeAnalysis] = useState<DowntimeAnalysisResult | null>(null);
+  const [selectedBucket, setSelectedBucket] = useState<TimelineBucket | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<DowntimeEvent | null>(null);
+  const [downtimeView, setDowntimeView] = useState<'analysis' | 'log'>('analysis');
+
+  const runDowntimeAnalysis = useCallback(() => {
+    const data = loadSampleData();
+    const manualEntries = JSON.parse(localStorage.getItem('nexum_downtime_log') || '[]');
+    const r = analyzeDowntime({ facilityId, ...data, manualEntries });
+    setDowntimeAnalysis(r);
+  }, [facilityId]);
+
   // Downtime log state
   const [downtimeEntries, setDowntimeEntries] = useState<DowntimeEntry[]>(() => {
     try { return JSON.parse(localStorage.getItem('nexum_downtime_log') || '[]'); } catch { return []; }
@@ -619,9 +641,14 @@ function OIGContent() {
 
   useEffect(() => {
     runAnalysis();
+    runDowntimeAnalysis();
     window.addEventListener('facility-log-submitted', runAnalysis);
-    return () => window.removeEventListener('facility-log-submitted', runAnalysis);
-  }, [runAnalysis]);
+    window.addEventListener('facility-log-submitted', runDowntimeAnalysis);
+    return () => {
+      window.removeEventListener('facility-log-submitted', runAnalysis);
+      window.removeEventListener('facility-log-submitted', runDowntimeAnalysis);
+    };
+  }, [runAnalysis, runDowntimeAnalysis]);
 
   useEffect(() => {
     getCriticalPath()
@@ -1039,78 +1066,282 @@ function OIGContent() {
               </>
             )}
           </TabsContent>
-          {/* ── TAB 6: Downtime Log ──────────────────────────────────────── */}
+          {/* ── TAB 6: Downtime Analysis ──────────────────────────────────── */}
           <TabsContent value="downtime" className="space-y-4">
+            {/* View toggle */}
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h2 className="text-sm font-semibold">Downtime Log</h2>
-                <p className="text-xs text-muted-foreground">Equipment downtime events — touches performed and root causes</p>
+              <div className="flex gap-1 p-1 rounded-lg bg-muted/30 border border-border/40">
+                <button onClick={() => setDowntimeView('analysis')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${downtimeView === 'analysis' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  <BarChart3 className="w-3.5 h-3.5 inline mr-1.5" />Downtime Analysis
+                </button>
+                <button onClick={() => setDowntimeView('log')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${downtimeView === 'log' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  <ClipboardList className="w-3.5 h-3.5 inline mr-1.5" />Manual Log
+                  {downtimeEntries.filter(e => e.status === 'active').length > 0 && (
+                    <span className="ml-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] inline-flex items-center justify-center">{downtimeEntries.filter(e => e.status === 'active').length}</span>
+                  )}
+                </button>
               </div>
-              <Button size="sm" onClick={() => setDowntimeFormOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />Log Downtime
-              </Button>
+              {downtimeView === 'log' && (
+                <Button size="sm" onClick={() => setDowntimeFormOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />Log Downtime
+                </Button>
+              )}
+              {downtimeView === 'analysis' && (
+                <Button size="sm" variant="outline" onClick={runDowntimeAnalysis}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-2" />Re-analyze
+                </Button>
+              )}
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card className="border-border"><CardContent className="p-3">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Events</p>
-                <p className="text-2xl font-bold">{downtimeEntries.length}</p>
-              </CardContent></Card>
-              <Card className={downtimeEntries.filter(e => e.status === 'active').length > 0 ? 'border-red-500/40' : 'border-border'}><CardContent className="p-3">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Active Now</p>
-                <p className={`text-2xl font-bold ${downtimeEntries.filter(e => e.status === 'active').length > 0 ? 'text-red-400' : ''}`}>
-                  {downtimeEntries.filter(e => e.status === 'active').length}
-                </p>
-              </CardContent></Card>
-              <Card className="border-border"><CardContent className="p-3">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Resolved</p>
-                <p className="text-2xl font-bold text-green-400">{downtimeEntries.filter(e => e.status === 'resolved').length}</p>
-              </CardContent></Card>
-              <Card className="border-border"><CardContent className="p-3">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Touches</p>
-                <p className="text-2xl font-bold text-primary">{downtimeEntries.reduce((s, e) => s + e.touches.length, 0)}</p>
-              </CardContent></Card>
-            </div>
+            {/* ── ANALYSIS VIEW ── */}
+            {downtimeView === 'analysis' && downtimeAnalysis && (
+              <div className="space-y-5">
+                {/* Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card className="border-border"><CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Events (90d)</p>
+                    <p className="text-2xl font-bold">{downtimeAnalysis.totalEvents}</p>
+                  </CardContent></Card>
+                  <Card className={downtimeAnalysis.criticalCount > 0 ? 'border-red-500/40' : 'border-border'}><CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Critical</p>
+                    <p className={`text-2xl font-bold ${downtimeAnalysis.criticalCount > 0 ? 'text-red-400' : ''}`}>{downtimeAnalysis.criticalCount}</p>
+                  </CardContent></Card>
+                  <Card className="border-border"><CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Equipment Affected</p>
+                    <p className="text-2xl font-bold text-primary">{downtimeAnalysis.totalEquipmentAffected}</p>
+                  </CardContent></Card>
+                  <Card className="border-border"><CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg / Week</p>
+                    <p className="text-2xl font-bold text-orange-400">{downtimeAnalysis.avgEventsPerWeek}</p>
+                  </CardContent></Card>
+                </div>
 
-            {/* Cause breakdown */}
-            {downtimeEntries.length > 0 && (
-              <Card className="border-border">
-                <CardContent className="p-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">By Root Cause</p>
-                  <div className="flex flex-wrap gap-2">
-                    {CAUSE_CATEGORIES.filter(c => downtimeEntries.some(e => e.causeCategory === c)).map(cat => {
-                      const count = downtimeEntries.filter(e => e.causeCategory === cat).length;
-                      return (
-                        <div key={cat} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${CAUSE_COLORS[cat] || ''}`}>
-                          <span>{cat}</span>
-                          <span className="font-bold">{count}</span>
+                {/* Executive summary */}
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Analysis Summary</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{downtimeAnalysis.executiveSummary}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Timeline chart */}
+                <Card className="border-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-primary" />
+                      Downtime Timeline — Past 90 Days
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">Click any week bar to see that week's events and lead-up context</p>
+                  </CardHeader>
+                  <CardContent className="px-2 pb-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart
+                        data={downtimeAnalysis.timelineBuckets}
+                        margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+                        onClick={(data) => {
+                          if (data?.activePayload?.[0]) {
+                            const bucket = data.activePayload[0].payload as TimelineBucket;
+                            setSelectedBucket(bucket.total > 0 ? bucket : null);
+                            setSelectedEvent(null);
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <Tooltip
+                          content={({ active, payload, label }) => active && payload?.length ? (
+                            <div className="bg-background border border-border rounded-lg p-2 text-xs shadow-lg">
+                              <p className="font-semibold mb-1">Week of {label}</p>
+                              {payload.map((p: any) => p.value > 0 && (
+                                <p key={p.name} style={{ color: p.fill }}>{p.name}: {p.value}</p>
+                              ))}
+                              <p className="text-muted-foreground mt-1">Click to view events</p>
+                            </div>
+                          ) : null}
+                        />
+                        <Bar dataKey="critical" stackId="a" fill="#ef4444" name="Critical" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="major" stackId="a" fill="#f97316" name="Major" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="minor" stackId="a" fill="#eab308" name="Minor" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="flex gap-4 justify-center mt-1">
+                      {[['#ef4444', 'Critical'], ['#f97316', 'Major'], ['#eab308', 'Minor']].map(([color, label]) => (
+                        <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />{label}
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Selected week events */}
+                {selectedBucket && selectedBucket.events.length > 0 && (
+                  <Card className="border-primary/40 bg-primary/5">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold">Week of {selectedBucket.label} — {selectedBucket.total} Event{selectedBucket.total !== 1 ? 's' : ''}</CardTitle>
+                        <button onClick={() => setSelectedBucket(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">✕ Close</button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-2">
+                      {selectedBucket.events.map(evt => (
+                        <button
+                          key={evt.id}
+                          onClick={() => setSelectedEvent(evt)}
+                          className="w-full text-left p-3 rounded-lg border border-border/50 bg-background hover:border-primary/50 hover:bg-primary/5 transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${evt.severity === 'critical' ? 'bg-red-500' : evt.severity === 'major' ? 'bg-orange-500' : 'bg-yellow-500'}`} />
+                                <span className="text-sm font-semibold">{evt.equipmentName}</span>
+                                {evt.leadUpEvents.length > 0 && (
+                                  <Badge variant="outline" className="text-[9px] text-primary border-primary/40 ml-auto">{evt.leadUpEvents.length} lead-up signal{evt.leadUpEvents.length > 1 ? 's' : ''}</Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-1">{evt.description}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] text-muted-foreground">{new Date(evt.occurredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                              <p className="text-[10px] text-muted-foreground">{new Date(evt.occurredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Top offenders */}
+                {downtimeAnalysis.topOffenders.length > 0 && (
+                  <Card className="border-border">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <CardTitle className="text-sm font-semibold">Top Recurring Equipment</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-2">
+                      {downtimeAnalysis.topOffenders.map((o, i) => (
+                        <div key={o.equipmentName} className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-medium">{o.equipmentName}</span>
+                              <span className={`text-xs font-bold ${o.highestSeverity === 'critical' ? 'text-red-400' : o.highestSeverity === 'major' ? 'text-orange-400' : 'text-yellow-400'}`}>{o.count} event{o.count > 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="w-full h-1 bg-muted/30 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${o.highestSeverity === 'critical' ? 'bg-red-500' : o.highestSeverity === 'major' ? 'bg-orange-500' : 'bg-yellow-500'}`} style={{ width: `${Math.min(100, (o.count / downtimeAnalysis.topOffenders[0].count) * 100)}%` }} />
+                            </div>
+                          </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Patterns */}
+                {downtimeAnalysis.patterns.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Activity className="w-3.5 h-3.5" />Operational Patterns Detected
+                    </h3>
+                    {downtimeAnalysis.patterns.map(p => (
+                      <Card key={p.id} className="border border-yellow-500/20 bg-yellow-500/5">
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <Badge variant="outline" className={`text-[9px] ${p.confidence === 'High' ? 'text-green-400 border-green-400/40' : p.confidence === 'Moderate' ? 'text-yellow-400 border-yellow-400/40' : 'text-muted-foreground border-border'}`}>{p.confidence} confidence</Badge>
+                                <span className="text-[10px] text-muted-foreground capitalize">{p.type.replace(/_/g, ' ')}</span>
+                              </div>
+                              <p className="text-sm font-semibold">{p.title}</p>
+                            </div>
+                            <Badge variant="outline" className="text-xs shrink-0">{p.occurrenceCount}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{p.description}</p>
+                          <div className="pt-1 border-t border-border/30">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Recommendation</p>
+                            <p className="text-xs text-foreground">{p.recommendation}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
+                )}
+
+                {/* Global suggestions */}
+                {downtimeAnalysis.suggestions.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5" />Suggestions to Reduce Downtime
+                    </h3>
+                    {downtimeAnalysis.suggestions.map(s => (
+                      <Card key={s.id} className={`border ${s.priority === 'critical' ? 'border-red-500/30 bg-red-500/5' : s.priority === 'high' ? 'border-orange-500/30 bg-orange-500/5' : 'border-border bg-card/50'}`}>
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <Badge variant="outline" className={`text-[9px] shrink-0 capitalize ${s.priority === 'critical' ? 'text-red-400 border-red-400/40' : s.priority === 'high' ? 'text-orange-400 border-orange-400/40' : s.priority === 'medium' ? 'text-yellow-400 border-yellow-400/40' : 'text-muted-foreground border-border'}`}>{s.priority}</Badge>
+                            <p className="text-sm font-semibold">{s.title}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{s.detail}</p>
+                          <div className="text-[10px] text-primary font-medium">Est. impact: {s.estimatedImpact}</div>
+                          {s.actionItems.length > 0 && (
+                            <ul className="space-y-0.5 pt-1 border-t border-border/30">
+                              {s.actionItems.map((item, i) => (
+                                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                  <span className="mt-1 w-1 h-1 rounded-full bg-primary/50 shrink-0" />{item}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* Active events first, then resolved */}
-            {downtimeEntries.length === 0 ? (
-              <Card className="border-border">
-                <CardContent className="py-12 text-center space-y-2">
-                  <PowerOff className="w-10 h-10 text-muted-foreground mx-auto" />
-                  <p className="text-sm font-semibold">No Downtime Events</p>
-                  <p className="text-xs text-muted-foreground">Log a downtime event to start tracking touches and root causes.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {[...downtimeEntries].sort((a, b) => {
-                  if (a.status === 'active' && b.status !== 'active') return -1;
-                  if (b.status === 'active' && a.status !== 'active') return 1;
-                  return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
-                }).map(entry => (
-                  <DowntimeCard key={entry.id} entry={entry} onAddTouch={handleAddTouch} onResolve={handleResolve} />
-                ))}
+            {/* ── MANUAL LOG VIEW ── */}
+            {downtimeView === 'log' && (
+              <div className="space-y-4">
+                {/* Cause breakdown */}
+                {downtimeEntries.length > 0 && (
+                  <Card className="border-border">
+                    <CardContent className="p-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">By Root Cause</p>
+                      <div className="flex flex-wrap gap-2">
+                        {CAUSE_CATEGORIES.filter(c => downtimeEntries.some(e => e.causeCategory === c)).map(cat => {
+                          const count = downtimeEntries.filter(e => e.causeCategory === cat).length;
+                          return (
+                            <div key={cat} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${CAUSE_COLORS[cat] || ''}`}>
+                              <span>{cat}</span><span className="font-bold">{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {downtimeEntries.length === 0 ? (
+                  <Card className="border-border">
+                    <CardContent className="py-12 text-center space-y-2">
+                      <PowerOff className="w-10 h-10 text-muted-foreground mx-auto" />
+                      <p className="text-sm font-semibold">No Manual Entries</p>
+                      <p className="text-xs text-muted-foreground">Log a downtime event to track touches and root causes. The Analysis tab shows auto-detected events from your facility data.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {[...downtimeEntries].sort((a, b) => {
+                      if (a.status === 'active' && b.status !== 'active') return -1;
+                      if (b.status === 'active' && a.status !== 'active') return 1;
+                      return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+                    }).map(entry => (
+                      <DowntimeCard key={entry.id} entry={entry} onAddTouch={handleAddTouch} onResolve={handleResolve} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
@@ -1206,6 +1437,107 @@ function OIGContent() {
               <Button variant="ghost" onClick={() => setTouchFormOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveTouch} disabled={!touchForm.action}><Wrench className="w-4 h-4 mr-2" />Save Touch</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Downtime Event Detail */}
+        <Dialog open={!!selectedEvent} onOpenChange={o => { if (!o) setSelectedEvent(null); }}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            {selectedEvent && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <PowerOff className="w-5 h-5 text-red-400" />
+                    {selectedEvent.equipmentName}
+                  </DialogTitle>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <Badge variant="outline" className={`text-xs capitalize ${selectedEvent.severity === 'critical' ? 'text-red-400 border-red-400/40' : selectedEvent.severity === 'major' ? 'text-orange-400 border-orange-400/40' : 'text-yellow-400 border-yellow-400/40'}`}>{selectedEvent.severity}</Badge>
+                    <Badge variant="outline" className="text-xs">{selectedEvent.causeCategory}</Badge>
+                    <span className="text-xs text-muted-foreground self-center">
+                      {new Date(selectedEvent.occurredAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </DialogHeader>
+                <div className="space-y-4 py-1">
+                  {/* Description */}
+                  <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                    <p className="text-xs text-muted-foreground mb-1">Description</p>
+                    <p className="text-sm">{selectedEvent.description}</p>
+                    <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                      {selectedEvent.durationMin && <span className="flex items-center gap-1"><Timer className="w-3 h-3" />{selectedEvent.durationMin >= 60 ? `${Math.floor(selectedEvent.durationMin / 60)}h ${selectedEvent.durationMin % 60}m` : `${selectedEvent.durationMin}m`} downtime</span>}
+                      <span className="flex items-center gap-1 capitalize">{selectedEvent.systemType} system</span>
+                      <span className={`font-medium ${selectedEvent.recurrenceCount >= 3 ? 'text-red-400' : selectedEvent.recurrenceCount >= 2 ? 'text-orange-400' : 'text-muted-foreground'}`}>{selectedEvent.recurrenceLabel}</span>
+                    </div>
+                  </div>
+
+                  {/* Lead-up timeline */}
+                  {selectedEvent.leadUpEvents.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                        <Clock className="w-3 h-3" />Lead-Up Signals ({selectedEvent.leadUpEvents.length})
+                      </p>
+                      <div className="space-y-2">
+                        {selectedEvent.leadUpEvents.map((l, i) => (
+                          <div key={i} className="grid grid-cols-[1.5rem_1fr] gap-2 text-xs">
+                            <div className="flex flex-col items-center">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${l.type === 'violation' ? 'bg-yellow-500/20 text-yellow-400' : l.type === 'alarm' ? 'bg-red-500/20 text-red-400' : 'bg-muted/40 text-muted-foreground'}`}>
+                                {l.type === 'violation' ? '!' : l.type === 'alarm' ? '⚡' : '●'}
+                              </div>
+                              {i < selectedEvent.leadUpEvents.length - 1 && <div className="w-px flex-1 bg-border/40 my-0.5" />}
+                            </div>
+                            <div className="pb-1">
+                              <p className="text-foreground">{l.description}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{l.hoursBeforeEvent}h before · {l.source}</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-2 text-xs text-red-400 font-medium ml-6">
+                          <div className="w-3 h-3 rounded-full bg-red-500" />
+                          DOWNTIME EVENT
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Compliance context */}
+                  {selectedEvent.relatedCompliance.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3 h-3" />Related Compliance ({selectedEvent.relatedCompliance.length})
+                      </p>
+                      <div className="space-y-1.5">
+                        {selectedEvent.relatedCompliance.map((c, i) => (
+                          <div key={i} className="p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/20 text-xs">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[9px] text-yellow-400 border-yellow-400/40">{c.type}</Badge>
+                              <span className="text-[10px] text-muted-foreground">{new Date(c.timestamp).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-muted-foreground mt-0.5">{c.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggestions */}
+                  {selectedEvent.suggestions.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                        <Zap className="w-3 h-3" />Suggestions
+                      </p>
+                      <div className="space-y-1.5">
+                        {selectedEvent.suggestions.map((s, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs">
+                            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                            <span className="text-muted-foreground">{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
