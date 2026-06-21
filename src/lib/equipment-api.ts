@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 // Per-equipment baseline mock data — shown when API returns no data or user has no token
 const MOCK_READINGS: Record<string, any[]> = {

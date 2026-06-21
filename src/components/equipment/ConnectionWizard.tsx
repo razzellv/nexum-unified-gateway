@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Wifi, CheckCircle2, Loader2, AlertTriangle, Cpu, Clock, Radio, Zap, ChevronRight, Shield, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createProbeSession } from '@/lib/nexum-api';
 
 interface Equipment {
   equipmentId: string;
@@ -183,11 +184,25 @@ export function ConnectionWizard({ open, equipment, facilityId, onClose, onSessi
       checkIns: [],
       status: 'active',
     };
-    // Persist to localStorage
+    // Persist to localStorage (always) and attempt API save
     try {
       const existing = JSON.parse(localStorage.getItem('nexum_probe_sessions') || '[]');
       localStorage.setItem('nexum_probe_sessions', JSON.stringify([session, ...existing]));
     } catch {}
+    createProbeSession({
+      sessionId: session.sessionId,
+      facilityId: session.facilityId,
+      equipmentId: session.equipmentId,
+      equipmentName: session.equipmentName,
+      tier: session.tier,
+      startedAt: session.startedAt,
+      endsAt: session.endsAt,
+      pollIntervalMin: session.pollIntervalMin,
+      device: { brand: device.brand, type: device.type, model: device.model, comPort: device.comPort, protocol: device.protocol },
+      status: 'active',
+      readingCount: 0,
+      createdAt: session.startedAt,
+    }).catch(() => { /* API not yet live — localStorage is source of truth */ });
     onSessionStarted(session);
     toast({ title: 'Monitoring session started', description: `${selectedTier.label} — ${selectedTier.duration} session active on ${equipment.equipmentName || equipment.equipmentId}.` });
     onClose();

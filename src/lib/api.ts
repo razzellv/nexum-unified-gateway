@@ -1,6 +1,6 @@
 import { getValidAccessToken } from '@/auth/session';
 
-const API_BASE_URL = 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vflco2pvo3.execute-api.us-east-2.amazonaws.com/prod';
 
 const getAuthToken = (): string | null => {
   const idToken = localStorage.getItem('nexum_id_token');

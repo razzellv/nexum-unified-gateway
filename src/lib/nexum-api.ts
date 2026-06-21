@@ -1293,3 +1293,251 @@ export async function getPMIntervals() {
     summary: { total: number; overdue: number; dueSoon: number; onSchedule: number; worsening: number };
   }>('/resources/intervals');
 }
+
+// ============================================================================
+// VIOLATIONS API
+// ============================================================================
+
+export interface Violation {
+  id: string;
+  violationId?: string;
+  facilityId: string;
+  violationType: string;
+  type?: string;
+  description: string;
+  notes?: string;
+  severity: number;
+  status: 'active' | 'resolved' | 'pending';
+  location?: string;
+  operatorId?: string;
+  timestamp: string;
+  createdAt?: string;
+  resolvedAt?: string | null;
+}
+
+export async function getViolations(params?: {
+  status?: string;
+  severity?: number;
+  limit?: number;
+}) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ violations: Violation[]; items?: Violation[]; count: number }>(`/violations${qs}`);
+}
+
+export async function createViolation(data: Partial<Violation>) {
+  return await apiRequest<{ success: boolean; violationId: string }>(
+    '/violations',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function resolveViolation(violationId: string, notes?: string) {
+  return await apiRequest<{ success: boolean }>(
+    `/violations/${violationId}/resolve`,
+    { method: 'POST', body: JSON.stringify({ notes: notes || '' }) }
+  );
+}
+
+// ============================================================================
+// INVENTORY API
+// ============================================================================
+
+export interface InventoryItem {
+  id: string;
+  itemId?: string;
+  facilityId: string;
+  name: string;
+  category: string;
+  quantity: number;
+  minQuantity?: number;
+  unit?: string;
+  location?: string;
+  supplier?: string;
+  unitCost?: number;
+  lastUpdated?: string;
+  createdAt?: string;
+}
+
+export async function getInventory(params?: {
+  category?: string;
+  lowStock?: boolean;
+  limit?: number;
+}) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ inventory: InventoryItem[]; items?: InventoryItem[]; count: number }>(`/inventory${qs}`);
+}
+
+export async function updateInventoryItem(itemId: string, data: Partial<InventoryItem>) {
+  return await apiRequest<{ success: boolean }>(
+    `/inventory/${itemId}`,
+    { method: 'PATCH', body: JSON.stringify(data) }
+  );
+}
+
+export async function createInventoryItem(data: Partial<InventoryItem>) {
+  return await apiRequest<{ success: boolean; itemId: string }>(
+    '/inventory',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// ============================================================================
+// MESSAGES API
+// ============================================================================
+
+export interface Message {
+  id: string;
+  messageId?: string;
+  facilityId: string;
+  senderId: string;
+  senderName: string;
+  recipientId?: string;
+  recipientName?: string;
+  channel?: string;
+  subject?: string;
+  body: string;
+  read: boolean;
+  priority?: 'normal' | 'urgent';
+  createdAt: string;
+}
+
+export async function getMessages(params?: { channel?: string; unreadOnly?: boolean; limit?: number }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ messages: Message[]; count: number; unreadCount: number }>(`/messages${qs}`);
+}
+
+export async function sendMessage(data: {
+  recipientId?: string;
+  channel?: string;
+  subject?: string;
+  body: string;
+  priority?: string;
+}) {
+  return await apiRequest<{ success: boolean; messageId: string }>(
+    '/messages',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function markMessageRead(messageId: string) {
+  return await apiRequest<{ success: boolean }>(
+    `/messages/${messageId}/read`,
+    { method: 'POST', body: JSON.stringify({}) }
+  );
+}
+
+// ============================================================================
+// PROBE SESSIONS API
+// ============================================================================
+
+export interface ProbeSessionRecord {
+  sessionId: string;
+  facilityId: string;
+  equipmentId: string;
+  equipmentName: string;
+  tier: 'standard' | 'extended' | 'prestige';
+  startedAt: string;
+  endsAt: string;
+  pollIntervalMin: number;
+  device: {
+    brand?: string;
+    type?: string;
+    model?: string;
+    comPort?: string;
+    protocol?: string;
+  };
+  status: 'active' | 'completed' | 'cancelled';
+  readingCount: number;
+  createdAt: string;
+}
+
+export async function getProbeSessions(params?: { equipmentId?: string; status?: string }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ sessions: ProbeSessionRecord[]; count: number }>(`/probe-sessions${qs}`);
+}
+
+export async function createProbeSession(data: Partial<ProbeSessionRecord>) {
+  return await apiRequest<{ success: boolean; sessionId: string }>(
+    '/probe-sessions',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function updateProbeSession(sessionId: string, data: Partial<ProbeSessionRecord>) {
+  return await apiRequest<{ success: boolean }>(
+    `/probe-sessions/${sessionId}`,
+    { method: 'PATCH', body: JSON.stringify(data) }
+  );
+}
+
+// ============================================================================
+// AUDIT REPORTS API
+// ============================================================================
+
+export interface AuditReport {
+  reportId: string;
+  facilityId: string;
+  organizationId?: string;
+  title: string;
+  type: 'oi' | 'compliance' | 'energy' | 'general';
+  generatedAt: string;
+  generatedBy: string;
+  period: string;
+  summary: string;
+  findings: Array<{
+    type: string;
+    title: string;
+    description: string;
+    severity: 'info' | 'warning' | 'critical';
+  }>;
+  status: 'draft' | 'published';
+}
+
+export async function getAuditReports(params?: { type?: string; limit?: number }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ reports: AuditReport[]; count: number }>(`/audit-reports${qs}`);
+}
+
+export async function createAuditReport(data: Partial<AuditReport>) {
+  return await apiRequest<{ success: boolean; reportId: string }>(
+    '/audit-reports',
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+// ============================================================================
+// ORGANIZATIONS / LICENSES API (Admin)
+// ============================================================================
+
+export interface Organization {
+  orgId: string;
+  name: string;
+  orgType: 'facility' | 'retail' | 'government';
+  tier: string;
+  status: 'active' | 'inactive' | 'trial';
+  licenseExpiry?: string;
+  assetCount?: number;
+  contactEmail?: string;
+  createdAt: string;
+}
+
+export async function getOrganizations(params?: { orgType?: string; status?: string }) {
+  const qs = params
+    ? '?' + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')
+    : '';
+  return await apiRequest<{ organizations: Organization[]; count: number }>(`/admin/organizations${qs}`);
+}
+
+export async function getLicenses() {
+  return await apiRequest<{ licenses: any[]; count: number }>('/admin/licenses');
+}
