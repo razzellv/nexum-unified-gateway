@@ -12,13 +12,14 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
 import { calculateOperationalDepreciation, calculatePMBOKLifecycle } from '@/lib/depreciationEngine';
 import { deriveBaseline } from '@/lib/engineeringCalcs';
 import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
+import { ConnectionWizard, ProbeSession } from '@/components/equipment/ConnectionWizard';
 
 interface Equipment {
   equipmentId: string;
@@ -232,6 +233,11 @@ export default function EquipmentLibrary() {
   const [countAdjustments, setCountAdjustments] = useState<Record<string, number>>({});
   const [expandedIntelligence, setExpandedIntelligence] = useState<Record<string, boolean>>({});
   const [expandedPMBOK, setExpandedPMBOK] = useState<Record<string, boolean>>({});
+  const [connectWizardOpen, setConnectWizardOpen] = useState(false);
+  const [connectEquipment, setConnectEquipment] = useState<Equipment | null>(null);
+  const [probeSessions, setProbeSessions] = useState<ProbeSession[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_probe_sessions') || '[]'); } catch { return []; }
+  });
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -1214,7 +1220,20 @@ export default function EquipmentLibrary() {
                             </div>
                           </div>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap justify-end">
+                          {(() => {
+                            const activeSession = probeSessions.find(s => s.equipmentId === eq.equipmentId && s.status === 'active');
+                            return activeSession ? (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-500/40 bg-green-500/10 text-xs text-green-400">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                {activeSession.tierLabel} — Active
+                              </div>
+                            ) : (
+                              <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setConnectEquipment(eq); setConnectWizardOpen(true); }}>
+                                <Radio className="w-4 h-4 mr-2" />Connect Device
+                              </Button>
+                            );
+                          })()}
                           {canEdit && (
                             <>
                               <Button variant="outline" size="sm" onClick={() => openBaselineDialog(eq)}>
@@ -1364,6 +1383,15 @@ export default function EquipmentLibrary() {
           limit={limitBanner.limit}
           tier={limitBanner.tier}
           onDismiss={() => setLimitBanner(null)}
+        />
+      )}
+      {connectEquipment && (
+        <ConnectionWizard
+          open={connectWizardOpen}
+          equipment={connectEquipment}
+          facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+          onClose={() => { setConnectWizardOpen(false); setConnectEquipment(null); }}
+          onSessionStarted={session => setProbeSessions(prev => [session, ...prev])}
         />
       )}
     </MainLayout>

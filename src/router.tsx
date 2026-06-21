@@ -94,6 +94,8 @@ import ClimateIntelligence from "./pages/ClimateIntelligence";
 import ProjectControls from "./pages/ProjectControls";
 import DecisionOutcomeTracking from "./pages/DecisionOutcomeTracking";
 import ContinuityIntelligence from "./pages/ContinuityIntelligence";
+import Licensees from "./pages/admin/Licensees";
+import OIReports from "./pages/admin/OIReports";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -342,6 +344,14 @@ export const router = createBrowserRouter([
           {
             path: "continuity-intelligence",
             element: <ContinuityIntelligence />,
+          },
+          {
+            path: "admin/licensees",
+            element: <Licensees />,
+          },
+          {
+            path: "admin/oi-reports",
+            element: <OIReports />,
           },
           {
             path: "apprentice",
