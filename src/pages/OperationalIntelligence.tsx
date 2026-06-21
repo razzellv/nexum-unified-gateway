@@ -3,14 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TierGate } from '@/components/TierGate';
 import { useAuth } from '@/hooks/useAuth';
 import {
   BrainCircuit, RefreshCw, ShieldCheck, Zap, Activity,
   AlertTriangle, CheckCircle2, Clock, TrendingUp, TrendingDown,
   Minus, Info, ChevronDown, ChevronUp, ClipboardList, Eye,
-  Target,
+  Target, PowerOff, Wrench, Plus, Timer, TriangleAlert,
 } from 'lucide-react';
 import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
 import {
@@ -386,6 +391,168 @@ function GovernanceRow({ entry }: { entry: GovernanceEntry }) {
   );
 }
 
+// ── Downtime types ────────────────────────────────────────────────────────────
+
+interface DowntimeTouch {
+  id: string;
+  timestamp: string;
+  action: string;
+  tech: string;
+  outcome: 'cleared' | 'no_change' | 'partial' | 'escalated';
+}
+
+interface DowntimeEntry {
+  id: string;
+  equipmentName: string;
+  location?: string;
+  startedAt: string;
+  resolvedAt?: string;
+  severity: 'critical' | 'major' | 'minor';
+  causeCategory: string;
+  causeDetail: string;
+  touches: DowntimeTouch[];
+  resolution?: string;
+  status: 'active' | 'resolved';
+  loggedBy: string;
+}
+
+const CAUSE_CATEGORIES = [
+  'Mechanical Failure',
+  'Electrical Fault',
+  'Controls / Automation',
+  'Operator Error',
+  'Maintenance Gap',
+  'External / Utility',
+  'Wear & Tear',
+  'Unknown',
+];
+
+const TOUCH_OUTCOMES: { value: DowntimeTouch['outcome']; label: string }[] = [
+  { value: 'cleared', label: 'Cleared — issue resolved' },
+  { value: 'partial', label: 'Partial — improvement, not resolved' },
+  { value: 'no_change', label: 'No change' },
+  { value: 'escalated', label: 'Escalated' },
+];
+
+const CAUSE_COLORS: Record<string, string> = {
+  'Mechanical Failure': 'text-red-400 bg-red-500/10 border-red-500/30',
+  'Electrical Fault': 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  'Controls / Automation': 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+  'Operator Error': 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
+  'Maintenance Gap': 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  'External / Utility': 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  'Wear & Tear': 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  'Unknown': 'text-muted-foreground bg-muted/20 border-border',
+};
+
+function downtimeDuration(start: string, end?: string): string {
+  const ms = (end ? new Date(end) : new Date()).getTime() - new Date(start).getTime();
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function DowntimeCard({ entry, onAddTouch, onResolve }: {
+  entry: DowntimeEntry;
+  onAddTouch: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const duration = downtimeDuration(entry.startedAt, entry.resolvedAt);
+
+  return (
+    <Card className={`border ${entry.status === 'active' ? 'border-red-500/40 bg-red-500/5' : 'border-border bg-card/50'}`}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              {entry.status === 'active' && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-bold text-red-400">Active</span>
+                </div>
+              )}
+              <Badge variant="outline" className={`text-[10px] border ${entry.severity === 'critical' ? 'text-red-400 border-red-400/40' : entry.severity === 'major' ? 'text-orange-400 border-orange-400/40' : 'text-yellow-400 border-yellow-400/40'} capitalize`}>
+                {entry.severity}
+              </Badge>
+              <Badge variant="outline" className={`text-[10px] border ${CAUSE_COLORS[entry.causeCategory] || ''}`}>
+                {entry.causeCategory}
+              </Badge>
+            </div>
+            <h4 className="text-sm font-semibold">{entry.equipmentName}</h4>
+            {entry.location && <p className="text-xs text-muted-foreground">{entry.location}</p>}
+            <p className="text-xs text-muted-foreground mt-0.5 italic">{entry.causeDetail}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="flex items-center gap-1 text-sm font-bold text-foreground justify-end">
+              <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+              {duration}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {new Date(entry.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {' '}
+              {new Date(entry.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </div>
+
+        {/* Touch count summary */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <button onClick={() => setExpanded(e => !e)} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+            <Wrench className="w-3.5 h-3.5" />
+            {entry.touches.length} touch{entry.touches.length !== 1 ? 'es' : ''} logged
+            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          <span className="text-[10px]">By {entry.loggedBy}</span>
+        </div>
+
+        {/* Touch timeline */}
+        {expanded && entry.touches.length > 0 && (
+          <div className="space-y-2 pt-1 border-t border-border/50">
+            {entry.touches.map((t, i) => (
+              <div key={t.id} className="grid grid-cols-[1.5rem_1fr] gap-2 text-xs">
+                <div className="flex flex-col items-center">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-[9px] font-bold text-primary">{i + 1}</div>
+                  {i < entry.touches.length - 1 && <div className="w-px flex-1 bg-border/50 my-1" />}
+                </div>
+                <div className="pb-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-medium text-foreground">{t.action}</span>
+                    <Badge variant="outline" className={`text-[9px] ml-auto ${t.outcome === 'cleared' ? 'text-green-400 border-green-400/40' : t.outcome === 'partial' ? 'text-yellow-400 border-yellow-400/40' : t.outcome === 'escalated' ? 'text-red-400 border-red-400/40' : 'text-muted-foreground border-border'}`}>
+                      {TOUCH_OUTCOMES.find(o => o.value === t.outcome)?.label.split(' — ')[0]}
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{t.tech} · {new Date(t.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Resolution */}
+        {entry.status === 'resolved' && entry.resolution && (
+          <div className="pt-2 border-t border-border/50 flex items-start gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-green-400">{entry.resolution}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        {entry.status === 'active' && (
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" variant="outline" className="text-xs h-7 flex-1" onClick={() => onAddTouch(entry.id)}>
+              <Wrench className="w-3 h-3 mr-1" />Add Touch
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 flex-1 text-green-400 border-green-400/40 hover:bg-green-500/10" onClick={() => onResolve(entry.id)}>
+              <CheckCircle2 className="w-3 h-3 mr-1" />Mark Resolved
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 function OIGContent() {
@@ -397,6 +564,48 @@ function OIGContent() {
   const [govLimit, setGovLimit] = useState(50);
   const [expandedBlind, setExpandedBlind] = useState(false);
   const [wiCriticalPath, setWiCriticalPath] = useState<CriticalPathData | null>(null);
+
+  // Downtime log state
+  const [downtimeEntries, setDowntimeEntries] = useState<DowntimeEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_downtime_log') || '[]'); } catch { return []; }
+  });
+  const [downtimeFormOpen, setDowntimeFormOpen] = useState(false);
+  const [touchFormOpen, setTouchFormOpen] = useState(false);
+  const [resolveFormOpen, setResolveFormOpen] = useState(false);
+  const [activeTouchEntryId, setActiveTouchEntryId] = useState<string | null>(null);
+  const [downtimeForm, setDowntimeForm] = useState({ equipmentName: '', location: '', severity: 'major' as const, causeCategory: '', causeDetail: '', startedAt: new Date().toISOString().slice(0, 16), loggedBy: user?.name || user?.email || '' });
+  const [touchForm, setTouchForm] = useState({ action: '', tech: '', outcome: 'no_change' as DowntimeTouch['outcome'] });
+  const [resolveNote, setResolveNote] = useState('');
+
+  const saveDowntime = (entries: DowntimeEntry[]) => {
+    setDowntimeEntries(entries);
+    try { localStorage.setItem('nexum_downtime_log', JSON.stringify(entries)); } catch {}
+  };
+
+  const handleLogDowntime = () => {
+    if (!downtimeForm.equipmentName || !downtimeForm.causeCategory) return;
+    const entry: DowntimeEntry = { id: `dt-${Date.now()}`, ...downtimeForm, touches: [], status: 'active' };
+    saveDowntime([entry, ...downtimeEntries]);
+    setDowntimeFormOpen(false);
+    setDowntimeForm({ equipmentName: '', location: '', severity: 'major', causeCategory: '', causeDetail: '', startedAt: new Date().toISOString().slice(0, 16), loggedBy: user?.name || user?.email || '' });
+  };
+
+  const handleAddTouch = (entryId: string) => { setActiveTouchEntryId(entryId); setTouchForm({ action: '', tech: '', outcome: 'no_change' }); setTouchFormOpen(true); };
+
+  const handleSaveTouch = () => {
+    if (!touchForm.action || !activeTouchEntryId) return;
+    const touch: DowntimeTouch = { id: `t-${Date.now()}`, timestamp: new Date().toISOString(), ...touchForm };
+    saveDowntime(downtimeEntries.map(e => e.id === activeTouchEntryId ? { ...e, touches: [...e.touches, touch] } : e));
+    setTouchFormOpen(false);
+  };
+
+  const handleResolve = (entryId: string) => { setActiveTouchEntryId(entryId); setResolveNote(''); setResolveFormOpen(true); };
+
+  const handleSaveResolve = () => {
+    if (!activeTouchEntryId) return;
+    saveDowntime(downtimeEntries.map(e => e.id === activeTouchEntryId ? { ...e, status: 'resolved', resolvedAt: new Date().toISOString(), resolution: resolveNote } : e));
+    setResolveFormOpen(false);
+  };
 
   const runAnalysis = useCallback(() => {
     setAnalyzing(true);
@@ -521,6 +730,14 @@ function OIGContent() {
             <TabsTrigger value="reliability" className="text-xs">Reliability</TabsTrigger>
             <TabsTrigger value="compliance" className="text-xs">Compliance &amp; Governance</TabsTrigger>
             <TabsTrigger value="predictive" className="text-xs">Predictive Intelligence</TabsTrigger>
+            <TabsTrigger value="downtime" className="text-xs">
+              Downtime Log
+              {downtimeEntries.filter(e => e.status === 'active').length > 0 && (
+                <span className="ml-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center">
+                  {downtimeEntries.filter(e => e.status === 'active').length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* ── TAB 1: Intelligence Overview ─────────────────────────────── */}
@@ -822,10 +1039,193 @@ function OIGContent() {
               </>
             )}
           </TabsContent>
+          {/* ── TAB 6: Downtime Log ──────────────────────────────────────── */}
+          <TabsContent value="downtime" className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Downtime Log</h2>
+                <p className="text-xs text-muted-foreground">Equipment downtime events — touches performed and root causes</p>
+              </div>
+              <Button size="sm" onClick={() => setDowntimeFormOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />Log Downtime
+              </Button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="border-border"><CardContent className="p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Events</p>
+                <p className="text-2xl font-bold">{downtimeEntries.length}</p>
+              </CardContent></Card>
+              <Card className={downtimeEntries.filter(e => e.status === 'active').length > 0 ? 'border-red-500/40' : 'border-border'}><CardContent className="p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Active Now</p>
+                <p className={`text-2xl font-bold ${downtimeEntries.filter(e => e.status === 'active').length > 0 ? 'text-red-400' : ''}`}>
+                  {downtimeEntries.filter(e => e.status === 'active').length}
+                </p>
+              </CardContent></Card>
+              <Card className="border-border"><CardContent className="p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Resolved</p>
+                <p className="text-2xl font-bold text-green-400">{downtimeEntries.filter(e => e.status === 'resolved').length}</p>
+              </CardContent></Card>
+              <Card className="border-border"><CardContent className="p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Touches</p>
+                <p className="text-2xl font-bold text-primary">{downtimeEntries.reduce((s, e) => s + e.touches.length, 0)}</p>
+              </CardContent></Card>
+            </div>
+
+            {/* Cause breakdown */}
+            {downtimeEntries.length > 0 && (
+              <Card className="border-border">
+                <CardContent className="p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">By Root Cause</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CAUSE_CATEGORIES.filter(c => downtimeEntries.some(e => e.causeCategory === c)).map(cat => {
+                      const count = downtimeEntries.filter(e => e.causeCategory === cat).length;
+                      return (
+                        <div key={cat} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${CAUSE_COLORS[cat] || ''}`}>
+                          <span>{cat}</span>
+                          <span className="font-bold">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Active events first, then resolved */}
+            {downtimeEntries.length === 0 ? (
+              <Card className="border-border">
+                <CardContent className="py-12 text-center space-y-2">
+                  <PowerOff className="w-10 h-10 text-muted-foreground mx-auto" />
+                  <p className="text-sm font-semibold">No Downtime Events</p>
+                  <p className="text-xs text-muted-foreground">Log a downtime event to start tracking touches and root causes.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {[...downtimeEntries].sort((a, b) => {
+                  if (a.status === 'active' && b.status !== 'active') return -1;
+                  if (b.status === 'active' && a.status !== 'active') return 1;
+                  return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
+                }).map(entry => (
+                  <DowntimeCard key={entry.id} entry={entry} onAddTouch={handleAddTouch} onResolve={handleResolve} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       )}
+
+      {renderDowntimeDialogs()}
     </div>
   );
+
+  // ── Downtime dialogs ────────────────────────────────────────────────────────
+
+  function renderDowntimeDialogs() {
+    return (
+      <>
+        {/* Log Downtime */}
+        <Dialog open={downtimeFormOpen} onOpenChange={setDowntimeFormOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle className="flex items-center gap-2"><PowerOff className="w-5 h-5 text-red-400" />Log Downtime Event</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Equipment / Asset *</Label>
+                  <Input className="text-xs" value={downtimeForm.equipmentName} onChange={e => setDowntimeForm(f => ({ ...f, equipmentName: e.target.value }))} placeholder="e.g., Chiller CH-01, VFD-3" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Location</Label>
+                  <Input className="text-xs" value={downtimeForm.location} onChange={e => setDowntimeForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g., Mech Room 2" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Severity *</Label>
+                  <Select value={downtimeForm.severity} onValueChange={v => setDowntimeForm(f => ({ ...f, severity: v as any }))}>
+                    <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="major">Major</SelectItem>
+                      <SelectItem value="minor">Minor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Cause Category *</Label>
+                  <Select value={downtimeForm.causeCategory} onValueChange={v => setDowntimeForm(f => ({ ...f, causeCategory: v }))}>
+                    <SelectTrigger className="text-xs h-9"><SelectValue placeholder="Select cause…" /></SelectTrigger>
+                    <SelectContent>{CAUSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Cause Detail</Label>
+                  <Input className="text-xs" value={downtimeForm.causeDetail} onChange={e => setDowntimeForm(f => ({ ...f, causeDetail: e.target.value }))} placeholder="e.g., Bearing failure on drive end" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Down Since *</Label>
+                  <Input type="datetime-local" className="text-xs" value={downtimeForm.startedAt} onChange={e => setDowntimeForm(f => ({ ...f, startedAt: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Logged By</Label>
+                  <Input className="text-xs" value={downtimeForm.loggedBy} onChange={e => setDowntimeForm(f => ({ ...f, loggedBy: e.target.value }))} placeholder="Your name" />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDowntimeFormOpen(false)}>Cancel</Button>
+              <Button onClick={handleLogDowntime} disabled={!downtimeForm.equipmentName || !downtimeForm.causeCategory} className="bg-red-500 hover:bg-red-600 text-white">
+                <PowerOff className="w-4 h-4 mr-2" />Log Event
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Touch */}
+        <Dialog open={touchFormOpen} onOpenChange={setTouchFormOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle className="flex items-center gap-2"><Wrench className="w-5 h-5 text-primary" />Add Touch</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Action Performed *</Label>
+                <Input className="text-xs" value={touchForm.action} onChange={e => setTouchForm(f => ({ ...f, action: e.target.value }))} placeholder="e.g., Checked contactors, reset VFD fault, replaced fuse" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tech / Name</Label>
+                <Input className="text-xs" value={touchForm.tech} onChange={e => setTouchForm(f => ({ ...f, tech: e.target.value }))} placeholder="Who performed this" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Outcome</Label>
+                <Select value={touchForm.outcome} onValueChange={v => setTouchForm(f => ({ ...f, outcome: v as any }))}>
+                  <SelectTrigger className="text-xs h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>{TOUCH_OUTCOMES.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setTouchFormOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveTouch} disabled={!touchForm.action}><Wrench className="w-4 h-4 mr-2" />Save Touch</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Mark Resolved */}
+        <Dialog open={resolveFormOpen} onOpenChange={setResolveFormOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-400" />Mark Resolved</DialogTitle></DialogHeader>
+            <div className="py-2 space-y-1">
+              <Label className="text-xs">Resolution Notes</Label>
+              <Textarea className="text-xs" value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="What fixed it? Parts replaced, adjustments made, root cause confirmed…" rows={3} />
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setResolveFormOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveResolve} className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle2 className="w-4 h-4 mr-2" />Mark Resolved</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 }
 
 // ── Exported Page ─────────────────────────────────────────────────────────────
