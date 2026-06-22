@@ -219,9 +219,11 @@ export default function SupervisorDashboard() {
       const interval = setInterval(fetchData, 60000);
       const onLog = () => fetchData();
       window.addEventListener('facility-log-submitted', onLog);
+      window.addEventListener('nexum_bms_poll_update', onLog);
       return () => {
         clearInterval(interval);
         window.removeEventListener('facility-log-submitted', onLog);
+        window.removeEventListener('nexum_bms_poll_update', onLog);
       };
     }
   }, [isAuthenticated, fetchData]);

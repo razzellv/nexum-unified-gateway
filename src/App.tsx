@@ -1,6 +1,7 @@
 import { Component, useEffect, type ReactNode } from "react";
 import { initSyncListeners } from "./lib/sync-storage";
 import { BMSPollService } from "./services/BMSPollService";
+import { DataCorrelationEngine } from "./services/DataCorrelationEngine";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -60,9 +61,13 @@ export default function App() {
     const cleanup = initSyncListeners();
     // Start 3-hour BMS / CMMS / BAS auto-poll
     BMSPollService.start();
+    // Re-correlate whenever a manual log is submitted so insights are always fresh
+    const onLog = () => DataCorrelationEngine.run().catch(() => {});
+    window.addEventListener('facility-log-submitted', onLog);
     return () => {
       cleanup();
       BMSPollService.stop();
+      window.removeEventListener('facility-log-submitted', onLog);
     };
   }, []);
 

@@ -166,7 +166,11 @@ export default function EquipmentMetrics() {
       fetchLogs();
       const onLog = () => fetchLogs();
       window.addEventListener('facility-log-submitted', onLog);
-      return () => window.removeEventListener('facility-log-submitted', onLog);
+      window.addEventListener('nexum_bms_poll_update', onLog);
+      return () => {
+        window.removeEventListener('facility-log-submitted', onLog);
+        window.removeEventListener('nexum_bms_poll_update', onLog);
+      };
     }
   }, [isAuthenticated, fetchLogs]);
 

@@ -265,11 +265,15 @@ export default function ManagerDashboard() {
     return () => clearInterval(interval);
   }, [refreshKey, selectedFacility, selectedBuilding, selectedSystem]);
 
-  // Re-fetch asset stats when equipment is updated from EquipmentLibrary
+  // Re-fetch when equipment updates or BMS poll completes
   useEffect(() => {
     const handler = () => setRefreshKey(k => k + 1);
     window.addEventListener('equipment-updated', handler);
-    return () => window.removeEventListener('equipment-updated', handler);
+    window.addEventListener('nexum_bms_poll_update', handler);
+    return () => {
+      window.removeEventListener('equipment-updated', handler);
+      window.removeEventListener('nexum_bms_poll_update', handler);
+    };
   }, []);
 
   // ── Asset count + value ─────────────────────────────────────────────────────

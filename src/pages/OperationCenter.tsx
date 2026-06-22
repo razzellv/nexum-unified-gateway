@@ -442,9 +442,11 @@ export default function OperationCenter() {
 
     const logHandler = () => { fetchData(); fetchRecentWOs(); };
     window.addEventListener('facility-log-submitted', logHandler);
+    window.addEventListener('nexum_bms_poll_update', logHandler);
     return () => {
       if (intervalId) clearInterval(intervalId);
       window.removeEventListener('facility-log-submitted', logHandler);
+      window.removeEventListener('nexum_bms_poll_update', logHandler);
     };
   }, [isAuthenticated, loading, fetchData, fetchRecentWOs]);
 

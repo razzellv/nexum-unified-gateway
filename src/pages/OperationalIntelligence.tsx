@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import {
   Target, PowerOff, Wrench, Plus, Timer, TriangleAlert,
 } from 'lucide-react';
 import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
+import { DataCorrelationEngine, type CorrelationSummary, type CorrelationInsight } from '@/services/DataCorrelationEngine';
 import {
   analyzeDowntime,
   type DowntimeAnalysisResult,
@@ -598,6 +599,14 @@ function OIGContent() {
   const [downtimeForm, setDowntimeForm] = useState({ equipmentName: '', location: '', severity: 'major' as const, causeCategory: '', causeDetail: '', startedAt: new Date().toISOString().slice(0, 16), loggedBy: user?.name || user?.email || '' });
   const [touchForm, setTouchForm] = useState({ action: '', tech: '', outcome: 'no_change' as DowntimeTouch['outcome'] });
   const [resolveNote, setResolveNote] = useState('');
+  const [bmsCorrelation, setBmsCorrelation] = useState<CorrelationSummary | null>(() => DataCorrelationEngine.getLastResults());
+
+  // Keep BMS cross-source correlation fresh
+  useEffect(() => {
+    const refresh = () => setBmsCorrelation(DataCorrelationEngine.getLastResults());
+    window.addEventListener('nexum_correlation_update', refresh);
+    return () => window.removeEventListener('nexum_correlation_update', refresh);
+  }, []);
 
   const saveDowntime = (entries: DowntimeEntry[]) => {
     setDowntimeEntries(entries);
@@ -931,6 +940,72 @@ function OIGContent() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* ── BMS Cross-Source Correlation ──────────────────────────── */}
+            {bmsCorrelation && bmsCorrelation.totalInsights > 0 && (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      BMS ↔ Manual Log Cross-Source Analysis
+                    </h2>
+                    <p className="text-xs text-muted-foreground">Divergence, blind spots, and leading indicators between sensor data and field logs</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {bmsCorrelation.byCriticality.critical > 0 && (
+                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">{bmsCorrelation.byCriticality.critical} critical</Badge>
+                    )}
+                    {bmsCorrelation.byCriticality.high > 0 && (
+                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">{bmsCorrelation.byCriticality.high} high</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">{bmsCorrelation.totalInsights} total</Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {bmsCorrelation.insights.slice(0, 20).map(ins => {
+                    const sevColor = ins.severity === 'critical' ? 'border-red-500/30 bg-red-500/5'
+                      : ins.severity === 'high'     ? 'border-orange-500/30 bg-orange-500/5'
+                      : ins.severity === 'medium'   ? 'border-yellow-500/30 bg-yellow-500/5'
+                      : ins.severity === 'low'      ? 'border-blue-500/30 bg-blue-500/5'
+                      : 'border-border bg-card';
+                    const badge = ins.severity === 'critical' ? 'bg-red-500/20 text-red-400'
+                      : ins.severity === 'high'   ? 'bg-orange-500/20 text-orange-400'
+                      : ins.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400'
+                      : ins.severity === 'low'    ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-muted text-muted-foreground';
+                    const typeLabel: Record<string, string> = {
+                      DIVERGENCE: 'Divergence', ALARM_MATCH: 'Alarm Match',
+                      BLIND_SPOT: 'Blind Spot', LEADING_INDICATOR: 'Leading Indicator', LAGGING_RESPONSE: 'Lagging Response',
+                    };
+                    return (
+                      <Card key={ins.id} className={`border ${sevColor}`}>
+                        <CardContent className="p-3 space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold text-foreground">{ins.title}</p>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Badge className={`${badge} text-xs`}>{ins.severity}</Badge>
+                              <Badge variant="outline" className="text-xs">{typeLabel[ins.type] || ins.type}</Badge>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{ins.detail}</p>
+                          {(ins.bmsValue !== undefined || ins.manualValue !== undefined) && (
+                            <div className="flex items-center gap-4 text-xs pt-1">
+                              {ins.bmsValue !== undefined && <span className="text-cyan-400">BMS: <strong>{ins.bmsValue}</strong></span>}
+                              {ins.manualValue !== undefined && <span className="text-amber-400">Manual: <strong>{ins.manualValue}</strong></span>}
+                            </div>
+                          )}
+                          {ins.recommendedAction && (
+                            <p className="text-xs text-primary/80 border-t border-border/50 pt-1 mt-1">→ {ins.recommendedAction}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground/60">Equipment: {ins.equipmentId} · Detected {new Date(ins.detectedAt).toLocaleString()}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </TabsContent>
