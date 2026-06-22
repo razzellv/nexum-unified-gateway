@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
 import { DataCorrelationEngine, type CorrelationSummary, type CorrelationInsight } from '@/services/DataCorrelationEngine';
+import { ObservationEngine, type SystemObservation } from '@/services/ObservationEngine';
 import {
   analyzeDowntime,
   type DowntimeAnalysisResult,
@@ -600,12 +601,21 @@ function OIGContent() {
   const [touchForm, setTouchForm] = useState({ action: '', tech: '', outcome: 'no_change' as DowntimeTouch['outcome'] });
   const [resolveNote, setResolveNote] = useState('');
   const [bmsCorrelation, setBmsCorrelation] = useState<CorrelationSummary | null>(() => DataCorrelationEngine.getLastResults());
+  const [topSysObs, setTopSysObs] = useState<SystemObservation[]>(() =>
+    ObservationEngine.getAll().filter(o => !o.acknowledged).slice(0, 5)
+  );
 
-  // Keep BMS cross-source correlation fresh
+  // Keep BMS cross-source correlation + system observations fresh
   useEffect(() => {
     const refresh = () => setBmsCorrelation(DataCorrelationEngine.getLastResults());
     window.addEventListener('nexum_correlation_update', refresh);
     return () => window.removeEventListener('nexum_correlation_update', refresh);
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setTopSysObs(ObservationEngine.getAll().filter(o => !o.acknowledged).slice(0, 5));
+    window.addEventListener('nexum_observation_update', refresh);
+    return () => window.removeEventListener('nexum_observation_update', refresh);
   }, []);
 
   const saveDowntime = (entries: DowntimeEntry[]) => {
@@ -783,6 +793,50 @@ function OIGContent() {
 
           {/* ── TAB 1: Intelligence Overview ─────────────────────────────── */}
           <TabsContent value="overview" className="space-y-4">
+            {/* System Observations strip */}
+            {topSysObs.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
+                    System-Learned Observations
+                  </h3>
+                  <Button
+                    variant="ghost" size="sm"
+                    className="text-xs h-7 px-2 text-cyan-400 hover:text-cyan-300"
+                    onClick={() => navigate('/observations?tab=system-insights')}
+                  >
+                    <Eye className="w-3 h-3 mr-1" /> View All in Journal
+                  </Button>
+                </div>
+                {topSysObs.map(obs => {
+                  const flagColor = obs.flag === 'critical' ? 'border-red-500/30 bg-red-500/5'
+                    : obs.flag === 'warning' ? 'border-orange-500/30 bg-orange-500/5'
+                    : obs.flag === 'pattern' ? 'border-cyan-500/30 bg-cyan-500/5'
+                    : 'border-yellow-500/30 bg-yellow-500/5';
+                  const badgeColor = obs.flag === 'critical' ? 'bg-red-500/20 text-red-400'
+                    : obs.flag === 'warning' ? 'bg-orange-500/20 text-orange-400'
+                    : obs.flag === 'pattern' ? 'bg-cyan-500/20 text-cyan-400'
+                    : 'bg-yellow-500/20 text-yellow-400';
+                  return (
+                    <div key={obs.id} className={`border rounded-lg p-3 flex items-start justify-between gap-2 ${flagColor}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground line-clamp-2">{obs.interpretation}</p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">{obs.equipmentId} · {new Date(obs.detectedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge className={`${badgeColor} text-[10px]`}>{obs.flag}</Badge>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                          onClick={() => navigate(`/observations?tab=system-insights&id=${obs.id}`)}>
+                          <Eye className="w-3 h-3 mr-1" /> Journal
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Score row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Overall gauge */}

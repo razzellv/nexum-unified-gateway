@@ -19,6 +19,7 @@
 
 import { listBMSFeeds, getBMSFeedData, listSkids, getSkidData } from '@/lib/nexum-api';
 import { DataCorrelationEngine } from './DataCorrelationEngine';
+import { ObservationEngine } from './ObservationEngine';
 
 const POLL_INTERVAL_MS  = 3 * 60 * 60 * 1000; // 3 hours
 const STATUS_KEY        = 'nexum_bms_poll_status';
@@ -108,8 +109,9 @@ class BMSPollServiceClass {
     } finally {
       this.running = false;
       this.dispatch();
-      // Run correlation after every poll cycle so insights stay fresh
+      // Run correlation + observation detection after every poll cycle
       DataCorrelationEngine.run().catch(() => {});
+      ObservationEngine.processBMSData();
     }
   }
 

@@ -2,6 +2,8 @@ import { Component, useEffect, type ReactNode } from "react";
 import { initSyncListeners } from "./lib/sync-storage";
 import { BMSPollService } from "./services/BMSPollService";
 import { DataCorrelationEngine } from "./services/DataCorrelationEngine";
+import { BaselineEngine } from "./services/BaselineEngine";
+import { ObservationEngine } from "./services/ObservationEngine";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -59,10 +61,16 @@ export default function App() {
   useEffect(() => {
     // Wire up background sync listeners (focus, online events)
     const cleanup = initSyncListeners();
+    // Seed baselines from any existing facility logs so the engine has prior data
+    BaselineEngine.seedFromLogs();
     // Start 3-hour BMS / CMMS / BAS auto-poll
     BMSPollService.start();
-    // Re-correlate whenever a manual log is submitted so insights are always fresh
-    const onLog = () => DataCorrelationEngine.run().catch(() => {});
+    // Re-correlate + observe whenever a manual log is submitted
+    const onLog = (e: Event) => {
+      DataCorrelationEngine.run().catch(() => {});
+      const log = (e as CustomEvent).detail;
+      if (log) ObservationEngine.processLog(log);
+    };
     window.addEventListener('facility-log-submitted', onLog);
     return () => {
       cleanup();

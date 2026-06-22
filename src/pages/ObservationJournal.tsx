@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,10 @@ import {
   BookOpen, Plus, ArrowLeft, CheckCircle, AlertTriangle, UserCheck, Wrench,
   ShieldCheck, Lock, RefreshCw, Edit3, Lightbulb, FileText, Clock,
   Shield, Activity, ChevronRight, X, Loader2, Zap, TrendingUp, BarChart3,
-  CalendarClock, Repeat2, Target,
+  CalendarClock, Repeat2, Target, BrainCircuit, CheckCircle2, Eye,
 } from 'lucide-react';
+import { ObservationEngine, type SystemObservation } from '@/services/ObservationEngine';
+import type { EnvironmentalOutcomeTemplate } from '@/services/ObservationEngine';
 import {
   listObservations, createObservation, getObservation,
   validateObservation, escalateObservation, assignObservation,
@@ -362,6 +365,7 @@ function RightMomentView({ workOrders, violations, loading, onRefresh }: RightMo
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ObservationJournal() {
+  const [searchParams] = useSearchParams();
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selected, setSelected] = useState<{
     observation: Observation;
@@ -369,7 +373,7 @@ export default function ObservationJournal() {
     timeline: ObservationTimelineEntry[];
     scores: ObservationScores;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>(() => searchParams.get('tab') || 'all');
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
@@ -383,6 +387,25 @@ export default function ObservationJournal() {
     loaded: boolean;
   }>({ workOrders: [], violations: [], loaded: false });
   const [rmLoading, setRmLoading] = useState(false);
+
+  // System-detected observations from ObservationEngine
+  const [sysObs, setSysObs] = useState<SystemObservation[]>(() => ObservationEngine.getAll());
+  const [sysFilter, setSysFilter] = useState<string>('all');
+  const highlightId = searchParams.get('id');
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const refresh = () => setSysObs(ObservationEngine.getAll());
+    window.addEventListener('nexum_observation_update', refresh);
+    return () => window.removeEventListener('nexum_observation_update', refresh);
+  }, []);
+
+  // Scroll to highlighted system observation when tab=system-insights is active
+  useEffect(() => {
+    if (activeTab === 'system-insights' && highlightId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeTab, highlightId, sysObs]);
 
   const loadObservations = useCallback(async (status?: string) => {
     setLoading(true);
@@ -521,7 +544,7 @@ export default function ObservationJournal() {
     }
   }, [selected]);
 
-  const TABS = ['all', 'open', 'validated', 'escalated', 'in-progress', 'verified', 'closed', 'right-moment'];
+  const TABS = ['all', 'open', 'validated', 'escalated', 'in-progress', 'verified', 'closed', 'system-insights', 'right-moment'];
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (detailLoading) {
@@ -1046,8 +1069,141 @@ export default function ObservationJournal() {
           />
         )}
 
+        {/* ── System Insights Tab ─────────────────────────────────────────── */}
+        {activeTab === 'system-insights' && (() => {
+          const envOutcomes: EnvironmentalOutcomeTemplate[] = (() => {
+            try { return JSON.parse(localStorage.getItem('nexum_env_outcomes') || '[]'); } catch { return []; }
+          })();
+          const TYPE_LABELS: Record<string, string> = {
+            BASELINE_DEVIATION: 'Baseline Deviation', TIMING_GAP: 'Timing Gap',
+            ENVIRONMENTAL_OUTCOME: 'Environmental Outcome', TREND_DRIFT: 'Trend Drift', RECOVERY_ANOMALY: 'Recovery Anomaly',
+          };
+          const FLAG_COLORS: Record<string, string> = {
+            critical: 'border-red-500/30 bg-red-500/5',
+            warning:  'border-orange-500/30 bg-orange-500/5',
+            note:     'border-yellow-500/30 bg-yellow-500/5',
+            pattern:  'border-cyan-500/30 bg-cyan-500/5',
+            learning: 'border-blue-500/30 bg-blue-500/5',
+          };
+          const FLAG_BADGE: Record<string, string> = {
+            critical: 'bg-red-500/20 text-red-400',
+            warning:  'bg-orange-500/20 text-orange-400',
+            note:     'bg-yellow-500/20 text-yellow-400',
+            pattern:  'bg-cyan-500/20 text-cyan-400',
+            learning: 'bg-blue-500/20 text-blue-400',
+          };
+          const filtered = sysFilter === 'all' ? sysObs
+            : sysFilter === 'unacknowledged' ? sysObs.filter(o => !o.acknowledged)
+            : sysObs.filter(o => o.type === sysFilter || o.flag === sysFilter);
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <BrainCircuit className="w-4 h-4 text-cyan-400" />
+                    System-Detected Observations
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Auto-generated from baseline deviation, BMS data, timing gaps, and environmental patterns</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(['all', 'unacknowledged', 'critical', 'warning', 'pattern', 'BASELINE_DEVIATION', 'TIMING_GAP', 'ENVIRONMENTAL_OUTCOME'] as const).map(f => (
+                    <button key={f} onClick={() => setSysFilter(f)}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${sysFilter === f ? 'bg-primary text-primary-foreground border-primary' : 'border-border/40 text-muted-foreground hover:text-foreground hover:border-border'}`}>
+                      {f === 'all' ? 'All' : f === 'unacknowledged' ? 'Unacknowledged' : TYPE_LABELS[f] || f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filtered.length === 0 ? (
+                <Card className="border border-border">
+                  <CardContent className="py-16 text-center space-y-2">
+                    <BrainCircuit className="w-10 h-10 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm font-semibold">No System Observations Yet</p>
+                    <p className="text-xs text-muted-foreground/60">Submit facility logs and connect BMS integrations — the system will learn baselines and start generating insights automatically.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map(obs => {
+                    const isHighlight = obs.id === highlightId;
+                    return (
+                      <div
+                        key={obs.id}
+                        ref={isHighlight ? highlightRef : undefined}
+                        className={`border rounded-lg p-3 space-y-1 transition-all ${FLAG_COLORS[obs.flag] || 'border-border bg-card'} ${isHighlight ? 'ring-2 ring-primary' : ''} ${obs.acknowledged ? 'opacity-60' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{obs.interpretation}</p>
+                            {obs.context && <p className="text-xs text-muted-foreground">{obs.context}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Badge className={`${FLAG_BADGE[obs.flag]} text-[10px]`}>{obs.flag}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{TYPE_LABELS[obs.type] || obs.type}</Badge>
+                          </div>
+                        </div>
+                        {(obs.observedValue !== undefined || obs.expectedValue !== undefined) && (
+                          <div className="flex items-center gap-4 text-xs">
+                            {obs.observedValue !== undefined && <span className="text-amber-400">Observed: <strong>{obs.observedValue}</strong></span>}
+                            {obs.expectedValue !== undefined && <span className="text-muted-foreground">Baseline: <strong>{obs.expectedValue}</strong></span>}
+                            {obs.zScore !== undefined && <span className="text-cyan-400">{obs.zScore}σ deviation</span>}
+                          </div>
+                        )}
+                        {obs.recommendation && (
+                          <p className="text-xs text-primary/80 border-t border-border/40 pt-1 mt-1">→ {obs.recommendation}</p>
+                        )}
+                        <div className="flex items-center justify-between pt-1">
+                          <p className="text-[10px] text-muted-foreground/60">
+                            {obs.equipmentId} · {obs.source} · {new Date(obs.detectedAt).toLocaleString()}
+                            {obs.sampleCount && ` · n=${obs.sampleCount}`}
+                          </p>
+                          {!obs.acknowledged && (
+                            <button
+                              onClick={() => { ObservationEngine.acknowledge(obs.id); setSysObs(ObservationEngine.getAll()); }}
+                              className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            >
+                              <CheckCircle2 className="w-3 h-3" /> Acknowledge
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Environmental Outcome Templates */}
+              {envOutcomes.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5" />
+                    Learned Environmental Outcome Patterns
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {envOutcomes.map(e => (
+                      <Card key={e.id} className="border border-cyan-500/20 bg-cyan-500/5">
+                        <CardContent className="p-3 space-y-1">
+                          <p className="text-xs font-semibold text-foreground">{e.condition}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            <span>Est. cost: <strong className="text-foreground">${e.avgEnergyCost}/day</strong></span>
+                            <span>Runtime: <strong className="text-foreground">{e.avgRuntime}h</strong></span>
+                            <span>Occurrences: <strong className="text-foreground">{e.occurrences}</strong></span>
+                            <span>Last seen: <strong className="text-foreground">{new Date(e.lastSeen).toLocaleDateString()}</strong></span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* List */}
-        {activeTab !== 'right-moment' && <Card className="bg-card/60 border-border/40">
+        {activeTab !== 'right-moment' && activeTab !== 'system-insights' && <Card className="bg-card/60 border-border/40">
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-16">
