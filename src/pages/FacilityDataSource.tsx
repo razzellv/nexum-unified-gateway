@@ -406,7 +406,7 @@ const FacilityDataSource = () => {
               Facility Data Source
             </h1>
             <p className="text-muted-foreground mt-2">
-              Log daily operational readings and equipment data
+              Log daily operational readings and equipment data. Connected BAS / BMS / CMMS integrations sync automatically every 3 hours.
             </p>
           </div>
         </div>

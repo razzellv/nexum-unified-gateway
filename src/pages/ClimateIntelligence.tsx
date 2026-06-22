@@ -304,7 +304,12 @@ export default function ClimateIntelligence() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Re-load when BMS poll delivers fresh climate-relevant data
+    window.addEventListener('nexum_bms_poll_update', load);
+    return () => window.removeEventListener('nexum_bms_poll_update', load);
+  }, []);
 
   // ── Derived asset lists ────────────────────────────────────────────────────
 

@@ -644,9 +644,14 @@ function OIGContent() {
     runDowntimeAnalysis();
     window.addEventListener('facility-log-submitted', runAnalysis);
     window.addEventListener('facility-log-submitted', runDowntimeAnalysis);
+    // Re-analyze when the 3-hour BMS / CMMS / BAS poll completes
+    window.addEventListener('nexum_bms_poll_update', runAnalysis);
+    window.addEventListener('nexum_bms_poll_update', runDowntimeAnalysis);
     return () => {
       window.removeEventListener('facility-log-submitted', runAnalysis);
       window.removeEventListener('facility-log-submitted', runDowntimeAnalysis);
+      window.removeEventListener('nexum_bms_poll_update', runAnalysis);
+      window.removeEventListener('nexum_bms_poll_update', runDowntimeAnalysis);
     };
   }, [runAnalysis, runDowntimeAnalysis]);
 

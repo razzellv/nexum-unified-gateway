@@ -161,7 +161,12 @@ export default function EnergyDashboard() {
     if (isAuthenticated) {
       fetchData();
       const interval = setInterval(fetchData, 60000);
-      return () => clearInterval(interval);
+      // Also refresh when the 3-hour BMS poll delivers fresh energy readings
+      window.addEventListener('nexum_bms_poll_update', fetchData);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('nexum_bms_poll_update', fetchData);
+      };
     }
   }, [isAuthenticated, fetchData]);
 

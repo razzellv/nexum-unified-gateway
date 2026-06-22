@@ -1,5 +1,6 @@
 import { Component, useEffect, type ReactNode } from "react";
 import { initSyncListeners } from "./lib/sync-storage";
+import { BMSPollService } from "./services/BMSPollService";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,7 +58,12 @@ export default function App() {
   useEffect(() => {
     // Wire up background sync listeners (focus, online events)
     const cleanup = initSyncListeners();
-    return cleanup;
+    // Start 3-hour BMS / CMMS / BAS auto-poll
+    BMSPollService.start();
+    return () => {
+      cleanup();
+      BMSPollService.stop();
+    };
   }, []);
 
   return (

@@ -21,6 +21,7 @@ import {
   BMSFeed, BMSProtocol, Skid, SkidEquipment,
 } from '@/lib/nexum-api';
 import { useToast } from '@/hooks/use-toast';
+import { useBMSPolling } from '@/hooks/useBMSPolling';
 
 // ============================================================================
 // EXISTING TYPES (Systems tab)
@@ -476,6 +477,7 @@ function ConnectionDetailsPanel({ details }: { details: ConnectionDetails }) {
 export default function EquipmentSystems() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const bmsPoll = useBMSPolling();
 
   // ── Systems tab state ──────────────────────────────────────────────────────
   const [systems, setSystems] = useState<EquipmentSystem[]>([]);
@@ -1418,6 +1420,46 @@ export default function EquipmentSystems() {
                 </div>
               </div>
             )}
+
+            {/* Auto-sync status banner */}
+            <div className={`rounded-lg border px-4 py-3 flex flex-wrap items-center gap-3 text-xs ${
+              bmsPoll.status === 'error'   ? 'border-red-500/30 bg-red-500/5 text-red-400' :
+              bmsPoll.status === 'polling' ? 'border-primary/30 bg-primary/5 text-primary' :
+              bmsPoll.status === 'success' ? 'border-green-500/30 bg-green-500/5 text-green-400' :
+              'border-border/50 bg-muted/20 text-muted-foreground'
+            }`}>
+              <div className="flex items-center gap-2">
+                {bmsPoll.isPolling
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Wifi className="w-3.5 h-3.5" />}
+                <span className="font-medium">
+                  {bmsPoll.isPolling ? 'Syncing BAS / BMS / CMMS…' : 'Auto-Sync: Every 3 hours'}
+                </span>
+              </div>
+              <span className="text-muted-foreground">Last pull: <strong className="text-foreground">{bmsPoll.formatLastPoll()}</strong></span>
+              {bmsPoll.nextPollAt && !bmsPoll.isPolling && (
+                <span className="text-muted-foreground">Next: <strong className="text-foreground">{bmsPoll.formatNextPoll()}</strong></span>
+              )}
+              {bmsPoll.activeFeedsCount > 0 && (
+                <span className="text-muted-foreground">{bmsPoll.activeFeedsCount} active feed{bmsPoll.activeFeedsCount !== 1 ? 's' : ''} · {bmsPoll.totalDataPoints.toLocaleString()} points</span>
+              )}
+              {bmsPoll.alarmCount > 0 && (
+                <span className="text-red-400 font-medium">{bmsPoll.alarmCount} alarm{bmsPoll.alarmCount !== 1 ? 's' : ''}</span>
+              )}
+              {bmsPoll.status === 'error' && bmsPoll.errorMessage && (
+                <span className="text-red-400">Error: {bmsPoll.errorMessage}</span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-6 text-xs py-0 px-2"
+                onClick={() => bmsPoll.triggerNow()}
+                disabled={bmsPoll.isPolling}
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${bmsPoll.isPolling ? 'animate-spin' : ''}`} />
+                Sync Now
+              </Button>
+            </div>
 
             {/* Feeds section header */}
             <div className="flex items-center justify-between">
