@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
-  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck,
 } from "lucide-react";
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -101,12 +101,13 @@ const allNavItems: NavItem[] = [
   { name: 'Compliance Logger™',     href: '/compliance-logger',   icon: ShieldCheck,access: 'all',        tier: 'compliance_logging' },
   { name: 'Climate Intelligence™',  href: '/climate-intelligence',icon: Thermometer,access: 'leadership' },
   { name: 'Energy Intelligence™',   href: '/dashboard/energy',    icon: Zap,        access: 'leadership', tier: 'energy_dashboard' },
-  { name: 'Evidence Board',         href: '/evidence-board',      icon: LayoutGrid, access: 'all',        tier: 'compliance_logging' },
+  { name: 'Evidence Vault™',         href: '/evidence-board',      icon: LayoutGrid, access: 'all',        tier: 'compliance_logging' },
 
   // ── Memory Layer™ — What must never be forgotten? ─────────────────────────
   { type: 'separator', name: 'Memory Layer™', access: 'leadership' },
-  { name: 'Facility Memory™',   href: '/facility-memory',  icon: Brain, access: 'leadership', tier: 'facility_memory' },
-  { name: 'Operational DNA™',   href: '/operational-dna',  icon: Cpu,   access: 'leadership', tier: 'operational_dna' },
+  { name: 'Facility Memory™',        href: '/facility-memory',        icon: Brain,     access: 'leadership', tier: 'facility_memory' },
+  { name: 'Operational DNA™',        href: '/operational-dna',        icon: Cpu,       access: 'leadership', tier: 'operational_dna' },
+  { name: 'Leadership Transition™',  href: '/leadership-transition',  icon: UserCheck, access: 'leadership' },
 
   // ── Integrity Layer™ — Can this information be trusted? ───────────────────
   { type: 'separator', name: 'Integrity Layer™', access: 'leadership' },
@@ -323,7 +324,7 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="flex flex-col ml-3 min-w-0">
             <span className="text-sm font-semibold text-sidebar-foreground truncate">Nexum Suum</span>
-            <span className="text-xs text-primary font-medium truncate">Operational Intelligence™</span>
+            <span className="text-xs text-primary font-medium truncate">Facility Intelligence™</span>
           </div>
         )}
       </div>

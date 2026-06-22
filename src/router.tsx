@@ -96,6 +96,7 @@ import DecisionOutcomeTracking from "./pages/DecisionOutcomeTracking";
 import ContinuityIntelligence from "./pages/ContinuityIntelligence";
 import Licensees from "./pages/admin/Licensees";
 import OIReports from "./pages/admin/OIReports";
+import LeadershipTransition from "./pages/LeadershipTransition";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -352,6 +353,10 @@ export const router = createBrowserRouter([
           {
             path: "admin/oi-reports",
             element: <OIReports />,
+          },
+          {
+            path: "leadership-transition",
+            element: <LeadershipTransition />,
           },
           {
             path: "apprentice",

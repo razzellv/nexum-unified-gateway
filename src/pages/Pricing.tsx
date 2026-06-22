@@ -1196,6 +1196,12 @@ export default function Pricing() {
   const [engageSubmitting, setEngageSubmitting] = useState(false);
   const [engageSuccess, setEngageSuccess] = useState(false);
   const [engageLoading, setEngageLoading] = useState<string | null>(null);
+  // Professional Services Proposal Calculator
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [proposalLicense, setProposalLicense] = useState<string>('');
+  const [proposalServices, setProposalServices] = useState<Record<string, boolean>>({});
+  const [proposalTravel, setProposalTravel] = useState<string>('none');
+  const [proposalSupport, setProposalSupport] = useState<string>('standard');
   // Standard module add-ons
   const [standardModuleAddons, setStandardModuleAddons] = useState<string[]>([]);
   // Enterprise configurator
@@ -3080,6 +3086,217 @@ export default function Pricing() {
             Tell Us About Your Facility <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
+
+        {/* ── Professional Services Proposal Calculator ── */}
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 md:p-8 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Build Your Proposal</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Annual license + professional services calculated separately. Nothing is bundled.
+                Every line item is yours to accept or decline.
+              </p>
+            </div>
+            <Button onClick={() => setProposalOpen(true)} className="shrink-0">
+              <BarChart3 className="w-4 h-4 mr-2" />Open Proposal Calculator
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
+            {[
+              { label: 'Annual License', desc: 'From $10,788/yr' },
+              { label: 'Implementation', desc: 'One-time engagement' },
+              { label: 'Assessment Services', desc: 'Per engagement' },
+              { label: 'Executive Advisory', desc: 'Monthly retainer' },
+              { label: 'Operational Leadership', desc: 'Fractional / interim' },
+              { label: 'Knowledge Transfer', desc: 'Fixed engagement' },
+              { label: 'Leadership Transition™', desc: 'Per transition' },
+              { label: 'Training + Travel + Support', desc: 'Itemized' },
+            ].map(item => (
+              <div key={item.label} className="flex items-start gap-1.5">
+                <Check className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-foreground">{item.label}</p>
+                  <p>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Proposal Calculator Dialog */}
+        <Dialog open={proposalOpen} onOpenChange={setProposalOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                Professional Services Proposal Builder
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Select what applies to your engagement. Every line item is separate — nothing is bundled.
+              </p>
+            </DialogHeader>
+            {(() => {
+              const LICENSE_OPTIONS = [
+                { value: '', label: 'No annual license (services only)', price: 0 },
+                { value: 'basic', label: 'Facility Basic', price: 10788 },
+                { value: 'standard', label: 'Facility Standard', price: 23988 },
+                { value: 'business', label: 'Facility Business', price: 47988 },
+                { value: 'prestige', label: 'Facility Prestige', price: 83988 },
+                { value: 'cmd_basic', label: 'Command Basic (Gov)', price: 4970 },
+                { value: 'cmd_standard', label: 'Command Standard (Gov)', price: 9970 },
+                { value: 'cmd_pro', label: 'Command Pro (Gov)', price: 19970 },
+              ];
+
+              const SERVICES = [
+                { id: 'impl_assisted', label: 'Implementation — Assisted Setup', price: 4999, billing: 'one-time', desc: 'Guided onboarding, configuration, and team walkthrough.' },
+                { id: 'impl_wg', label: 'Implementation — White-Glove', price: 12000, billing: 'one-time', desc: 'Full custom setup, data migration, integrations, and dedicated onboarding manager.' },
+                { id: 'assessment', label: 'Assessment Services (FIAS)', price: 7500, billing: 'one-time', desc: 'Facility Intelligence Assessment — systems review, gap analysis, and findings report.' },
+                { id: 'assessment_full', label: 'Assessment — Full Engagement', price: 24999, billing: 'one-time', desc: 'Multi-site assessment with stakeholder interviews, risk scoring, and roadmap deliverable.' },
+                { id: 'advisory', label: 'Executive Advisory', price: 2500, billing: '/mo', desc: 'Monthly retainer — strategic guidance, operational reviews, and leadership advisory sessions.' },
+                { id: 'op_leadership', label: 'Operational Leadership (Fractional)', price: 5000, billing: '/mo', desc: 'Part-time embedded operational leadership — fills gaps between permanent hires.' },
+                { id: 'knowledge', label: 'Knowledge Transfer', price: 5000, billing: 'one-time', desc: 'Structured capture and documentation of institutional operational knowledge.' },
+                { id: 'transition', label: 'Leadership Transition™', price: 7500, billing: 'one-time', desc: 'Full transition engagement — 30/60/90 day plan, knowledge interviews, and handover package.' },
+                { id: 'training_sm', label: 'Training — Small Team (1–10)', price: 1500, billing: 'one-time', desc: 'Platform training package for small teams.' },
+                { id: 'training_dept', label: 'Training — Department (11–25)', price: 3500, billing: 'one-time', desc: 'Department-level platform training.' },
+                { id: 'training_ops', label: 'Training — Operations (26–50)', price: 6500, billing: 'one-time', desc: 'Full operations team training package.' },
+              ];
+
+              const TRAVEL_OPTIONS = [
+                { value: 'none', label: 'No travel required', price: 0 },
+                { value: 'regional', label: 'Regional (drive/day trip)', price: 1500 },
+                { value: 'national', label: 'National (flight + hotel)', price: 3500 },
+                { value: 'multisite', label: 'Multi-site / Extended', price: 5500 },
+              ];
+
+              const SUPPORT_OPTIONS = [
+                { value: 'standard', label: 'Standard email support', price: 0 },
+                { value: 'priority', label: 'Priority response (+$3,000/yr)', price: 3000 },
+                { value: 'enterprise', label: 'Enterprise SLA — dedicated (+$10,000/yr)', price: 10000 },
+              ];
+
+              const licensePrice = LICENSE_OPTIONS.find(o => o.value === proposalLicense)?.price ?? 0;
+              const servicesTotal = SERVICES.filter(s => proposalServices[s.id]).reduce((t, s) => t + s.price, 0);
+              const travelPrice = TRAVEL_OPTIONS.find(o => o.value === proposalTravel)?.price ?? 0;
+              const supportPrice = SUPPORT_OPTIONS.find(o => o.value === proposalSupport)?.price ?? 0;
+              const grandTotal = licensePrice + servicesTotal + travelPrice + supportPrice;
+
+              return (
+                <div className="space-y-5 py-2">
+                  {/* License */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Annual License</p>
+                    <Select value={proposalLicense} onValueChange={setProposalLicense}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select license tier..." /></SelectTrigger>
+                      <SelectContent>
+                        {LICENSE_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}{o.price > 0 ? ` — $${o.price.toLocaleString()}/yr` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Professional Services */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Professional Services</p>
+                    <div className="space-y-2">
+                      {SERVICES.map(svc => (
+                        <label key={svc.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${proposalServices[svc.id] ? 'border-primary/50 bg-primary/5' : 'border-border/50 hover:bg-muted/20'}`}>
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 shrink-0 accent-primary"
+                            checked={!!proposalServices[svc.id]}
+                            onChange={e => setProposalServices(prev => ({ ...prev, [svc.id]: e.target.checked }))}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{svc.label}</span>
+                              <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                                ${svc.price.toLocaleString()} {svc.billing}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{svc.desc}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Travel */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Travel (Estimated)</p>
+                    <Select value={proposalTravel} onValueChange={setProposalTravel}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TRAVEL_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}{o.price > 0 ? ` — ~$${o.price.toLocaleString()}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Support */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Ongoing Support</p>
+                    <Select value={proposalSupport} onValueChange={setProposalSupport}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SUPPORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Proposal Summary</p>
+                    {licensePrice > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Annual License ({LICENSE_OPTIONS.find(o => o.value === proposalLicense)?.label})</span>
+                        <span className="font-medium">${licensePrice.toLocaleString()}/yr</span>
+                      </div>
+                    )}
+                    {SERVICES.filter(s => proposalServices[s.id]).map(svc => (
+                      <div key={svc.id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{svc.label}</span>
+                        <span className="font-medium">${svc.price.toLocaleString()} {svc.billing}</span>
+                      </div>
+                    ))}
+                    {travelPrice > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Travel (est.)</span>
+                        <span className="font-medium">~${travelPrice.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {supportPrice > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Ongoing Support</span>
+                        <span className="font-medium">${supportPrice.toLocaleString()}/yr</span>
+                      </div>
+                    )}
+                    <div className="border-t border-border pt-3 flex justify-between items-center">
+                      <span className="font-semibold">Estimated Total</span>
+                      <span className="text-xl font-bold text-primary">${grandTotal.toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This is a proposal estimate. Final engagement terms are confirmed in a signed statement of work.
+                      Annual license and professional services are invoiced separately.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-1">
+                    <Button variant="outline" onClick={() => setProposalOpen(false)}>Close</Button>
+                    <Button onClick={() => { setProposalOpen(false); openEngage('Proposal Calculator Inquiry'); }}>
+                      Send to Nexum Suum <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
 
         {/* Trust badges */}
         <div className="border-t border-border pt-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-sm text-muted-foreground">
