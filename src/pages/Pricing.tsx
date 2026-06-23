@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Check, Flame, Zap, Building2, Crown, ArrowRight, X,
   ShoppingCart, Shield, Star, Sparkles, Lock, Users, Package, Cpu, Wifi,
-  HelpCircle, ChevronRight, AlertTriangle, RefreshCw, Wrench,
+  HelpCircle, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, Wrench,
   Phone, MapPin, FileText, TrendingUp,
   ClipboardCheck, BookOpen, BarChart3, MessageSquare,
+  CheckCircle2, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -1196,6 +1197,11 @@ export default function Pricing() {
   const [engageSubmitting, setEngageSubmitting] = useState(false);
   const [engageSuccess, setEngageSuccess] = useState(false);
   const [engageLoading, setEngageLoading] = useState<string | null>(null);
+  // On-Site Engagements expand/collapse + inline inquiry
+  const [onsiteExpanded, setOnsiteExpanded] = useState<string | null>(null);
+  const [onsiteForm, setOnsiteForm] = useState<Record<string, { name: string; email: string; org: string; message: string }>>({});
+  const [onsiteSubmitted, setOnsiteSubmitted] = useState<Set<string>>(new Set());
+  const [onsiteSubmitting, setOnsiteSubmitting] = useState<string | null>(null);
   // Professional Services Proposal Calculator
   const [proposalOpen, setProposalOpen] = useState(false);
   const [proposalLicense, setProposalLicense] = useState<string>('');
@@ -1932,7 +1938,7 @@ export default function Pricing() {
           </div>
 
           {/* Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
                 step: 1,
@@ -1975,6 +1981,26 @@ export default function Pricing() {
               },
               {
                 step: 3,
+                name: 'FI™ Assessment',
+                price: '$2,500–$7,500',
+                priceNote: '1-day structured assessment',
+                quoteOnly: true,
+                badge: 'Best for Referrals',
+                icon: ClipboardCheck,
+                color: 'text-teal-400',
+                border: 'border-teal-400/30',
+                bg: 'bg-teal-400/5',
+                badgeColor: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+                desc: 'A structured 1-day facility assessment producing operational risk scores, compliance gap analysis, and a written executive findings report.',
+                deliverables: [
+                  'Operational risk scoring',
+                  'Compliance gap analysis',
+                  'Knowledge continuity review',
+                  'Executive findings report',
+                ],
+              },
+              {
+                step: 4,
                 name: 'Onsite Lite',
                 price: '$2,500',
                 priceNote: 'Half-day assessment',
@@ -1997,7 +2023,7 @@ export default function Pricing() {
                 ],
               },
               {
-                step: 4,
+                step: 5,
                 name: 'Full Engagement',
                 price: '$5,000+',
                 priceNote: 'Full transformation program',
@@ -2020,7 +2046,7 @@ export default function Pricing() {
                 ],
               },
               {
-                step: 5,
+                step: 6,
                 name: 'Consulting / VVFI',
                 price: 'Retainer',
                 priceNote: '$497–$1,997/mo',
@@ -2178,6 +2204,430 @@ export default function Pricing() {
                 Learn About the FI Framework
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* ── On-Site Engagements ─────────────────────────────────────────── */}
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm font-medium uppercase tracking-widest">
+              <MapPin className="w-4 h-4 text-primary" />
+              On-Site Engagements
+            </div>
+            <h2 className="text-2xl font-bold">We Come To You</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto text-sm">
+              Structured on-site programs designed around your facility's stage — from structured assessment through ongoing advisory.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* Step 5 — FI™ Assessment */}
+            {(() => {
+              const key = 'fi-assessment';
+              const isOpen = onsiteExpanded === key;
+              const form = onsiteForm[key] || { name: '', email: '', org: '', message: '' };
+              const submitted = onsiteSubmitted.has(key);
+              return (
+                <div key={key} className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30 text-xs">Step 5</Badge>
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Best for Referrals</Badge>
+                      </div>
+                      <h3 className="font-semibold text-base">FI™ Assessment</h3>
+                      <p className="text-xs text-muted-foreground">$2,500 – $7,500 · Structured 1-day site assessment</p>
+                    </div>
+                    <button
+                      onClick={() => setOnsiteExpanded(isOpen ? null : key)}
+                      className="mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="space-y-4 pt-1">
+                      <ul className="space-y-1.5 text-sm text-muted-foreground">
+                        {[
+                          '1-day structured facility assessment',
+                          'Operational risk scoring across all systems',
+                          'Compliance gap identification',
+                          'Knowledge continuity review',
+                          'Executive findings report with recommendations',
+                        ].map(item => (
+                          <li key={item} className="flex items-start gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 mt-0.5 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      {submitted ? (
+                        <p className="text-sm text-teal-400 font-medium">Request received — we'll be in touch within 1 business day.</p>
+                      ) : (
+                        <form
+                          onSubmit={async e => {
+                            e.preventDefault();
+                            try {
+                              await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ service: 'fi_assessment', ...form }),
+                              });
+                            } catch { /* swallow */ }
+                            setOnsiteSubmitted(prev => new Set([...prev, key]));
+                          }}
+                          className="space-y-2"
+                        >
+                          <Input placeholder="Your name" value={form.name} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, name: e.target.value } }))} required />
+                          <Input placeholder="Email" type="email" value={form.email} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, email: e.target.value } }))} required />
+                          <Input placeholder="Organization" value={form.org} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, org: e.target.value } }))} />
+                          <Textarea placeholder="Brief note about your facility or goals…" value={form.message} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, message: e.target.value } }))} rows={2} />
+                          <Button type="submit" size="sm" className="w-full bg-teal-600 hover:bg-teal-500 text-white">Request FI™ Assessment <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Step 6 — Onsite Lite FIWE™ */}
+            {(() => {
+              const key = 'onsite-lite';
+              const isOpen = onsiteExpanded === key;
+              const form = onsiteForm[key] || { name: '', email: '', org: '', message: '' };
+              const submitted = onsiteSubmitted.has(key);
+              return (
+                <div key={key} className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Step 6</Badge>
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">Most Booked</Badge>
+                      </div>
+                      <h3 className="font-semibold text-base">Onsite Lite — FIWE™</h3>
+                      <p className="text-xs text-muted-foreground">$2,500 · Physical walkthrough & validation</p>
+                    </div>
+                    <button
+                      onClick={() => setOnsiteExpanded(isOpen ? null : key)}
+                      className="mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="space-y-4 pt-1">
+                      <ul className="space-y-1.5 text-sm text-muted-foreground">
+                        {[
+                          'Physical walkthrough of all critical systems',
+                          'Validates findings from virtual assessments',
+                          'Operator interviews & knowledge capture',
+                          'Live audit trail generation during visit',
+                          '60-day Basic FI Platform access included',
+                        ].map(item => (
+                          <li key={item} className="flex items-start gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      {submitted ? (
+                        <p className="text-sm text-amber-400 font-medium">Request received — we'll be in touch within 1 business day.</p>
+                      ) : (
+                        <form
+                          onSubmit={async e => {
+                            e.preventDefault();
+                            try {
+                              await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ service: 'onsite_lite_fiwe', ...form }),
+                              });
+                            } catch { /* swallow */ }
+                            setOnsiteSubmitted(prev => new Set([...prev, key]));
+                          }}
+                          className="space-y-2"
+                        >
+                          <Input placeholder="Your name" value={form.name} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, name: e.target.value } }))} required />
+                          <Input placeholder="Email" type="email" value={form.email} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, email: e.target.value } }))} required />
+                          <Input placeholder="Organization" value={form.org} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, org: e.target.value } }))} />
+                          <Textarea placeholder="Brief note about your facility or goals…" value={form.message} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, message: e.target.value } }))} rows={2} />
+                          <Button type="submit" size="sm" className="w-full bg-amber-600 hover:bg-amber-500 text-white">Request Onsite Lite <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Step 7 — Full Engagement */}
+            {(() => {
+              const key = 'full-engagement';
+              const isOpen = onsiteExpanded === key;
+              const form = onsiteForm[key] || { name: '', email: '', org: '', message: '' };
+              const submitted = onsiteSubmitted.has(key);
+              return (
+                <div key={key} className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30 text-xs">Step 7</Badge>
+                      </div>
+                      <h3 className="font-semibold text-base">Full Engagement</h3>
+                      <p className="text-xs text-muted-foreground">$5,000+ · Comprehensive multi-day engagement</p>
+                    </div>
+                    <button
+                      onClick={() => setOnsiteExpanded(isOpen ? null : key)}
+                      className="mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="space-y-4 pt-1">
+                      <ul className="space-y-1.5 text-sm text-muted-foreground">
+                        {[
+                          'Everything in Onsite Lite plus all staff roles',
+                          'Deep-dive troubleshooting across all systems',
+                          'Safety testing and hazard documentation',
+                          'Compliance fault identification and remediation plan',
+                          'Permits, HVAC & Energy efficiency reports',
+                          'Full AI-powered operational intelligence report',
+                        ].map(item => (
+                          <li key={item} className="flex items-start gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-violet-400 mt-0.5 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      {submitted ? (
+                        <p className="text-sm text-violet-400 font-medium">Request received — we'll be in touch within 1 business day.</p>
+                      ) : (
+                        <form
+                          onSubmit={async e => {
+                            e.preventDefault();
+                            try {
+                              await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ service: 'full_engagement', ...form }),
+                              });
+                            } catch { /* swallow */ }
+                            setOnsiteSubmitted(prev => new Set([...prev, key]));
+                          }}
+                          className="space-y-2"
+                        >
+                          <Input placeholder="Your name" value={form.name} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, name: e.target.value } }))} required />
+                          <Input placeholder="Email" type="email" value={form.email} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, email: e.target.value } }))} required />
+                          <Input placeholder="Organization" value={form.org} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, org: e.target.value } }))} />
+                          <Textarea placeholder="Tell us about your facility size, systems, and key challenges…" value={form.message} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, message: e.target.value } }))} rows={2} />
+                          <Button type="submit" size="sm" className="w-full bg-violet-600 hover:bg-violet-500 text-white">Request Full Engagement <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Step 8 — Consulting / VVFI Retainer */}
+            {(() => {
+              const key = 'vvfi-retainer';
+              const isOpen = onsiteExpanded === key;
+              const form = onsiteForm[key] || { name: '', email: '', org: '', message: '' };
+              const submitted = onsiteSubmitted.has(key);
+              return (
+                <div key={key} className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Step 8</Badge>
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">Ongoing Advisory</Badge>
+                      </div>
+                      <h3 className="font-semibold text-base">Consulting / VVFI Retainer</h3>
+                      <p className="text-xs text-muted-foreground">$497 – $1,997/mo · Ongoing strategic advisory</p>
+                    </div>
+                    <button
+                      onClick={() => setOnsiteExpanded(isOpen ? null : key)}
+                      className="mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="space-y-4 pt-1">
+                      <ul className="space-y-1.5 text-sm text-muted-foreground">
+                        {[
+                          'Quarterly strategy meetings with custom questionnaire',
+                          'Weekly improvement reports (Analysis to Improve)',
+                          'Custom SOPs and checklists generated on demand',
+                          '1 original VVFI report + 2 free copies within 72hrs',
+                          '20% discount on first year of FI Platform license',
+                        ].map(item => (
+                          <li key={item} className="flex items-start gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      {submitted ? (
+                        <p className="text-sm text-emerald-400 font-medium">Request received — we'll be in touch within 1 business day.</p>
+                      ) : (
+                        <form
+                          onSubmit={async e => {
+                            e.preventDefault();
+                            try {
+                              await fetch(`${import.meta.env.VITE_API_BASE_URL}/intake`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ service: 'vvfi_retainer', ...form }),
+                              });
+                            } catch { /* swallow */ }
+                            setOnsiteSubmitted(prev => new Set([...prev, key]));
+                          }}
+                          className="space-y-2"
+                        >
+                          <Input placeholder="Your name" value={form.name} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, name: e.target.value } }))} required />
+                          <Input placeholder="Email" type="email" value={form.email} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, email: e.target.value } }))} required />
+                          <Input placeholder="Organization" value={form.org} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, org: e.target.value } }))} />
+                          <Textarea placeholder="What operational challenges are you looking to solve with ongoing advisory?" value={form.message} onChange={e => setOnsiteForm(p => ({ ...p, [key]: { ...form, message: e.target.value } }))} rows={2} />
+                          <Button type="submit" size="sm" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white">Start Retainer Conversation <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* ── Enterprise Joint Programs ────────────────────────────────────── */}
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm font-medium uppercase tracking-widest">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Enterprise Joint Programs
+            </div>
+            <h2 className="text-2xl font-bold">Institutional-Scale Programs</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
+              Multi-partner programs for organizations that need cross-institutional intelligence, continuity, and operational governance at scale.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            {[
+              {
+                key: 'ifra',
+                abbr: 'IFRA™',
+                name: 'Integrated Facility Risk Assessment',
+                color: 'blue',
+                borderClass: 'border-blue-500/30',
+                bgClass: 'bg-blue-500/5',
+                badgeClass: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                partners: ['NS', 'PAG', 'VM'],
+                description: 'A cross-institutional risk assessment framework that combines physical site data, compliance records, and operational intelligence into a unified risk profile used by insurers, property groups, and facility managers.',
+                idealFor: 'Multi-site operators, property managers, insurers needing defensible risk documentation',
+                tiers: [
+                  { name: 'Pilot', price: '$4,970', note: 'Single site, 90-day engagement' },
+                  { name: 'Mid-Market', price: '$9,970', note: '3–10 sites, 6-month program' },
+                  { name: 'Enterprise', price: '$19,970', note: '10+ sites, annual cycle' },
+                  { name: 'Government', price: 'Custom', note: 'Multi-agency, federal compliance' },
+                ],
+              },
+              {
+                key: 'digp',
+                abbr: 'DIGP™',
+                name: 'Decision Intelligence Governance Program',
+                color: 'violet',
+                borderClass: 'border-violet-500/30',
+                bgClass: 'bg-violet-500/5',
+                badgeClass: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+                partners: ['NS', 'PAG'],
+                description: 'Structured governance framework for capturing, reviewing, and auditing operational decisions. Converts facility decision patterns into institutional policy, leadership continuity plans, and defensible audit trails.',
+                idealFor: 'Executive teams, compliance officers, organizations with leadership transition risk',
+                tiers: [
+                  { name: 'Pilot', price: '$3,970', note: 'Leadership team, 60-day setup' },
+                  { name: 'Mid-Market', price: '$7,970', note: 'Dept-level governance, quarterly review' },
+                  { name: 'Enterprise', price: '$14,970', note: 'Org-wide decision intelligence layer' },
+                  { name: 'Government', price: 'Custom', note: 'Public accountability framework' },
+                ],
+              },
+              {
+                key: 'oc3',
+                abbr: 'OC3™',
+                name: 'Operational Continuity & Compliance Certification',
+                color: 'emerald',
+                borderClass: 'border-emerald-500/30',
+                bgClass: 'bg-emerald-500/5',
+                badgeClass: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+                partners: ['NS', 'VM'],
+                description: 'A joint certification program that validates operational continuity posture across facilities. Produces a third-party-reviewed OC3™ Certification used in procurement bids, tenant negotiations, and regulatory submissions.',
+                idealFor: 'Facilities seeking vendor or tenant qualification, government contractors, compliance-heavy operations',
+                tiers: [
+                  { name: 'Pilot', price: '$2,970', note: 'Single facility, certification review' },
+                  { name: 'Mid-Market', price: '$5,970', note: 'Portfolio certification, 12-month cycle' },
+                  { name: 'Enterprise', price: '$11,970', note: 'Multi-site, continuous compliance layer' },
+                  { name: 'Government', price: 'Custom', note: 'Regulatory-aligned, agency submission ready' },
+                ],
+              },
+              {
+                key: 'ciip',
+                abbr: 'CIIP™',
+                name: 'Continuity & Institutional Intelligence Program',
+                color: 'amber',
+                borderClass: 'border-amber-500/30',
+                bgClass: 'bg-amber-500/5',
+                badgeClass: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                partners: ['NS', 'PAG', 'VM'],
+                description: 'The flagship institutional program combining operational DNA, leadership succession planning, knowledge continuity vaults, and AI-powered foresight modeling. Designed for organizations that cannot afford operational amnesia.',
+                idealFor: 'Organizations with critical infrastructure, high staff turnover risk, or complex multi-generational operational knowledge',
+                tiers: [
+                  { name: 'Pilot', price: '$6,970', note: 'Core team, knowledge vault setup' },
+                  { name: 'Mid-Market', price: '$12,970', note: 'Dept continuity modeling, 12-month' },
+                  { name: 'Enterprise', price: '$24,970', note: 'Full institutional intelligence layer' },
+                  { name: 'Government', price: 'Custom', note: 'Mission-critical continuity assurance' },
+                ],
+              },
+            ].map(prog => (
+              <div key={prog.key} className={`rounded-xl border ${prog.borderClass} ${prog.bgClass} p-5 space-y-4`}>
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <Badge className={`${prog.badgeClass} text-sm font-bold px-2.5 py-0.5`}>{prog.abbr}</Badge>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {prog.partners.map(p => (
+                        <span key={p} className="text-xs font-medium bg-muted/60 text-muted-foreground rounded px-1.5 py-0.5 border border-border/50">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <h3 className="font-semibold text-base leading-snug">{prog.name}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{prog.description}</p>
+                  <p className="text-xs text-muted-foreground/70 italic">Ideal for: {prog.idealFor}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {prog.tiers.map(tier => (
+                    <div key={tier.name} className="rounded-lg border border-border/40 bg-card/40 p-2.5 space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground/80">{tier.name}</p>
+                      <p className="text-sm font-bold">{tier.price}</p>
+                      <p className="text-xs text-muted-foreground leading-tight">{tier.note}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  size="sm"
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => openEngage(`${prog.abbr} — ${prog.name}`)}
+                >
+                  Request Engagement <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
 
