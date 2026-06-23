@@ -97,6 +97,7 @@ import ContinuityIntelligence from "./pages/ContinuityIntelligence";
 import Licensees from "./pages/admin/Licensees";
 import OIReports from "./pages/admin/OIReports";
 import LeadershipTransition from "./pages/LeadershipTransition";
+import VendorIntelligence from "./pages/VendorIntelligence";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -429,6 +430,10 @@ export const router = createBrowserRouter([
           {
             path: "operational-intelligence",
             element: <OperationalIntelligence />,
+          },
+          {
+            path: "vendor-intelligence",
+            element: <VendorIntelligence />,
           },
           {
             path: "osha-300",

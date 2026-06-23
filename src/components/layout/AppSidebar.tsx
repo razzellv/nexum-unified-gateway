@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
-  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck, Network,
 } from "lucide-react";
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -118,6 +118,7 @@ const allNavItems: NavItem[] = [
   // ── Intelligence Layer™ — What does this mean? ────────────────────────────
   { type: 'separator', name: 'Intelligence Layer™', access: 'leadership' },
   { name: 'Operational Intelligence™', href: '/operational-intelligence', icon: BrainCircuit, access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'Vendor Intelligence™',      href: '/vendor-intelligence',      icon: Network,      access: 'leadership', tier: 'vendors' },
   { name: 'OCCAE™',                    href: '/occae',                    icon: BrainCircuit, access: 'leadership', tier: 'occae' },
   { name: 'Drift Intelligence™',       href: '/drift-intelligence',       icon: TrendingDown, access: 'leadership', tier: 'drift_intelligence' },
   { name: 'System Violations™',        href: '/system-violations',        icon: AlertOctagon, access: 'leadership', tier: 'system_violations' },

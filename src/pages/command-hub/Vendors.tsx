@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { VendorCard } from '@/components/command-hub/vendors/VendorCard';
@@ -13,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Plus, Search, Phone, RefreshCw, Mail, Send, Bell,
   CheckCircle, Clock, AlertTriangle, Users, ClipboardList, BarChart3,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, BrainCircuit,
 } from 'lucide-react';
 import { AddVendorDialog } from '@/components/command-hub/dialogs/AddVendorDialog';
 import { FilterDialog } from '@/components/command-hub/dialogs/FilterDialog';
@@ -250,6 +251,7 @@ function AlertPokeDialog({ vendor, open, onOpenChange, onSend }: {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const Vendors = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const facilityId = user?.facilityId || 'facility-001';
   const [vendors, setVendors]             = useState<Vendor[]>([]);
   const [alerts, setAlerts]               = useState<VendorAlert[]>(MOCK_ALERTS);
@@ -556,6 +558,19 @@ const Vendors = () => {
 
           {/* ── Performance tab ────────────────────────────────────────────── */}
           <TabsContent value="performance" className="space-y-4 mt-4">
+            {/* Vendor Intelligence™ promo */}
+            <div className="flex items-center justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4 text-primary shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Vendor Intelligence™ is available</p>
+                  <p className="text-[10px] text-muted-foreground">Full VIS scoring, knowledge retention, risk heatmap, technician profiles, and AI insights</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate('/vendor-intelligence')} className="shrink-0 text-xs border-primary/30 text-primary hover:bg-primary/10">
+                Open Intelligence
+              </Button>
+            </div>
             {(() => {
               const entries = Object.entries(MOCK_PERFORMANCE);
               const fleetAvgCompletion = Math.round(entries.reduce((sum, [, p]) => sum + p.completionRate, 0) / entries.length);
@@ -623,10 +638,15 @@ const Vendors = () => {
                               ))}
                             </div>
 
-                            {/* Overall score */}
+                            {/* Overall score + intelligence link */}
                             <div className="flex items-center justify-between pt-1 border-t border-border/20">
                               <span className="text-xs text-muted-foreground">Overall score</span>
-                              <span className={cn('text-sm font-bold', scoreColor(score))}>{score} / 100</span>
+                              <div className="flex items-center gap-2">
+                                <span className={cn('text-sm font-bold', scoreColor(score))}>{score} / 100</span>
+                                <button onClick={() => navigate('/vendor-intelligence')} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                                  <BrainCircuit className="w-3 h-3" /> VIS
+                                </button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
