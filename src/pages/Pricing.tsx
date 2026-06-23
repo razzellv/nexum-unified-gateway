@@ -1204,7 +1204,7 @@ export default function Pricing() {
   const [onsiteSubmitting, setOnsiteSubmitting] = useState<string | null>(null);
   // Professional Services Proposal Calculator
   const [proposalOpen, setProposalOpen] = useState(false);
-  const [proposalLicense, setProposalLicense] = useState<string>('');
+  const [proposalLicense, setProposalLicense] = useState<string>('none');
   const [proposalServices, setProposalServices] = useState<Record<string, boolean>>({});
   const [proposalTravel, setProposalTravel] = useState<string>('none');
   const [proposalSupport, setProposalSupport] = useState<string>('standard');
@@ -3587,7 +3587,7 @@ export default function Pricing() {
             </DialogHeader>
             {(() => {
               const LICENSE_OPTIONS = [
-                { value: '', label: 'No annual license (services only)', price: 0 },
+                { value: 'none', label: 'No annual license (services only)', price: 0 },
                 { value: 'basic', label: 'Facility Basic', price: 10788 },
                 { value: 'standard', label: 'Facility Standard', price: 23988 },
                 { value: 'business', label: 'Facility Business', price: 47988 },
