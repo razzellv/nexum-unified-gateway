@@ -150,10 +150,10 @@ const allNavItems: NavItem[] = [
   { name: 'Environmental',         href: '/environmental',        icon: Leaf,       access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Consulting Services',   href: '/consulting',           icon: Briefcase,  access: 'leadership' },
   { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart,access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
-  { name: 'Gov / Public Safety',   href: '/government-dashboard', icon: Shield,     access: 'all',        tier: 'retail_inventory',   orgTypes: ['government'] },
 
   // ── Government Intelligence™ ─────────────────────────────────────────────────
   { type: 'separator', name: 'Government Intelligence™', access: 'all', orgTypes: ['government'] },
+  { name: 'Gov / Public Safety',   href: '/government-dashboard', icon: Shield,     access: 'all',        orgTypes: ['government'] },
   { name: 'Gov Intelligence Hub™',   href: '/gov-intelligence',         icon: Shield,        access: 'all',        orgTypes: ['government'] },
   { name: 'Gov Assessment',          href: '/gov-assessment',            icon: ClipboardCheck, access: 'leadership', orgTypes: ['government'] },
   { name: 'Knowledge Preservation',  href: '/gov-knowledge',             icon: Brain,         access: 'leadership', orgTypes: ['government'] },
