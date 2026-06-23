@@ -242,7 +242,7 @@ const CommandDashboard = () => {
         )}
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
           {metrics.map((metric, index) => (
             <MetricCard key={metric.label} metric={metric} delay={index * 50} />
           ))}

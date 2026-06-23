@@ -51,7 +51,7 @@ export function MetricCard({ metric, delay = 0 }: MetricCardProps) {
       </div>
       
       <div className="mt-3 flex items-end justify-between">
-        <p className={cn("text-3xl font-bold tracking-tight", getStatusColor(metric.status))}>
+        <p className={cn("text-2xl font-bold tracking-tight", getStatusColor(metric.status))}>
           {metric.value}
         </p>
         

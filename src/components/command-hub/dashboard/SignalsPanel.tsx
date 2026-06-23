@@ -28,7 +28,7 @@ function SignalItem({ signal, onAck }: { signal: Signal; onAck: (id: string) => 
 
   return (
     <div className={cn(
-      'p-4 rounded-lg border transition-all duration-200',
+      'p-3 rounded-lg border transition-all duration-200',
       signal.acknowledged
         ? 'bg-muted/30 border-border/50 opacity-60'
         : signal.severity === 'critical'
@@ -37,27 +37,27 @@ function SignalItem({ signal, onAck }: { signal: Signal; onAck: (id: string) => 
             ? 'bg-warning/10 border-warning/30'
             : 'bg-card border-border'
     )}>
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">{getIcon()}</div>
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5 shrink-0">{getIcon()}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline" className="text-xs capitalize">
+          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <Badge variant="outline" className="text-xs capitalize h-5 px-1.5">
               {signal.system?.replace(/_/g, ' ')}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              {new Date(signal.timestamp).toLocaleTimeString()}
+              {new Date(signal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <p className="text-sm text-foreground">{signal.message}</p>
+          <p className="text-sm text-foreground line-clamp-2 leading-snug">{signal.message}</p>
           {signal.value !== undefined && signal.threshold !== undefined && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Value: {signal.value} | Threshold: {signal.threshold}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {signal.value} / {signal.threshold} threshold
             </p>
           )}
         </div>
         {!signal.acknowledged && (
-          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onAck(signal.id)}>
-            <Check className="w-4 h-4 mr-1" />Ack
+          <Button variant="ghost" size="sm" className="shrink-0 h-7 px-2 text-xs" onClick={() => onAck(signal.id)}>
+            <Check className="w-3 h-3 mr-1" />Ack
           </Button>
         )}
       </div>
