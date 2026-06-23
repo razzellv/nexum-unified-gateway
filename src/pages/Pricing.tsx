@@ -269,8 +269,9 @@ const GOVERNMENT_PLANS: Plan[] = [
     border: 'border-blue-400/30',
     bg: 'bg-blue-400/5',
     badge: null,
-    description: 'Core tools for public safety departments. Apparatus tracking, personnel certifications, and compliance logging in one platform.',
+    description: 'Core tools for public safety departments and municipal agencies. Apparatus tracking, personnel certifications, and government infrastructure assessment.',
     features: [
+      '── Public Safety Operations',
       'Apparatus / fleet tracking',
       'Personnel certifications',
       'Chain of custody logging',
@@ -278,6 +279,10 @@ const GOVERNMENT_PLANS: Plan[] = [
       'Work orders',
       'Compliance logging',
       '1 department · 15 users',
+      '── Government Intelligence™',
+      'Government Readiness Assessment',
+      'Infrastructure Continuity scoring',
+      'Deferred Maintenance tracker',
     ],
   },
   {
@@ -291,14 +296,20 @@ const GOVERNMENT_PLANS: Plan[] = [
     border: 'border-cyan-400/30',
     bg: 'bg-cyan-400/5',
     badge: null,
-    description: 'Advanced response metrics and multi-unit coordination. Includes NFPA 1710 benchmark scoring and weapons inventory.',
+    description: 'Advanced response metrics, multi-unit coordination, and expanded government intelligence including knowledge preservation and capital planning.',
     features: [
-      'Everything in Basic',
+      'Everything in Command Basic',
+      '── Public Safety',
       'Response metrics (NFPA 1710)',
       'Weapons + uniform inventory',
       'Compliance reporting',
       'Multi-unit (up to 5)',
       '30 users',
+      '── Government Intelligence™',
+      'Knowledge Preservation™ module',
+      'Capital Planning Intelligence™',
+      'Emergency Ops Intelligence™',
+      'Public Works Intelligence™',
     ],
   },
   {
@@ -312,13 +323,19 @@ const GOVERNMENT_PLANS: Plan[] = [
     border: 'border-purple-400/40',
     bg: 'bg-purple-400/5',
     badge: 'Most Capable',
-    description: 'Full platform access for large public safety agencies. AI compliance, decision-defense layer, and a dedicated account manager.',
+    description: 'Full platform for large public safety agencies and government organizations. Complete Government Intelligence™ suite, AI compliance, and decision continuity.',
     features: [
-      'Everything in Standard',
+      'Everything in Command Standard',
+      '── Full Government Intelligence™',
+      'Government Readiness Index™',
+      'Decision Continuity Registry™',
+      'Environmental Intelligence™',
+      'Government PMO™ (6-phase)',
+      'Workforce Continuity tracking',
+      '── Advanced Operations',
       'AI compliance analysis',
       'Unlimited units',
       'Full Command Hub',
-      'System Violations™ lifecycle',
       'Decision Continuity™ Vault',
       'Scope Alignment™ Intelligence',
       'Optimize & Learn LMS',
@@ -337,15 +354,21 @@ const GOVERNMENT_PLANS: Plan[] = [
     bg: 'bg-yellow-400/5',
     badge: 'Custom',
     isEnterprise: true,
-    description: 'Custom pricing for statewide or multi-agency deployments. Full white-label, custom integrations, and dedicated SLA.',
+    description: 'Custom pricing for statewide, multi-agency, or federal deployments. Full white-label, BMS/SCADA integrations, and dedicated operational continuity support.',
     features: [
       'Everything in Command Pro',
+      '── Enterprise Scale',
       'Multi-agency deployment',
       'White-label options',
+      'BMS / SCADA integration',
       'Custom integrations',
       'Dedicated SLA',
-      'On-site training',
+      'On-site training & assessment',
       'Custom contract',
+      '── Joint Programs',
+      'IFRA™ Integrated Risk Assessment',
+      'CIIP™ Continuity Intelligence',
+      'OC3™ Certification eligible',
     ],
   },
 ];
@@ -665,12 +688,12 @@ const LICENSING_PATHS = [
     sectors: ['government'] as SectorTab[],
     emoji: '🛡️',
     title: 'Government / Public Safety',
-    subtitle: 'Departments, agencies, and public safety operations',
+    subtitle: 'Municipal, county, state, federal agencies, and public safety operations',
     color: 'border-blue-500/40 bg-blue-500/5',
     badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    features: ['Apparatus & fleet tracking', 'Personnel certifications', 'Chain of custody logging', 'NFPA 1710 response metrics', 'Weapons & uniform inventory', 'CCTV / security camera management'],
+    features: ['Apparatus & fleet tracking', 'Personnel certifications', 'Chain of custody logging', 'NFPA 1710 response metrics', 'Government Readiness Index™', 'Knowledge Preservation™', 'Capital Planning Intelligence™', 'Emergency Ops Intelligence™', 'Decision Continuity Registry™', 'Government PMO™'],
     plan: 'Command Basic → Standard → Pro',
-    planNote: 'Scale from one department to a full multi-agency deployment.',
+    planNote: 'Scale from one department to a full multi-agency or statewide deployment.',
   },
   {
     id: 'property',
@@ -2710,14 +2733,24 @@ export default function Pricing() {
 
         {/* Government credibility strip */}
         {sector === 'government' && (
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 py-3 px-6 rounded-lg border border-blue-400/20 bg-blue-400/5 text-sm text-blue-300 font-medium">
-            <span>MBE Certified</span>
-            <span className="text-blue-400/30">·</span>
-            <span>SAM.gov Registered</span>
-            <span className="text-blue-400/30">·</span>
-            <span>TWIC Cleared</span>
-            <span className="text-blue-400/30">·</span>
-            <span>NJ Licensed Stationary Engineer</span>
+          <div className="space-y-3">
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 py-3 px-6 rounded-lg border border-blue-400/20 bg-blue-400/5 text-sm text-blue-300 font-medium">
+              <span>MBE Certified</span>
+              <span className="text-blue-400/30">·</span>
+              <span>SAM.gov Registered</span>
+              <span className="text-blue-400/30">·</span>
+              <span>TWIC Cleared</span>
+              <span className="text-blue-400/30">·</span>
+              <span>NJ Licensed Stationary Engineer</span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 py-2.5 px-6 rounded-lg border border-blue-500/15 bg-card/30 text-xs text-muted-foreground">
+              <span className="font-medium text-blue-300/80">Covers:</span>
+              <span>Municipal · County · State · Federal</span>
+              <span className="text-blue-400/30">·</span>
+              <span>Special Districts (Water, Sewer, Transit, Port, Airport)</span>
+              <span className="text-blue-400/30">·</span>
+              <span>Public Safety (Fire, Police, EMS, Dispatch)</span>
+            </div>
           </div>
         )}
 
