@@ -25,7 +25,7 @@ import {
   LogOut,
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
-  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck, Network,
+  Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck,
 } from "lucide-react";
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -151,6 +151,19 @@ const allNavItems: NavItem[] = [
   { name: 'Consulting Services',   href: '/consulting',           icon: Briefcase,  access: 'leadership' },
   { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart,access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
   { name: 'Gov / Public Safety',   href: '/government-dashboard', icon: Shield,     access: 'all',        tier: 'retail_inventory',   orgTypes: ['government'] },
+
+  // ── Government Intelligence™ ─────────────────────────────────────────────────
+  { type: 'separator', name: 'Government Intelligence™', access: 'all', orgTypes: ['government'] },
+  { name: 'Gov Intelligence Hub™',   href: '/gov-intelligence',         icon: Shield,        access: 'all',        orgTypes: ['government'] },
+  { name: 'Gov Assessment',          href: '/gov-assessment',            icon: ClipboardCheck, access: 'leadership', orgTypes: ['government'] },
+  { name: 'Knowledge Preservation',  href: '/gov-knowledge',             icon: Brain,         access: 'leadership', orgTypes: ['government'] },
+  { name: 'Capital Planning',        href: '/gov-capital-planning',      icon: TrendingUp,    access: 'leadership', orgTypes: ['government'] },
+  { name: 'Deferred Maintenance',    href: '/gov-deferred-maintenance',  icon: AlertTriangle, access: 'leadership', orgTypes: ['government'] },
+  { name: 'Emergency Ops Intel™',    href: '/gov-emergency-ops',         icon: AlertOctagon,  access: 'leadership', orgTypes: ['government'] },
+  { name: 'Public Works Intel™',     href: '/gov-public-works',          icon: Wrench,        access: 'leadership', orgTypes: ['government'] },
+  { name: 'Environmental Intel™',    href: '/gov-environmental',         icon: Leaf,          access: 'leadership', orgTypes: ['government'] },
+  { name: 'Government PMO™',         href: '/gov-pmo',                   icon: Briefcase,     access: 'leadership', orgTypes: ['government'] },
+  { name: 'Decision Registry™',      href: '/gov-decision-registry',     icon: BookOpen,      access: 'leadership', orgTypes: ['government'] },
 
   // ── Nexum Internal (admin only) ───────────────────────────────────────────
   { type: 'separator', name: 'Nexum Internal', access: 'admin_only' },

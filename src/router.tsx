@@ -98,6 +98,16 @@ import Licensees from "./pages/admin/Licensees";
 import OIReports from "./pages/admin/OIReports";
 import LeadershipTransition from "./pages/LeadershipTransition";
 import VendorIntelligence from "./pages/VendorIntelligence";
+import GovIntelligenceHub from "./pages/government/GovIntelligenceHub";
+import GovAssessment from "./pages/government/GovAssessment";
+import GovKnowledgePreservation from "./pages/government/GovKnowledgePreservation";
+import GovCapitalPlanning from "./pages/government/GovCapitalPlanning";
+import GovDeferredMaintenance from "./pages/government/GovDeferredMaintenance";
+import GovEmergencyOps from "./pages/government/GovEmergencyOps";
+import GovPublicWorks from "./pages/government/GovPublicWorks";
+import GovEnvironmental from "./pages/government/GovEnvironmental";
+import GovPMO from "./pages/government/GovPMO";
+import GovDecisionRegistry from "./pages/government/GovDecisionRegistry";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -435,6 +445,16 @@ export const router = createBrowserRouter([
             path: "vendor-intelligence",
             element: <VendorIntelligence />,
           },
+          { path: "gov-intelligence", element: <GovIntelligenceHub /> },
+          { path: "gov-assessment", element: <GovAssessment /> },
+          { path: "gov-knowledge", element: <GovKnowledgePreservation /> },
+          { path: "gov-capital-planning", element: <GovCapitalPlanning /> },
+          { path: "gov-deferred-maintenance", element: <GovDeferredMaintenance /> },
+          { path: "gov-emergency-ops", element: <GovEmergencyOps /> },
+          { path: "gov-public-works", element: <GovPublicWorks /> },
+          { path: "gov-environmental", element: <GovEnvironmental /> },
+          { path: "gov-pmo", element: <GovPMO /> },
+          { path: "gov-decision-registry", element: <GovDecisionRegistry /> },
           {
             path: "osha-300",
             element: <OSHA300Log />,
