@@ -215,6 +215,260 @@ function normalizeEquipmentType(raw: string): string {
   return EQ_TYPE_ALIASES[key] || raw.toLowerCase().replace(/\s+/g, '_') || 'other';
 }
 
+// ── Equipment Baseline Specification (localStorage) ───────────────────────────
+
+interface EquipmentBaseline {
+  equipmentId: string;
+  // Design specs
+  ratedCapacity: string;
+  designSupplyTemp: string;
+  designReturnTemp: string;
+  designFlowRate: string;
+  designPressure: string;
+  maxAllowableWorkingPressure: string;
+  ratedEfficiency: string;
+  fuelType: string;
+  // Operating setpoints
+  normalOperatingPressure: string;
+  normalOperatingTemp: string;
+  highTempAlarm: string;
+  lowTempAlarm: string;
+  highPressureAlarm: string;
+  lowPressureAlarm: string;
+  // Inspection / certification
+  inspectingBody: string;
+  certNumber: string;
+  certIssueDate: string;
+  certExpiryDate: string;
+  inspectionFrequency: string;
+  // Document reference
+  manualReference: string;
+  submittalReference: string;
+  nameplatePHoto: string;
+  notes: string;
+  lastUpdated: string;
+}
+
+const BASELINES_KEY = 'nexum_equipment_baselines';
+
+function getBaseline(equipmentId: string): EquipmentBaseline | null {
+  try {
+    const all = JSON.parse(localStorage.getItem(BASELINES_KEY) || '{}');
+    return all[equipmentId] || null;
+  } catch { return null; }
+}
+
+function saveBaseline(baseline: EquipmentBaseline): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(BASELINES_KEY) || '{}');
+    all[baseline.equipmentId] = { ...baseline, lastUpdated: new Date().toISOString() };
+    localStorage.setItem(BASELINES_KEY, JSON.stringify(all));
+  } catch {}
+}
+
+const EMPTY_SPEC_BASELINE: Omit<EquipmentBaseline, 'equipmentId' | 'lastUpdated'> = {
+  ratedCapacity: '', designSupplyTemp: '', designReturnTemp: '', designFlowRate: '',
+  designPressure: '', maxAllowableWorkingPressure: '', ratedEfficiency: '', fuelType: '',
+  normalOperatingPressure: '', normalOperatingTemp: '',
+  highTempAlarm: '', lowTempAlarm: '', highPressureAlarm: '', lowPressureAlarm: '',
+  inspectingBody: '', certNumber: '', certIssueDate: '', certExpiryDate: '', inspectionFrequency: '',
+  manualReference: '', submittalReference: '', nameplatePHoto: '', notes: '',
+};
+
+interface EquipmentBaselineModalProps {
+  open: boolean;
+  onClose: () => void;
+  equipmentId: string;
+  equipmentName: string;
+}
+
+function EquipmentBaselineModal({ open, onClose, equipmentId, equipmentName }: EquipmentBaselineModalProps) {
+  const [form, setForm] = useState<Omit<EquipmentBaseline, 'equipmentId' | 'lastUpdated'>>({ ...EMPTY_SPEC_BASELINE });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const existing = getBaseline(equipmentId);
+      if (existing) {
+        const { equipmentId: _id, lastUpdated: _lu, ...rest } = existing;
+        setForm(rest);
+      } else {
+        setForm({ ...EMPTY_SPEC_BASELINE });
+      }
+      setSaved(false);
+    }
+  }, [open, equipmentId]);
+
+  const set = (k: keyof typeof EMPTY_SPEC_BASELINE, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    saveBaseline({ equipmentId, lastUpdated: new Date().toISOString(), ...form });
+    setSaved(true);
+    setTimeout(() => { onClose(); }, 900);
+  };
+
+  const handleClear = () => setForm({ ...EMPTY_SPEC_BASELINE });
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary" />
+            Baseline Specification — {equipmentName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {saved && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-medium">
+              Baseline saved successfully.
+            </div>
+          )}
+
+          {/* Section 1: Design Specifications */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border/40 pb-1">
+              Design Specifications
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Rated Capacity</Label>
+                <Input value={form.ratedCapacity} onChange={e => set('ratedCapacity', e.target.value)} placeholder='e.g. "500,000 BTU/hr", "50 Ton", "100 GPM"' />
+              </div>
+              <div className="space-y-1">
+                <Label>Fuel Type</Label>
+                <Input value={form.fuelType} onChange={e => set('fuelType', e.target.value)} placeholder="Natural Gas, Electric, Diesel, etc." />
+              </div>
+              <div className="space-y-1">
+                <Label>Design Supply Temp</Label>
+                <Input value={form.designSupplyTemp} onChange={e => set('designSupplyTemp', e.target.value)} placeholder="°F or °C (e.g. 180°F)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Design Return Temp</Label>
+                <Input value={form.designReturnTemp} onChange={e => set('designReturnTemp', e.target.value)} placeholder="°F or °C (e.g. 160°F)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Design Flow Rate</Label>
+                <Input value={form.designFlowRate} onChange={e => set('designFlowRate', e.target.value)} placeholder="GPM, CFM, etc. (e.g. 250 GPM)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Design Pressure</Label>
+                <Input value={form.designPressure} onChange={e => set('designPressure', e.target.value)} placeholder="PSI or inches WC (e.g. 125 PSI)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Max Allowable Working Pressure (MAWP)</Label>
+                <Input value={form.maxAllowableWorkingPressure} onChange={e => set('maxAllowableWorkingPressure', e.target.value)} placeholder="PSI — from data plate (e.g. 150 PSI)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Rated Efficiency</Label>
+                <Input value={form.ratedEfficiency} onChange={e => set('ratedEfficiency', e.target.value)} placeholder="%, COP, EER, AFUE (e.g. 82.5% AFUE)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Operating Setpoints */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border/40 pb-1">
+              Operating Setpoints
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Normal Operating Pressure</Label>
+                <Input value={form.normalOperatingPressure} onChange={e => set('normalOperatingPressure', e.target.value)} placeholder="As-commissioned value (e.g. 100 PSI)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Normal Operating Temp</Label>
+                <Input value={form.normalOperatingTemp} onChange={e => set('normalOperatingTemp', e.target.value)} placeholder="As-commissioned value (e.g. 170°F)" />
+              </div>
+              <div className="space-y-1">
+                <Label>High Temp Alarm</Label>
+                <Input value={form.highTempAlarm} onChange={e => set('highTempAlarm', e.target.value)} placeholder="Trip/alarm setpoint (e.g. 210°F)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Low Temp Alarm</Label>
+                <Input value={form.lowTempAlarm} onChange={e => set('lowTempAlarm', e.target.value)} placeholder="Trip/alarm setpoint (e.g. 130°F)" />
+              </div>
+              <div className="space-y-1">
+                <Label>High Pressure Alarm</Label>
+                <Input value={form.highPressureAlarm} onChange={e => set('highPressureAlarm', e.target.value)} placeholder="Trip/alarm setpoint (e.g. 140 PSI)" />
+              </div>
+              <div className="space-y-1">
+                <Label>Low Pressure Alarm</Label>
+                <Input value={form.lowPressureAlarm} onChange={e => set('lowPressureAlarm', e.target.value)} placeholder="Trip/alarm setpoint (e.g. 15 PSI)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Inspection & Certification */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border/40 pb-1">
+              Inspection &amp; Certification
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 space-y-1">
+                <Label>Inspecting Body</Label>
+                <Input value={form.inspectingBody} onChange={e => set('inspectingBody', e.target.value)} placeholder="e.g. NJ DOL Division of Boiler Safety" />
+              </div>
+              <div className="space-y-1">
+                <Label>Certificate Number</Label>
+                <Input value={form.certNumber} onChange={e => set('certNumber', e.target.value)} placeholder="e.g. BLR-2024-00781" />
+              </div>
+              <div className="space-y-1">
+                <Label>Inspection Frequency</Label>
+                <Input value={form.inspectionFrequency} onChange={e => set('inspectionFrequency', e.target.value)} placeholder="Annual, Biennial, etc." />
+              </div>
+              <div className="space-y-1">
+                <Label>Certificate Issue Date</Label>
+                <Input type="date" value={form.certIssueDate} onChange={e => set('certIssueDate', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Certificate Expiry Date</Label>
+                <Input type="date" value={form.certExpiryDate} onChange={e => set('certExpiryDate', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Documentation */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border/40 pb-1">
+              Documentation
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Manual Reference</Label>
+                <Input value={form.manualReference} onChange={e => set('manualReference', e.target.value)} placeholder="e.g. Cleaver-Brooks OM-700 Rev C" />
+              </div>
+              <div className="space-y-1">
+                <Label>Submittal Reference</Label>
+                <Input value={form.submittalReference} onChange={e => set('submittalReference', e.target.value)} placeholder="e.g. Submittal Package S-2021-04B" />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label>Nameplate Photo / Note</Label>
+                <Input value={form.nameplatePHoto} onChange={e => set('nameplatePHoto', e.target.value)} placeholder="Free text note or URL to nameplate photo" />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <Label>Notes</Label>
+                <Textarea value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Additional context, source documents, commissioning notes..." rows={3} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between pt-2">
+            <Button variant="outline" onClick={handleClear} disabled={saved}>Clear</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} disabled={saved}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saved}>
+                <FileText className="w-4 h-4 mr-2" />Save Baseline
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function EquipmentLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -235,6 +489,7 @@ export default function EquipmentLibrary() {
   const [expandedPMBOK, setExpandedPMBOK] = useState<Record<string, boolean>>({});
   const [connectWizardOpen, setConnectWizardOpen] = useState(false);
   const [connectEquipment, setConnectEquipment] = useState<Equipment | null>(null);
+  const [baselineModal, setBaselineModal] = useState<{ equipmentId: string; equipmentName: string } | null>(null);
   const [probeSessions, setProbeSessions] = useState<ProbeSession[]>(() => {
     try { return JSON.parse(localStorage.getItem('nexum_probe_sessions') || '[]'); } catch { return []; }
   });
@@ -1236,6 +1491,18 @@ export default function EquipmentLibrary() {
                           })()}
                           {canEdit && (
                             <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setBaselineModal({ equipmentId: eq.equipmentId, equipmentName: eq.equipmentName || eq.equipmentId })}
+                                className="relative"
+                              >
+                                <FileText className="w-4 h-4 mr-2" />
+                                Baseline Spec
+                                {getBaseline(eq.equipmentId) && (
+                                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 border border-background" title="Baseline spec saved" />
+                                )}
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => openBaselineDialog(eq)}>
                                 <Settings className="w-4 h-4 mr-2" />{eq.baseline ? 'Edit Baseline' : 'Set Baseline'}
                               </Button>
@@ -1392,6 +1659,14 @@ export default function EquipmentLibrary() {
           facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
           onClose={() => { setConnectWizardOpen(false); setConnectEquipment(null); }}
           onSessionStarted={session => setProbeSessions(prev => [session, ...prev])}
+        />
+      )}
+      {baselineModal && (
+        <EquipmentBaselineModal
+          open={!!baselineModal}
+          onClose={() => setBaselineModal(null)}
+          equipmentId={baselineModal.equipmentId}
+          equipmentName={baselineModal.equipmentName}
         />
       )}
     </MainLayout>

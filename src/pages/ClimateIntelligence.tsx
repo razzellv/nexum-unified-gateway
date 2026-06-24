@@ -8,6 +8,7 @@ import {
   Sun, Cloud, CloudRain, CloudSnow, CloudLightning,
   Thermometer, Droplets, Wind, Gauge, MapPin, RefreshCw,
   Zap, Flame, Activity, AlertTriangle, CheckCircle2, Settings,
+  Timer, Plus, Trash2, Pencil, Power, Calendar, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -133,6 +134,21 @@ function boilerCalc(oat: number) {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type TimerSystemType = 'sprinkler' | 'lighting' | 'blinds' | 'hvac_schedule' | 'exhaust' | 'ventilation' | 'custom';
+
+interface ScheduledTimer {
+  id: string;
+  name: string;
+  systemType: TimerSystemType;
+  zone: string;
+  days: number[];        // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime: string;     // "HH:MM" 24-hour
+  durationMinutes: number;
+  enabled: boolean;
+  lastRan: string | null; // ISO timestamp
+  notes: string;
+}
+
 interface WeatherDetails {
   temp: number; feelsLike: number; humidity: number;
   windSpeed: number; windGusts: number; windDir: number;
@@ -200,9 +216,375 @@ function AssetCard({ name, location, badge, badgeBg, rows }: {
   );
 }
 
+// ── Timer helpers ─────────────────────────────────────────────────────────────
+
+function getNextRun(timer: ScheduledTimer): Date | null {
+  if (!timer.enabled || timer.days.length === 0) return null;
+  const now = new Date();
+  const [h, m] = timer.startTime.split(':').map(Number);
+  for (let offset = 0; offset < 8; offset++) {
+    const candidate = new Date(now);
+    candidate.setDate(candidate.getDate() + offset);
+    candidate.setHours(h, m, 0, 0);
+    if (timer.days.includes(candidate.getDay()) && candidate > now) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function formatTimeUntil(date: Date | null): string {
+  if (!date) return '—';
+  const diffMs = date.getTime() - new Date().getTime();
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffM = Math.floor((diffMs % 3600000) / 60000);
+  if (diffH >= 48) return `in ${Math.floor(diffH / 24)} days`;
+  if (diffH > 0) return `in ${diffH}h ${diffM}m`;
+  return `in ${diffM}m`;
+}
+
+const SYSTEM_TYPE_LABELS: Record<TimerSystemType, string> = {
+  sprinkler: 'Sprinkler / Irrigation',
+  lighting: 'Lighting',
+  blinds: 'Blinds / Shades',
+  hvac_schedule: 'HVAC Schedule',
+  exhaust: 'Exhaust Fan',
+  ventilation: 'Ventilation',
+  custom: 'Custom',
+};
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_FULL_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function timerBadgeClasses(type: TimerSystemType): string {
+  if (type === 'sprinkler')    return 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+  if (type === 'lighting')     return 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+  if (type === 'blinds')       return 'bg-teal-500/10 border-teal-500/30 text-teal-400';
+  if (type === 'hvac_schedule') return 'bg-violet-500/10 border-violet-500/30 text-violet-400';
+  if (type === 'exhaust')      return 'bg-orange-500/10 border-orange-500/30 text-orange-400';
+  if (type === 'ventilation')  return 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400';
+  return 'bg-slate-500/10 border-slate-500/30 text-slate-400';
+}
+
+const DEFAULT_TIMER: Omit<ScheduledTimer, 'id'> = {
+  name: '',
+  systemType: 'sprinkler',
+  zone: '',
+  days: [1, 2, 3, 4, 5],
+  startTime: '06:00',
+  durationMinutes: 30,
+  enabled: true,
+  lastRan: null,
+  notes: '',
+};
+
+function ScheduledTimersTab() {
+  const [timers, setTimers] = useState<ScheduledTimer[]>(() => {
+    try {
+      const raw = localStorage.getItem('nexum_climate_timers');
+      return raw ? (JSON.parse(raw) as ScheduledTimer[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTimer, setEditingTimer] = useState<ScheduledTimer | null>(null);
+  const [form, setForm] = useState<Omit<ScheduledTimer, 'id'>>({ ...DEFAULT_TIMER });
+
+  const persist = (next: ScheduledTimer[]) => {
+    setTimers(next);
+    localStorage.setItem('nexum_climate_timers', JSON.stringify(next));
+  };
+
+  const openAdd = () => {
+    setEditingTimer(null);
+    setForm({ ...DEFAULT_TIMER });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (t: ScheduledTimer) => {
+    setEditingTimer(t);
+    setForm({
+      name: t.name,
+      systemType: t.systemType,
+      zone: t.zone,
+      days: [...t.days],
+      startTime: t.startTime,
+      durationMinutes: t.durationMinutes,
+      enabled: t.enabled,
+      lastRan: t.lastRan,
+      notes: t.notes,
+    });
+    setDialogOpen(true);
+  };
+
+  const saveTimer = () => {
+    if (!form.name.trim()) return;
+    if (editingTimer) {
+      persist(timers.map(t => t.id === editingTimer.id ? { ...form, id: editingTimer.id } : t));
+    } else {
+      const newTimer: ScheduledTimer = { ...form, id: 'timer-' + Date.now().toString(36) };
+      persist([...timers, newTimer]);
+    }
+    setDialogOpen(false);
+  };
+
+  const deleteTimer = (id: string) => {
+    persist(timers.filter(t => t.id !== id));
+  };
+
+  const toggleEnabled = (id: string) => {
+    persist(timers.map(t => t.id === id ? { ...t, enabled: !t.enabled } : t));
+  };
+
+  const markAsRan = (id: string) => {
+    persist(timers.map(t => t.id === id ? { ...t, lastRan: new Date().toISOString() } : t));
+  };
+
+  const toggleDay = (day: number) => {
+    setForm(prev => ({
+      ...prev,
+      days: prev.days.includes(day) ? prev.days.filter(d => d !== day) : [...prev.days, day],
+    }));
+  };
+
+  const formatLastRan = (iso: string | null) => {
+    if (!iso) return 'Never';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatNextRunLabel = (timer: ScheduledTimer) => {
+    const next = getNextRun(timer);
+    if (!next) return '—';
+    const dayLabel = DAY_FULL_LABELS[next.getDay()];
+    const timeLabel = next.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return `${dayLabel} ${timeLabel} (${formatTimeUntil(next)})`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold">Scheduled Timers</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Manage scheduled facility systems by time and day of week</p>
+        </div>
+        <Button size="sm" onClick={openAdd}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" />Add Timer
+        </Button>
+      </div>
+
+      {timers.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center space-y-3">
+            <Plus className="w-10 h-10 mx-auto text-muted-foreground opacity-30" />
+            <p className="text-sm font-medium text-muted-foreground">No scheduled timers yet</p>
+            <Button variant="outline" size="sm" onClick={openAdd}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />Add Timer
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {timers.map(timer => {
+            const badgeCls = timerBadgeClasses(timer.systemType);
+            return (
+              <Card key={timer.id} className={cn('border', !timer.enabled && 'opacity-60')}>
+                <CardContent className="pt-3 pb-3 px-4 space-y-2.5">
+                  {/* Top row */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn('text-[11px] font-medium px-2 py-0.5 rounded-full border shrink-0', badgeCls)}>
+                      {SYSTEM_TYPE_LABELS[timer.systemType]}
+                    </span>
+                    <span className="text-sm font-semibold flex-1 min-w-0 truncate">{timer.name}</span>
+                    {timer.zone && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                        <MapPin className="w-3 h-3" />{timer.zone}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => toggleEnabled(timer.id)}
+                        title={timer.enabled ? 'Disable' : 'Enable'}>
+                        {timer.enabled
+                          ? <ToggleRight className="w-4 h-4 text-green-400" />
+                          : <ToggleLeft className="w-4 h-4 text-muted-foreground" />
+                        }
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(timer)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteTimer(timer.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Middle row — days, time, duration */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex gap-0.5">
+                      {DAY_LABELS.map((d, i) => (
+                        <span key={i} className={cn(
+                          'w-5 h-5 flex items-center justify-center rounded text-[10px] font-semibold',
+                          timer.days.includes(i)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                        )}>{d}</span>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Timer className="w-3 h-3" />
+                      {timer.startTime}
+                    </span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Power className="w-3 h-3" />
+                      {timer.durationMinutes} min
+                    </span>
+                  </div>
+
+                  {/* Bottom row — next run, last ran, mark as ran */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="space-y-0.5">
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Next run: <span className="font-medium text-foreground">{formatNextRunLabel(timer)}</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Last ran: <span className="font-medium">{formatLastRan(timer.lastRan)}</span>
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 shrink-0" onClick={() => markAsRan(timer.id)}>
+                      Mark as Ran
+                    </Button>
+                  </div>
+
+                  {timer.notes && (
+                    <p className="text-[11px] text-muted-foreground italic border-t border-border/30 pt-2">{timer.notes}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add / Edit Dialog */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-base font-semibold">{editingTimer ? 'Edit Timer' : 'Add Timer'}</h2>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDialogOpen(false)}>✕</Button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Zone A Morning Irrigation"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* System Type */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">System Type</label>
+                <select
+                  value={form.systemType}
+                  onChange={e => setForm(prev => ({ ...prev, systemType: e.target.value as TimerSystemType }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  {(Object.keys(SYSTEM_TYPE_LABELS) as TimerSystemType[]).map(k => (
+                    <option key={k} value={k}>{SYSTEM_TYPE_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Zone */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Zone / Location</label>
+                <input
+                  type="text"
+                  value={form.zone}
+                  onChange={e => setForm(prev => ({ ...prev, zone: e.target.value }))}
+                  placeholder="e.g. Zone A, Floor 2"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Days of week */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Days of Week</label>
+                <div className="flex gap-1">
+                  {DAY_FULL_LABELS.map((d, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggleDay(i)}
+                      className={cn(
+                        'flex-1 py-1.5 rounded text-[11px] font-semibold border transition-colors',
+                        form.days.includes(i)
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted text-muted-foreground border-border hover:border-primary/50'
+                      )}
+                    >{d}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Start Time */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Start Time</label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={e => setForm(prev => ({ ...prev, startTime: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Duration (minutes)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.durationMinutes}
+                  onChange={e => setForm(prev => ({ ...prev, durationMinutes: Math.max(1, Number(e.target.value)) }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes (optional)</label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Any additional details..."
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-border">
+              <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveTimer} disabled={!form.name.trim()}>
+                {editingTimer ? 'Save Changes' : 'Add Timer'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'chillers' | 'air' | 'boilers' | 'forecast' | 'chain';
+type Tab = 'overview' | 'chillers' | 'air' | 'boilers' | 'forecast' | 'chain' | 'timers';
 
 export default function ClimateIntelligence() {
   const { user } = useAuth();
@@ -344,6 +726,7 @@ export default function ClimateIntelligence() {
     { id: 'boilers',   label: 'Boilers',          count: boilers.length },
     { id: 'forecast',  label: '24h Forecast' },
     { id: 'chain',     label: 'Operational Chain™' },
+    { id: 'timers',    label: 'Timers' },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -838,6 +1221,8 @@ export default function ClimateIntelligence() {
           )}
 
           {/* ── Operational Chain™ tab ────────────────────────────────────── */}
+          {tab === 'timers' && <ScheduledTimersTab />}
+
           {tab === 'chain' && (() => {
             const isEco = ah.mode === 'economizer';
             const energySavingsPct = oat < 50 ? 30 : oat < 65 ? 20 : oat < 80 ? 8 : -5;

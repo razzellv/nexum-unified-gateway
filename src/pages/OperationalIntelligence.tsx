@@ -564,6 +564,326 @@ function DowntimeCard({ entry, onAddTouch, onResolve }: {
   );
 }
 
+// ── Piping Recommender ────────────────────────────────────────────────────────
+
+interface PipingInputs {
+  systemType: 'hot_water' | 'chilled_water' | 'steam' | 'condenser_water';
+  btuLoad: string;
+  supplyTemp: string;
+  returnTemp: string;
+  headPressure: string;
+  heatingSurface: string;
+  pipeMatl: 'copper' | 'steel' | 'pex';
+}
+
+interface PipingResult {
+  gpM: number;
+  deltaT: number;
+  recommendedPipeSize: string;
+  maxRunLength: number;
+  assetCapacity: number | null;
+  assetAdequate: boolean | null;
+  frictionLoss: number;
+  headFt: number;
+  velocity: number;
+  warnings: string[];
+}
+
+function calcPiping(inputs: PipingInputs): PipingResult | null {
+  const btu = parseFloat(inputs.btuLoad);
+  const supply = parseFloat(inputs.supplyTemp);
+  const ret = parseFloat(inputs.returnTemp);
+  const psi = parseFloat(inputs.headPressure);
+  const hs = parseFloat(inputs.heatingSurface);
+
+  if (!btu || !supply || !ret || !psi || isNaN(btu) || isNaN(supply) || isNaN(ret) || isNaN(psi)) return null;
+
+  const deltaT = Math.abs(supply - ret);
+  if (deltaT < 1) return null;
+
+  // GPM = BTU/hr ÷ (500 × ΔT)
+  const gpm = btu / (500 * deltaT);
+
+  // Pipe sizing table: [size label, max GPM at ≤4fps, friction loss ft/100ft at that flow]
+  const PIPES: [string, number, number][] = [
+    ['3/4 inch',   4,   2.8],
+    ['1 inch',     8,   2.2],
+    ['1-1/4 inch', 12,  1.8],
+    ['1-1/2 inch', 18,  1.5],
+    ['2 inch',     32,  1.2],
+    ['2-1/2 inch', 50,  1.0],
+    ['3 inch',     80,  0.85],
+    ['4 inch',     160, 0.65],
+    ['6 inch',     400, 0.45],
+  ];
+
+  const frictionMult = inputs.pipeMatl === 'copper' ? 0.85 : inputs.pipeMatl === 'pex' ? 1.10 : 1.0;
+
+  const selected = PIPES.find(([, maxGpm]) => maxGpm >= gpm) ?? PIPES[PIPES.length - 1];
+  const [sizeName, maxGpmSelected, baseFriction] = selected;
+  const frictionLoss = parseFloat((baseFriction * frictionMult).toFixed(2));
+
+  const headFt = parseFloat((psi * 2.31).toFixed(1));
+
+  const maxRunLength = Math.round((headFt / frictionLoss) * 100 / 2);
+
+  const velocity = parseFloat(((gpm / maxGpmSelected) * 4).toFixed(2));
+
+  let assetCapacity: number | null = null;
+  let assetAdequate: boolean | null = null;
+  if (!isNaN(hs) && hs > 0) {
+    const btuPerSqFt = inputs.systemType === 'steam' ? 140 : 10;
+    assetCapacity = Math.round(hs * btuPerSqFt);
+    assetAdequate = assetCapacity >= btu;
+  }
+
+  const warnings: string[] = [];
+  if (gpm > 400) warnings.push('Flow rate exceeds 400 GPM — consider parallel piping trains or a larger pipe schedule.');
+  if (velocity > 4) warnings.push('Estimated velocity exceeds 4 fps — risk of erosion and noise. Upsize pipe or split the circuit.');
+  if (maxRunLength < 50) warnings.push('Head pressure limits run length to under 50 ft — consider increasing pump head or reducing circuit length.');
+  if (assetAdequate === false) warnings.push('Heating surface appears undersized for the stated BTU load — verify asset nameplate capacity.');
+  if (deltaT < 10) warnings.push('Low ΔT (under 10°F) increases required flow rate significantly — review system design temperatures.');
+
+  return { gpM: parseFloat(gpm.toFixed(1)), deltaT, recommendedPipeSize: sizeName, maxRunLength, assetCapacity, assetAdequate, frictionLoss, headFt, velocity, warnings };
+}
+
+const PIPING_DEFAULTS: PipingInputs = {
+  systemType: 'hot_water',
+  btuLoad: '',
+  supplyTemp: '180',
+  returnTemp: '160',
+  headPressure: '15',
+  heatingSurface: '',
+  pipeMatl: 'steel',
+};
+
+function PipingRecommenderTab() {
+  const [inputs, setInputs] = useState<PipingInputs>(PIPING_DEFAULTS);
+  const [result, setResult] = useState<PipingResult | null>(null);
+
+  function setField<K extends keyof PipingInputs>(key: K, value: PipingInputs[K]) {
+    setInputs(prev => ({ ...prev, [key]: value }));
+  }
+
+  function handleCalculate() {
+    setResult(calcPiping(inputs));
+  }
+
+  const velocityBadge = result
+    ? result.velocity <= 2.5
+      ? 'bg-emerald-500/20 text-emerald-400'
+      : result.velocity <= 4
+      ? 'bg-yellow-500/20 text-yellow-400'
+      : 'bg-red-500/20 text-red-400'
+    : '';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Wrench className="w-5 h-5 text-cyan-400" />
+        <div>
+          <h2 className="text-sm font-semibold">Hydronic / Steam Piping Recommender</h2>
+          <p className="text-xs text-muted-foreground">Pipe sizing, flow rate, and run length calculator for hydronic and steam distribution systems.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ── Inputs ── */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">System Parameters</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* System Type */}
+            <div className="space-y-1">
+              <Label className="text-xs">System Type</Label>
+              <Select value={inputs.systemType} onValueChange={(v) => setField('systemType', v as PipingInputs['systemType'])}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hot_water">Hot Water</SelectItem>
+                  <SelectItem value="chilled_water">Chilled Water</SelectItem>
+                  <SelectItem value="steam">Steam</SelectItem>
+                  <SelectItem value="condenser_water">Condenser Water</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* BTU Load */}
+            <div className="space-y-1">
+              <Label className="text-xs">BTU/hr Load <span className="text-muted-foreground">(required)</span></Label>
+              <Input
+                className="h-8 text-xs"
+                type="number"
+                placeholder="e.g. 500000"
+                value={inputs.btuLoad}
+                onChange={e => setField('btuLoad', e.target.value)}
+              />
+            </div>
+
+            {/* Temps */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Supply Temp °F</Label>
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  value={inputs.supplyTemp}
+                  onChange={e => setField('supplyTemp', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Return Temp °F</Label>
+                <Input
+                  className="h-8 text-xs"
+                  type="number"
+                  value={inputs.returnTemp}
+                  onChange={e => setField('returnTemp', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Head Pressure */}
+            <div className="space-y-1">
+              <Label className="text-xs">Available Head Pressure (PSI)</Label>
+              <Input
+                className="h-8 text-xs"
+                type="number"
+                value={inputs.headPressure}
+                onChange={e => setField('headPressure', e.target.value)}
+              />
+            </div>
+
+            {/* Heating Surface */}
+            <div className="space-y-1">
+              <Label className="text-xs">Heating Surface sq ft <span className="text-muted-foreground">(optional — asset adequacy check)</span></Label>
+              <Input
+                className="h-8 text-xs"
+                type="number"
+                placeholder="Boiler / HX heating surface"
+                value={inputs.heatingSurface}
+                onChange={e => setField('heatingSurface', e.target.value)}
+              />
+            </div>
+
+            {/* Pipe Material */}
+            <div className="space-y-1">
+              <Label className="text-xs">Pipe Material</Label>
+              <Select value={inputs.pipeMatl} onValueChange={(v) => setField('pipeMatl', v as PipingInputs['pipeMatl'])}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="steel">Steel</SelectItem>
+                  <SelectItem value="copper">Copper</SelectItem>
+                  <SelectItem value="pex">PEX</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button className="w-full" onClick={handleCalculate}>
+              <Wrench className="w-4 h-4 mr-2" />Calculate
+            </Button>
+
+            {/* Engineering note */}
+            <p className="text-[10px] text-muted-foreground leading-relaxed pt-1">
+              GPM = BTU/hr ÷ (500 × ΔT). Pipe sized for ≤4 fps velocity. Max run = head (ft) ÷ friction loss (ft/100ft) × 100 ÷ 2 (supply + return). Steel pipe defaults. All values are estimates — verify with licensed mechanical engineer.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ── Results ── */}
+        <div className="sticky top-4">
+          {result ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Sizing Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Required Flow Rate</p>
+                    <p className="font-semibold text-sm">{result.gpM.toLocaleString()} GPM</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Temperature Differential</p>
+                    <p className="font-semibold text-sm">{result.deltaT}°F</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground mb-1">Recommended Pipe Size</p>
+                    <Badge className="bg-cyan-500/20 text-cyan-400 text-xs">{result.recommendedPipeSize}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1">Est. Velocity</p>
+                    <Badge className={`text-xs ${velocityBadge}`}>{result.velocity} fps</Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Friction Loss</p>
+                    <p className="font-semibold text-sm">{result.frictionLoss} ft/100 ft</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Available Head</p>
+                    <p className="font-semibold text-sm">{result.headFt} ft</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Max Single Run Length</p>
+                    <p className="font-semibold text-sm">{result.maxRunLength.toLocaleString()} ft</p>
+                    <p className="text-[10px] text-muted-foreground">each leg</p>
+                  </div>
+                  {result.assetAdequate !== null && (
+                    <>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground mb-1">Asset Adequacy</p>
+                        {result.assetAdequate ? (
+                          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5" />Adequate
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-red-400 font-medium">
+                            <AlertTriangle className="w-3.5 h-3.5" />Undersized
+                          </div>
+                        )}
+                      </div>
+                      {result.assetCapacity !== null && (
+                        <div className="col-span-2">
+                          <p className="text-muted-foreground">Estimated Asset Capacity</p>
+                          <p className="font-semibold text-sm">{result.assetCapacity.toLocaleString()} BTU/hr</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {result.warnings.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border/40">
+                    {result.warnings.map((w, i) => (
+                      <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                        <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 mt-0.5 shrink-0" />
+                        <p className="text-xs text-yellow-300">{w}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <Wrench className="w-8 h-8 text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">Enter system parameters and click Calculate to see pipe sizing recommendations.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 function OIGContent() {
@@ -789,6 +1109,7 @@ function OIGContent() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="piping" className="text-xs">Piping Recommender</TabsTrigger>
           </TabsList>
 
           {/* ── TAB 1: Intelligence Overview ─────────────────────────────── */}
@@ -1478,6 +1799,9 @@ function OIGContent() {
                 )}
               </div>
             )}
+          </TabsContent>
+          <TabsContent value="piping" className="space-y-4">
+            <PipingRecommenderTab />
           </TabsContent>
         </Tabs>
       )}
