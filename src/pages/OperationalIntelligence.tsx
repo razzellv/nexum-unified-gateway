@@ -15,7 +15,7 @@ import {
   BrainCircuit, RefreshCw, ShieldCheck, Zap, Activity,
   AlertTriangle, CheckCircle2, Clock, TrendingUp, TrendingDown,
   Minus, Info, ChevronDown, ChevronUp, ClipboardList, Eye,
-  Target, PowerOff, Wrench, Plus, Timer, TriangleAlert,
+  Target, PowerOff, Wrench, Plus, Timer, BarChart3,
 } from 'lucide-react';
 import { getCriticalPath, type CriticalPathData } from '@/lib/nexum-api';
 import { DataCorrelationEngine, type CorrelationSummary, type CorrelationInsight } from '@/services/DataCorrelationEngine';
