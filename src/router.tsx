@@ -108,6 +108,8 @@ import GovPublicWorks from "./pages/government/GovPublicWorks";
 import GovEnvironmental from "./pages/government/GovEnvironmental";
 import GovPMO from "./pages/government/GovPMO";
 import GovDecisionRegistry from "./pages/government/GovDecisionRegistry";
+import OperationalTrust from "./pages/government/OperationalTrust";
+import ProcurementHub from "./pages/ProcurementHub";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -455,6 +457,8 @@ export const router = createBrowserRouter([
           { path: "gov-environmental", element: <GovEnvironmental /> },
           { path: "gov-pmo", element: <GovPMO /> },
           { path: "gov-decision-registry", element: <GovDecisionRegistry /> },
+          { path: "operational-trust", element: <OperationalTrust /> },
+          { path: "procurement-hub", element: <ProcurementHub /> },
           {
             path: "osha-300",
             element: <OSHA300Log />,

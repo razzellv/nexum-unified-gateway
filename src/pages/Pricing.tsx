@@ -2656,6 +2656,112 @@ export default function Pricing() {
 
         <div className="border-t border-border" />
 
+        {/* ── Government & Enterprise Contracting ───────────────────────────── */}
+        <div className="space-y-8">
+          <div className="text-center space-y-2">
+            <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30">Government & Enterprise</Badge>
+            <h2 className="text-3xl font-bold">CLIN-Based Procurement</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Federal, state, and enterprise contracts don't go through Stripe.
+              Nexum Suum is SAM.gov registered and offers CLIN-structured FFP pricing
+              for IDIQs, BPAs, GSA Schedule, and direct contract vehicles.
+            </p>
+          </div>
+
+          {/* Dual-path explanation */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-blue-400" />
+                <h3 className="font-semibold text-blue-400">Commercial / Stripe</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">For municipalities, small agencies, businesses, and individual purchasers. Direct checkout via Stripe — instant access, no solicitation required.</p>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                {['Monthly or annual billing', 'Instant platform access', 'Stripe-secured checkout', 'Self-service license management'].map(i => (
+                  <li key={i} className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />{i}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-violet-400" />
+                <h3 className="font-semibold text-violet-400">GovCon / CLIN-Based</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">For federal agencies, state procurement, county solicitations, and enterprise contracts. CLIN-structured FFP with SOW, ROM estimate, and full procurement documentation.</p>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                {['CLIN 0001–S004 structure', 'SOW + ROM auto-generated', 'Option years with 3% cap', 'IDIQ, BPA, GSA, OTA eligible'].map(i => (
+                  <li key={i} className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-violet-400 shrink-0" />{i}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* CLIN quick reference */}
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-center">CLIN Quick Reference</h3>
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted-foreground">CLIN</th>
+                    <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted-foreground">Title</th>
+                    <th className="text-right py-2.5 px-4 text-xs font-semibold text-muted-foreground">Commercial</th>
+                    <th className="text-right py-2.5 px-4 text-xs font-semibold text-violet-400">GovCon</th>
+                    <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted-foreground hidden md:table-cell">Unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { num: '0001', title: 'Platform License', commercial: '$4,970', govcon: '$7,470', unit: 'per year' },
+                    { num: '0002', title: 'Implementation Services', commercial: '$4,999', govcon: '$7,500', unit: 'one-time' },
+                    { num: '0003', title: 'Training Services', commercial: '$3,500', govcon: '$4,500', unit: 'per cohort' },
+                    { num: '0004', title: 'Operational Trust Assessment™', commercial: '$7,500', govcon: '$12,500', unit: 'per engagement' },
+                    { num: '0005', title: 'Knowledge Preservation Assessment™', commercial: '$5,000', govcon: '$9,970', unit: 'per engagement' },
+                    { num: '0007', title: 'Compliance Readiness Assessment™', commercial: '$3,500', govcon: '$7,500', unit: 'per engagement' },
+                    { num: '0008', title: 'Operational Intelligence Consulting', commercial: '$997', govcon: '$1,970', unit: 'per month' },
+                    { num: '0009', title: 'Annual Support & Maintenance', commercial: '$3,000', govcon: '$5,970', unit: 'per year' },
+                    { num: 'S001', title: 'FI™ Assessment (On-Site)', commercial: '$5,000', govcon: '$7,500', unit: 'per engagement' },
+                    { num: 'S002', title: 'Onsite Lite — FIWE™', commercial: '$2,500', govcon: '$3,970', unit: 'per facility' },
+                    { num: 'S003', title: 'Full Engagement', commercial: '$7,500', govcon: '$12,500', unit: 'per engagement' },
+                    { num: 'S004', title: 'VVFI Retainer — Consulting', commercial: '$997', govcon: '$1,970', unit: 'per month' },
+                  ].map(row => (
+                    <tr key={row.num} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="py-2.5 px-4 font-mono text-xs font-bold text-muted-foreground">{row.num}</td>
+                      <td className="py-2.5 px-4 text-sm">{row.title}</td>
+                      <td className="py-2.5 px-4 text-right text-sm font-medium">{row.commercial}</td>
+                      <td className="py-2.5 px-4 text-right text-sm font-semibold text-violet-400">{row.govcon}</td>
+                      <td className="py-2.5 px-4 text-xs text-muted-foreground hidden md:table-cell">{row.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">Option Years 0010–0012 available for software/support CLINs · 3% annual escalation cap · All CLINs are Firm-Fixed-Price (FFP)</p>
+          </div>
+
+          {/* OTA callout + CTA */}
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-400 shrink-0" />
+                <h3 className="font-semibold text-amber-400">Other Transaction Authority (OTA)</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Nexum Suum's Operational Trust Assessment™ and on-site engagements are eligible for OTA procurement under 10 U.S.C. § 4021.
+                OTA vehicles allow non-traditional contractors to bypass FAR and accelerate award timelines.
+                Contact us for prototype project agreements.
+              </p>
+            </div>
+            <a href="/procurement-hub">
+              <Button variant="outline" size="sm" className="whitespace-nowrap border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
+                Open Procurement Hub <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
         {/* Platform Subscriptions heading */}
         <div className="text-center space-y-2">
           <Badge className="bg-primary/20 text-primary border-primary/30">FI Platform</Badge>
