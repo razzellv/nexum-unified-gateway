@@ -69,6 +69,14 @@ interface FloorTileRecord {
   tileUnitCost: number;
 }
 
+interface ComplianceAreaRecord {
+  recordId: string;
+  areaLabel: string;
+  building: string;
+  totalCount: number;
+  unitCost: number;
+}
+
 interface EquipSystem {
   systemId: string;
   name: string;
@@ -548,6 +556,21 @@ export default function EquipmentLibrary() {
   });
   const [editingFloor, setEditingFloor] = useState<string | null>(null);
   const [newFloorForm, setNewFloorForm] = useState({ floorLabel: '', building: '', totalTiles: '', tileUnitCost: '4.50' });
+  // Compliance tracking — 4 component types
+  const [gfciRecords, setGfciRecords] = useState<ComplianceAreaRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_gfci_records') || '[]'); } catch { return []; }
+  });
+  const [fireExtRecords, setFireExtRecords] = useState<ComplianceAreaRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_fire_ext_records') || '[]'); } catch { return []; }
+  });
+  const [exitRecords, setExitRecords] = useState<ComplianceAreaRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_exit_records') || '[]'); } catch { return []; }
+  });
+  const [cardAccessRecords, setCardAccessRecords] = useState<ComplianceAreaRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_card_access_records') || '[]'); } catch { return []; }
+  });
+  const [newComplianceForm, setNewComplianceForm] = useState({ areaLabel: '', building: '', totalCount: '', unitCost: '' });
+  const [complianceAddTarget, setComplianceAddTarget] = useState<string | null>(null);
   // Systems tab state
   const [equipSystems, setEquipSystems] = useState<EquipSystem[]>(() => {
     try { return JSON.parse(localStorage.getItem('nexum_equipment_systems') || '[]'); } catch { return []; }
@@ -933,6 +956,25 @@ export default function EquipmentLibrary() {
     if (qty === 0) return { label: 'Out', cls: 'bg-red-500/20 text-red-400 border-red-500/30' };
     if (qty <= min) return { label: 'Low', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
     return { label: 'OK', cls: 'bg-green-500/20 text-green-400 border-green-500/30' };
+  }
+
+  function saveComplianceRecords(key: string, records: ComplianceAreaRecord[], setter: React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>) {
+    try { localStorage.setItem(key, JSON.stringify(records)); } catch {}
+    setter(records);
+  }
+
+  function getComplianceBins(record: ComplianceAreaRecord, keywords: RegExp) {
+    const workOrders: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_work_orders') || '[]'); } catch { return []; } })();
+    const violations: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_violation_events') || '[]'); } catch { return []; } })();
+    const AREA_MATCH = (item: any) => !record.areaLabel || (item.locationContext || item.location || item.description || '').toLowerCase().includes(record.areaLabel.toLowerCase());
+
+    const replaced = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && wo.status === 'completed' && AREA_MATCH(wo)).length
+      + violations.filter(v => keywords.test(`${v.type} ${v.description}`) && v.type === 'PM_COMPLETED' && AREA_MATCH(v)).length;
+    const scheduled = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && ['in_progress', 'assigned', 'scheduled'].includes(wo.status) && AREA_MATCH(wo)).length;
+    const failed = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && ['open', 'on_hold'].includes(wo.status) && AREA_MATCH(wo)).length
+      + violations.filter(v => keywords.test(`${v.type} ${v.description}`) && v.status !== 'resolved' && v.type !== 'PM_COMPLETED' && AREA_MATCH(v)).length;
+    const compliant = Math.max(0, record.totalCount - failed - scheduled - replaced);
+    return { compliant, failed, scheduled, replaced, remediationCost: failed * record.unitCost };
   }
 
   const bd = baselineData;
@@ -1785,6 +1827,208 @@ export default function EquipmentLibrary() {
                 </Card>
               );
             })()}
+
+            {/* ── Compliance Tracking Components ───────────────────────────────── */}
+            {([
+              {
+                key: 'gfci',
+                title: 'GFCI Outlets',
+                description: 'Ground fault circuit interrupter outlets by area. Compliance bins pulled from inspection work orders and PM logs.',
+                storageKey: 'nexum_gfci_records',
+                records: gfciRecords,
+                setter: setGfciRecords as React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>,
+                keywords: /gfci|ground\s*fault|receptacle|outlet\s*test/i,
+                defaultCost: '25',
+                binLabels: ['Compliant', 'Needs Test', 'Failed/Tripped', 'Repaired'],
+                binColors: [
+                  { text: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                  { text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                  { text: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
+                  { text: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/20' },
+                ],
+              },
+              {
+                key: 'fire_ext',
+                title: 'Fire Extinguishers',
+                description: 'Fire extinguisher inspection status by area. Tracks current, due, expired, and replaced units.',
+                storageKey: 'nexum_fire_ext_records',
+                records: fireExtRecords,
+                setter: setFireExtRecords as React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>,
+                keywords: /fire\s*ext|extinguisher|fire\s*safety|fire\s*suppression/i,
+                defaultCost: '150',
+                binLabels: ['Current', 'Inspection Due', 'Expired/Failed', 'Serviced'],
+                binColors: [
+                  { text: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                  { text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                  { text: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
+                  { text: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/20' },
+                ],
+              },
+              {
+                key: 'exit',
+                title: 'Emergency Exits & Signs',
+                description: 'Emergency exit doors and illuminated signs by area. Status derived from inspection logs and work orders.',
+                storageKey: 'nexum_exit_records',
+                records: exitRecords,
+                setter: setExitRecords as React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>,
+                keywords: /emergency\s*exit|exit\s*sign|egress|emergency\s*light|exit\s*light/i,
+                defaultCost: '75',
+                binLabels: ['Operational', 'Inspection Due', 'Failed/Blocked', 'Replaced'],
+                binColors: [
+                  { text: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                  { text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                  { text: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
+                  { text: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/20' },
+                ],
+              },
+              {
+                key: 'card_access',
+                title: 'Card Access Doors',
+                description: 'Card/badge reader controlled doors. Track active, service-needed, failed, and replaced units.',
+                storageKey: 'nexum_card_access_records',
+                records: cardAccessRecords,
+                setter: setCardAccessRecords as React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>,
+                keywords: /card\s*access|access\s*control|badge\s*reader|keycard|rfid\s*door|door\s*lock/i,
+                defaultCost: '500',
+                binLabels: ['Active', 'Needs Service', 'Failed/Offline', 'Replaced'],
+                binColors: [
+                  { text: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                  { text: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                  { text: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
+                  { text: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/20' },
+                ],
+              },
+            ] as Array<{
+              key: string;
+              title: string;
+              description: string;
+              storageKey: string;
+              records: ComplianceAreaRecord[];
+              setter: React.Dispatch<React.SetStateAction<ComplianceAreaRecord[]>>;
+              keywords: RegExp;
+              defaultCost: string;
+              binLabels: string[];
+              binColors: Array<{ text: string; bg: string }>;
+            }>).map(comp => (
+              <div key={comp.key} className="space-y-4">
+                {/* Section header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">{comp.title}</h2>
+                    <p className="text-sm text-muted-foreground">{comp.description}</p>
+                  </div>
+                  <Dialog open={complianceAddTarget === comp.key} onOpenChange={open => { setComplianceAddTarget(open ? comp.key : null); if (!open) setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '' }); }}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" onClick={() => setComplianceAddTarget(comp.key)}><Plus className="w-4 h-4 mr-2" />Add Area</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Add Area — {comp.title}</DialogTitle></DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-1"><Label>Area / Room Label</Label><Input placeholder="e.g. Floor 2 West Wing" value={newComplianceForm.areaLabel} onChange={e => setNewComplianceForm(p => ({ ...p, areaLabel: e.target.value }))} /></div>
+                        <div className="space-y-1"><Label>Building</Label><Input placeholder="Building A" value={newComplianceForm.building} onChange={e => setNewComplianceForm(p => ({ ...p, building: e.target.value }))} /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1"><Label>Total Count</Label><Input type="number" placeholder="0" value={newComplianceForm.totalCount} onChange={e => setNewComplianceForm(p => ({ ...p, totalCount: e.target.value }))} /></div>
+                          <div className="space-y-1"><Label>Unit Cost ($)</Label><Input type="number" placeholder={comp.defaultCost} value={newComplianceForm.unitCost} onChange={e => setNewComplianceForm(p => ({ ...p, unitCost: e.target.value }))} /></div>
+                        </div>
+                        <Button className="w-full" onClick={() => {
+                          if (!newComplianceForm.areaLabel || !newComplianceForm.totalCount) return;
+                          const rec: ComplianceAreaRecord = {
+                            recordId: `${comp.key}-${Date.now()}`,
+                            areaLabel: newComplianceForm.areaLabel,
+                            building: newComplianceForm.building || 'Main',
+                            totalCount: parseInt(newComplianceForm.totalCount) || 0,
+                            unitCost: parseFloat(newComplianceForm.unitCost) || parseFloat(comp.defaultCost),
+                          };
+                          const updated = [...comp.records, rec];
+                          saveComplianceRecords(comp.storageKey, updated, comp.setter);
+                          setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '' });
+                          setComplianceAddTarget(null);
+                        }}>Save Area</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                {comp.records.length === 0 ? (
+                  <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">No areas configured for {comp.title}. Add an area to start tracking.</CardContent></Card>
+                ) : (
+                  <div className="grid gap-3">
+                    {comp.records.map(rec => {
+                      const bins = getComplianceBins(rec, comp.keywords);
+                      const healthPct = rec.totalCount > 0 ? Math.round((bins.compliant / rec.totalCount) * 100) : 0;
+                      const binCounts = [bins.compliant, bins.failed, bins.scheduled, bins.replaced];
+                      return (
+                        <Card key={rec.recordId}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                              <div>
+                                <h3 className="font-semibold">{rec.areaLabel}</h3>
+                                <p className="text-xs text-muted-foreground">{rec.building} · {rec.totalCount} total · ${rec.unitCost}/unit</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge className={healthPct >= 80 ? 'bg-green-500/20 text-green-400 border-green-500/30' : healthPct >= 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
+                                  {healthPct}%
+                                </Badge>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => saveComplianceRecords(comp.storageKey, comp.records.filter(r => r.recordId !== rec.recordId), comp.setter)}>
+                                  <Settings className="w-3.5 h-3.5 text-red-400" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 mb-3">
+                              {comp.binLabels.map((label, bi) => (
+                                <div key={label} className={`rounded-lg border p-2 text-center ${comp.binColors[bi].bg}`}>
+                                  <p className={`text-xl font-bold ${comp.binColors[bi].text}`}>{binCounts[bi]}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{label}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Compliance</span>
+                                <span className={healthPct >= 80 ? 'text-green-400 font-semibold' : healthPct >= 50 ? 'text-amber-400 font-semibold' : 'text-red-400 font-semibold'}>{healthPct}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${healthPct >= 80 ? 'bg-green-500' : healthPct >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${healthPct}%` }} />
+                              </div>
+                              {bins.remediationCost > 0 && (
+                                <p className="text-xs text-red-400">Est. remediation cost: ${bins.remediationCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Facility-wide summary for this component */}
+                {comp.records.length > 1 && (() => {
+                  const allBins = comp.records.map(r => getComplianceBins(r, comp.keywords));
+                  const totCompliant = allBins.reduce((s, b) => s + b.compliant, 0);
+                  const totFailed = allBins.reduce((s, b) => s + b.failed, 0);
+                  const totCost = allBins.reduce((s, b) => s + b.remediationCost, 0);
+                  return (
+                    <Card className="border-primary/20 bg-primary/5">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Facility Total — {comp.title}</p>
+                          <div className="flex gap-6 text-center">
+                            <div><p className="text-lg font-bold text-green-400">{totCompliant}</p><p className="text-[10px] text-muted-foreground">Compliant</p></div>
+                            <div><p className="text-lg font-bold text-red-400">{totFailed}</p><p className="text-[10px] text-muted-foreground">Need Action</p></div>
+                            {totCost > 0 && <div><p className="text-lg font-bold text-amber-400">${totCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p><p className="text-[10px] text-muted-foreground">Est. Cost</p></div>}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* Divider between components */}
+                <div className="border-b border-border/30" />
+              </div>
+            ))}
           </div>
         )}
 

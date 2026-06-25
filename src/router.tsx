@@ -111,6 +111,8 @@ import GovDecisionRegistry from "./pages/government/GovDecisionRegistry";
 import OperationalTrust from "./pages/government/OperationalTrust";
 import ProcurementHub from "./pages/ProcurementHub";
 import StaffScheduling from "./pages/StaffScheduling";
+import FieldLogging from "./pages/FieldLogging";
+import IntelligenceCenters from "./pages/IntelligenceCenters";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -509,6 +511,8 @@ export const router = createBrowserRouter([
             path: "dc-vault",
             element: <DecisionContinuityVault />,
           },
+          { path: "field-logging", element: <FieldLogging /> },
+          { path: "intelligence-centers", element: <IntelligenceCenters /> },
         ],
       },
       {

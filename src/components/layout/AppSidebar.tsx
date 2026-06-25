@@ -98,11 +98,9 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Perception Layer™', access: 'all' },
   { name: 'Observation Journal™',   href: '/observations',        icon: BookOpen,   access: 'all',        tier: 'compliance_logging' },
   { name: 'Equipment Intelligence™',href: '/equipment-intelligence', icon: Camera,  access: 'all' },
-  { name: 'Facility Data Source™',  href: '/data-source',         icon: Upload,     access: 'all',        tier: 'facility_data_source' },
-  { name: 'Compliance Logger™',     href: '/compliance-logger',   icon: ShieldCheck,access: 'all',        tier: 'compliance_logging' },
+  { name: 'Field Logging™',          href: '/field-logging',       icon: Upload,     access: 'all',        tier: 'compliance_logging' },
   { name: 'Climate Intelligence™',  href: '/climate-intelligence',icon: Thermometer,access: 'leadership' },
   { name: 'Energy Intelligence™',   href: '/dashboard/energy',    icon: Zap,        access: 'leadership', tier: 'energy_dashboard' },
-  { name: 'Evidence Vault™',         href: '/evidence-board',      icon: LayoutGrid, access: 'all',        tier: 'compliance_logging' },
 
   // ── Memory Layer™ — What must never be forgotten? ─────────────────────────
   { type: 'separator', name: 'Memory Layer™', access: 'leadership' },
@@ -127,11 +125,8 @@ const allNavItems: NavItem[] = [
 
   // ── Decision Layer™ — What should we do? ─────────────────────────────────
   { type: 'separator', name: 'Decision Layer™', access: 'all' },
-  { name: 'Executive Intelligence Center™',  href: '/dashboard/executive', icon: TrendingUp,     access: 'leadership', tier: 'executive_dashboard' },
-  { name: 'Operations Intelligence Center™', href: '/dashboard/manager',   icon: LayoutDashboard,access: 'leadership', tier: 'manager_dashboard' },
-  { name: 'Field Intelligence Center™',      href: '/dashboard/supervisor',icon: Gauge,          access: 'leadership', tier: 'supervisor_dashboard' },
-  { name: 'Facility Intelligence',           href: '/facility-intelligence',icon: BarChart3,     access: 'leadership' },
-  { name: 'Operation Center',                href: '/employee-dashboard',   icon: Users,          access: 'all',        tier: 'operations_center' },
+  { name: 'Intelligence Centers™', href: '/intelligence-centers', icon: TrendingUp, access: 'leadership', tier: 'executive_dashboard' },
+  { name: 'Operation Center',      href: '/employee-dashboard',   icon: Users,      access: 'all',        tier: 'operations_center' },
 
   // ── Learning Layer™ — How do we become better? ────────────────────────────
   { type: 'separator', name: 'Learning Layer™', access: 'leadership' },
@@ -140,12 +135,10 @@ const allNavItems: NavItem[] = [
 
   // ── Toolkit — Reference & Configuration ───────────────────────────────────
   { type: 'separator', name: 'Toolkit', access: 'all' },
-  { name: 'Equipment Library',     href: '/equipment-library',    icon: Package,    access: 'all',        tier: 'equipment_library' },
-  { name: 'Equipment Metrics',     href: '/equipment',            icon: Activity,   access: 'all',        tier: 'equipment_metrics' },
+  { name: 'Equipment Hub',          href: '/equipment-library',    icon: Package,    access: 'all',        tier: 'equipment_library' },
   { name: 'Inventory Library',     href: '/inventory-library',    icon: Boxes,      access: 'all',        tier: 'inventory_library' },
   { name: 'Compliance Documents',  href: '/compliance-documents', icon: ShieldCheck,access: 'all',        tier: 'compliance_documents' },
   { name: 'Compliance Intelligence™', href: '/dashboard/compliance', icon: ShieldCheck, access: 'leadership' },
-  { name: 'Equipment Systems',     href: '/equipment-systems',    icon: Network,    access: 'leadership' },
   { name: 'Chemical & Hazmat',     href: '/inventory-library',    icon: FlaskConical,access: 'leadership', tier: 'inventory_library', orgTypes: ['facility', 'government'] },
   { name: 'OSHA 300 Log',          href: '/osha-300',             icon: ClipboardList,access: 'leadership',tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Environmental',         href: '/environmental',        icon: Leaf,       access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
