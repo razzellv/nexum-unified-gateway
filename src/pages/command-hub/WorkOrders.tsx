@@ -106,6 +106,7 @@ export default function WorkOrders() {
         }));
 
         setWorkOrders(workOrders);
+        try { localStorage.setItem('nexum_work_orders', JSON.stringify(workOrders.slice(0, 200))); } catch {}
 
       }
 

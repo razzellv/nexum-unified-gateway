@@ -159,6 +159,18 @@ export default function Violations() {
       title:       'Violation Issued',
       description: `Violation recorded for ${violation.employeeName}`,
     });
+    try {
+      const prev = JSON.parse(localStorage.getItem('nexum_violation_events') || '[]');
+      prev.unshift({
+        ...newViolation,
+        issuedAt: newViolation.issuedAt.toISOString(),
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        status: 'open',
+      });
+      localStorage.setItem('nexum_violation_events', JSON.stringify(prev.slice(0, 200)));
+      window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { type: 'violation' } }));
+    } catch {}
   };
 
   const handleAssignWorkOrder = (workOrder: { title: string; employeeId: string; description: string }) => {

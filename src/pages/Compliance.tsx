@@ -957,6 +957,23 @@ export default function Compliance() {
         title: '✅ Violation Logged Successfully',
         description: 'The violation has been recorded.',
       });
+      try {
+        const prev = JSON.parse(localStorage.getItem('nexum_violation_events') || '[]');
+        prev.unshift({
+          violationId: `v-${Date.now()}`,
+          type: data.violationType === 'other_custom' && otherTypeNotes ? `[${otherTypeNotes}]` : (data.violationType || 'VIOLATION'),
+          description: data.description || '',
+          equipmentId: data.equipmentId || '',
+          equipmentType: data.equipmentType || '',
+          severity: data.severity || 'medium',
+          operator: data.operator || data.operatorId || '',
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'open',
+        });
+        localStorage.setItem('nexum_violation_events', JSON.stringify(prev.slice(0, 200)));
+        window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { type: 'violation' } }));
+      } catch {}
       // Create Issue Origin record for this compliance event
       try {
         await createIssue({
@@ -1015,6 +1032,23 @@ export default function Compliance() {
         throw new Error(err.message || `Server error: ${res.status}`);
       }
       toast({ title: '✅ PM Check Logged', description: 'PM check recorded.' });
+      try {
+        const prev = JSON.parse(localStorage.getItem('nexum_violation_events') || '[]');
+        prev.unshift({
+          violationId: `v-${Date.now()}`,
+          type: data.completedOnTime ? 'PM_COMPLETED' : 'MISSED_ROUND',
+          description: `PM Check: ${data.pmTask || ''}`,
+          equipmentId: data.equipmentId || '',
+          equipmentType: data.equipmentType || '',
+          severity: 'low',
+          operator: data.operator || data.operatorId || '',
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'open',
+        });
+        localStorage.setItem('nexum_violation_events', JSON.stringify(prev.slice(0, 200)));
+        window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { type: 'violation' } }));
+      } catch {}
       // Create Issue Origin record for this compliance event
       try {
         await createIssue({
@@ -1073,6 +1107,23 @@ export default function Compliance() {
         throw new Error(err.message || `Server error: ${res.status}`);
       }
       toast({ title: '✅ Safety Observation Logged', description: 'Safety observation recorded.' });
+      try {
+        const prev = JSON.parse(localStorage.getItem('nexum_violation_events') || '[]');
+        prev.unshift({
+          violationId: `v-${Date.now()}`,
+          type: data.immediateRisk ? 'SAFETY_VIOLATION' : 'PROACTIVE_REPORTING',
+          description: data.description || '',
+          equipmentId: data.equipmentId || '',
+          equipmentType: data.equipmentType || '',
+          severity: data.immediateRisk ? 'high' : 'low',
+          operator: data.operator || data.operatorId || '',
+          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          status: 'open',
+        });
+        localStorage.setItem('nexum_violation_events', JSON.stringify(prev.slice(0, 200)));
+        window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { type: 'violation' } }));
+      } catch {}
       // Create Issue Origin record for this compliance event
       try {
         await createIssue({

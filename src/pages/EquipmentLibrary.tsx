@@ -545,6 +545,7 @@ export default function EquipmentLibrary() {
       setLoading(true);
       const data = await apiRequest(`/equipment`);
       setEquipment(data.equipment || []);
+      try { localStorage.setItem('nexum_equipment_library', JSON.stringify(data.equipment || [])); } catch {}
     } catch {
       toast({ title: 'Error', description: 'Failed to load equipment', variant: 'destructive' });
     } finally {

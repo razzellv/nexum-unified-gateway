@@ -362,10 +362,11 @@ function analyzeCorrelations(
   });
 
   // ── 7. Environmental-operational correlation (chilled water delta-T / condenser approach drift) ─
-  const deltaLogs = logs.filter(l => typeof l.deltaT === 'number' && typeof l.condApproach === 'number');
+  const resolveCondApproach = (l: OIGLog): number | undefined => l.condApproach ?? (typeof (l as any).enteringCondWater === 'number' && typeof (l as any).leavingCondWater === 'number' ? (l as any).leavingCondWater - (l as any).enteringCondWater : undefined);
+  const deltaLogs = logs.filter(l => typeof l.deltaT === 'number' && resolveCondApproach(l) !== undefined);
   if (deltaLogs.length >= 5) {
     const avgDeltaT = deltaLogs.reduce((s, l) => s + (l.deltaT || 0), 0) / deltaLogs.length;
-    const avgApproach = deltaLogs.reduce((s, l) => s + (l.condApproach || 0), 0) / deltaLogs.length;
+    const avgApproach = deltaLogs.reduce((s, l) => s + (resolveCondApproach(l) || 0), 0) / deltaLogs.length;
     if (avgDeltaT < 8 || avgApproach > 8) {
       findings.push({
         id: 'thermal-drift',
@@ -587,9 +588,11 @@ function generatePredictiveInsights(
   const insights: PredictiveInsight[] = [];
 
   // ── Energy optimization ──────────────────────────────────────────────────────
-  const kwLogs = logs.filter(l => typeof l.kw === 'number' && typeof l.tons === 'number' && l.tons > 0);
+  const resolveKw = (l: OIGLog): number | undefined => l.kw ?? (l as any).currentKw;
+  const resolveTons = (l: OIGLog): number | undefined => l.tons ?? (l as any).estimatedTons;
+  const kwLogs = logs.filter(l => typeof resolveKw(l) === 'number' && typeof resolveTons(l) === 'number' && resolveTons(l)! > 0);
   if (kwLogs.length >= 5) {
-    const avgKwPerTon = kwLogs.reduce((s, l) => s + (l.kw! / l.tons!), 0) / kwLogs.length;
+    const avgKwPerTon = kwLogs.reduce((s, l) => s + (resolveKw(l)! / resolveTons(l)!), 0) / kwLogs.length;
     const DESIGN_KW_PER_TON = 0.6;
     if (avgKwPerTon > DESIGN_KW_PER_TON * 1.1) {
       insights.push({
@@ -671,13 +674,14 @@ function generatePredictiveInsights(
   });
 
   // ── Utility reduction ────────────────────────────────────────────────────────
-  const highAmpLogs = logs.filter(l => typeof l.ampDraw === 'number' && l.ampDraw > 0);
+  const resolveAmpDraw = (l: OIGLog): number | undefined => l.ampDraw ?? (l as any).amperage ?? (l as any).incomingAmpsL1;
+  const highAmpLogs = logs.filter(l => typeof resolveAmpDraw(l) === 'number' && resolveAmpDraw(l)! > 0);
   if (highAmpLogs.length >= 5) {
-    const avgAmp = highAmpLogs.reduce((s, l) => s + l.ampDraw!, 0) / highAmpLogs.length;
+    const avgAmp = highAmpLogs.reduce((s, l) => s + resolveAmpDraw(l)!, 0) / highAmpLogs.length;
     const trend = highAmpLogs.length >= 10
       ? (() => {
-          const recent = highAmpLogs.slice(-5).reduce((s, l) => s + l.ampDraw!, 0) / 5;
-          const prior = highAmpLogs.slice(0, 5).reduce((s, l) => s + l.ampDraw!, 0) / 5;
+          const recent = highAmpLogs.slice(-5).reduce((s, l) => s + resolveAmpDraw(l)!, 0) / 5;
+          const prior = highAmpLogs.slice(0, 5).reduce((s, l) => s + resolveAmpDraw(l)!, 0) / 5;
           return recent > prior * 1.05 ? 'increasing' : 'stable';
         })()
       : 'stable';
