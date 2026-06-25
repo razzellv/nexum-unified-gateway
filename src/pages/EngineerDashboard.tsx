@@ -71,6 +71,11 @@ export default function EngineerDashboard() {
   const [activityData, setActivityData] = useState<Array<{ date: string; count: number }>>([]);
   const [violations, setViolations] = useState<any[]>([]);
   const [equipmentCount, setEquipmentCount] = useState(0);
+  const [scheduleShifts] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_staff_schedule') || '[]'); } catch { return []; }
+  });
+  const today = new Date().toDateString();
+  const todayShifts = scheduleShifts.filter(s => s.role && ['engineer','operator','supervisor'].some(r => (s.role||'').toLowerCase().includes(r)) && new Date(s.shiftStart).toDateString() === today);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -267,6 +272,85 @@ export default function EngineerDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Shift Coverage */}
+            <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-purple-500" />
+                  Shift Coverage Today
+                  {todayShifts.length === 0 && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs ml-auto">No Schedule Loaded</Badge>}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {todayShifts.length === 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">No shift data for today. Configure staff scheduling in the Schedule page or via UKG integration.</p>
+                    <button onClick={() => window.location.href = '/staff-scheduling'} className="text-xs text-primary hover:underline">Open Staff Scheduling →</button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/40">
+                    {todayShifts.map((s: any, i: number) => {
+                      const start = new Date(s.shiftStart);
+                      const end = new Date(s.shiftEnd);
+                      const now = new Date();
+                      const isActive = now >= start && now <= end;
+                      return (
+                        <div key={i} className="flex items-center justify-between py-2">
+                          <div>
+                            <p className="text-sm font-medium">{s.employeeName}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{s.role} · {s.area || 'General'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-mono">{start.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} – {end.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</p>
+                            <Badge className={`text-[10px] ${isActive ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-muted text-muted-foreground'}`}>{isActive ? 'On Shift' : 'Off'}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Compliance Recommendations */}
+            {(() => {
+              const complianceRecs: Array<{title: string; severity: string; count: number}> = (() => {
+                try {
+                  const violations2: any[] = JSON.parse(localStorage.getItem('nexum_violation_events') || '[]');
+                  const logs: any[] = JSON.parse(localStorage.getItem('nexum_facility_logs') || '[]');
+                  const recent = logs.filter(l => Date.now() - new Date(l.timestamp || l.createdAt || 0).getTime() < 7 * 86400000);
+                  const recs: Array<{title: string; severity: string; count: number}> = [];
+                  const openViolations2 = violations2.filter(v => v.status !== 'resolved' && v.status !== 'completed');
+                  if (openViolations2.length > 0) recs.push({ title: `${openViolations2.length} open violation${openViolations2.length>1?'s':''} require attention`, severity: 'high', count: openViolations2.length });
+                  const highPressure = recent.filter(l => (l.systemPsi || l.pressure || 0) > 150);
+                  if (highPressure.length > 0) recs.push({ title: `${highPressure.length} log${highPressure.length>1?'s':''} with elevated system pressure (>150 PSI)`, severity: 'high', count: highPressure.length });
+                  const highKw = recent.filter(l => ((l.currentKw || l.kw || 0) / (l.estimatedTons || l.tons || 1)) > 0.66 && (l.estimatedTons || l.tons || 0) > 0);
+                  if (highKw.length > 0) recs.push({ title: `${highKw.length} log${highKw.length>1?'s':''} with kW/Ton above design efficiency`, severity: 'moderate', count: highKw.length });
+                  const pmMissed = violations2.filter(v => v.type === 'MISSED_ROUND' && v.status !== 'resolved');
+                  if (pmMissed.length > 0) recs.push({ title: `${pmMissed.length} missed PM round${pmMissed.length>1?'s':''} logged`, severity: 'moderate', count: pmMissed.length });
+                  return recs.slice(0, 5);
+                } catch { return []; }
+              })();
+              return complianceRecs.length > 0 ? (
+                <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="w-5 h-5 text-yellow-500" />
+                      Compliance Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {complianceRecs.map((rec, i) => (
+                      <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${rec.severity === 'high' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                        <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${rec.severity === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
+                        <p className="text-sm">{rec.title}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : null;
+            })()}
 
             {/* Activity Chart */}
             <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">

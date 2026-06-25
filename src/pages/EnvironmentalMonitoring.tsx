@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import { Leaf, Plus, Download, AlertTriangle, CheckCircle2, Clock, AlertCircle, FlaskConical, FileText, Briefcase, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { WATER_SAMPLE_SOURCES, computeWaterStats } from '@/lib/waterChemistry';
+import type { WaterParamStats } from '@/lib/waterChemistry';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +42,10 @@ interface MonitoringRecord {
   reportingDeadline: string;
   corrective_action: string;
   notes: string;
+  sampleSource?: string;   // boiler_feed, cooling_tower_sump, etc.
+  equipmentId?: string;
+  equipmentName?: string;
+  batchId?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -50,10 +56,10 @@ const PARAM_SUGGESTIONS: Record<string, string[]> = {
   air_quality: ['PM2.5', 'PM10', 'CO', 'CO2', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
   indoor_air_quality: ['O2', 'CO', 'CO2', 'NO2', 'VOCs', 'PM2.5', 'PM10', 'Humidity', 'Temperature', 'Radon', 'Formaldehyde'],
   stack_emissions: ['PM2.5', 'PM10', 'CO', 'CO2', 'O2', 'NO2', 'SO2', 'O3', 'VOCs', 'Lead'],
-  water_quality: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
-  wastewater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
-  stormwater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
-  groundwater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform'],
+  water_quality: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform', 'Hardness', 'Alkalinity', 'Conductivity', 'Chlorine', 'Iron', 'Langelier Index', 'Cycles of Concentration', 'Silica', 'Phosphate', 'Molybdate'],
+  wastewater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform', 'Hardness', 'Alkalinity', 'Conductivity', 'Chlorine', 'Iron', 'Langelier Index', 'Cycles of Concentration', 'Silica', 'Phosphate', 'Molybdate'],
+  stormwater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform', 'Hardness', 'Alkalinity', 'Conductivity', 'Chlorine', 'Iron', 'Langelier Index', 'Cycles of Concentration', 'Silica', 'Phosphate', 'Molybdate'],
+  groundwater: ['pH', 'Turbidity', 'Dissolved Oxygen', 'BOD', 'COD', 'TSS', 'TDS', 'Nitrates', 'Phosphorus', 'Lead', 'Arsenic', 'Coliform', 'Hardness', 'Alkalinity', 'Conductivity', 'Chlorine', 'Iron', 'Langelier Index', 'Cycles of Concentration', 'Silica', 'Phosphate', 'Molybdate'],
   soil_sampling: ['Lead', 'Arsenic', 'Mercury', 'Cadmium', 'Petroleum Hydrocarbons', 'PCBs', 'PAHs'],
 };
 
@@ -113,6 +119,7 @@ const BLANK: Omit<MonitoringRecord, 'monitoringId' | 'status'> = {
   collectedBy: '', labName: '', labResultDate: '', chainOfCustodyNumber: '',
   permitNumber: '', reportingRequired: false, reportingDeadline: '',
   corrective_action: '', notes: '',
+  sampleSource: '', equipmentId: '', equipmentName: '', batchId: '',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -257,6 +264,44 @@ export default function EnvironmentalMonitoring() {
           ))}
         </div>
 
+        {/* Water Chemistry Statistical Analysis — only for Water Testing tab */}
+        {activeTab === 1 && (() => {
+          const waterRecs = filtered;
+          const stats = computeWaterStats(waterRecs);
+          if (stats.length === 0) return null;
+          return (
+            <div className="mb-6 space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Water Chemistry Analysis</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {stats.map((s: WaterParamStats) => (
+                  <div key={s.parameter} className={`rounded-lg border p-3 ${s.status === 'out_of_range' ? 'border-red-500/30 bg-red-500/5' : s.status === 'warning' ? 'border-amber-500/30 bg-amber-500/5' : 'border-green-500/30 bg-green-500/5'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold">{s.parameter}</p>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.status === 'out_of_range' ? 'bg-red-500/20 text-red-400' : s.status === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'}`}>
+                        {s.status === 'out_of_range' ? 'OUT OF RANGE' : s.status === 'warning' ? 'WARNING' : 'OK'}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="flex justify-between"><span>Latest:</span><span className="text-foreground font-medium">{s.latestValue.toLocaleString(undefined,{maximumFractionDigits:3})} {s.unit}</span></div>
+                      <div className="flex justify-between"><span>Mean ({s.sampleCount} samples):</span><span className="font-mono">{s.mean.toLocaleString(undefined,{maximumFractionDigits:3})}</span></div>
+                      <div className="flex justify-between"><span>Std Dev (σ):</span><span className="font-mono">{s.stdDev.toLocaleString(undefined,{maximumFractionDigits:3})}</span></div>
+                      <div className="flex justify-between"><span>Range:</span><span className="font-mono">{s.min.toLocaleString(undefined,{maximumFractionDigits:2})} – {s.max.toLocaleString(undefined,{maximumFractionDigits:2})}</span></div>
+                    </div>
+                    {/* Confidence bar */}
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-[10px]"><span className="text-muted-foreground">Confidence</span><span className={s.confidenceScore >= 70 ? 'text-green-400' : s.confidenceScore >= 40 ? 'text-amber-400' : 'text-red-400'}>{s.confidenceScore}%</span></div>
+                      <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${s.confidenceScore >= 70 ? 'bg-green-500' : s.confidenceScore >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${s.confidenceScore}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Last sample: {s.latestDate}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Table */}
         <Card>
           <CardHeader className="pb-2">
@@ -287,7 +332,11 @@ export default function EnvironmentalMonitoring() {
                       <td className="px-4 py-2.5">
                         <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium border', statusColor(r.status))}>{statusLabel(r.status)}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-gray-600">{r.sampleLocation}</td>
+                      <td className="px-4 py-2.5 text-gray-600">
+                        {r.sampleLocation}
+                        {r.sampleSource && <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">{WATER_SAMPLE_SOURCES.find(s => s.value === r.sampleSource)?.label || r.sampleSource}</span>}
+                        {r.equipmentName && <span className="ml-1 text-xs text-muted-foreground">· {r.equipmentName}</span>}
+                      </td>
                       <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{r.sampleDate}</td>
                       <td className="px-4 py-2.5 text-gray-600">{r.collectedBy}</td>
                       <td className="px-4 py-2.5">
@@ -431,6 +480,28 @@ export default function EnvironmentalMonitoring() {
                   <Label className="text-xs font-medium text-gray-600">Sample Location</Label>
                   <Input className="mt-1" value={form.sampleLocation} onChange={e => setForm(f => ({ ...f, sampleLocation: e.target.value }))} />
                 </div>
+                {['water_quality','wastewater','stormwater','groundwater'].includes(form.testType) && (
+                  <div>
+                    <label className="text-sm font-medium">Sample Source</label>
+                    <Select value={form.sampleSource || ''} onValueChange={v => setForm(f => ({ ...f, sampleSource: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Where was sample collected?" /></SelectTrigger>
+                      <SelectContent>
+                        {WATER_SAMPLE_SOURCES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {['water_quality','wastewater','stormwater','groundwater'].includes(form.testType) && (
+                  <div>
+                    <label className="text-sm font-medium">Associated Equipment (optional)</label>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      placeholder="Boiler 1, Chiller A, Cooling Tower 2..."
+                      value={form.equipmentName || ''}
+                      onChange={e => setForm(f => ({ ...f, equipmentName: e.target.value }))}
+                    />
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs font-medium text-gray-600">Collected By</Label>
                   <Input className="mt-1" value={form.collectedBy} onChange={e => setForm(f => ({ ...f, collectedBy: e.target.value }))} />

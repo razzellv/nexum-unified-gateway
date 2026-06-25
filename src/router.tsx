@@ -110,6 +110,7 @@ import GovPMO from "./pages/government/GovPMO";
 import GovDecisionRegistry from "./pages/government/GovDecisionRegistry";
 import OperationalTrust from "./pages/government/OperationalTrust";
 import ProcurementHub from "./pages/ProcurementHub";
+import StaffScheduling from "./pages/StaffScheduling";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -459,6 +460,7 @@ export const router = createBrowserRouter([
           { path: "gov-decision-registry", element: <GovDecisionRegistry /> },
           { path: "operational-trust", element: <OperationalTrust /> },
           { path: "procurement-hub", element: <ProcurementHub /> },
+          { path: "staff-scheduling", element: <StaffScheduling /> },
           {
             path: "osha-300",
             element: <OSHA300Log />,

@@ -17,6 +17,7 @@ import {
   Moon, Sun, Activity, Gauge, Building2, BarChart3, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { computeWaterHealth } from '@/lib/waterChemistry';
 
 // ── Existing data types (unchanged) ──────────────────────────────────────────
 
@@ -363,6 +364,91 @@ function TierBadge({ tier }: { tier: DemandTier }) {
     <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 flex items-center gap-1">
       <Moon className="w-3 h-3" /> Off-Peak
     </Badge>
+  );
+}
+
+// ── WaterHealthBar ────────────────────────────────────────────────────────────
+
+function WaterHealthBar() {
+  const health = computeWaterHealth();
+  const isNoData = health.status === 'no_data';
+  const isHealthy = health.status === 'healthy';
+  const isTreatmentNeeded = health.status === 'treatment_needed';
+  const isCaution = health.status === 'caution';
+
+  const barColor = isHealthy ? 'bg-cyan-500' : isCaution ? 'bg-amber-500' : isTreatmentNeeded ? 'bg-red-500' : 'bg-muted';
+  const borderColor = isHealthy ? 'border-cyan-500/30' : isCaution ? 'border-amber-500/30' : isTreatmentNeeded ? 'border-red-500/30' : 'border-border/40';
+  const bgColor = isHealthy ? 'bg-cyan-500/5' : isCaution ? 'bg-amber-500/5' : isTreatmentNeeded ? 'bg-red-500/5' : '';
+  const textColor = isHealthy ? 'text-cyan-400' : isCaution ? 'text-amber-400' : isTreatmentNeeded ? 'text-red-400' : 'text-muted-foreground';
+
+  return (
+    <Card className={`neon-border border ${borderColor} ${bgColor}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Droplets className={`w-5 h-5 shrink-0 ${textColor} ${isHealthy ? 'animate-pulse' : ''}`} />
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold">Water Treatment Status</p>
+                {!isNoData && (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                    isHealthy ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' :
+                    isCaution ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                    'bg-red-500/20 text-red-400 border-red-500/30'
+                  }`}>
+                    {isHealthy ? '✓ Treated — Healthy' : isCaution ? '⚠ Caution' : '✕ Treatment Needed'}
+                  </span>
+                )}
+              </div>
+              {!isNoData && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {health.parameterCount} parameter{health.parameterCount !== 1 ? 's' : ''} tracked
+                  {health.violationCount > 0 ? ` · ${health.violationCount} violation${health.violationCount > 1 ? 's' : ''}` : ''}
+                  {health.warningCount > 0 ? ` · ${health.warningCount} warning${health.warningCount > 1 ? 's' : ''}` : ''}
+                  {health.treatmentWOsCompleted > 0 ? ` · ${health.treatmentWOsCompleted} treatment WO${health.treatmentWOsCompleted > 1 ? 's' : ''} completed` : ''}
+                  {health.lastSampleDate ? ` · Last sample: ${health.lastSampleDate}` : ''}
+                </p>
+              )}
+              {isNoData && <p className="text-xs text-muted-foreground">No water chemistry data. Log samples in Environmental Monitoring.</p>}
+            </div>
+          </div>
+          {!isNoData && (
+            <div className="text-right">
+              <p className={`text-2xl font-bold ${textColor}`}>{health.score}/100</p>
+              <p className="text-[10px] text-muted-foreground">Treatment Score</p>
+            </div>
+          )}
+        </div>
+
+        {/* Health bar */}
+        {!isNoData && (
+          <div className="mt-3">
+            <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden relative">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${barColor} ${isHealthy ? 'animate-pulse' : ''}`}
+                style={{ width: `${health.score}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>Needs Treatment</span>
+              <span>Fully Treated</span>
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {health.recommendations.length > 0 && (
+          <div className="mt-3 space-y-1">
+            {health.recommendations.map((rec, i) => (
+              <div key={i} className={`flex items-start gap-2 text-xs ${isHealthy ? 'text-cyan-300/70' : isCaution ? 'text-amber-300' : 'text-red-300'}`}>
+                {isHealthy ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                <span>{rec}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1071,6 +1157,8 @@ export default function EnergyDashboard() {
                 <MPCCPanel />
               </TabsContent>
             </Tabs>
+
+            <WaterHealthBar />
 
             {/* ── Top Energy Consumers ──────────────────────────────────────── */}
             {data.equipment_breakdown.length > 0 && (

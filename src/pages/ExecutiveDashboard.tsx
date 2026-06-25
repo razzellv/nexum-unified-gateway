@@ -32,6 +32,7 @@ import { ContinuityWidget } from '@/components/continuity/ContinuityWidget';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { FacilitiesIntelligenceCard } from '@/components/global/FacilitiesIntelligenceCard';
 
 // ── Animated count-up ─────────────────────────────────────────────────────────
 function useCountUp(end: number, duration = 1500) {
@@ -822,6 +823,9 @@ export default function ExecutiveDashboard() {
                   <DCIntelligencePanel limit={5} />
                   <ScopeAlignmentPanel limit={15} />
                 </div>
+                {/* Facilities Intelligence */}
+                <FacilitiesIntelligenceCard />
+
                 {/* Capital KPI cards */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   {(() => {

@@ -70,6 +70,22 @@ const AreaCoverage = () => {
 export default function CustodianDashboard() {
   const { user } = useAuth();
   const { displayName, empId } = getGreeting(user);
+  const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
+  const floorAssignments: any[] = (() => {
+    try { return JSON.parse(localStorage.getItem('nexum_floor_assignments') || '[]'); } catch { return []; }
+  })();
+  const inventoryItems: any[] = (() => {
+    try {
+      const raw = localStorage.getItem(`nexum_inventory_${facilityId}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return (Array.isArray(parsed) ? parsed : parsed.items || []).filter((it: any) =>
+        ['JANITORIAL','CUSTODIAL','CLEANING','TOILETRIES','PAPER','SANITATION'].some(cat =>
+          (it.category||'').toUpperCase().includes(cat) || (it.subcategory||'').toUpperCase().includes(cat)
+        ) || (it.name||'').toLowerCase().match(/mop|broom|bucket|plunger|toilet|soap|paper|towel|sponge|cleaner|disinfect|trash|bag|glove|spray/)
+      );
+    } catch { return []; }
+  })();
   const tasksToday = 12;
   const tasksCompleted = 8;
   const areasAssigned = 6;
@@ -100,6 +116,67 @@ export default function CustodianDashboard() {
           </div>
           <Button variant="outline" size="sm"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
         </div>
+
+        {/* My Floor Assignment */}
+        {floorAssignments.length > 0 && (
+          <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-orange-500/20">
+            <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5 text-orange-500" />My Floor Assignments</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {floorAssignments.map((fa: any) => {
+                const floorItems = inventoryItems.filter((it: any) =>
+                  !it.location || it.location.toLowerCase().includes(fa.floorLabel?.toLowerCase()) || it.location.toLowerCase().includes(fa.building?.toLowerCase())
+                );
+                const outCount = floorItems.filter((it: any) => it.quantity === 0).length;
+                const lowCount = floorItems.filter((it: any) => it.quantity > 0 && it.quantity <= (it.minQuantity || 2)).length;
+                const okCount = floorItems.length - outCount - lowCount;
+                return (
+                  <div key={fa.floorId} className="p-4 rounded-lg border border-border/40 bg-card/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{fa.floorLabel}</h3>
+                          <Badge variant="outline" className="text-xs">{fa.building}</Badge>
+                          <Badge className={`text-[10px] ${fa.shift === 'day' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : fa.shift === 'evening' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'}`}>{fa.shift} shift</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Assigned to: <span className="text-foreground font-medium">{fa.custodianName}</span></p>
+                      </div>
+                      <div className="flex gap-2">
+                        {outCount > 0 && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">{outCount} Out</Badge>}
+                        {lowCount > 0 && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{lowCount} Low</Badge>}
+                        {outCount === 0 && lowCount === 0 && floorItems.length > 0 && <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Stocked</Badge>}
+                      </div>
+                    </div>
+                    {/* Supply grid */}
+                    {floorItems.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {floorItems.slice(0, 9).map((item: any) => {
+                          const isOut = item.quantity === 0;
+                          const isLow = item.quantity > 0 && item.quantity <= (item.minQuantity || 2);
+                          return (
+                            <div key={item.id} className={`p-2 rounded border text-xs ${isOut ? 'border-red-500/30 bg-red-500/10' : isLow ? 'border-amber-500/30 bg-amber-500/10' : 'border-border/30 bg-muted/10'}`}>
+                              <p className="font-medium truncate">{item.name}</p>
+                              <p className={`font-bold ${isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-green-400'}`}>
+                                {isOut ? 'OUT' : isLow ? `${item.quantity} (Low)` : `${item.quantity} OK`}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No supply items logged for this floor. Log items in the Inventory Library with this floor as location.</p>
+                    )}
+                    <div className="flex gap-3 text-xs text-muted-foreground pt-1 border-t border-border/20">
+                      <span><span className="text-green-400 font-semibold">{okCount}</span> stocked</span>
+                      <span><span className="text-amber-400 font-semibold">{lowCount}</span> low</span>
+                      <span><span className="text-red-400 font-semibold">{outCount}</span> out</span>
+                      <a href="/equipment-library?tab=supplies" className="ml-auto text-primary hover:underline">Manage Supplies →</a>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="glass-panel neon-border bg-card/30 backdrop-blur-xl border-primary/20">

@@ -12,8 +12,9 @@ import {
   BookOpen, Plus, ArrowLeft, CheckCircle, AlertTriangle, UserCheck, Wrench,
   ShieldCheck, Lock, RefreshCw, Edit3, Lightbulb, FileText, Clock,
   Shield, Activity, ChevronRight, X, Loader2, Zap, TrendingUp, BarChart3,
-  CalendarClock, Repeat2, Target, BrainCircuit, CheckCircle2, Eye,
+  CalendarClock, Repeat2, Target, BrainCircuit, CheckCircle2, Eye, Droplets,
 } from 'lucide-react';
+import { computeWaterHealth } from '@/lib/waterChemistry';
 import { ObservationEngine, type SystemObservation } from '@/services/ObservationEngine';
 import type { EnvironmentalOutcomeTemplate } from '@/services/ObservationEngine';
 import {
@@ -387,6 +388,10 @@ export default function ObservationJournal() {
     loaded: boolean;
   }>({ workOrders: [], violations: [], loaded: false });
   const [rmLoading, setRmLoading] = useState(false);
+
+  const waterHealth = (() => {
+    try { return computeWaterHealth(); } catch { return null; }
+  })();
 
   // System-detected observations from ObservationEngine
   const [sysObs, setSysObs] = useState<SystemObservation[]>(() => ObservationEngine.getAll());
@@ -1058,6 +1063,43 @@ export default function ObservationJournal() {
             </button>
           ))}
         </div>
+
+        {/* Water Treatment Alerts */}
+        {waterHealth && waterHealth.status !== 'no_data' && waterHealth.status !== 'healthy' && (
+          <Card className={`border ${waterHealth.status === 'treatment_needed' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Droplets className={`w-5 h-5 shrink-0 ${waterHealth.status === 'treatment_needed' ? 'text-red-400' : 'text-amber-400'}`} />
+                <div>
+                  <p className="font-semibold text-sm">
+                    {waterHealth.status === 'treatment_needed' ? 'Water Treatment Required' : 'Water Quality Caution'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Treatment score: {waterHealth.score}/100 · {waterHealth.violationCount} violation{waterHealth.violationCount !== 1 ? 's' : ''}, {waterHealth.warningCount} warning{waterHealth.warningCount !== 1 ? 's' : ''}
+                    {waterHealth.lastSampleDate ? ` · Last sample: ${waterHealth.lastSampleDate}` : ''}
+                  </p>
+                </div>
+                <button
+                  className="ml-auto text-xs text-primary hover:underline shrink-0"
+                  onClick={() => window.location.href = '/environmental'}
+                >
+                  View in Environmental Monitoring →
+                </button>
+              </div>
+              <div className="space-y-2">
+                {waterHealth.recommendations.map((rec, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs ${waterHealth.status === 'treatment_needed' ? 'border-red-500/20 bg-red-500/5 text-red-300' : 'border-amber-500/20 bg-amber-500/5 text-amber-300'}`}>
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{rec}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Create a work order or PM check for water treatment to resolve these items and improve your treatment score.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Right Moment™ View */}
         {activeTab === 'right-moment' && (

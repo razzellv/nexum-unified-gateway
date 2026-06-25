@@ -50,6 +50,7 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FacilitiesIntelligenceCard } from '@/components/global/FacilitiesIntelligenceCard';
 
 interface SupervisorStats {
   openWorkOrders: number;
@@ -487,6 +488,9 @@ export default function SupervisorDashboard() {
                 </Card>
               </div>
             )}
+
+            {/* Facilities Intelligence */}
+            <FacilitiesIntelligenceCard />
 
             {/* Scope & DC Intelligence — auto role+tier gated */}
             <div className="grid gap-4 lg:grid-cols-2">

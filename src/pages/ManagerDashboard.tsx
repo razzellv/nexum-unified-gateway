@@ -40,6 +40,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell, LabelList
 } from 'recharts';
+import { FacilitiesIntelligenceCard } from '@/components/global/FacilitiesIntelligenceCard';
 
 // ── Animated count-up ────────────────────────────────────────────────────────
 const useCountUp = (target: number, duration = 1500) => {
@@ -712,6 +713,9 @@ export default function ManagerDashboard() {
             </Card>
           ))}
         </div>
+
+        {/* Facilities Intelligence */}
+        <FacilitiesIntelligenceCard />
 
         {/* Main Grid */}
         <div className="grid gap-6 lg:grid-cols-3">

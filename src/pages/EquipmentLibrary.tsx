@@ -61,6 +61,53 @@ interface Equipment {
   createdAt?: string;
 }
 
+interface FloorTileRecord {
+  floorId: string;
+  floorLabel: string;
+  building: string;
+  totalTiles: number;
+  tileUnitCost: number;
+}
+
+interface EquipSystem {
+  systemId: string;
+  name: string;
+  type: string;
+  source: 'bms' | 'manual';
+  bmsEndpoint?: string;
+  lastSynced?: string;
+  units: SystemUnit[];
+}
+
+interface SystemUnit {
+  equipmentId: string;
+  equipmentName: string;
+  equipmentType: string;
+  servedFloors: string[];
+  operationalState: 'active' | 'standby' | 'off';
+  stateSource: 'bms' | 'manual';
+}
+
+interface FloorAssignment {
+  floorId: string;
+  floorLabel: string;
+  building: string;
+  custodianName: string;
+  shift: 'day' | 'evening' | 'night';
+}
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  subcategory?: string;
+  quantity: number;
+  minQuantity?: number;
+  unitCost?: number;
+  location?: string;
+  status?: string;
+}
+
 function BaselineDerivedStrip({ derived, show, labels }: { derived: Record<string, string>; show: string[]; labels: Record<string, string> }) {
   const visible = show.filter(k => derived[k]);
   if (!visible.length) return null;
@@ -494,6 +541,26 @@ export default function EquipmentLibrary() {
     try { return JSON.parse(localStorage.getItem('nexum_probe_sessions') || '[]'); } catch { return []; }
   });
 
+  const [activeTab, setActiveTab] = useState<'equipment' | 'analytics' | 'systems' | 'supplies'>('equipment');
+  // Analytics tab state
+  const [floorTiles, setFloorTiles] = useState<FloorTileRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_ceiling_tiles') || '[]'); } catch { return []; }
+  });
+  const [editingFloor, setEditingFloor] = useState<string | null>(null);
+  const [newFloorForm, setNewFloorForm] = useState({ floorLabel: '', building: '', totalTiles: '', tileUnitCost: '4.50' });
+  // Systems tab state
+  const [equipSystems, setEquipSystems] = useState<EquipSystem[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_equipment_systems') || '[]'); } catch { return []; }
+  });
+  const [newSysForm, setNewSysForm] = useState({ name: '', type: 'chilled_water', source: 'manual' as 'bms' | 'manual', bmsEndpoint: '' });
+  const [expandedSystem, setExpandedSystem] = useState<string | null>(null);
+  // Supplies tab state
+  const [floorAssignments, setFloorAssignments] = useState<FloorAssignment[]>(() => {
+    try { return JSON.parse(localStorage.getItem('nexum_floor_assignments') || '[]'); } catch { return []; }
+  });
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [supplyFloorForm, setSupplyFloorForm] = useState({ floorLabel: '', building: '', custodianName: '', shift: 'day' as 'day' | 'evening' | 'night' });
+
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
   const canRequest = role === 'engineer';
@@ -538,6 +605,23 @@ export default function EquipmentLibrary() {
   const [baselineData, setBaselineData] = useState<any>(emptyBaseline);
 
   useEffect(() => { loadEquipment(); }, [user?.facilityId]);
+
+  useEffect(() => {
+    if (activeTab !== 'supplies') return;
+    const facilityId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
+    try {
+      const raw = localStorage.getItem(`nexum_inventory_${facilityId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const items: InventoryItem[] = (Array.isArray(parsed) ? parsed : parsed.items || []).filter((it: any) =>
+          ['JANITORIAL', 'CUSTODIAL', 'CLEANING', 'TOILETRIES', 'PAPER', 'SANITATION'].some(cat =>
+            (it.category || '').toUpperCase().includes(cat) || (it.subcategory || '').toUpperCase().includes(cat)
+          ) || (it.name || '').toLowerCase().match(/mop|broom|bucket|plunger|toilet|soap|paper|towel|sponge|cleaner|disinfect|trash|bag|glove|spray/)
+        );
+        setInventoryItems(items);
+      }
+    } catch {}
+  }, [activeTab, user?.facilityId]);
 
   const loadEquipment = async () => {
     if (!user?.facilityId) return;
@@ -814,6 +898,42 @@ export default function EquipmentLibrary() {
     eq.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     eq.equipmentName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  function saveCeilingTiles(tiles: FloorTileRecord[]) {
+    try { localStorage.setItem('nexum_ceiling_tiles', JSON.stringify(tiles)); } catch {}
+    setFloorTiles(tiles);
+  }
+
+  function saveEquipSystems(systems: EquipSystem[]) {
+    try { localStorage.setItem('nexum_equipment_systems', JSON.stringify(systems)); } catch {}
+    setEquipSystems(systems);
+  }
+
+  function saveFloorAssignments(assignments: FloorAssignment[]) {
+    try { localStorage.setItem('nexum_floor_assignments', JSON.stringify(assignments)); } catch {}
+    setFloorAssignments(assignments);
+  }
+
+  // Derive ceiling tile bins from work orders and violation events
+  function getCeilingTileBins(floorRecord: FloorTileRecord) {
+    const workOrders: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_work_orders') || '[]'); } catch { return []; } })();
+    const violations: any[] = (() => { try { return JSON.parse(localStorage.getItem('nexum_violation_events') || '[]'); } catch { return []; } })();
+    const CEILING_KEYWORDS = /ceiling|tile|drop\s*ceil|acoustic|grid panel/i;
+    const FLOOR_MATCH = (wo: any) => !floorRecord.floorLabel || (wo.locationContext || wo.location || '').toLowerCase().includes(floorRecord.floorLabel.toLowerCase()) || (wo.locationContext || wo.location || '').toLowerCase().includes(floorRecord.building.toLowerCase());
+
+    const replaced = workOrders.filter(wo => CEILING_KEYWORDS.test(`${wo.title} ${wo.description}`) && wo.status === 'completed' && FLOOR_MATCH(wo)).length
+      + violations.filter(v => CEILING_KEYWORDS.test(`${v.type} ${v.description}`) && v.type === 'PM_COMPLETED' && FLOOR_MATCH(v)).length;
+    const scheduled = workOrders.filter(wo => CEILING_KEYWORDS.test(`${wo.title} ${wo.description}`) && ['in_progress', 'assigned', 'scheduled'].includes(wo.status) && FLOOR_MATCH(wo)).length;
+    const needsReplacement = workOrders.filter(wo => CEILING_KEYWORDS.test(`${wo.title} ${wo.description}`) && ['open', 'on_hold'].includes(wo.status) && FLOOR_MATCH(wo)).length;
+    const good = Math.max(0, floorRecord.totalTiles - needsReplacement - scheduled - replaced);
+    return { good, needsReplacement, scheduled, replaced, replacementCost: needsReplacement * floorRecord.tileUnitCost };
+  }
+
+  function getSupplyStatus(qty: number, min: number) {
+    if (qty === 0) return { label: 'Out', cls: 'bg-red-500/20 text-red-400 border-red-500/30' };
+    if (qty <= min) return { label: 'Low', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
+    return { label: 'OK', cls: 'bg-green-500/20 text-green-400 border-green-500/30' };
+  }
 
   const bd = baselineData;
   const setBD = (k: string, v: string) => setBaselineData((prev: any) => {
@@ -1142,6 +1262,26 @@ export default function EquipmentLibrary() {
             )}
           </div>
         </div>
+
+        {/* Tab bar */}
+        <div className="flex gap-1 border-b border-border/40 pb-0">
+          {(['equipment', 'analytics', 'systems', 'supplies'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+                activeTab === t
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t === 'analytics' ? 'Analytics' : t === 'systems' ? 'Systems' : t === 'supplies' ? 'Supplies' : 'Equipment'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'equipment' && (
+        <div className="space-y-6">
 
         {/* Type summary */}
         {showSummary && equipment.length > 0 && <TypeSummary equipment={equipment} />}
@@ -1522,6 +1662,413 @@ export default function EquipmentLibrary() {
           </div>
         )}
 
+        </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Ceiling Tile Analytics</h2>
+                <p className="text-sm text-muted-foreground">Track tile condition per floor. Replacement needs pulled from open work orders and PM logs.</p>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="w-4 h-4 mr-2" />Add Floor</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add Floor / Area</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-1"><Label>Floor / Area Label</Label><Input placeholder="e.g. Floor 1, Basement, Lobby" value={newFloorForm.floorLabel} onChange={e => setNewFloorForm(p => ({ ...p, floorLabel: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Building</Label><Input placeholder="Building A" value={newFloorForm.building} onChange={e => setNewFloorForm(p => ({ ...p, building: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Total Tile Count</Label><Input type="number" placeholder="0" value={newFloorForm.totalTiles} onChange={e => setNewFloorForm(p => ({ ...p, totalTiles: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Unit Cost ($/tile)</Label><Input type="number" placeholder="4.50" value={newFloorForm.tileUnitCost} onChange={e => setNewFloorForm(p => ({ ...p, tileUnitCost: e.target.value }))} /></div>
+                    <Button className="w-full" onClick={() => {
+                      if (!newFloorForm.floorLabel || !newFloorForm.totalTiles) return;
+                      const rec: FloorTileRecord = {
+                        floorId: `floor-${Date.now()}`,
+                        floorLabel: newFloorForm.floorLabel,
+                        building: newFloorForm.building || 'Main',
+                        totalTiles: parseInt(newFloorForm.totalTiles) || 0,
+                        tileUnitCost: parseFloat(newFloorForm.tileUnitCost) || 4.50,
+                      };
+                      saveCeilingTiles([...floorTiles, rec]);
+                      setNewFloorForm({ floorLabel: '', building: '', totalTiles: '', tileUnitCost: '4.50' });
+                    }}>Save Floor</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {floorTiles.length === 0 ? (
+              <Card><CardContent className="p-12 text-center text-muted-foreground">No floors configured yet. Add a floor to start tracking ceiling tiles.</CardContent></Card>
+            ) : (
+              <div className="grid gap-4">
+                {floorTiles.map(floor => {
+                  const bins = getCeilingTileBins(floor);
+                  const healthPct = floor.totalTiles > 0 ? Math.round((bins.good / floor.totalTiles) * 100) : 0;
+                  const isEditing = editingFloor === floor.floorId;
+                  return (
+                    <Card key={floor.floorId}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div>
+                            <h3 className="font-semibold">{floor.floorLabel}</h3>
+                            <p className="text-xs text-muted-foreground">{floor.building} · {floor.totalTiles.toLocaleString()} total tiles · ${floor.tileUnitCost.toFixed(2)}/tile</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={healthPct >= 80 ? 'bg-green-500/20 text-green-400 border-green-500/30' : healthPct >= 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
+                              {healthPct}% Good
+                            </Badge>
+                            <Button variant="ghost" size="sm" onClick={() => setEditingFloor(isEditing ? null : floor.floorId)}>
+                              <Edit className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => saveCeilingTiles(floorTiles.filter(f => f.floorId !== floor.floorId))}>
+                              <Settings className="w-3.5 h-3.5 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {isEditing && (
+                          <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-lg bg-muted/20 border border-border/40">
+                            <div className="space-y-1"><Label className="text-xs">Total Tiles</Label><Input type="number" defaultValue={floor.totalTiles} onBlur={e => saveCeilingTiles(floorTiles.map(f => f.floorId === floor.floorId ? { ...f, totalTiles: parseInt(e.target.value) || f.totalTiles } : f))} /></div>
+                            <div className="space-y-1"><Label className="text-xs">Unit Cost</Label><Input type="number" step="0.01" defaultValue={floor.tileUnitCost} onBlur={e => saveCeilingTiles(floorTiles.map(f => f.floorId === floor.floorId ? { ...f, tileUnitCost: parseFloat(e.target.value) || f.tileUnitCost } : f))} /></div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          {[
+                            { label: 'Good', count: bins.good, cls: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                            { label: 'Needs Replacement', count: bins.needsReplacement, cls: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+                            { label: 'Scheduled', count: bins.scheduled, cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+                            { label: 'Replaced / Done', count: bins.replaced, cls: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
+                          ].map(b => (
+                            <div key={b.label} className={`rounded-lg border p-3 text-center ${b.bg}`}>
+                              <p className={`text-2xl font-bold ${b.cls}`}>{b.count}</p>
+                              <p className="text-xs text-muted-foreground mt-1">{b.label}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Health</span>
+                          <span className={healthPct >= 80 ? 'text-green-400 font-semibold' : healthPct >= 50 ? 'text-amber-400 font-semibold' : 'text-red-400 font-semibold'}>{healthPct}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-1">
+                          <div className={`h-full rounded-full ${healthPct >= 80 ? 'bg-green-500' : healthPct >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${healthPct}%` }} />
+                        </div>
+                        {bins.replacementCost > 0 && (
+                          <p className="text-xs text-muted-foreground mt-2">Estimated replacement cost: <span className="text-red-400 font-semibold">${bins.replacementCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {floorTiles.length > 0 && (() => {
+              const allBins = floorTiles.map(f => getCeilingTileBins(f));
+              const totalGood = allBins.reduce((s, b) => s + b.good, 0);
+              const totalNeed = allBins.reduce((s, b) => s + b.needsReplacement, 0);
+              const totalCost = allBins.reduce((s, b) => s + b.replacementCost, 0);
+              return (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold mb-3">Facility-Wide Ceiling Summary</h3>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div><p className="text-2xl font-bold text-green-400">{totalGood.toLocaleString()}</p><p className="text-xs text-muted-foreground">Good Tiles</p></div>
+                      <div><p className="text-2xl font-bold text-red-400">{totalNeed.toLocaleString()}</p><p className="text-xs text-muted-foreground">Need Replacement</p></div>
+                      <div><p className="text-2xl font-bold text-amber-400">${totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p><p className="text-xs text-muted-foreground">Est. Replacement Cost</p></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        )}
+
+        {activeTab === 'systems' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Equipment Systems</h2>
+                <p className="text-sm text-muted-foreground">Group equipment into mechanical systems. Track BMS or manual source, floor assignments, and operational state.</p>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />New System</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Create Equipment System</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-1"><Label>System Name</Label><Input placeholder="Chilled Water Plant" value={newSysForm.name} onChange={e => setNewSysForm(p => ({ ...p, name: e.target.value }))} /></div>
+                    <div className="space-y-1">
+                      <Label>Type</Label>
+                      <Select value={newSysForm.type} onValueChange={v => setNewSysForm(p => ({ ...p, type: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[['chilled_water','Chilled Water'],['heating','Heating / Hot Water'],['ahu','Air Handling (AHU)'],['steam','Steam & Condensate'],['electrical','Electrical / Power'],['plumbing','Plumbing'],['other','Other']].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Data Source</Label>
+                      <Select value={newSysForm.source} onValueChange={v => setNewSysForm(p => ({ ...p, source: v as 'bms' | 'manual' }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual Entry</SelectItem>
+                          <SelectItem value="bms">BMS / Automation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {newSysForm.source === 'bms' && (
+                      <div className="space-y-1"><Label>BMS Endpoint / Tag Path</Label><Input placeholder="e.g. /api/bms/plant-01" value={newSysForm.bmsEndpoint} onChange={e => setNewSysForm(p => ({ ...p, bmsEndpoint: e.target.value }))} /></div>
+                    )}
+                    <Button className="w-full" onClick={() => {
+                      if (!newSysForm.name) return;
+                      const sys: EquipSystem = {
+                        systemId: `sys-${Date.now()}`,
+                        name: newSysForm.name,
+                        type: newSysForm.type,
+                        source: newSysForm.source,
+                        bmsEndpoint: newSysForm.bmsEndpoint || undefined,
+                        units: [],
+                      };
+                      saveEquipSystems([...equipSystems, sys]);
+                      setNewSysForm({ name: '', type: 'chilled_water', source: 'manual', bmsEndpoint: '' });
+                    }}>Create System</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {equipSystems.length === 0 ? (
+              <Card><CardContent className="p-12 text-center text-muted-foreground">No systems defined yet. Create a system to map equipment by function and floor.</CardContent></Card>
+            ) : (
+              <div className="space-y-4">
+                {equipSystems.map(sys => {
+                  const isExpanded = expandedSystem === sys.systemId;
+                  const activeCount = sys.units.filter(u => u.operationalState === 'active').length;
+                  const standbyCount = sys.units.filter(u => u.operationalState === 'standby').length;
+                  const offCount = sys.units.filter(u => u.operationalState === 'off').length;
+                  return (
+                    <Card key={sys.systemId}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setExpandedSystem(isExpanded ? null : sys.systemId)} className="text-left">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{sys.name}</h3>
+                                <Badge className={sys.source === 'bms' ? 'bg-teal-500/20 text-teal-400 border-teal-500/30 text-[10px]' : 'bg-muted text-muted-foreground text-[10px]'}>{sys.source === 'bms' ? 'BMS-Linked' : 'Manual'}</Badge>
+                                <Badge variant="outline" className="text-[10px] capitalize">{sys.type.replace(/_/g, ' ')}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{sys.units.length} unit{sys.units.length !== 1 ? 's' : ''} · {activeCount} active · {standbyCount} standby · {offCount} off</p>
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => saveEquipSystems(equipSystems.filter(s => s.systemId !== sys.systemId))}>
+                              <Settings className="w-3.5 h-3.5 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="space-y-3 border-t border-border/40 pt-3">
+                            {sys.bmsEndpoint && (
+                              <div className="p-2 rounded bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 font-mono">{sys.bmsEndpoint}</div>
+                            )}
+
+                            <div className="p-3 rounded-lg bg-muted/20 border border-border/40">
+                              <p className="text-xs font-semibold mb-2 text-muted-foreground">Add Equipment to System</p>
+                              <Select onValueChange={eqId => {
+                                const eq = equipment.find(e => e.equipmentId === eqId);
+                                if (!eq || sys.units.find(u => u.equipmentId === eqId)) return;
+                                const unit: SystemUnit = {
+                                  equipmentId: eq.equipmentId,
+                                  equipmentName: eq.equipmentName || eq.equipmentId,
+                                  equipmentType: eq.equipmentType,
+                                  servedFloors: [],
+                                  operationalState: 'standby',
+                                  stateSource: sys.source,
+                                };
+                                saveEquipSystems(equipSystems.map(s => s.systemId === sys.systemId ? { ...s, units: [...s.units, unit] } : s));
+                              }}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select equipment..." /></SelectTrigger>
+                                <SelectContent>
+                                  {equipment.filter(e => !sys.units.find(u => u.equipmentId === e.equipmentId)).map(e => (
+                                    <SelectItem key={e.equipmentId} value={e.equipmentId}>{e.equipmentName || e.equipmentId} ({e.equipmentType})</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {sys.units.length === 0 ? (
+                              <p className="text-xs text-muted-foreground text-center py-3">No equipment added yet.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {sys.units.map(unit => (
+                                  <div key={unit.equipmentId} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border/40 bg-card/50">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium truncate">{unit.equipmentName}</p>
+                                      <p className="text-xs text-muted-foreground capitalize">{unit.equipmentType.replace(/_/g, ' ')}{unit.servedFloors.length > 0 ? ` · Floors: ${unit.servedFloors.join(', ')}` : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <Select value={unit.operationalState} onValueChange={v => saveEquipSystems(equipSystems.map(s => s.systemId === sys.systemId ? { ...s, units: s.units.map(u => u.equipmentId === unit.equipmentId ? { ...u, operationalState: v as 'active' | 'standby' | 'off', stateSource: 'manual' } : u) } : s))}>
+                                        <SelectTrigger className="h-7 text-xs w-28">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="active">Active</SelectItem>
+                                          <SelectItem value="standby">Standby</SelectItem>
+                                          <SelectItem value="off">Off</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Badge className={unit.operationalState === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/30' : unit.operationalState === 'standby' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-muted text-muted-foreground'}>
+                                        {unit.operationalState}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'supplies' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Floor Supply Tracker</h2>
+                <p className="text-sm text-muted-foreground">Custodial supply inventory by floor. Status pulled from Inventory Library logs.</p>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />Add Floor</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Assign Floor / Area</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-1"><Label>Floor / Area</Label><Input placeholder="Floor 1" value={supplyFloorForm.floorLabel} onChange={e => setSupplyFloorForm(p => ({ ...p, floorLabel: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Building</Label><Input placeholder="Building A" value={supplyFloorForm.building} onChange={e => setSupplyFloorForm(p => ({ ...p, building: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Assigned Custodian</Label><Input placeholder="Name" value={supplyFloorForm.custodianName} onChange={e => setSupplyFloorForm(p => ({ ...p, custodianName: e.target.value }))} /></div>
+                    <div className="space-y-1">
+                      <Label>Shift</Label>
+                      <Select value={supplyFloorForm.shift} onValueChange={v => setSupplyFloorForm(p => ({ ...p, shift: v as 'day' | 'evening' | 'night' }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="day">Day Shift</SelectItem>
+                          <SelectItem value="evening">Evening Shift</SelectItem>
+                          <SelectItem value="night">Night Shift</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button className="w-full" onClick={() => {
+                      if (!supplyFloorForm.floorLabel) return;
+                      const a: FloorAssignment = {
+                        floorId: `fa-${Date.now()}`,
+                        floorLabel: supplyFloorForm.floorLabel,
+                        building: supplyFloorForm.building || 'Main',
+                        custodianName: supplyFloorForm.custodianName || 'Unassigned',
+                        shift: supplyFloorForm.shift,
+                      };
+                      saveFloorAssignments([...floorAssignments, a]);
+                      setSupplyFloorForm({ floorLabel: '', building: '', custodianName: '', shift: 'day' });
+                    }}>Save Assignment</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {floorAssignments.length === 0 ? (
+              <Card><CardContent className="p-12 text-center text-muted-foreground">No floor assignments yet. Add a floor to track custodial supplies.</CardContent></Card>
+            ) : (
+              <div className="space-y-4">
+                {floorAssignments.map(fa => {
+                  const floorItems = inventoryItems.filter(it =>
+                    !it.location || it.location.toLowerCase().includes(fa.floorLabel.toLowerCase()) || it.location.toLowerCase().includes(fa.building.toLowerCase())
+                  );
+                  const outCount = floorItems.filter(it => it.quantity === 0).length;
+                  const lowCount = floorItems.filter(it => it.quantity > 0 && it.quantity <= (it.minQuantity || 2)).length;
+                  return (
+                    <Card key={fa.floorId}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold">{fa.floorLabel}</h3>
+                              <Badge variant="outline" className="text-xs">{fa.building}</Badge>
+                              <Badge className={fa.shift === 'day' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : fa.shift === 'evening' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-purple-500/20 text-purple-400 border-purple-500/30'} style={{ fontSize: '10px' }}>{fa.shift} shift</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">Custodian: <span className="text-foreground font-medium">{fa.custodianName}</span></p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {outCount > 0 && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">{outCount} Out</Badge>}
+                            {lowCount > 0 && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{lowCount} Low</Badge>}
+                            <Button variant="ghost" size="sm" onClick={() => saveFloorAssignments(floorAssignments.filter(f => f.floorId !== fa.floorId))}>
+                              <Settings className="w-3.5 h-3.5 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {floorItems.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No custodial supplies found for this floor in Inventory Library. Log supplies with a matching floor location.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-border/40 text-xs text-muted-foreground">
+                                  <th className="text-left pb-2 font-medium">Item</th>
+                                  <th className="text-center pb-2 font-medium">Qty</th>
+                                  <th className="text-center pb-2 font-medium">Min</th>
+                                  <th className="text-center pb-2 font-medium">Status</th>
+                                  <th className="text-right pb-2 font-medium">Value</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/20">
+                                {floorItems.map(item => {
+                                  const st = getSupplyStatus(item.quantity, item.minQuantity || 2);
+                                  return (
+                                    <tr key={item.id}>
+                                      <td className="py-1.5 pr-3 font-medium">{item.name}</td>
+                                      <td className="py-1.5 text-center">{item.quantity}</td>
+                                      <td className="py-1.5 text-center text-muted-foreground">{item.minQuantity || 2}</td>
+                                      <td className="py-1.5 text-center"><Badge className={`text-[10px] ${st.cls}`}>{st.label}</Badge></td>
+                                      <td className="py-1.5 text-right text-muted-foreground">{item.unitCost ? `$${(item.quantity * item.unitCost).toFixed(2)}` : '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <div className="mt-3 pt-3 border-t border-border/40 flex gap-4 text-xs text-muted-foreground">
+                          <span><span className="text-green-400 font-semibold">{floorItems.filter(i => i.quantity > (i.minQuantity || 2)).length}</span> stocked</span>
+                          <span><span className="text-amber-400 font-semibold">{lowCount}</span> low</span>
+                          <span><span className="text-red-400 font-semibold">{outCount}</span> out</span>
+                          <span className="ml-auto">Total on hand: <span className="text-foreground font-semibold">${floorItems.reduce((s, i) => s + (i.quantity * (i.unitCost || 0)), 0).toFixed(2)}</span></span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {inventoryItems.length === 0 && floorAssignments.length > 0 && (
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardContent className="p-4 text-sm text-amber-400">
+                  No custodial supply items found in Inventory Library. Log items with category JANITORIAL, CUSTODIAL, or CLEANING, or items matching supply keywords (mop, soap, paper towel, etc.) to see them here.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
