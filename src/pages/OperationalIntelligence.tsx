@@ -385,7 +385,7 @@ function GovernanceRow({ entry }: { entry: GovernanceEntry }) {
   return (
     <div className="grid grid-cols-[7rem_1fr_auto] gap-3 py-2 border-b border-border/50 last:border-0 text-xs items-start">
       <div className="text-muted-foreground font-mono text-[10px] pt-0.5">
-        {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        {(() => { const d = new Date(entry.timestamp); return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }); })()}
       </div>
       <div>
         <span className={`font-semibold ${eventColor[entry.eventType] ?? 'text-muted-foreground'}`}>{entry.eventType}</span>
@@ -500,9 +500,9 @@ function DowntimeCard({ entry, onAddTouch, onResolve }: {
               {duration}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {new Date(entry.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {(() => { const d = new Date(entry.startedAt); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })()}
               {' '}
-              {new Date(entry.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              {(() => { const d = new Date(entry.startedAt); return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); })()}
             </p>
           </div>
         </div>
@@ -533,7 +533,7 @@ function DowntimeCard({ entry, onAddTouch, onResolve }: {
                       {TOUCH_OUTCOMES.find(o => o.value === t.outcome)?.label.split(' — ')[0]}
                     </Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">{t.tech} · {new Date(t.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-[10px] text-muted-foreground">{t.tech} · {(() => { const d = new Date(t.timestamp); return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); })()}</p>
                 </div>
               </div>
             ))}
@@ -1063,7 +1063,7 @@ function OIGContent() {
                 <div>
                   <div className="text-[11px] font-medium text-primary">
                     {wiCriticalPath.earliestCompletion
-                      ? new Date(wiCriticalPath.earliestCompletion).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      ? (() => { const d = new Date(wiCriticalPath.earliestCompletion!); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })()
                       : '—'}
                   </div>
                   <div className="text-[10px] text-muted-foreground">Optimistic Completion</div>
@@ -1659,8 +1659,8 @@ function OIGContent() {
                               <p className="text-xs text-muted-foreground line-clamp-1">{evt.description}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-[10px] text-muted-foreground">{new Date(evt.occurredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                              <p className="text-[10px] text-muted-foreground">{new Date(evt.occurredAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                              <p className="text-[10px] text-muted-foreground">{(() => { const d = new Date(evt.occurredAt); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })()}</p>
+                              <p className="text-[10px] text-muted-foreground">{(() => { const d = new Date(evt.occurredAt); return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); })()}</p>
                             </div>
                           </div>
                         </button>
@@ -1912,7 +1912,7 @@ function OIGContent() {
                     <Badge variant="outline" className={`text-xs capitalize ${selectedEvent.severity === 'critical' ? 'text-red-400 border-red-400/40' : selectedEvent.severity === 'major' ? 'text-orange-400 border-orange-400/40' : 'text-yellow-400 border-yellow-400/40'}`}>{selectedEvent.severity}</Badge>
                     <Badge variant="outline" className="text-xs">{selectedEvent.causeCategory}</Badge>
                     <span className="text-xs text-muted-foreground self-center">
-                      {new Date(selectedEvent.occurredAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {(() => { const d = new Date(selectedEvent.occurredAt); return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); })()}
                     </span>
                   </div>
                 </DialogHeader>
