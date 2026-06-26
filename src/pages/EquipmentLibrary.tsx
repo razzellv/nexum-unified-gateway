@@ -794,25 +794,37 @@ export default function EquipmentLibrary() {
         }
       }
 
+      const numericPayload = {
+        ...formData,
+        count: parseInt(formData.count) || 1,
+        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
+        replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
+        usefulLifeYears: formData.usefulLifeYears ? parseFloat(formData.usefulLifeYears) : undefined,
+        residualValue: formData.residualValue ? parseFloat(formData.residualValue) : undefined,
+        currentEfficiency: formData.currentEfficiency ? parseFloat(formData.currentEfficiency) : undefined,
+        efficiencyBaseline: formData.efficiencyBaseline ? parseFloat(formData.efficiencyBaseline) : 100,
+        maintenanceCostAccumulated: formData.maintenanceCostAccumulated ? parseFloat(formData.maintenanceCostAccumulated) : undefined,
+        laborCostAccumulated: formData.laborCostAccumulated ? parseFloat(formData.laborCostAccumulated) : undefined,
+        partsConsumedValue: formData.partsConsumedValue ? parseFloat(formData.partsConsumedValue) : undefined,
+        contractorCostAccumulated: formData.contractorCostAccumulated ? parseFloat(formData.contractorCostAccumulated) : undefined,
+      };
+
       await apiRequest(`/equipment/${selectedEquipment.equipmentId}`, {
-        method: 'PUT', body: JSON.stringify({
-          ...formData,
-          count: parseInt(formData.count) || 1,
-          purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : undefined,
-          replacementCost: formData.replacementCost ? parseFloat(formData.replacementCost) : undefined,
-          usefulLifeYears: formData.usefulLifeYears ? parseFloat(formData.usefulLifeYears) : undefined,
-          residualValue: formData.residualValue ? parseFloat(formData.residualValue) : undefined,
-          currentEfficiency: formData.currentEfficiency ? parseFloat(formData.currentEfficiency) : undefined,
-          efficiencyBaseline: formData.efficiencyBaseline ? parseFloat(formData.efficiencyBaseline) : 100,
-          maintenanceCostAccumulated: formData.maintenanceCostAccumulated ? parseFloat(formData.maintenanceCostAccumulated) : undefined,
-          laborCostAccumulated: formData.laborCostAccumulated ? parseFloat(formData.laborCostAccumulated) : undefined,
-          partsConsumedValue: formData.partsConsumedValue ? parseFloat(formData.partsConsumedValue) : undefined,
-          contractorCostAccumulated: formData.contractorCostAccumulated ? parseFloat(formData.contractorCostAccumulated) : undefined,
-        }),
+        method: 'PUT', body: JSON.stringify(numericPayload),
       });
 
       // Record name change after successful save
       if (nameChanged) recordNameChange(selectedEquipment.equipmentId);
+
+      // Merge saved values directly into local state so the UI reflects them
+      // immediately — avoids loadEquipment() overwriting financial fields that
+      // the Lambda may not return in its GET response yet.
+      const merged: Equipment = { ...selectedEquipment, ...numericPayload };
+      setEquipment(prev => {
+        const updated = prev.map(e => e.equipmentId === selectedEquipment.equipmentId ? merged : e);
+        try { localStorage.setItem('nexum_equipment_library', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
 
       const check = nameChanged ? checkNameChangeAllowed(selectedEquipment.equipmentId) : null;
       toast({
@@ -824,7 +836,6 @@ export default function EquipmentLibrary() {
       setEditDialogOpen(false);
       setSelectedEquipment(null);
       resetForm();
-      loadEquipment();
       window.dispatchEvent(new CustomEvent('equipment-updated'));
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to update', variant: 'destructive' });
