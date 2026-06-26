@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -164,6 +164,73 @@ export default function ManagerDashboard() {
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
+
+  // ── localStorage-derived metrics ─────────────────────────────────────────────
+  const localMetrics = useMemo(() => {
+    const readArr = (key: string): any[] => {
+      try {
+        const v = JSON.parse(localStorage.getItem(key) || '[]');
+        return Array.isArray(v) ? v : [];
+      } catch { return []; }
+    };
+
+    const equipment  = readArr('nexum_equipment_library');
+    const workOrders = readArr('nexum_work_orders');
+    const violations = readArr('nexum_violation_events');
+
+    // Total maintenance cost across all equipment
+    const totalMaintenanceCost = equipment.reduce((sum: number, eq: any) =>
+      sum
+      + (parseFloat(eq.maintenanceCostAccumulated) || 0)
+      + (parseFloat(eq.laborCostAccumulated)       || 0)
+      + (parseFloat(eq.partsConsumedValue)          || 0)
+      + (parseFloat(eq.contractorCostAccumulated)   || 0),
+    0);
+
+    // Daily cost = total maintenance / 365
+    const localDailyCost = equipment.length > 0 ? Math.round(totalMaintenanceCost / 365) : 0;
+
+    // Average efficiency for active equipment
+    const activeEq = equipment.filter((eq: any) =>
+      !eq.status || eq.status === 'active' || eq.status === 'operational'
+    );
+    const localAvgEfficiency = activeEq.length > 0
+      ? Math.round(activeEq.reduce((s: number, eq: any) => s + (parseFloat(eq.currentEfficiency) || 0), 0) / activeEq.length)
+      : 0;
+
+    // Open work orders
+    const localOpenWOs = workOrders.filter((wo: any) =>
+      wo.status && wo.status !== 'completed' && wo.status !== 'Completed'
+    ).length;
+
+    // Compliance rate
+    const totalVio = violations.length;
+    const openVio  = violations.filter((v: any) => v.status === 'open').length;
+    const localComplianceRate = totalVio > 0
+      ? Math.round(((totalVio - openVio) / totalVio) * 100)
+      : 100;
+
+    // Asset replacement value
+    const localAssetValue = equipment.reduce((sum: number, eq: any) =>
+      sum + (parseFloat(eq.replacementCost) || parseFloat(eq.purchasePrice) || 0), 0);
+
+    // Downtime events: equipment with status 'down' or 'offline'
+    const downtimeEvents = equipment.filter((eq: any) =>
+      eq.status === 'down' || eq.status === 'offline' || eq.status === 'inactive'
+    ).length;
+
+    return {
+      localDailyCost,
+      localAvgEfficiency,
+      localOpenWOs,
+      localComplianceRate,
+      localAssetValue,
+      downtimeEvents,
+      hasEquipmentData: equipment.length > 0,
+      hasWOData:        workOrders.length > 0,
+      hasViolationData: violations.length > 0,
+    };
+  }, [refreshKey]);
 
   // ── Main data load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -372,7 +439,9 @@ export default function ManagerDashboard() {
   const totalEquipment    = data?.summary?.total_equipment        || 0;
   const activeEquipment   = data?.summary?.active_equipment       || 0;
   const recentLogsCount   = data?.summary?.recent_logs_count      || 0;
-  const openWorkOrders    = data?.work_orders?.open               || 0;
+  // Open work orders: prefer API, fall back to localStorage count
+  const openWorkOrders    = data?.work_orders?.open
+                              || (localMetrics.hasWOData ? localMetrics.localOpenWOs : 0);
   const totalWorkOrders   = data?.work_orders?.total              || 0;
   const activeViolations  = data?.violations?.active              || 0;
   const avgWorkOrderAge   = data?.summary?.avg_work_order_age_days || 0;
@@ -663,7 +732,7 @@ export default function ManagerDashboard() {
           />
           <KPICard title="PM Completion"       value={pmCompletionRate}         unit="%" icon={CheckCircle2} trend={pmCompletionRate >= 85 ? 'up' : 'down'}       trendValue={pmCompletionRate >= 85 ? 'On Track' : 'Behind'} />
           <KPICard title="Avg WO Age"           value={Math.round(avgWorkOrderAge)} unit=" days" icon={Clock} trend={avgWorkOrderAge > 5 ? 'down' : 'up'}        trendValue={avgWorkOrderAge > 5 ? 'Aging' : 'On Track'} />
-          <KPICard title="Downtime Events"      value={0}                        unit="/mo" icon={AlertTriangle} trend="neutral" trendValue="Stable" />
+          <KPICard title="Downtime Events"      value={localMetrics.downtimeEvents} unit="" icon={AlertTriangle} trend={localMetrics.downtimeEvents > 0 ? 'down' : 'neutral'} trendValue={localMetrics.downtimeEvents > 0 ? 'Equipment Down' : 'Stable'} />
           <KPICard title="Log Consistency"      value={logConsistencyPercent}    unit="%" icon={Users}      trend={logConsistencyPercent >= 90 ? 'up' : 'down'}  trendValue={`${loggingConsistency} logs/7d`} />
         </div>
 
@@ -692,7 +761,7 @@ export default function ManagerDashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { title: 'Equipment Units',    value: assetStats.totalAssets.toLocaleString(),             icon: Activity,  color: 'text-neon-cyan', sub: 'All equipment on record' },
-            { title: 'Asset Value',        value: `$${(assetStats.totalValue / 1000).toFixed(0)}K`,    icon: DollarSign,color: 'text-green-400', sub: 'Total replacement cost' },
+            { title: 'Asset Value',        value: `$${((assetStats.totalValue > 0 ? assetStats.totalValue : localMetrics.localAssetValue) / 1000).toFixed(0)}K`,    icon: DollarSign,color: 'text-green-400', sub: 'Total replacement cost' },
             { title: 'Inventory Items',    value: assetStats.inventoryItems.toLocaleString(),           icon: BarChart3, color: 'text-purple-400', sub: 'Parts & supplies lines' },
             { title: 'Inventory Value',    value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`,icon: TrendingUp,color: 'text-yellow-400', sub: 'Qty × unit cost' },
             { title: 'Low Stock Alerts',   value: assetStats.lowStock.toLocaleString(),                icon: AlertTriangle, color: assetStats.lowStock > 0 ? 'text-orange-400' : 'text-green-400', sub: 'Items at or below min qty' },

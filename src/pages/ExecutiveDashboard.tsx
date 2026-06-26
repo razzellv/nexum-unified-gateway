@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { NexumBranding } from "@/components/NexumBranding";
 import { ParticleBackground } from "@/components/ParticleBackground";
@@ -547,6 +547,74 @@ function OVPITab() {
   );
 }
 
+// ── localStorage helpers ──────────────────────────────────────────────────────
+function readLocalArray(key: string): any[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
+/** Compute key metrics from nexum_equipment_library and nexum_work_orders */
+function computeLocalMetrics() {
+  const equipment  = readLocalArray('nexum_equipment_library');
+  const workOrders = readLocalArray('nexum_work_orders');
+  const violations = readLocalArray('nexum_violation_events');
+
+  // Total maintenance cost across all equipment
+  const totalMaintenanceCost = equipment.reduce((sum: number, eq: any) => {
+    return sum
+      + (parseFloat(eq.maintenanceCostAccumulated) || 0)
+      + (parseFloat(eq.laborCostAccumulated)       || 0)
+      + (parseFloat(eq.partsConsumedValue)          || 0)
+      + (parseFloat(eq.contractorCostAccumulated)   || 0);
+  }, 0);
+
+  // Daily cost = total maintenance / 365
+  const localDailyCost = equipment.length > 0
+    ? Math.round(totalMaintenanceCost / 365)
+    : 0;
+
+  // Average equipment efficiency (active equipment only)
+  const activeEq = equipment.filter((eq: any) =>
+    !eq.status || eq.status === 'active' || eq.status === 'operational'
+  );
+  const localAvgEfficiency = activeEq.length > 0
+    ? Math.round(
+        activeEq.reduce((sum: number, eq: any) => sum + (parseFloat(eq.currentEfficiency) || 0), 0) /
+        activeEq.length
+      )
+    : 0;
+
+  // Asset replacement value
+  const localAssetValue = equipment.reduce((sum: number, eq: any) => {
+    return sum + (parseFloat(eq.replacementCost) || parseFloat(eq.purchasePrice) || 0);
+  }, 0);
+
+  // Open work orders from local data
+  const localOpenWOs = workOrders.filter((wo: any) =>
+    wo.status && wo.status !== 'completed' && wo.status !== 'Completed'
+  ).length;
+
+  // Compliance rate from violations
+  const totalVio = violations.length;
+  const openVio  = violations.filter((v: any) => v.status === 'open').length;
+  const localComplianceRate = totalVio > 0
+    ? Math.round(((totalVio - openVio) / totalVio) * 100)
+    : 100;
+
+  return {
+    localDailyCost,
+    localAvgEfficiency,
+    localAssetValue,
+    localOpenWOs,
+    localComplianceRate,
+    hasEquipmentData: equipment.length > 0,
+    hasWOData:        workOrders.length > 0,
+    hasViolationData: violations.length > 0,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ExecutiveDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
@@ -566,24 +634,38 @@ export default function ExecutiveDashboard() {
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
   const [costLoading, setCostLoading] = useState(false);
+  const [localMetricsKey, setLocalMetricsKey] = useState(0);
+
+  // Compute localStorage-derived metrics whenever local data changes
+  const localMetrics = useMemo(() => computeLocalMetrics(), [localMetricsKey]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    // Snapshot localStorage metrics at fetch time so we can use them as fallbacks
+    const local = computeLocalMetrics();
     try {
       const api = await getExecutiveDashboard();
-      const complianceScore   = api.compliance?.score               ?? api.kpis?.compliance_score ?? 0;
+      const complianceScore   = api.compliance?.score               ?? api.kpis?.compliance_score
+                                  ?? (local.hasViolationData ? local.localComplianceRate : 0);
       const totalViolations   = api.compliance?.total_violations     ?? 0;
       const openViolations    = api.compliance?.open_violations      ?? 0;
       const highSeverity      = api.compliance?.high_severity_violations ?? 0;
       const uptime            = api.kpis?.uptime_percentage          ?? 95.5;
-      const openWorkOrders    = api.operations?.work_orders_open     ?? 0;
+      // Open work orders: prefer API, fall back to localStorage count
+      const openWorkOrders    = api.operations?.work_orders_open
+                                  ?? (local.hasWOData ? local.localOpenWOs : 0);
       const completedWOs      = api.operations?.work_orders_completed ?? 0;
       const totalReadings     = api.operations?.total_readings        ?? 0;
-      const monthlyCost       = api.financial?.estimated_monthly_energy_cost ?? 35000;
-      const dailyCost         = Math.round(monthlyCost / 30);
-      const roi               = api.financial?.roi_percentage        ?? 15.2;
-      const avgEfficiency     = api.kpis?.overall_efficiency;
+      // Daily cost: prefer API financial data, fall back to localStorage equipment cost calc
+      const apiMonthlyCost    = api.financial?.estimated_monthly_energy_cost;
+      const dailyCost         = apiMonthlyCost != null
+                                  ? Math.round(apiMonthlyCost / 30)
+                                  : (local.hasEquipmentData ? local.localDailyCost : 0);
+      const roi               = api.financial?.roi_percentage        ?? 0;
+      // Avg efficiency: prefer API, fall back to localStorage equipment efficiency average
+      const avgEfficiency     = api.kpis?.overall_efficiency
+                                  ?? (local.hasEquipmentData ? local.localAvgEfficiency : undefined);
       const riskIndex         = Math.min(100, Math.round(openViolations * 2 + highSeverity * 5));
 
       const byOperator: Record<string, { name: string; violations: number; totalSeverity: number; categories: Set<string> }> = {};
@@ -612,16 +694,19 @@ export default function ExecutiveDashboard() {
         topEmployees.push({ name: 'No violations recorded', violations: 0, complianceScore: 100, riskLevel: 'Low', category: '' });
       }
 
+      // Resolved efficiency — never fall back to a hardcoded 85
+      const resolvedEfficiency = avgEfficiency ?? 0;
+
       const trendBase    = Array.from({ length: 30 }, (_, i) => ({ date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0] }));
-      const boilerTrend  = trendBase.map(d => ({ ...d, value: avgEfficiency ?? 85 }));
-      const savingsTrend = trendBase.map(d => ({ ...d, value: Math.round(monthlyCost / 30 * 0.05) }));
+      const boilerTrend  = trendBase.map(d => ({ ...d, value: resolvedEfficiency }));
+      const savingsTrend = trendBase.map(d => ({ ...d, value: dailyCost > 0 ? Math.round(dailyCost * 0.05) : 0 }));
 
       setData({
         metrics: {
           complianceScore, uptime: Math.round(uptime),
           openWorkOrders, completedWOs, totalReadings,
           dailyCost, riskIndex, roi,
-          avgEfficiency: avgEfficiency ?? 85,
+          avgEfficiency: resolvedEfficiency,
           openViolations, totalViolations, highSeverity,
         },
         trends: { boiler: boilerTrend, savings: savingsTrend },
@@ -634,16 +719,16 @@ export default function ExecutiveDashboard() {
             return allFacilities.map((f: any, i: number) => ({
               name: f.name || f.facilityId || `Facility ${i+1}`,
               facilityId: f.facilityId,
-              boilerEfficiency: Math.round((avgEfficiency || 85) - i * 1.5),
+              boilerEfficiency: resolvedEfficiency > 0 ? Math.round(resolvedEfficiency - i * 1.5) : 0,
               cop: parseFloat((4.2 - i * 0.1).toFixed(1)),
               dailyCost: Math.round(dailyCost / Math.max(allFacilities.length, 1)),
               facilityIntegrity: Math.round((uptime || 95) - i),
               violations: Math.max(0, Math.round((openViolations || 0) / Math.max(allFacilities.length, 1))),
-              complianceScore: Math.round((api.compliance?.compliance_score || 85) - i * 1.5),
+              complianceScore: Math.round((api.compliance?.compliance_score || complianceScore) - i * 1.5),
             }));
           }
           // Single facility — show with full data
-          return [{ name: 'Main Campus', facilityId, boilerEfficiency: Math.round(avgEfficiency ?? 85), cop: 4.2, dailyCost, facilityIntegrity: Math.round(uptime), violations: openViolations, complianceScore: Math.round(api.compliance?.compliance_score || 85) }];
+          return [{ name: 'Main Campus', facilityId, boilerEfficiency: resolvedEfficiency, cop: 4.2, dailyCost, facilityIntegrity: Math.round(uptime), violations: openViolations, complianceScore }];
         })(),
       });
       setLastUpdated(new Date());
@@ -675,7 +760,11 @@ export default function ExecutiveDashboard() {
       } catch { /* ignore */ }
     };
     loadCapitalData();
-    const handler = () => { setAssetStats(prev => ({ ...prev })); loadCapitalData(); };
+    const handler = () => {
+      setAssetStats(prev => ({ ...prev }));
+      loadCapitalData();
+      setLocalMetricsKey(k => k + 1);
+    };
     window.addEventListener('equipment-updated', handler);
     return () => window.removeEventListener('equipment-updated', handler);
   }, []);

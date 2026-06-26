@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEPARTMENTS } from '@/config/roles';
@@ -64,6 +64,48 @@ interface SupervisorStats {
   employeesAtRisk: number;
 }
 
+// ── Read a localStorage key as an array (module-level, safe) ─────────────────
+function readLocalArr(key: string): any[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
+/** Snapshot localStorage fallback metrics for supervisor stats */
+function snapshotSupervisorLocal() {
+  const workOrders = readLocalArr('nexum_work_orders');
+  const violations = readLocalArr('nexum_violation_events');
+
+  const localOpenWOs = workOrders.filter((wo: any) =>
+    wo.status && wo.status !== 'completed' && wo.status !== 'Completed'
+  ).length;
+
+  const localUnassignedWOs = workOrders.filter((wo: any) =>
+    (!wo.assignedTo || wo.assignedTo === 'Unassigned' || wo.assignedTo === '') &&
+    wo.status !== 'completed' && wo.status !== 'Completed'
+  ).length;
+
+  const localTotalViolations        = violations.length;
+  const localHighSeverityViolations = violations.filter((v: any) =>
+    v.severity === 'high' || v.severity === 'critical'
+  ).length;
+  const localOpenViolations = violations.filter((v: any) => v.status === 'open').length;
+  const localComplianceRate = localTotalViolations > 0
+    ? Math.round(((localTotalViolations - localOpenViolations) / localTotalViolations) * 100)
+    : 100;
+
+  return {
+    localOpenWOs,
+    localUnassignedWOs,
+    localTotalViolations,
+    localHighSeverityViolations,
+    localComplianceRate,
+    hasWOData:        workOrders.length > 0,
+    hasViolationData: violations.length > 0,
+  };
+}
+
 // Helper function to safely extract string from employee name
 function safeString(value: any, fallback: string = 'Unknown'): string {
   if (!value) return fallback;
@@ -110,6 +152,21 @@ export default function SupervisorDashboard() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
+  const [localDataKey, setLocalDataKey] = useState(0);
+
+  // ── localStorage-derived metrics for supervisor view ─────────────────────────
+  // Re-computed when localDataKey increments (on equipment-updated events)
+  const localSupervisorMetrics = useMemo(() => {
+    const equipment = readLocalArr('nexum_equipment_library');
+    const totalMaintenanceCost = equipment.reduce((sum: number, eq: any) =>
+      sum
+      + (parseFloat(eq.maintenanceCostAccumulated) || 0)
+      + (parseFloat(eq.laborCostAccumulated)       || 0)
+      + (parseFloat(eq.partsConsumedValue)          || 0)
+      + (parseFloat(eq.contractorCostAccumulated)   || 0),
+    0);
+    return { ...snapshotSupervisorLocal(), totalMaintenanceCost };
+  }, [localDataKey]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -189,18 +246,19 @@ export default function SupervisorDashboard() {
       setOnShiftTeam(team);
       setViolationDetails(details);
       
-      // Use real stats from API summary
+      // Use real stats from API summary; fall back to localStorage-computed values
       const summary = apiData.summary || {};
+      const local   = snapshotSupervisorLocal();
       setStats({
-        openWorkOrders: summary.open_work_orders || 0,
-        totalViolations: summary.total_violations || 0,
-        highSeverityViolations: summary.high_severity_violations || 0,
-        avgComplianceScore: summary.avg_compliance_score || 100,
-        avgVirtuousScore: summary.avg_virtuous_score || 100,
-        unassignedWorkOrders: summary.unassigned_work_orders || 0,
-        activeAlerts: summary.alerts_count || 0,
-        waterChemistryAlerts: summary.water_chemistry_alerts || 0,
-        employeesAtRisk: summary.employees_at_risk || 0,
+        openWorkOrders:         summary.open_work_orders        || (local.hasWOData        ? local.localOpenWOs              : 0),
+        totalViolations:        summary.total_violations        || (local.hasViolationData  ? local.localTotalViolations       : 0),
+        highSeverityViolations: summary.high_severity_violations || (local.hasViolationData ? local.localHighSeverityViolations : 0),
+        avgComplianceScore:     summary.avg_compliance_score    || (local.hasViolationData  ? local.localComplianceRate        : 100),
+        avgVirtuousScore:       summary.avg_virtuous_score      || 100,
+        unassignedWorkOrders:   summary.unassigned_work_orders  || (local.hasWOData        ? local.localUnassignedWOs         : 0),
+        activeAlerts:           summary.alerts_count            || 0,
+        waterChemistryAlerts:   summary.water_chemistry_alerts  || 0,
+        employeesAtRisk:        summary.employees_at_risk       || 0,
       });
       
       console.log("📊 Stats set from API:", summary);
@@ -218,13 +276,18 @@ export default function SupervisorDashboard() {
     if (isAuthenticated) {
       fetchData();
       const interval = setInterval(fetchData, 60000);
-      const onLog = () => fetchData();
+      const onLog = () => {
+        fetchData();
+        setLocalDataKey(k => k + 1);
+      };
       window.addEventListener('facility-log-submitted', onLog);
       window.addEventListener('nexum_bms_poll_update', onLog);
+      window.addEventListener('equipment-updated', onLog);
       return () => {
         clearInterval(interval);
         window.removeEventListener('facility-log-submitted', onLog);
         window.removeEventListener('nexum_bms_poll_update', onLog);
+        window.removeEventListener('equipment-updated', onLog);
       };
     }
   }, [isAuthenticated, fetchData]);
@@ -689,24 +752,41 @@ export default function SupervisorDashboard() {
         )}
 
         {/* ── Maintenance Cost Impact ───────────────────────────────────────── */}
-        {costBreakdown && costBreakdown.bySystemType.length > 0 && (
+        {(costBreakdown && costBreakdown.bySystemType.length > 0) || localSupervisorMetrics.totalMaintenanceCost > 0 ? (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-4">
               <DollarSign className="w-5 h-5 text-emerald-400" />
               <h2 className="text-lg font-semibold">Maintenance Cost Impact</h2>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {costBreakdown.bySystemType.slice(0, 4).map(s => (
-                <div key={s.name} className="bg-card border border-border rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground capitalize">{s.name || 'Unassigned'}</p>
-                  <p className="text-sm font-bold text-emerald-400">${(s.amount / 1000).toFixed(1)}k</p>
-                  <p className="text-xs text-muted-foreground">{s.percent.toFixed(1)}% of facility cost</p>
-                  <Progress value={s.percent} className="h-1 mt-1" />
+            {/* localStorage-computed total cost — always shown when data exists */}
+            {localSupervisorMetrics.totalMaintenanceCost > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                <div className="bg-card border border-emerald-500/20 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Total Maintenance Cost</p>
+                  <p className="text-sm font-bold text-emerald-400">${(localSupervisorMetrics.totalMaintenanceCost / 1000).toFixed(1)}k</p>
+                  <p className="text-xs text-muted-foreground">All equipment (labor + parts + contractor)</p>
                 </div>
-              ))}
-            </div>
+                <div className="bg-card border border-emerald-500/20 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Est. Daily Cost</p>
+                  <p className="text-sm font-bold text-emerald-400">${Math.round(localSupervisorMetrics.totalMaintenanceCost / 365).toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total ÷ 365 days</p>
+                </div>
+              </div>
+            )}
+            {costBreakdown && costBreakdown.bySystemType.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {costBreakdown.bySystemType.slice(0, 4).map(s => (
+                  <div key={s.name} className="bg-card border border-border rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground capitalize">{s.name || 'Unassigned'}</p>
+                    <p className="text-sm font-bold text-emerald-400">${(s.amount / 1000).toFixed(1)}k</p>
+                    <p className="text-xs text-muted-foreground">{s.percent.toFixed(1)}% of facility cost</p>
+                    <Progress value={s.percent} className="h-1 mt-1" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
 
         {/* ── Operational Suggestions ──────────────────────────────────────── */}
         {suggestionsLoaded && suggestions.length > 0 && (
