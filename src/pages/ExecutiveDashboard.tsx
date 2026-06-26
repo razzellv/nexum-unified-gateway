@@ -14,6 +14,7 @@ import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
 import { ScopeAlignmentPanel } from '@/components/global/ScopeAlignmentPanel';
 import { TierGate } from '@/components/TierGate';
 import { getExecutiveDashboard, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from '@/lib/nexum-api';
+import { useFinancialMetrics } from '@/lib/useFinancialMetrics';
 import { getAvailableFacilities } from '@/lib/role-filters';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -639,6 +640,9 @@ export default function ExecutiveDashboard() {
   // Compute localStorage-derived metrics whenever local data changes
   const localMetrics = useMemo(() => computeLocalMetrics(), [localMetricsKey]);
 
+  // Financial metrics hook — merges nexum_equipment_financials into asset/cost calcs
+  const fin = useFinancialMetrics(localMetricsKey);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -766,7 +770,13 @@ export default function ExecutiveDashboard() {
       setLocalMetricsKey(k => k + 1);
     };
     window.addEventListener('equipment-updated', handler);
-    return () => window.removeEventListener('equipment-updated', handler);
+    window.addEventListener('facility-log-submitted', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('equipment-updated', handler);
+      window.removeEventListener('facility-log-submitted', handler);
+      window.removeEventListener('storage', handler);
+    };
   }, []);
 
   // Fetch asset count + value for scorecards
@@ -918,7 +928,9 @@ export default function ExecutiveDashboard() {
                 {/* Capital KPI cards */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   {(() => {
-                    const operationalValue = assetStats.totalValue;
+                    // Prefer fin.totalAssetValue (includes nexum_equipment_financials)
+                    // over assetStats.totalValue (API-only, no financial store merge)
+                    const operationalValue = fin.totalAssetValue > 0 ? fin.totalAssetValue : assetStats.totalValue;
                     const riskCount = capitalPlan.filter(p => p.score >= 71).length;
                     return (
                       <>
@@ -958,8 +970,8 @@ export default function ExecutiveDashboard() {
                 {/* ── Asset + Inventory Scorecards ── */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    { label: 'Total Equipment Units', value: assetStats.totalAssets.toLocaleString(), icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-400/10 border-cyan-400/20', desc: 'Across all equipment types' },
-                    { label: 'Equipment Asset Value', value: `$${(assetStats.totalValue / 1000).toFixed(0)}K`, icon: DollarSign, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20', desc: 'Total replacement cost on record' },
+                    { label: 'Total Equipment Units', value: (fin.totalEquipmentCount || assetStats.totalAssets).toLocaleString(), icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-400/10 border-cyan-400/20', desc: 'Across all equipment types' },
+                    { label: 'Equipment Asset Value', value: `$${((fin.totalAssetValue > 0 ? fin.totalAssetValue : assetStats.totalValue) / 1000).toFixed(0)}K`, icon: DollarSign, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20', desc: 'Total replacement cost on record' },
                     { label: 'Inventory Line Items', value: assetStats.inventoryItems.toLocaleString(), icon: Building2, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20', desc: 'Parts, supplies & materials' },
                     { label: 'Inventory Stock Value', value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`, icon: TrendingUp, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20', desc: 'Based on qty × unit cost' },
                   ].map((card, i) => (
@@ -980,14 +992,21 @@ export default function ExecutiveDashboard() {
                     <DollarSign className="h-5 w-5 text-primary" />Financial Overview
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {[
-                      { label: 'Daily Op Cost',       value: `$${(data.metrics.dailyCost || 0).toLocaleString()}`,              sub: 'Energy + ops' },
-                      { label: 'Monthly Projected',   value: `$${((data.metrics.dailyCost || 0) * 30).toLocaleString()}`,        sub: 'Daily × 30' },
-                      { label: 'Annual Projected',    value: `$${((data.metrics.dailyCost || 0) * 365).toLocaleString()}`,       sub: 'Daily × 365' },
-                      { label: 'Equipment Value',     value: assetStats.totalValue > 0 ? `$${Math.round(assetStats.totalValue/1000)}K` : '—', sub: 'Replacement cost' },
-                      { label: 'Inventory Value',     value: assetStats.inventoryValue > 0 ? `$${(assetStats.inventoryValue/1000).toFixed(1)}K` : '—', sub: 'Qty × unit cost' },
-                      { label: 'Total Asset Value',   value: (assetStats.totalValue + assetStats.inventoryValue) > 0 ? `$${Math.round((assetStats.totalValue + assetStats.inventoryValue)/1000)}K` : '—', sub: 'Equipment + inventory' },
-                    ].map((item, i) => (
+                    {(() => {
+                      // Prefer fin.dailyCost (computed from equipment financial store)
+                      // over API daily cost so financial data entered in Equipment Library
+                      // actually shows up here.
+                      const effectiveDailyCost = fin.dailyCost > 0 ? Math.round(fin.dailyCost) : (data.metrics.dailyCost || 0);
+                      const effectiveAssetValue = fin.totalAssetValue > 0 ? fin.totalAssetValue : assetStats.totalValue;
+                      return [
+                        { label: 'Daily Op Cost',       value: `$${effectiveDailyCost.toLocaleString()}`,              sub: 'Energy + ops' },
+                        { label: 'Monthly Projected',   value: `$${(effectiveDailyCost * 30).toLocaleString()}`,        sub: 'Daily × 30' },
+                        { label: 'Annual Projected',    value: `$${(effectiveDailyCost * 365).toLocaleString()}`,       sub: 'Daily × 365' },
+                        { label: 'Equipment Value',     value: effectiveAssetValue > 0 ? `$${Math.round(effectiveAssetValue/1000)}K` : '—', sub: 'Replacement cost' },
+                        { label: 'Inventory Value',     value: assetStats.inventoryValue > 0 ? `$${(assetStats.inventoryValue/1000).toFixed(1)}K` : '—', sub: 'Qty × unit cost' },
+                        { label: 'Total Asset Value',   value: (effectiveAssetValue + assetStats.inventoryValue) > 0 ? `$${Math.round((effectiveAssetValue + assetStats.inventoryValue)/1000)}K` : '—', sub: 'Equipment + inventory' },
+                      ];
+                    })().map((item, i) => (
                       <div key={i} className="p-3 rounded-lg bg-background/50 border border-border text-center">
                         <p className="text-xs text-muted-foreground">{item.label}</p>
                         <p className="text-lg font-bold text-primary mt-1">{item.value}</p>

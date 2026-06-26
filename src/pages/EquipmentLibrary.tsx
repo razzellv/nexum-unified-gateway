@@ -651,8 +651,17 @@ export default function EquipmentLibrary() {
     try {
       setLoading(true);
       const data = await apiRequest(`/equipment`);
-      setEquipment(data.equipment || []);
-      try { localStorage.setItem('nexum_equipment_library', JSON.stringify(data.equipment || [])); } catch {}
+      // Merge locally-stored financial fields back in — the Lambda GET response
+      // may not include them, so we keep a separate nexum_equipment_financials
+      // store that survives page refreshes.
+      const financials: Record<string, any> = {};
+      try { Object.assign(financials, JSON.parse(localStorage.getItem('nexum_equipment_financials') || '{}')); } catch {}
+      const merged = (data.equipment || []).map((eq: any) => ({
+        ...eq,
+        ...(financials[eq.equipmentId] || {}),
+      }));
+      setEquipment(merged);
+      try { localStorage.setItem('nexum_equipment_library', JSON.stringify(merged)); } catch {}
     } catch {
       toast({ title: 'Error', description: 'Failed to load equipment', variant: 'destructive' });
     } finally {
@@ -706,6 +715,11 @@ export default function EquipmentLibrary() {
       resetForm();
       loadEquipment();
       window.dispatchEvent(new CustomEvent('equipment-updated'));
+      // Persist financial fields to a separate key so loadEquipment() can merge
+      // them back even when the Lambda GET omits them.
+      // We don't have the server-assigned equipmentId here, so we rely on
+      // loadEquipment() to re-merge from the freshly-fetched list.
+      // (handleEdit below writes the specific equipmentId.)
     } catch (error: any) {
       const limitErr = parseLimitError(error?.body);
       if (limitErr) { setLimitBanner(limitErr); setAddDialogOpen(false); }
@@ -815,6 +829,28 @@ export default function EquipmentLibrary() {
 
       // Record name change after successful save
       if (nameChanged) recordNameChange(selectedEquipment.equipmentId);
+
+      // Persist financial fields to a separate localStorage key so they survive
+      // page refreshes even when the Lambda GET response doesn't return them.
+      try {
+        const existing = JSON.parse(localStorage.getItem('nexum_equipment_financials') || '{}');
+        existing[selectedEquipment.equipmentId] = {
+          purchasePrice: numericPayload.purchasePrice,
+          replacementCost: numericPayload.replacementCost,
+          usefulLifeYears: numericPayload.usefulLifeYears,
+          residualValue: numericPayload.residualValue,
+          depreciationMethod: numericPayload.depreciationMethod,
+          purchaseDate: numericPayload.purchaseDate,
+          currentEfficiency: numericPayload.currentEfficiency,
+          efficiencyBaseline: numericPayload.efficiencyBaseline,
+          maintenanceCostAccumulated: numericPayload.maintenanceCostAccumulated,
+          laborCostAccumulated: numericPayload.laborCostAccumulated,
+          partsConsumedValue: numericPayload.partsConsumedValue,
+          contractorCostAccumulated: numericPayload.contractorCostAccumulated,
+          maintenanceCostTrend: numericPayload.maintenanceCostTrend,
+        };
+        localStorage.setItem('nexum_equipment_financials', JSON.stringify(existing));
+      } catch {}
 
       // Merge saved values directly into local state so the UI reflects them
       // immediately — avoids loadEquipment() overwriting financial fields that
