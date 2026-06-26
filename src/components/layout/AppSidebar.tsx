@@ -143,7 +143,6 @@ const allNavItems: NavItem[] = [
   { name: 'OSHA 300 Log',          href: '/osha-300',             icon: ClipboardList,access: 'leadership',tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Environmental',         href: '/environmental',        icon: Leaf,       access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Consulting Services',   href: '/consulting',           icon: Briefcase,  access: 'leadership' },
-  { name: 'Procurement Hub™',      href: '/procurement-hub',      icon: FileText,   access: 'leadership', orgTypes: ['government', 'facility'] },
   { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart,access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
 
   // ── Government Intelligence™ ─────────────────────────────────────────────────

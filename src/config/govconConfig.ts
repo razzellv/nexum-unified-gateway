@@ -38,7 +38,7 @@ export const CLINS: CLIN[] = [
     title: 'Facility Intelligence™ Platform License',
     description: 'Annual platform license for Facility Intelligence™ SaaS. Includes core operational logging, equipment library, compliance tracking, work orders, and command hub access.',
     type: 'software',
-    unitPrice: { commercial: 4970, govcon: 7470, enterprise: 9970 },
+    unitPrice: { commercial: 4970, govcon: 9970, enterprise: 19970 },
     unit: 'per agency/year',
     minQty: 1, maxQty: null,
     periodOfPerformance: '12 months',

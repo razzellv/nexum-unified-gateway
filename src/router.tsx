@@ -109,7 +109,6 @@ import GovEnvironmental from "./pages/government/GovEnvironmental";
 import GovPMO from "./pages/government/GovPMO";
 import GovDecisionRegistry from "./pages/government/GovDecisionRegistry";
 import OperationalTrust from "./pages/government/OperationalTrust";
-import ProcurementHub from "./pages/ProcurementHub";
 import StaffScheduling from "./pages/StaffScheduling";
 import FieldLogging from "./pages/FieldLogging";
 import IntelligenceCenters from "./pages/IntelligenceCenters";
@@ -461,7 +460,6 @@ export const router = createBrowserRouter([
           { path: "gov-pmo", element: <GovPMO /> },
           { path: "gov-decision-registry", element: <GovDecisionRegistry /> },
           { path: "operational-trust", element: <OperationalTrust /> },
-          { path: "procurement-hub", element: <ProcurementHub /> },
           { path: "staff-scheduling", element: <StaffScheduling /> },
           {
             path: "osha-300",
