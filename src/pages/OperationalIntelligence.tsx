@@ -1016,7 +1016,7 @@ function OIGContent() {
             <h1 className="text-xl font-bold text-foreground">Operational Intelligence &amp; Governance</h1>
             <p className="text-xs text-muted-foreground">
               Sequence-aware · Correlated · Defensible
-              {result && <span className="ml-2 opacity-60">· Last run {new Date(result.analysisTimestamp).toLocaleTimeString()}</span>}
+              {result && <span className="ml-2 opacity-60">· Last run {(() => { const d = new Date(result.analysisTimestamp); return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString(); })()}</span>}
             </p>
           </div>
         </div>
@@ -1143,7 +1143,7 @@ function OIGContent() {
                     <div key={obs.id} className={`border rounded-lg p-3 flex items-start justify-between gap-2 ${flagColor}`}>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground line-clamp-2">{obs.interpretation}</p>
-                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">{obs.equipmentId} · {new Date(obs.detectedAt).toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">{obs.equipmentId} · {(() => { const d = new Date(obs.detectedAt); return isNaN(d.getTime()) ? '—' : d.toLocaleString(); })()}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Badge className={`${badgeColor} text-[10px]`}>{obs.flag}</Badge>
@@ -1375,7 +1375,7 @@ function OIGContent() {
                           {ins.recommendedAction && (
                             <p className="text-xs text-primary/80 border-t border-border/50 pt-1 mt-1">→ {ins.recommendedAction}</p>
                           )}
-                          <p className="text-[10px] text-muted-foreground/60">Equipment: {ins.equipmentId} · Detected {new Date(ins.detectedAt).toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground/60">Equipment: {ins.equipmentId} · Detected {(() => { const d = new Date(ins.detectedAt); return isNaN(d.getTime()) ? '—' : d.toLocaleString(); })()}</p>
                         </CardContent>
                       </Card>
                     );
@@ -1968,7 +1968,7 @@ function OIGContent() {
                           <div key={i} className="p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/20 text-xs">
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[9px] text-yellow-400 border-yellow-400/40">{c.type}</Badge>
-                              <span className="text-[10px] text-muted-foreground">{new Date(c.timestamp).toLocaleDateString()}</span>
+                              <span className="text-[10px] text-muted-foreground">{(() => { const d = new Date(c.timestamp); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(); })()}</span>
                             </div>
                             <p className="text-muted-foreground mt-0.5">{c.description}</p>
                           </div>
