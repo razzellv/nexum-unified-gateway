@@ -75,6 +75,9 @@ interface ComplianceAreaRecord {
   building: string;
   totalCount: number;
   unitCost: number;
+  lastInspectionDate?: string;  // ISO date
+  manualFailedCount?: number;   // user-set failed count (overrides WO keyword count if set)
+  notes?: string;
 }
 
 interface EquipSystem {
@@ -96,13 +99,42 @@ interface SystemUnit {
   stateSource: 'bms' | 'manual';
 }
 
+interface FloorSupplyItem {
+  itemId: string;
+  name: string;
+  quantity: number;
+  minQuantity: number;
+  unit: string;  // 'each', 'rolls', 'bottles', 'bags', 'pairs', 'oz'
+  condition: 'good' | 'fair' | 'worn' | 'depleted';
+  lastRestocked?: string; // ISO date
+}
+
 interface FloorAssignment {
   floorId: string;
   floorLabel: string;
   building: string;
   custodianName: string;
   shift: 'day' | 'evening' | 'night';
+  supplies?: FloorSupplyItem[];
 }
+
+const SUPPLY_TEMPLATES: Omit<FloorSupplyItem, 'itemId' | 'quantity' | 'condition'>[] = [
+  { name: 'Mop Bucket', minQuantity: 1, unit: 'each' },
+  { name: 'Mop Heads', minQuantity: 3, unit: 'each' },
+  { name: 'Wet Floor Signs', minQuantity: 2, unit: 'each' },
+  { name: 'Paper Towels', minQuantity: 4, unit: 'rolls' },
+  { name: 'Toilet Paper', minQuantity: 12, unit: 'rolls' },
+  { name: 'Hand Soap', minQuantity: 2, unit: 'bottles' },
+  { name: 'Trash Bags (Large)', minQuantity: 20, unit: 'bags' },
+  { name: 'Trash Bags (Small)', minQuantity: 20, unit: 'bags' },
+  { name: 'Disinfectant Spray', minQuantity: 2, unit: 'bottles' },
+  { name: 'Glass Cleaner', minQuantity: 1, unit: 'bottles' },
+  { name: 'Latex Gloves', minQuantity: 2, unit: 'pairs' },
+  { name: 'Microfiber Cloths', minQuantity: 6, unit: 'each' },
+  { name: 'Broom & Dustpan', minQuantity: 1, unit: 'each' },
+  { name: 'Vacuum/Floor Machine', minQuantity: 1, unit: 'each' },
+  { name: 'Hand Sanitizer', minQuantity: 1, unit: 'bottles' },
+];
 
 interface InventoryItem {
   id: string;
@@ -569,7 +601,7 @@ export default function EquipmentLibrary() {
   const [cardAccessRecords, setCardAccessRecords] = useState<ComplianceAreaRecord[]>(() => {
     try { return JSON.parse(localStorage.getItem('nexum_card_access_records') || '[]'); } catch { return []; }
   });
-  const [newComplianceForm, setNewComplianceForm] = useState({ areaLabel: '', building: '', totalCount: '', unitCost: '' });
+  const [newComplianceForm, setNewComplianceForm] = useState({ areaLabel: '', building: '', totalCount: '', unitCost: '', lastInspectionDate: '', manualFailedCount: '', notes: '' });
   const [complianceAddTarget, setComplianceAddTarget] = useState<string | null>(null);
   // Systems tab state
   const [equipSystems, setEquipSystems] = useState<EquipSystem[]>(() => {
@@ -583,6 +615,8 @@ export default function EquipmentLibrary() {
   });
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [supplyFloorForm, setSupplyFloorForm] = useState({ floorLabel: '', building: '', custodianName: '', shift: 'day' as 'day' | 'evening' | 'night' });
+  const [supplyLineItems, setSupplyLineItems] = useState<FloorSupplyItem[]>([]);
+  const [editingFloorAssignment, setEditingFloorAssignment] = useState<string | null>(null);
 
   const role = user?.role?.toLowerCase() || '';
   const canEdit = ['admin', 'executive', 'manager'].includes(role);
@@ -1018,8 +1052,10 @@ export default function EquipmentLibrary() {
     const replaced = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && wo.status === 'completed' && AREA_MATCH(wo)).length
       + violations.filter(v => keywords.test(`${v.type} ${v.description}`) && v.type === 'PM_COMPLETED' && AREA_MATCH(v)).length;
     const scheduled = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && ['in_progress', 'assigned', 'scheduled'].includes(wo.status) && AREA_MATCH(wo)).length;
-    const failed = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && ['open', 'on_hold'].includes(wo.status) && AREA_MATCH(wo)).length
+    const woFailed = workOrders.filter(wo => keywords.test(`${wo.title} ${wo.description}`) && ['open', 'on_hold'].includes(wo.status) && AREA_MATCH(wo)).length
       + violations.filter(v => keywords.test(`${v.type} ${v.description}`) && v.status !== 'resolved' && v.type !== 'PM_COMPLETED' && AREA_MATCH(v)).length;
+    // Use manualFailedCount as the base for failed when WO matches return 0
+    const failed = woFailed > 0 ? woFailed : (record.manualFailedCount ?? 0);
     const compliant = Math.max(0, record.totalCount - failed - scheduled - replaced);
     return { compliant, failed, scheduled, replaced, remediationCost: failed * record.unitCost };
   }
@@ -1964,7 +2000,7 @@ export default function EquipmentLibrary() {
                     <h2 className="text-lg font-semibold">{comp.title}</h2>
                     <p className="text-sm text-muted-foreground">{comp.description}</p>
                   </div>
-                  <Dialog open={complianceAddTarget === comp.key} onOpenChange={open => { setComplianceAddTarget(open ? comp.key : null); if (!open) setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '' }); }}>
+                  <Dialog open={complianceAddTarget === comp.key} onOpenChange={open => { setComplianceAddTarget(open ? comp.key : null); if (!open) setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '', lastInspectionDate: '', manualFailedCount: '', notes: '' }); }}>
                     <DialogTrigger asChild>
                       <Button size="sm" onClick={() => setComplianceAddTarget(comp.key)}><Plus className="w-4 h-4 mr-2" />Add Area</Button>
                     </DialogTrigger>
@@ -1977,6 +2013,11 @@ export default function EquipmentLibrary() {
                           <div className="space-y-1"><Label>Total Count</Label><Input type="number" placeholder="0" value={newComplianceForm.totalCount} onChange={e => setNewComplianceForm(p => ({ ...p, totalCount: e.target.value }))} /></div>
                           <div className="space-y-1"><Label>Unit Cost ($)</Label><Input type="number" placeholder={comp.defaultCost} value={newComplianceForm.unitCost} onChange={e => setNewComplianceForm(p => ({ ...p, unitCost: e.target.value }))} /></div>
                         </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1"><Label>Last Inspection Date</Label><Input type="date" value={newComplianceForm.lastInspectionDate} onChange={e => setNewComplianceForm(p => ({ ...p, lastInspectionDate: e.target.value }))} /></div>
+                          <div className="space-y-1"><Label>Known Failures</Label><Input type="number" placeholder="0" value={newComplianceForm.manualFailedCount} onChange={e => setNewComplianceForm(p => ({ ...p, manualFailedCount: e.target.value }))} /></div>
+                        </div>
+                        <div className="space-y-1"><Label>Notes</Label><Input placeholder="Inspection notes, condition details..." value={newComplianceForm.notes} onChange={e => setNewComplianceForm(p => ({ ...p, notes: e.target.value }))} /></div>
                         <Button className="w-full" onClick={() => {
                           if (!newComplianceForm.areaLabel || !newComplianceForm.totalCount) return;
                           const rec: ComplianceAreaRecord = {
@@ -1985,10 +2026,13 @@ export default function EquipmentLibrary() {
                             building: newComplianceForm.building || 'Main',
                             totalCount: parseInt(newComplianceForm.totalCount) || 0,
                             unitCost: parseFloat(newComplianceForm.unitCost) || parseFloat(comp.defaultCost),
+                            lastInspectionDate: newComplianceForm.lastInspectionDate || undefined,
+                            manualFailedCount: newComplianceForm.manualFailedCount ? parseInt(newComplianceForm.manualFailedCount) : undefined,
+                            notes: newComplianceForm.notes || undefined,
                           };
                           const updated = [...comp.records, rec];
                           saveComplianceRecords(comp.storageKey, updated, comp.setter);
-                          setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '' });
+                          setNewComplianceForm({ areaLabel: '', building: '', totalCount: '', unitCost: '', lastInspectionDate: '', manualFailedCount: '', notes: '' });
                           setComplianceAddTarget(null);
                         }}>Save Area</Button>
                       </div>
@@ -2010,7 +2054,11 @@ export default function EquipmentLibrary() {
                             <div className="flex items-center justify-between gap-3 mb-3">
                               <div>
                                 <h3 className="font-semibold">{rec.areaLabel}</h3>
-                                <p className="text-xs text-muted-foreground">{rec.building} · {rec.totalCount} total · ${rec.unitCost}/unit</p>
+                                <p className="text-xs text-muted-foreground">{rec.building} · {rec.totalCount} units tracked · ${(rec.totalCount * rec.unitCost).toLocaleString(undefined, { maximumFractionDigits: 0 })} replacement value</p>
+                                {rec.lastInspectionDate && (
+                                  <p className="text-xs text-muted-foreground">Last inspection: {new Date(rec.lastInspectionDate).toLocaleDateString()}</p>
+                                )}
+                                {rec.notes && <p className="text-xs text-muted-foreground italic mt-0.5">{rec.notes}</p>}
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge className={healthPct >= 80 ? 'bg-green-500/20 text-green-400 border-green-500/30' : healthPct >= 50 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
@@ -2241,34 +2289,106 @@ export default function EquipmentLibrary() {
               </div>
               <Dialog>
                 <DialogTrigger asChild><Button size="sm"><Plus className="w-4 h-4 mr-2" />Add Floor</Button></DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Assign Floor / Area</DialogTitle></DialogHeader>
                   <div className="space-y-4 py-4">
-                    <div className="space-y-1"><Label>Floor / Area</Label><Input placeholder="Floor 1" value={supplyFloorForm.floorLabel} onChange={e => setSupplyFloorForm(p => ({ ...p, floorLabel: e.target.value }))} /></div>
-                    <div className="space-y-1"><Label>Building</Label><Input placeholder="Building A" value={supplyFloorForm.building} onChange={e => setSupplyFloorForm(p => ({ ...p, building: e.target.value }))} /></div>
-                    <div className="space-y-1"><Label>Assigned Custodian</Label><Input placeholder="Name" value={supplyFloorForm.custodianName} onChange={e => setSupplyFloorForm(p => ({ ...p, custodianName: e.target.value }))} /></div>
-                    <div className="space-y-1">
-                      <Label>Shift</Label>
-                      <Select value={supplyFloorForm.shift} onValueChange={v => setSupplyFloorForm(p => ({ ...p, shift: v as 'day' | 'evening' | 'night' }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="day">Day Shift</SelectItem>
-                          <SelectItem value="evening">Evening Shift</SelectItem>
-                          <SelectItem value="night">Night Shift</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1"><Label>Floor / Area</Label><Input placeholder="Floor 1" value={supplyFloorForm.floorLabel} onChange={e => setSupplyFloorForm(p => ({ ...p, floorLabel: e.target.value }))} /></div>
+                      <div className="space-y-1"><Label>Building</Label><Input placeholder="Building A" value={supplyFloorForm.building} onChange={e => setSupplyFloorForm(p => ({ ...p, building: e.target.value }))} /></div>
+                      <div className="space-y-1"><Label>Assigned Custodian</Label><Input placeholder="Name" value={supplyFloorForm.custodianName} onChange={e => setSupplyFloorForm(p => ({ ...p, custodianName: e.target.value }))} /></div>
+                      <div className="space-y-1">
+                        <Label>Shift</Label>
+                        <Select value={supplyFloorForm.shift} onValueChange={v => setSupplyFloorForm(p => ({ ...p, shift: v as 'day' | 'evening' | 'night' }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="day">Day Shift</SelectItem>
+                            <SelectItem value="evening">Evening Shift</SelectItem>
+                            <SelectItem value="night">Night Shift</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+
+                    {/* Supply Items */}
+                    <div className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Supply Inventory for This Floor</Label>
+                        <Button type="button" variant="outline" size="sm" onClick={() => {
+                          setSupplyLineItems(SUPPLY_TEMPLATES.map((t, i) => ({
+                            ...t,
+                            itemId: `item-${Date.now()}-${i}`,
+                            quantity: t.minQuantity,
+                            condition: 'good' as const,
+                          })));
+                        }}>
+                          Load Template
+                        </Button>
+                      </div>
+
+                      {supplyLineItems.map((item, idx) => (
+                        <div key={item.itemId} className="grid grid-cols-12 gap-1 items-center text-xs">
+                          <span className="col-span-3 font-medium truncate">{item.name}</span>
+                          <div className="col-span-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              value={item.quantity}
+                              onChange={e => setSupplyLineItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: parseInt(e.target.value) || 0 } : it))}
+                              className="h-6 text-xs px-1"
+                            />
+                          </div>
+                          <span className="col-span-1 text-muted-foreground text-center">/{item.minQuantity} {item.unit}</span>
+                          <div className="col-span-3">
+                            <Select value={item.condition} onValueChange={v => setSupplyLineItems(prev => prev.map((it, i) => i === idx ? { ...it, condition: v as FloorSupplyItem['condition'] } : it))}>
+                              <SelectTrigger className="h-6 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="good">Good</SelectItem>
+                                <SelectItem value="fair">Fair</SelectItem>
+                                <SelectItem value="worn">Worn</SelectItem>
+                                <SelectItem value="depleted">Depleted</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2 flex justify-end">
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSupplyLineItems(prev => prev.filter((_, i) => i !== idx))}>
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Add custom item */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs border-dashed border rounded"
+                        onClick={() => setSupplyLineItems(prev => [...prev, {
+                          itemId: `custom-${Date.now()}`,
+                          name: 'Custom Item',
+                          quantity: 1,
+                          minQuantity: 1,
+                          unit: 'each',
+                          condition: 'good',
+                        }])}
+                      >
+                        + Add Item
+                      </Button>
+                    </div>
+
                     <Button className="w-full" onClick={() => {
                       if (!supplyFloorForm.floorLabel) return;
                       const a: FloorAssignment = {
-                        floorId: `fa-${Date.now()}`,
+                        floorId: `floor-${Date.now()}`,
                         floorLabel: supplyFloorForm.floorLabel,
                         building: supplyFloorForm.building || 'Main',
                         custodianName: supplyFloorForm.custodianName || 'Unassigned',
                         shift: supplyFloorForm.shift,
+                        supplies: supplyLineItems.length > 0 ? supplyLineItems : undefined,
                       };
                       saveFloorAssignments([...floorAssignments, a]);
                       setSupplyFloorForm({ floorLabel: '', building: '', custodianName: '', shift: 'day' });
+                      setSupplyLineItems([]);
                     }}>Save Assignment</Button>
                   </div>
                 </DialogContent>
