@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useFinancialMetrics } from '@/lib/useFinancialMetrics';
 import {
   Wrench, AlertTriangle, CheckCircle, TrendingUp, ArrowRight,
   Clock, BarChart2, Users, ChevronDown, ChevronUp, Plus, X,
@@ -990,6 +991,24 @@ export default function RetailDashboard() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
+  const [tick, setTick] = useState(0);
+
+  // Financial metrics hook — provides asset value, WO spend, compliance rate, etc.
+  const fin = useFinancialMetrics(tick);
+
+  // Refresh fin metrics on relevant storage events
+  useEffect(() => {
+    const handler = () => setTick(t => t + 1);
+    window.addEventListener('equipment-updated', handler);
+    window.addEventListener('facility-log-submitted', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('equipment-updated', handler);
+      window.removeEventListener('facility-log-submitted', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
   // KPI state
   const [kpis, setKpis] = useState(() => {
     try {
@@ -1032,10 +1051,13 @@ export default function RetailDashboard() {
 
   const completionRate = Math.round((kpis.completed / kpis.total) * 100);
 
+  // Prefer fin.openWorkOrderCount (reads nexum_work_orders) over stale kpis.open
+  const liveOpenWOs = fin.openWorkOrderCount > 0 ? fin.openWorkOrderCount : kpis.open;
+
   const kpiCards = [
     { label: 'Total Work Orders', value: kpis.total, color: 'text-foreground', sub: 'all orders' },
     { label: 'Completed', value: kpis.completed, color: 'text-green-400', sub: 'finished' },
-    { label: 'Open', value: kpis.open, color: 'text-blue-400', sub: 'pending' },
+    { label: 'Open', value: liveOpenWOs, color: 'text-blue-400', sub: 'pending' },
     { label: 'In Progress', value: kpis.inProgress, color: 'text-teal-400', sub: 'active now' },
     { label: 'Completion Rate', value: `${completionRate}%`, color: rateColor(completionRate), sub: 'completed / total' },
     { label: 'On-Time Rate', value: `${kpis.onTimeRate}%`, color: rateColor(kpis.onTimeRate), sub: 'on-time completion' },

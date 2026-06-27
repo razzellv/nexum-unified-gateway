@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRangeFilter, filterByRange, bucketByDay, type DateRange } from '@/components/DateRangeFilter';
+import { useFinancialMetrics } from '@/lib/useFinancialMetrics';
 
 // ─── Mock / localStorage data ─────────────────────────────────────────────────
 const MOCK_UNITS = [
@@ -138,6 +139,7 @@ export default function GovernmentDashboard() {
   const facilityId = user?.facilityId || (user as any)?.['custom:facilityId'] || 'facility-001';
 
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
   const [govDashTab, setGovDashTab] = useState<'ops' | 'ehs'>('ops');
   const [units, setUnits] = useState<any[]>(MOCK_UNITS);
   const [personnel, setPersonnel] = useState<any[]>(MOCK_PERSONNEL);
@@ -222,6 +224,22 @@ export default function GovernmentDashboard() {
   }, [facilityId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Financial metrics — primarily for compliance rate from violation events
+  const fin = useFinancialMetrics(tick);
+
+  // Refresh fin metrics on relevant events
+  useEffect(() => {
+    const handler = () => setTick(t => t + 1);
+    window.addEventListener('equipment-updated', handler);
+    window.addEventListener('facility-log-submitted', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('equipment-updated', handler);
+      window.removeEventListener('facility-log-submitted', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
 
   const todayIncidents = incidents.filter((i: any) => i.date === new Date().toISOString().split('T')[0]);
 

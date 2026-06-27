@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DEPARTMENTS } from '@/config/roles';
 import { NexumBranding } from "@/components/NexumBranding";
 import { getSupervisorDashboard } from "@/lib/nexum-api";
+import { useFinancialMetrics } from '@/lib/useFinancialMetrics';
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { MainLayout } from '@/components/MainLayout';
 import { DCIntelligencePanel } from '@/components/global/DCIntelligencePanel';
@@ -154,6 +155,9 @@ export default function SupervisorDashboard() {
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
   const [localDataKey, setLocalDataKey] = useState(0);
 
+  // Financial metrics hook — merges nexum_equipment_financials into asset/cost calcs
+  const fin = useFinancialMetrics(localDataKey);
+
   // ── localStorage-derived metrics for supervisor view ─────────────────────────
   // Re-computed when localDataKey increments (on equipment-updated events)
   const localSupervisorMetrics = useMemo(() => {
@@ -283,11 +287,13 @@ export default function SupervisorDashboard() {
       window.addEventListener('facility-log-submitted', onLog);
       window.addEventListener('nexum_bms_poll_update', onLog);
       window.addEventListener('equipment-updated', onLog);
+      window.addEventListener('storage', onLog);
       return () => {
         clearInterval(interval);
         window.removeEventListener('facility-log-submitted', onLog);
         window.removeEventListener('nexum_bms_poll_update', onLog);
         window.removeEventListener('equipment-updated', onLog);
+        window.removeEventListener('storage', onLog);
       };
     }
   }, [isAuthenticated, fetchData]);
@@ -752,23 +758,25 @@ export default function SupervisorDashboard() {
         )}
 
         {/* ── Maintenance Cost Impact ───────────────────────────────────────── */}
-        {(costBreakdown && costBreakdown.bySystemType.length > 0) || localSupervisorMetrics.totalMaintenanceCost > 0 ? (
+        {(costBreakdown && costBreakdown.bySystemType.length > 0) || fin.totalMaintenanceCost > 0 || localSupervisorMetrics.totalMaintenanceCost > 0 ? (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-4">
               <DollarSign className="w-5 h-5 text-emerald-400" />
               <h2 className="text-lg font-semibold">Maintenance Cost Impact</h2>
             </div>
-            {/* localStorage-computed total cost — always shown when data exists */}
-            {localSupervisorMetrics.totalMaintenanceCost > 0 && (
+            {/* localStorage-computed total cost — always shown when data exists.
+                fin.totalMaintenanceCost merges nexum_equipment_financials so it
+                persists through page refreshes even when the Lambda GET omits those fields. */}
+            {(fin.totalMaintenanceCost > 0 || localSupervisorMetrics.totalMaintenanceCost > 0) && (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                 <div className="bg-card border border-emerald-500/20 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Total Maintenance Cost</p>
-                  <p className="text-sm font-bold text-emerald-400">${(localSupervisorMetrics.totalMaintenanceCost / 1000).toFixed(1)}k</p>
+                  <p className="text-sm font-bold text-emerald-400">${((fin.totalMaintenanceCost || localSupervisorMetrics.totalMaintenanceCost) / 1000).toFixed(1)}k</p>
                   <p className="text-xs text-muted-foreground">All equipment (labor + parts + contractor)</p>
                 </div>
                 <div className="bg-card border border-emerald-500/20 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Est. Daily Cost</p>
-                  <p className="text-sm font-bold text-emerald-400">${Math.round(localSupervisorMetrics.totalMaintenanceCost / 365).toLocaleString()}</p>
+                  <p className="text-sm font-bold text-emerald-400">${Math.round(fin.dailyCost || localSupervisorMetrics.totalMaintenanceCost / 365).toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">Total ÷ 365 days</p>
                 </div>
               </div>

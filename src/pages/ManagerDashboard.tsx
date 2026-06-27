@@ -16,6 +16,7 @@ import { ScopeFilters } from '@/components/global/ScopeFilters';
 import { ExportButtons } from '@/components/global/ExportButtons';
 import { NexumLoader } from '@/components/global/NexumLoader';
 import { getManagerDashboard } from '@/lib/nexum-api';
+import { useFinancialMetrics } from '@/lib/useFinancialMetrics';
 import { BudgetVsCost } from '@/components/manager/BudgetVsCost';
 import ConfidenceMetrics from "@/components/manager/ConfidenceMetrics";
 import { getManagerConfidenceMetrics, listSuggestions, dismissSuggestion, actOnSuggestion, type Suggestion, getCostSummary, getCostBreakdown, type CostSummary, type CostBreakdown } from "@/lib/nexum-api";
@@ -164,6 +165,9 @@ export default function ManagerDashboard() {
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null);
+
+  // Financial metrics hook — merges nexum_equipment_financials into asset/cost calcs
+  const fin = useFinancialMetrics(refreshKey);
 
   // ── localStorage-derived metrics ─────────────────────────────────────────────
   const localMetrics = useMemo(() => {
@@ -338,9 +342,13 @@ export default function ManagerDashboard() {
     const handler = () => setRefreshKey(k => k + 1);
     window.addEventListener('equipment-updated', handler);
     window.addEventListener('nexum_bms_poll_update', handler);
+    window.addEventListener('facility-log-submitted', handler);
+    window.addEventListener('storage', handler);
     return () => {
       window.removeEventListener('equipment-updated', handler);
       window.removeEventListener('nexum_bms_poll_update', handler);
+      window.removeEventListener('facility-log-submitted', handler);
+      window.removeEventListener('storage', handler);
     };
   }, []);
 
@@ -439,8 +447,9 @@ export default function ManagerDashboard() {
   const totalEquipment    = data?.summary?.total_equipment        || 0;
   const activeEquipment   = data?.summary?.active_equipment       || 0;
   const recentLogsCount   = data?.summary?.recent_logs_count      || 0;
-  // Open work orders: prefer API, fall back to localStorage count
+  // Open work orders: prefer API, fall back to fin hook (merges financial store), then localMetrics
   const openWorkOrders    = data?.work_orders?.open
+                              || fin.openWorkOrderCount
                               || (localMetrics.hasWOData ? localMetrics.localOpenWOs : 0);
   const totalWorkOrders   = data?.work_orders?.total              || 0;
   const activeViolations  = data?.violations?.active              || 0;
@@ -760,8 +769,8 @@ export default function ManagerDashboard() {
         {/* ── Asset + Inventory Scorecards ─────────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
-            { title: 'Equipment Units',    value: assetStats.totalAssets.toLocaleString(),             icon: Activity,  color: 'text-neon-cyan', sub: 'All equipment on record' },
-            { title: 'Asset Value',        value: `$${((assetStats.totalValue > 0 ? assetStats.totalValue : localMetrics.localAssetValue) / 1000).toFixed(0)}K`,    icon: DollarSign,color: 'text-green-400', sub: 'Total replacement cost' },
+            { title: 'Equipment Units',    value: (fin.totalEquipmentCount || assetStats.totalAssets).toLocaleString(),             icon: Activity,  color: 'text-neon-cyan', sub: 'All equipment on record' },
+            { title: 'Asset Value',        value: `$${((fin.totalAssetValue > 0 ? fin.totalAssetValue : assetStats.totalValue > 0 ? assetStats.totalValue : localMetrics.localAssetValue) / 1000).toFixed(0)}K`,    icon: DollarSign,color: 'text-green-400', sub: 'Total replacement cost' },
             { title: 'Inventory Items',    value: assetStats.inventoryItems.toLocaleString(),           icon: BarChart3, color: 'text-purple-400', sub: 'Parts & supplies lines' },
             { title: 'Inventory Value',    value: `$${(assetStats.inventoryValue / 1000).toFixed(1)}K`,icon: TrendingUp,color: 'text-yellow-400', sub: 'Qty × unit cost' },
             { title: 'Low Stock Alerts',   value: assetStats.lowStock.toLocaleString(),                icon: AlertTriangle, color: assetStats.lowStock > 0 ? 'text-orange-400' : 'text-green-400', sub: 'Items at or below min qty' },
