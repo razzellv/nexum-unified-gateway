@@ -2405,6 +2405,11 @@ export default function EquipmentLibrary() {
                   );
                   const outCount = floorItems.filter(it => it.quantity === 0).length;
                   const lowCount = floorItems.filter(it => it.quantity > 0 && it.quantity <= (it.minQuantity || 2)).length;
+
+                  // Inline supply summary badges from fa.supplies
+                  const supplyDepletedCount = fa.supplies ? fa.supplies.filter(s => s.condition === 'depleted' || s.quantity === 0).length : 0;
+                  const supplyLowCount = fa.supplies ? fa.supplies.filter(s => s.quantity < s.minQuantity && s.quantity > 0).length : 0;
+
                   return (
                     <Card key={fa.floorId}>
                       <CardContent className="p-5">
@@ -2418,15 +2423,49 @@ export default function EquipmentLibrary() {
                             <p className="text-xs text-muted-foreground mt-0.5">Custodian: <span className="text-foreground font-medium">{fa.custodianName}</span></p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {outCount > 0 && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">{outCount} Out</Badge>}
-                            {lowCount > 0 && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{lowCount} Low</Badge>}
+                            {(fa.supplies ? supplyDepletedCount > 0 : outCount > 0) && <Badge className="bg-red-500/20 text-red-400 border-red-500/30">{fa.supplies ? supplyDepletedCount : outCount} {fa.supplies ? 'Depleted' : 'Out'}</Badge>}
+                            {(fa.supplies ? supplyLowCount > 0 : lowCount > 0) && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{fa.supplies ? supplyLowCount : lowCount} Low</Badge>}
                             <Button variant="ghost" size="sm" onClick={() => saveFloorAssignments(floorAssignments.filter(f => f.floorId !== fa.floorId))}>
                               <Settings className="w-3.5 h-3.5 text-red-400" />
                             </Button>
                           </div>
                         </div>
 
-                        {floorItems.length === 0 ? (
+                        {fa.supplies && fa.supplies.length > 0 ? (
+                          <div className="mt-2 pt-2 border-t">
+                            <p className="text-xs font-medium mb-1">Floor Supplies ({fa.supplies.length} items)</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {fa.supplies.map(item => {
+                                const isLow = item.quantity < item.minQuantity;
+                                const isDepleted = item.condition === 'depleted' || item.quantity === 0;
+                                const isWorn = item.condition === 'worn';
+                                return (
+                                  <div key={item.itemId} className={`flex items-center justify-between text-xs p-1 rounded ${isDepleted ? 'bg-red-500/10' : isLow || isWorn ? 'bg-yellow-500/10' : 'bg-green-500/10'}`}>
+                                    <span className="truncate">{item.name}</span>
+                                    <span className={`ml-1 font-mono shrink-0 ${isDepleted ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-green-400'}`}>
+                                      {item.quantity}/{item.minQuantity}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* Summary chips */}
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {(() => {
+                                const depleted = fa.supplies.filter(s => s.condition === 'depleted' || s.quantity === 0).length;
+                                const low = fa.supplies.filter(s => s.quantity < s.minQuantity && s.quantity > 0).length;
+                                const worn = fa.supplies.filter(s => s.condition === 'worn').length;
+                                const ok = fa.supplies.length - depleted - low - worn;
+                                return <>
+                                  {ok > 0 && <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">{ok} Stocked</span>}
+                                  {worn > 0 && <span className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">{worn} Worn</span>}
+                                  {low > 0 && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">{low} Low</span>}
+                                  {depleted > 0 && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">{depleted} Depleted</span>}
+                                </>;
+                              })()}
+                            </div>
+                          </div>
+                        ) : floorItems.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No custodial supplies found for this floor in Inventory Library. Log supplies with a matching floor location.</p>
                         ) : (
                           <div className="overflow-x-auto">
@@ -2458,12 +2497,14 @@ export default function EquipmentLibrary() {
                           </div>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-border/40 flex gap-4 text-xs text-muted-foreground">
-                          <span><span className="text-green-400 font-semibold">{floorItems.filter(i => i.quantity > (i.minQuantity || 2)).length}</span> stocked</span>
-                          <span><span className="text-amber-400 font-semibold">{lowCount}</span> low</span>
-                          <span><span className="text-red-400 font-semibold">{outCount}</span> out</span>
-                          <span className="ml-auto">Total on hand: <span className="text-foreground font-semibold">${floorItems.reduce((s, i) => s + (i.quantity * (i.unitCost || 0)), 0).toFixed(2)}</span></span>
-                        </div>
+                        {!fa.supplies && (
+                          <div className="mt-3 pt-3 border-t border-border/40 flex gap-4 text-xs text-muted-foreground">
+                            <span><span className="text-green-400 font-semibold">{floorItems.filter(i => i.quantity > (i.minQuantity || 2)).length}</span> stocked</span>
+                            <span><span className="text-amber-400 font-semibold">{lowCount}</span> low</span>
+                            <span><span className="text-red-400 font-semibold">{outCount}</span> out</span>
+                            <span className="ml-auto">Total on hand: <span className="text-foreground font-semibold">${floorItems.reduce((s, i) => s + (i.quantity * (i.unitCost || 0)), 0).toFixed(2)}</span></span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
