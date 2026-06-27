@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSupplyAlerts } from '@/lib/useSupplyAlerts';
 import { Bell, AlertTriangle, ClipboardList, ShieldAlert, CheckCircle, X, MessageSquare, Clock, Siren } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -239,9 +240,13 @@ export function NotificationBell() {
     if (n.link) window.location.href = n.link;
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Supply alerts — localStorage-based, no tick needed (bell re-renders on dropdown open)
+  const supplyAlerts = useSupplyAlerts();
+  const supplyAlertCount = supplyAlerts.length;
+
+  const unreadCount = notifications.filter(n => !n.read).length + supplyAlertCount;
   const emergencyCount = notifications.filter(n => n.type === 'emergency' && !n.read).length;
-  const criticalCount = notifications.filter(n => n.severity === 'critical' && !n.read).length;
+  const criticalCount = notifications.filter(n => n.severity === 'critical' && !n.read).length + supplyAlerts.filter(a => a.severity === 'critical').length;
 
   const groupLabel: Record<string, string> = {
     emergency: 'Emergencies',
