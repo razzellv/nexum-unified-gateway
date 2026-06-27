@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSupplyAlerts } from '@/lib/useSupplyAlerts';
+import { SupplyAlertBanner } from '@/components/global/SupplyAlertBanner';
 import { MainLayout } from '@/components/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -168,6 +170,32 @@ export default function ManagerDashboard() {
 
   // Financial metrics hook — merges nexum_equipment_financials into asset/cost calcs
   const fin = useFinancialMetrics(refreshKey);
+
+  // ── Supply alert state ──────────────────────────────────────────────────────
+  const [alertDismissed, setAlertDismissed] = useState(() => {
+    const t = sessionStorage.getItem('nexum_supply_alert_dismissed_at');
+    return t ? Date.now() - parseInt(t) < 3600000 : false;
+  });
+  const [alertTick, setAlertTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setAlertTick(n => n + 1);
+    window.addEventListener('storage', bump);
+    window.addEventListener('equipment-updated', bump);
+    window.addEventListener('facility-log-submitted', bump);
+    return () => {
+      window.removeEventListener('storage', bump);
+      window.removeEventListener('equipment-updated', bump);
+      window.removeEventListener('facility-log-submitted', bump);
+    };
+  }, []);
+
+  const supplyAlerts = useSupplyAlerts(alertTick);
+
+  const handleDismissSupplyAlert = () => {
+    sessionStorage.setItem('nexum_supply_alert_dismissed_at', Date.now().toString());
+    setAlertDismissed(true);
+  };
 
   // ── localStorage-derived metrics ─────────────────────────────────────────────
   const localMetrics = useMemo(() => {
@@ -1147,6 +1175,11 @@ export default function ManagerDashboard() {
         )}
 
       </div>
+
+      {/* Supply alert banner */}
+      {supplyAlerts.length > 0 && !alertDismissed && (
+        <SupplyAlertBanner alerts={supplyAlerts} onDismiss={handleDismissSupplyAlert} />
+      )}
     </MainLayout>
   );
 }

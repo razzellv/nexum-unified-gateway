@@ -27,6 +27,7 @@ import {
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
   Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck,
   Award, FileText,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -342,6 +343,27 @@ export function AppSidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {visibleItems.map((item, idx) => renderNavItem(item, idx))}
       </nav>
+
+      {/* Collapse / expand toggle — desktop only */}
+      <div className={cn('hidden md:flex p-2 border-t border-sidebar-border shrink-0', collapsed ? 'justify-center' : 'justify-end')}>
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="p-2 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed
+                ? <PanelLeftOpen className="w-4 h-4" />
+                : <PanelLeftClose className="w-4 h-4" />
+              }
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       {/* Sign out */}
       <div className="p-2 border-t border-sidebar-border shrink-0">
