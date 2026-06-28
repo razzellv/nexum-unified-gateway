@@ -20,6 +20,7 @@
 import { listBMSFeeds, getBMSFeedData, listSkids, getSkidData } from '@/lib/nexum-api';
 import { DataCorrelationEngine } from './DataCorrelationEngine';
 import { ObservationEngine } from './ObservationEngine';
+import { runHvacAutoDerive } from '@/lib/hvacAutoDerive';
 
 const POLL_INTERVAL_MS  = 3 * 60 * 60 * 1000; // 3 hours
 const STATUS_KEY        = 'nexum_bms_poll_status';
@@ -112,6 +113,8 @@ class BMSPollServiceClass {
       // Run correlation + observation detection after every poll cycle
       DataCorrelationEngine.run().catch(() => {});
       ObservationEngine.processBMSData();
+      // Auto-derive HVAC metrics (COP, EER, sensible load, etc.) from fresh data
+      try { runHvacAutoDerive(); } catch { /* silent */ }
     }
   }
 

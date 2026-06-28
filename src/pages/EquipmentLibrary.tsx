@@ -12,12 +12,13 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio, Zap } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
 import { calculateOperationalDepreciation, calculatePMBOKLifecycle } from '@/lib/depreciationEngine';
 import { deriveBaseline } from '@/lib/engineeringCalcs';
+import { runHvacAutoDerive, useInlineHvacDerived } from '@/lib/hvacAutoDerive';
 import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 import { ConnectionWizard, ProbeSession } from '@/components/equipment/ConnectionWizard';
 
@@ -160,6 +161,30 @@ function BaselineDerivedStrip({ derived, show, labels }: { derived: Record<strin
           <span className="font-semibold text-blue-400">{Number(derived[k]).toLocaleString()}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Inline HVAC auto-derived metrics strip — shown inside baseline forms
+function HvacInlinePanel({ fields }: { fields: Array<{ label: string; value: string; unit?: string; good?: boolean }> }) {
+  if (!fields.length) return null;
+  return (
+    <div className="mt-2 p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400 mb-1.5 flex items-center gap-1">
+        <Zap className="w-3 h-3" /> Auto-derived from inputs
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {fields.map(f => (
+          <div key={f.label} className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs border ${
+            f.good === true  ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+            f.good === false ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                               'bg-muted/40 border-border/40 text-muted-foreground'
+          }`}>
+            <span>{f.label}:</span>
+            <span className="font-semibold">{f.value}{f.unit ? ` ${f.unit}` : ''}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -749,6 +774,7 @@ export default function EquipmentLibrary() {
       resetForm();
       loadEquipment();
       window.dispatchEvent(new CustomEvent('equipment-updated'));
+      try { runHvacAutoDerive(); } catch { /* silent */ }
       // Persist financial fields to a separate key so loadEquipment() can merge
       // them back even when the Lambda GET omits them.
       // We don't have the server-assigned equipmentId here, so we rely on
@@ -907,6 +933,7 @@ export default function EquipmentLibrary() {
       setSelectedEquipment(null);
       resetForm();
       window.dispatchEvent(new CustomEvent('equipment-updated'));
+      try { runHvacAutoDerive(); } catch { /* silent */ }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to update', variant: 'destructive' });
     } finally { setSubmitting(false); }
@@ -1074,6 +1101,9 @@ export default function EquipmentLibrary() {
 
   // Display-only derived values for the baseline form
   const bdDerived = deriveBaseline(bd, '', selectedEquipment?.equipmentType || '');
+
+  // HVAC auto-derived metrics — reacts to every baseline field change
+  const hvacInlineFields = useInlineHvacDerived(bd, selectedEquipment?.equipmentType || '');
 
   const EquipmentTypeSelect = () => (
     <Select value={formData.equipmentType} onValueChange={v => setFormData(f => ({ ...f, equipmentType: v }))}>
@@ -1289,6 +1319,7 @@ export default function EquipmentLibrary() {
           <div className="col-span-2 space-y-2"><Label>Refrigerant Type</Label><Input value={bd.refrigerant} onChange={e => setBD('refrigerant', e.target.value)} placeholder="e.g., R-134a" /></div>
         </div>
         <BaselineDerivedStrip derived={bdDerived} show={['ratedKW', '_btuHr']} labels={{ ratedKW: 'Total kW (tons × kW/ton)', _btuHr: 'BTU/hr (tons × 12,000)' }} />
+        <HvacInlinePanel fields={hvacInlineFields} />
       </div>
     );
     if (type === 'pump') return (
@@ -1303,11 +1334,14 @@ export default function EquipmentLibrary() {
       </div>
     );
     if (['ahu', 'air_handler'].includes(type)) return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2"><Label>Airflow (CFM) *</Label><Input type="number" value={bd.cfm} onChange={e => setBD('cfm', e.target.value)} placeholder="10000" /></div>
-        <div className="space-y-2"><Label>Static Pressure (in. w.c.)</Label><Input type="number" step="0.01" value={bd.staticPressure} onChange={e => setBD('staticPressure', e.target.value)} placeholder="1.5" /></div>
-        <div className="space-y-2"><Label>Supply Air Temp (°F)</Label><Input type="number" step="0.1" value={bd.supplyTemp} onChange={e => setBD('supplyTemp', e.target.value)} placeholder="55" /></div>
-        <div className="space-y-2"><Label>Return Air Temp (°F)</Label><Input type="number" step="0.1" value={bd.returnTemp} onChange={e => setBD('returnTemp', e.target.value)} placeholder="72" /></div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>Airflow (CFM) *</Label><Input type="number" value={bd.cfm} onChange={e => setBD('cfm', e.target.value)} placeholder="10000" /></div>
+          <div className="space-y-2"><Label>Static Pressure (in. w.c.)</Label><Input type="number" step="0.01" value={bd.staticPressure} onChange={e => setBD('staticPressure', e.target.value)} placeholder="1.5" /></div>
+          <div className="space-y-2"><Label>Supply Air Temp (°F)</Label><Input type="number" step="0.1" value={bd.supplyTemp} onChange={e => setBD('supplyTemp', e.target.value)} placeholder="55" /></div>
+          <div className="space-y-2"><Label>Return Air Temp (°F)</Label><Input type="number" step="0.1" value={bd.returnTemp} onChange={e => setBD('returnTemp', e.target.value)} placeholder="72" /></div>
+        </div>
+        <HvacInlinePanel fields={hvacInlineFields} />
       </div>
     );
     if (type === 'cooling_tower') return (

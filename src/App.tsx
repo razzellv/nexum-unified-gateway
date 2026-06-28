@@ -1,6 +1,7 @@
 import { Component, useEffect, type ReactNode } from "react";
 import { initSyncListeners } from "./lib/sync-storage";
 import { BMSPollService } from "./services/BMSPollService";
+import { runHvacAutoDerive } from "./lib/hvacAutoDerive";
 import { DataCorrelationEngine } from "./services/DataCorrelationEngine";
 import { BaselineEngine } from "./services/BaselineEngine";
 import { ObservationEngine } from "./services/ObservationEngine";
@@ -65,11 +66,14 @@ export default function App() {
     BaselineEngine.seedFromLogs();
     // Start 3-hour BMS / CMMS / BAS auto-poll
     BMSPollService.start();
-    // Re-correlate + observe whenever a manual log is submitted
+    // Run HVAC auto-derivation on startup (picks up any existing equipment data)
+    try { runHvacAutoDerive(); } catch { /* silent */ }
+    // Re-correlate + observe + re-derive whenever a manual log is submitted
     const onLog = (e: Event) => {
       DataCorrelationEngine.run().catch(() => {});
       const log = (e as CustomEvent).detail;
       if (log) ObservationEngine.processLog(log);
+      try { runHvacAutoDerive(); } catch { /* silent */ }
     };
     window.addEventListener('facility-log-submitted', onLog);
     return () => {
