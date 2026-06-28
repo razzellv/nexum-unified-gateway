@@ -18,6 +18,7 @@ import EquipmentMetrics from "./pages/EquipmentMetrics";
 import EquipmentLibrary from "./pages/EquipmentLibrary";
 import InventoryLibrary from "./pages/InventoryLibrary";
 import EquipmentSystems from "./pages/EquipmentSystems";
+import HvacCalculator from "./pages/HvacCalculator";
 import FacilityDataSource from "./pages/FacilityDataSource";
 import ComplianceAnalyzer from "./pages/ComplianceAnalyzer";
 import ComplianceLogger from "./pages/Compliance";
@@ -185,6 +186,10 @@ export const router = createBrowserRouter([
           {
             path: "equipment-systems",
             element: <EquipmentSystems />,
+          },
+          {
+            path: "hvac-calculator",
+            element: <HvacCalculator />,
           },
           {
             path: "dashboard",

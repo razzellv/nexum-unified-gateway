@@ -26,7 +26,7 @@ import {
   GraduationCap, ShoppingCart, Shield,
   Wrench, BrainCircuit, FlaskConical, Leaf, Briefcase, Rocket, BookOpen, LayoutGrid,
   Brain, Cpu, TrendingDown, Thermometer, Target, ClipboardCheck, Zap, UserCheck,
-  Award, FileText,
+  Award, FileText, Calculator,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { NavLink as RouterNavLink } from 'react-router-dom';
@@ -137,6 +137,7 @@ const allNavItems: NavItem[] = [
   // ── Toolkit — Reference & Configuration ───────────────────────────────────
   { type: 'separator', name: 'Toolkit', access: 'all' },
   { name: 'Equipment Hub',          href: '/equipment-library',    icon: Package,    access: 'all',        tier: 'equipment_library' },
+  { name: 'HVAC Calculator',        href: '/hvac-calculator',      icon: Calculator, access: 'all',        orgTypes: ['facility', 'government'] },
   { name: 'Inventory Library',     href: '/inventory-library',    icon: Boxes,      access: 'all',        tier: 'inventory_library' },
   { name: 'Compliance Documents',  href: '/compliance-documents', icon: ShieldCheck,access: 'all',        tier: 'compliance_documents' },
   { name: 'Compliance Intelligence™', href: '/dashboard/compliance', icon: ShieldCheck, access: 'leadership' },
