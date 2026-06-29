@@ -15,7 +15,10 @@ import {
   Zap, DollarSign, Clock, RefreshCw, Flame, Snowflake, Wind, Droplets,
   AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Lightbulb,
   Moon, Sun, Activity, Gauge, Building2, BarChart3, ChevronRight,
+  Settings2, ChevronDown, ChevronUp, Edit,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { computeWaterHealth } from '@/lib/waterChemistry';
 
@@ -367,6 +370,67 @@ function TierBadge({ tier }: { tier: DemandTier }) {
   );
 }
 
+// ── Water Meter types & calculations ─────────────────────────────────────────
+
+const WATER_METER_KEY = 'nexum_water_meter_config';
+const CF_TO_GAL = 7.48052; // exact cubic feet to US gallons
+
+export interface WaterMeterConfig {
+  totalCF: number;             // from meter reading
+  periodDays: number;          // how many days the reading covers
+  ratePerThousandGal: number;  // $/1,000 gallons
+  dumpTankLossGalDay: number;  // gal/day lost through dump/blowdown tank
+  expansionTankCapGal: number; // expansion tank size in gallons
+}
+
+export interface WaterMeterDerived {
+  totalGallons: number;
+  gpm: number;
+  gph: number;
+  gpd: number;
+  dailyCost: number;
+  hourlyCost: number;
+  perThousandGalCost: number;
+  annualProjectedCost: number;
+  dumpTankLossGalDay: number;
+  dumpTankPctOfDaily: number;
+  expansionTankCapGal: number;
+  expansionTankFillPct: number; // expansion cap as % of daily usage
+}
+
+function deriveWaterMetrics(cfg: WaterMeterConfig): WaterMeterDerived {
+  const totalGallons = cfg.totalCF * CF_TO_GAL;
+  const gpd = cfg.periodDays > 0 ? totalGallons / cfg.periodDays : totalGallons;
+  const gph = gpd / 24;
+  const gpm = gph / 60;
+  const dailyCost = (gpd / 1000) * cfg.ratePerThousandGal;
+  const hourlyCost = dailyCost / 24;
+  const perThousandGalCost = cfg.ratePerThousandGal;
+  const annualProjectedCost = dailyCost * 365;
+  const dumpTankPctOfDaily = gpd > 0 ? (cfg.dumpTankLossGalDay / gpd) * 100 : 0;
+  const expansionTankFillPct = gpd > 0 ? (cfg.expansionTankCapGal / gpd) * 100 : 0;
+  return {
+    totalGallons, gpm, gph, gpd,
+    dailyCost, hourlyCost, perThousandGalCost, annualProjectedCost,
+    dumpTankLossGalDay: cfg.dumpTankLossGalDay,
+    dumpTankPctOfDaily,
+    expansionTankCapGal: cfg.expansionTankCapGal,
+    expansionTankFillPct,
+  };
+}
+
+function loadWaterMeterConfig(): WaterMeterConfig {
+  try {
+    const raw = localStorage.getItem(WATER_METER_KEY);
+    if (raw) return JSON.parse(raw) as WaterMeterConfig;
+  } catch {}
+  return { totalCF: 11971600, periodDays: 1, ratePerThousandGal: 4.75, dumpTankLossGalDay: 1377, expansionTankCapGal: 1113 };
+}
+
+function saveWaterMeterConfig(cfg: WaterMeterConfig) {
+  try { localStorage.setItem(WATER_METER_KEY, JSON.stringify(cfg)); } catch {}
+}
+
 // ── WaterHealthBar ────────────────────────────────────────────────────────────
 
 function WaterHealthBar() {
@@ -482,6 +546,18 @@ export default function EnergyDashboard() {
       return () => { clearInterval(interval); window.removeEventListener('nexum_bms_poll_update', fetchData); };
     }
   }, [isAuthenticated, fetchData]);
+
+  // Water meter config
+  const [waterCfg, setWaterCfg] = useState<WaterMeterConfig>(() => loadWaterMeterConfig());
+  const [waterEditOpen, setWaterEditOpen] = useState(false);
+  const [waterDraft, setWaterDraft] = useState<WaterMeterConfig>(() => loadWaterMeterConfig());
+  const waterMetrics = useMemo(() => deriveWaterMetrics(waterCfg), [waterCfg]);
+
+  const saveWater = () => {
+    saveWaterMeterConfig(waterDraft);
+    setWaterCfg(waterDraft);
+    setWaterEditOpen(false);
+  };
 
   // Derived data from localStorage
   const equipmentLoads = useMemo(() => [...getEquipmentLoads(), ...getTimerLoads()], [isLoading]);
@@ -684,18 +760,243 @@ export default function EnergyDashboard() {
 
               {/* ── WATER ────────────────────────────────────────────────────── */}
               <TabsContent value="water" className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Card className="neon-border"><CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Water Consumption</p>
-                    <p className="text-2xl font-bold">{data.summary.total_gallons_consumed.toLocaleString()} gal</p>
-                    <p className="text-xs text-muted-foreground mt-1">${data.rates.water}/gallon</p>
-                  </CardContent></Card>
-                  <Card className="neon-border"><CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground">Estimated Water Cost</p>
-                    <p className="text-2xl font-bold">${data.summary.estimated_water_cost.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground mt-1">${(data.summary.estimated_water_cost / data.period_days).toFixed(0)}/day average</p>
-                  </CardContent></Card>
+
+                {/* ── Meter config edit toggle ───────────────────────────── */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Water Intelligence — meter-based analytics</p>
+                  <button
+                    type="button"
+                    onClick={() => { setWaterDraft(waterCfg); setWaterEditOpen(v => !v); }}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/40 rounded px-2 py-1"
+                  >
+                    <Edit className="w-3 h-3" /> {waterEditOpen ? 'Cancel' : 'Edit Meter Inputs'}
+                    {waterEditOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
                 </div>
+
+                {/* ── Meter input form (collapsible) ─────────────────────── */}
+                {waterEditOpen && (
+                  <Card className="neon-border">
+                    <CardContent className="p-4 space-y-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Settings2 className="w-3.5 h-3.5" />Meter Configuration
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Total CF (meter reading)</Label>
+                          <Input type="number" value={waterDraft.totalCF} onChange={e => setWaterDraft(d => ({ ...d, totalCF: parseFloat(e.target.value) || 0 }))} className="h-8 text-sm" />
+                          <p className="text-[10px] text-muted-foreground">1 CF = 7.48052 gal</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Period (days)</Label>
+                          <Input type="number" min="1" value={waterDraft.periodDays} onChange={e => setWaterDraft(d => ({ ...d, periodDays: parseFloat(e.target.value) || 1 }))} className="h-8 text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Days covered by reading</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Rate ($/1,000 gal)</Label>
+                          <Input type="number" step="0.01" value={waterDraft.ratePerThousandGal} onChange={e => setWaterDraft(d => ({ ...d, ratePerThousandGal: parseFloat(e.target.value) || 0 }))} className="h-8 text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Utility rate per 1K gal</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Dump Tank Loss (gal/day)</Label>
+                          <Input type="number" value={waterDraft.dumpTankLossGalDay} onChange={e => setWaterDraft(d => ({ ...d, dumpTankLossGalDay: parseFloat(e.target.value) || 0 }))} className="h-8 text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Blowdown / dump loss daily</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Expansion Tank Capacity (gal)</Label>
+                          <Input type="number" value={waterDraft.expansionTankCapGal} onChange={e => setWaterDraft(d => ({ ...d, expansionTankCapGal: parseFloat(e.target.value) || 0 }))} className="h-8 text-sm" />
+                          <p className="text-[10px] text-muted-foreground">Tank rated capacity</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => setWaterEditOpen(false)} className="px-3 py-1.5 text-xs rounded border border-border/40 text-muted-foreground hover:text-foreground">Cancel</button>
+                        <button type="button" onClick={saveWater} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90">Save & Recalculate</button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── Row 1: Meter Reading & Conversion ─────────────────── */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Total Meter Reading</p>
+                      <p className="text-2xl font-bold">{waterCfg.totalCF.toLocaleString()} CF</p>
+                      <p className="text-xs text-muted-foreground mt-1">Cubic feet · {waterCfg.periodDays}-day period</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Total Gallons</p>
+                      <p className="text-2xl font-bold text-blue-400">{waterMetrics.totalGallons.toLocaleString('en-US', { maximumFractionDigits: 2 })} gal</p>
+                      <p className="text-xs text-muted-foreground mt-1">@ 7.48052 gal/CF conversion</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Daily Flow Volume</p>
+                      <p className="text-2xl font-bold">{waterMetrics.gpd.toLocaleString('en-US', { maximumFractionDigits: 0 })} GPD</p>
+                      <p className="text-xs text-muted-foreground mt-1">Gallons per day average</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── Row 2: Flow Rates ──────────────────────────────────── */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Card className="neon-border">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                        <Activity className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Gallons per Minute (GPM)</p>
+                        <p className="text-2xl font-bold text-blue-400">{waterMetrics.gpm.toLocaleString('en-US', { maximumFractionDigits: 1 })}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Daily average flow rate</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="neon-border">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                        <Gauge className="w-5 h-5 text-cyan-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Gallons per Hour (GPH)</p>
+                        <p className="text-2xl font-bold text-cyan-400">{waterMetrics.gph.toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Hourly average throughput</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── Row 3: Cost Analysis ───────────────────────────────── */}
+                <Card className="neon-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-green-400" />Water Cost Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Daily Cost</p>
+                        <p className="text-xl font-bold text-green-400">${waterMetrics.dailyCost.toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">per day</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Hourly Cost</p>
+                        <p className="text-xl font-bold text-emerald-400">${waterMetrics.hourlyCost.toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">per hour</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-teal-500/5 border border-teal-500/20 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Per 1,000 Gallons</p>
+                        <p className="text-xl font-bold text-teal-400">${waterMetrics.perThousandGalCost.toFixed(2)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">utility rate</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Annual Projection</p>
+                        <p className="text-xl font-bold text-blue-400">${(waterMetrics.annualProjectedCost / 1000).toFixed(1)}K</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">at current rate</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* ── Row 4: System Loss & Buffer ────────────────────────── */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Dump Tank Loss</p>
+                          <p className="text-2xl font-bold text-amber-400">{waterMetrics.dumpTankLossGalDay.toLocaleString()} gal/day</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                          <TrendingDown className="w-5 h-5 text-amber-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">% of daily usage</span>
+                          <span className={cn('font-semibold', waterMetrics.dumpTankPctOfDaily > 5 ? 'text-red-400' : 'text-amber-400')}>
+                            {waterMetrics.dumpTankPctOfDaily.toFixed(3)}%
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className={cn('h-full rounded-full', waterMetrics.dumpTankPctOfDaily > 5 ? 'bg-red-500' : 'bg-amber-500')} style={{ width: `${Math.min(100, waterMetrics.dumpTankPctOfDaily * 10)}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Blowdown / blow-off tank discharge loss per day</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="neon-border">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Expansion Tank Capacity</p>
+                          <p className="text-2xl font-bold text-indigo-400">{waterMetrics.expansionTankCapGal.toLocaleString()} gal</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                          <Gauge className="w-5 h-5 text-indigo-400" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">% of daily volume</span>
+                          <span className="font-semibold text-indigo-400">{waterMetrics.expansionTankFillPct.toFixed(3)}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, waterMetrics.expansionTankFillPct * 10)}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Rated tank volume vs. daily throughput ratio</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* ── Row 5: Metric reference table ─────────────────────── */}
+                <Card className="neon-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Droplets className="w-4 h-4 text-blue-400" />Water Usage Summary Table
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/40">
+                            <th className="text-left text-xs text-muted-foreground font-medium py-2 pr-4">Metric</th>
+                            <th className="text-right text-xs text-muted-foreground font-medium py-2">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/20">
+                          {[
+                            { label: 'Total Meter Reading (CF)', value: `${waterCfg.totalCF.toLocaleString()} CF` },
+                            { label: 'Total Gallons', value: `${waterMetrics.totalGallons.toLocaleString('en-US', { maximumFractionDigits: 2 })} gal` },
+                            { label: 'Gallons per Minute (GPM)', value: `${waterMetrics.gpm.toLocaleString('en-US', { maximumFractionDigits: 1 })} GPM` },
+                            { label: 'Gallons per Hour (GPH)', value: `${waterMetrics.gph.toLocaleString('en-US', { maximumFractionDigits: 2 })} GPH` },
+                            { label: 'Daily Water Cost', value: `$${waterMetrics.dailyCost.toLocaleString('en-US', { maximumFractionDigits: 2 })}` },
+                            { label: 'Hourly Water Cost', value: `$${waterMetrics.hourlyCost.toLocaleString('en-US', { maximumFractionDigits: 2 })}` },
+                            { label: 'Per 1,000 Gallons Cost', value: `$${waterMetrics.perThousandGalCost.toFixed(2)}` },
+                            { label: 'Annual Projected Cost', value: `$${waterMetrics.annualProjectedCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}` },
+                            { label: 'Dump Tank Loss (gal/day)', value: `${waterMetrics.dumpTankLossGalDay.toLocaleString()} gal` },
+                            { label: 'Expansion Tank Capacity', value: `${waterMetrics.expansionTankCapGal.toLocaleString()} gal` },
+                          ].map(row => (
+                            <tr key={row.label}>
+                              <td className="py-2 pr-4 text-muted-foreground text-xs">{row.label}</td>
+                              <td className="py-2 text-right font-semibold text-xs tabular-nums">{row.value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* ── Row 6: Water Health + System Breakdown ─────────────── */}
+                <WaterHealthBar />
                 <Card className="neon-border">
                   <CardHeader className="pb-3"><CardTitle className="text-base">Water Usage by System</CardTitle></CardHeader>
                   <CardContent>
