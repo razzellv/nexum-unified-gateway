@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Plus, Search, Edit, Trash2, Loader2, Network, AlertCircle, RefreshCw,
   Wifi, WifiOff, Copy, Check, ChevronDown, ChevronUp, Eye, Cpu, Info,
+  Camera, Package, GitBranch,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import {
@@ -22,6 +23,10 @@ import {
 } from '@/lib/nexum-api';
 import { useToast } from '@/hooks/use-toast';
 import { useBMSPolling } from '@/hooks/useBMSPolling';
+import {
+  getEquipmentPhotos, logPartNumberEditedToJournal,
+  type EquipmentPhoto, type DetectedComponent,
+} from '@/lib/equipmentPhotoAnalysis';
 
 // ============================================================================
 // EXISTING TYPES (Systems tab)
@@ -837,6 +842,9 @@ export default function EquipmentSystems() {
             <TabsTrigger value="systems">Systems</TabsTrigger>
             <TabsTrigger value="skids">Skids</TabsTrigger>
             <TabsTrigger value="bms">BMS Integration</TabsTrigger>
+            <TabsTrigger value="components" className="gap-1.5">
+              <GitBranch className="w-3.5 h-3.5" />Components
+            </TabsTrigger>
           </TabsList>
 
           {/* ================================================================
@@ -1649,8 +1657,208 @@ export default function EquipmentSystems() {
               </div>
             )}
           </TabsContent>
+
+          {/* ================================================================
+              TAB 4: COMPONENTS — Photo-detected component flow view
+              ================================================================ */}
+          <TabsContent value="components" className="space-y-6">
+            <ComponentFlowView
+              equipment={equipment}
+              facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+              userName={user?.name || user?.email || 'Unknown'}
+            />
+          </TabsContent>
+
         </Tabs>
       </div>
     </MainLayout>
+  );
+}
+
+// ── Component Flow View ───────────────────────────────────────────────────────
+
+interface ComponentFlowViewProps {
+  equipment: Equipment[];
+  facilityId: string;
+  userName: string;
+}
+
+function ComponentFlowView({ equipment, facilityId, userName }: ComponentFlowViewProps) {
+  const { toast } = useToast();
+  const [editingPartNum, setEditingPartNum] = useState<{ compId: string; eqId: string; value: string } | null>(null);
+  const [expandedEq, setExpandedEq] = useState<string | null>(null);
+
+  // Build list: only equipment that has photos with confirmed components
+  const equipmentWithComponents = equipment
+    .map(eq => {
+      const photos = getEquipmentPhotos(eq.equipmentId);
+      const allComponents = photos.flatMap(p => p.detectedComponents);
+      return { eq, photos, allComponents, confirmedCount: allComponents.filter(c => c.confirmedByUser).length };
+    })
+    .filter(({ photos }) => photos.length > 0);
+
+  const handlePartNumSave = (
+    eq: Equipment,
+    photo: EquipmentPhoto,
+    component: DetectedComponent,
+    newPartNum: string,
+  ) => {
+    const oldPartNum = component.userPartNumber || component.partNumber;
+    // Update in localStorage
+    const photos = getEquipmentPhotos(eq.equipmentId);
+    const updated = photos.map(p =>
+      p.photoId === photo.photoId
+        ? {
+            ...p,
+            detectedComponents: p.detectedComponents.map(c =>
+              c.componentId === component.componentId
+                ? { ...c, userPartNumber: newPartNum }
+                : c,
+            ),
+          }
+        : p,
+    );
+    try { localStorage.setItem(`nexum_equipment_photos_${eq.equipmentId}`, JSON.stringify(updated)); } catch {}
+    setEditingPartNum(null);
+    // Also update the inventory entry if it exists
+    if (component.inventoryPartId) {
+      try {
+        const invKey = `nexum_inventory_${facilityId}`;
+        const inv = JSON.parse(localStorage.getItem(invKey) || '[]');
+        const updatedInv = inv.map((p: any) =>
+          p.partId === component.inventoryPartId ? { ...p, partNumber: newPartNum } : p,
+        );
+        localStorage.setItem(invKey, JSON.stringify(updatedInv));
+      } catch {}
+    }
+    logPartNumberEditedToJournal(component.componentId, eq.equipmentId, (eq as any).equipmentName || eq.equipmentId, facilityId, oldPartNum, newPartNum, userName);
+    toast({ title: 'Part number updated', description: `${oldPartNum} → ${newPartNum}` });
+  };
+
+  if (equipmentWithComponents.length === 0) {
+    return (
+      <div className="text-center py-16 text-muted-foreground space-y-3">
+        <Camera className="w-12 h-12 mx-auto opacity-20" />
+        <p className="text-sm font-medium">No equipment photos yet</p>
+        <p className="text-xs">Go to Equipment Library → Edit → Photos tab to upload photos and detect components.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Flow from equipment → detected components. Edit part numbers directly. All changes are logged to the Observation Journal.
+      </p>
+
+      {equipmentWithComponents.map(({ eq, photos, allComponents, confirmedCount }) => (
+        <Card key={eq.equipmentId} className="border-border/50">
+          <CardContent className="p-4">
+            {/* Equipment header */}
+            <button
+              type="button"
+              className="w-full flex items-center justify-between"
+              onClick={() => setExpandedEq(expandedEq === eq.equipmentId ? null : eq.equipmentId)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Network className="w-5 h-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-sm">{(eq as any).equipmentName || eq.equipmentId}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{eq.equipmentType} · {eq.manufacturer} {eq.model}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-cyan-500/15 text-cyan-400 border-cyan-500/30 text-xs">
+                  <Camera className="w-3 h-3 mr-1" />{photos.length} photo{photos.length !== 1 ? 's' : ''}
+                </Badge>
+                <Badge className={`text-xs ${confirmedCount > 0 ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-muted/40 text-muted-foreground border-border'}`}>
+                  <Package className="w-3 h-3 mr-1" />{confirmedCount}/{allComponents.length} saved
+                </Badge>
+                {expandedEq === eq.equipmentId ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {/* Expanded: flow tree */}
+            {expandedEq === eq.equipmentId && (
+              <div className="mt-4 pl-4 border-l-2 border-primary/20 space-y-4">
+                {photos.map((photo, photoIdx) => (
+                  <div key={photo.photoId}>
+                    {/* Photo node */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <img
+                        src={`data:${photo.mimeType};base64,${photo.base64}`}
+                        alt={photo.label}
+                        className="w-12 h-9 rounded object-cover border border-border/40"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold capitalize">{photo.label.replace(/_/g, ' ')}</p>
+                        <p className="text-[10px] text-muted-foreground">{photo.detectedComponents.length} component(s) detected</p>
+                      </div>
+                    </div>
+
+                    {/* Component nodes */}
+                    {photo.detectedComponents.length > 0 && (
+                      <div className="pl-4 border-l border-border/30 space-y-1.5">
+                        {photo.detectedComponents.map(comp => {
+                          const isEditing = editingPartNum?.compId === comp.componentId;
+                          const displayPartNum = comp.userPartNumber || comp.partNumber;
+                          return (
+                            <div key={comp.componentId} className={`flex items-center gap-2 p-2 rounded-lg text-xs ${comp.confirmedByUser ? 'bg-green-500/5 border border-green-500/15' : 'bg-muted/10 border border-border/20'}`}>
+                              <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{comp.name}</p>
+                                <p className="text-muted-foreground/70 truncate">{comp.location}</p>
+                              </div>
+                              {/* Part number — editable */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                {isEditing ? (
+                                  <>
+                                    <Input
+                                      value={editingPartNum.value}
+                                      onChange={e => setEditingPartNum(p => p ? { ...p, value: e.target.value } : null)}
+                                      className="h-6 w-28 text-[10px] font-mono"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="button"
+                                      className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] hover:bg-green-500/30"
+                                      onClick={() => handlePartNumSave(eq, photo, comp, editingPartNum.value)}
+                                    >Save</button>
+                                    <button
+                                      type="button"
+                                      className="px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground text-[10px]"
+                                      onClick={() => setEditingPartNum(null)}
+                                    >✕</button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="font-mono text-[10px] text-muted-foreground hover:text-foreground border border-border/40 rounded px-1.5 py-0.5 hover:border-primary/40 transition-colors"
+                                    title="Click to edit part number"
+                                    onClick={() => setEditingPartNum({ compId: comp.componentId, eqId: eq.equipmentId, value: displayPartNum })}
+                                  >
+                                    {displayPartNum}
+                                  </button>
+                                )}
+                                {comp.confirmedByUser && <span className="text-green-400 text-[10px]">✓</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {photo.detectedComponents.length === 0 && (
+                      <p className="pl-4 text-[11px] text-muted-foreground italic">No components detected in this photo</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }

@@ -12,7 +12,9 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio, Zap } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio, Zap, Camera } from 'lucide-react';
+import EquipmentPhotoPanel from '@/components/equipment/EquipmentPhotoPanel';
+import { getEquipmentPhotos } from '@/lib/equipmentPhotoAnalysis';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ImportModal } from '@/components/ImportModal';
@@ -589,6 +591,7 @@ export default function EquipmentLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [activeEditTab, setActiveEditTab] = useState<'details' | 'photos'>('details');
   const [baselineDialogOpen, setBaselineDialogOpen] = useState(false);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
@@ -1000,6 +1003,7 @@ export default function EquipmentLibrary() {
       contractorCostAccumulated: eq.contractorCostAccumulated ? String(eq.contractorCostAccumulated) : '',
       maintenanceCostTrend: eq.maintenanceCostTrend || 'stable',
     });
+    setActiveEditTab('details');
     setEditDialogOpen(true);
   };
 
@@ -1806,8 +1810,24 @@ export default function EquipmentLibrary() {
                               <Button variant="outline" size="sm" onClick={() => openBaselineDialog(eq)}>
                                 <Settings className="w-4 h-4 mr-2" />{eq.baseline ? 'Edit Baseline' : 'Set Baseline'}
                               </Button>
-                              <Button variant="outline" size="sm" onClick={() => openEditDialog(eq)}>
+                              <Button variant="outline" size="sm" onClick={() => { openEditDialog(eq); setActiveEditTab('details'); }}>
                                 <Edit className="w-4 h-4 mr-2" />Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { openEditDialog(eq); setActiveEditTab('photos'); }}
+                                className="relative"
+                              >
+                                <Camera className="w-4 h-4 mr-2" />Photos
+                                {(() => {
+                                  const cnt = getEquipmentPhotos(eq.equipmentId).length;
+                                  return cnt > 0 ? (
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                                      {cnt}
+                                    </span>
+                                  ) : null;
+                                })()}
                               </Button>
                             </>
                           )}
@@ -2559,13 +2579,60 @@ export default function EquipmentLibrary() {
         {/* Edit Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Edit Equipment</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>
+                Edit Equipment — {selectedEquipment?.equipmentName || selectedEquipment?.equipmentId}
+              </DialogTitle>
+            </DialogHeader>
+            {/* Tab bar */}
+            <div className="flex border-b border-border/40 gap-0 -mx-1">
+              {([
+                { key: 'details', label: 'Equipment Details', icon: Settings },
+                { key: 'photos',  label: 'Photos & Components', icon: Camera },
+              ] as const).map(tab => {
+                const photoCount = selectedEquipment ? getEquipmentPhotos(selectedEquipment.equipmentId).length : 0;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveEditTab(tab.key)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                      activeEditTab === tab.key
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                    {tab.key === 'photos' && photoCount > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">{photoCount}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <div className="py-4 space-y-4">
-              {EquipmentFormFields()}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => { setEditDialogOpen(false); setSelectedEquipment(null); resetForm(); }} disabled={submitting}>Cancel</Button>
-                <Button onClick={handleEdit} disabled={submitting}>{submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save Changes</Button>
-              </div>
+              {activeEditTab === 'details' && (
+                <>
+                  {EquipmentFormFields()}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => { setEditDialogOpen(false); setSelectedEquipment(null); resetForm(); }} disabled={submitting}>Cancel</Button>
+                    <Button onClick={handleEdit} disabled={submitting}>{submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save Changes</Button>
+                  </div>
+                </>
+              )}
+              {activeEditTab === 'photos' && selectedEquipment && (
+                <EquipmentPhotoPanel
+                  equipmentId={selectedEquipment.equipmentId}
+                  equipmentType={selectedEquipment.equipmentType}
+                  equipmentName={selectedEquipment.equipmentName || selectedEquipment.equipmentId}
+                  facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+                  userName={user?.name || user?.email || 'Unknown'}
+                  onComponentsSaved={count => {
+                    toast({ title: 'Components saved', description: `${count} component(s) now in inventory.` });
+                  }}
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>

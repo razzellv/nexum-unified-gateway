@@ -19,7 +19,7 @@ import {
   ClipboardList, CheckCircle, User, Clock, Plus, X, History,
   Thermometer, ShoppingCart, Shield, Truck, Lock, AlertOctagon, Upload,
   FlaskConical, AlertCircle, FileText, CheckCircle2, Trash2,
-  Building2, Calendar, RefreshCw, Star, ChevronUp, ChevronDown, Minus,
+  Building2, Calendar, RefreshCw, Star, ChevronUp, ChevronDown, Minus, Camera,
 } from 'lucide-react';
 import { ImportModal } from '@/components/ImportModal';
 import { Textarea } from '@/components/ui/textarea';
@@ -106,6 +106,24 @@ const CATEGORY_GROUPS = [
       { value: 'STORAGE_CONTAINERS', label: 'Storage & Containers' }, { value: 'OTHER', label: 'Other Supplies' },
     ],
   },
+  {
+    label: 'Equipment Components', value: 'EQUIPMENT_COMPONENTS', icon: Wrench, color: 'text-cyan-400',
+    items: [
+      { value: 'PUMPS_HEATING',  label: 'Heating Pumps (Supply / Return)' },
+      { value: 'PUMPS_COOLING',  label: 'Cooling Pumps (Supply / Return / Condenser)' },
+      { value: 'PUMPS_CHW',      label: 'Chilled Water Pumps' },
+      { value: 'PUMPS_AIR',      label: 'Air Compressor Pumps' },
+      { value: 'PUMPS_OIL',      label: 'Oil Pumps' },
+      { value: 'VALVES_COMPS',   label: 'Valves (Check / Butterfly / Gate / Globe / Ball)' },
+      { value: 'ACTUATORS_COMPS',label: 'Actuators (Valve / Damper)' },
+      { value: 'STRAINERS_COMPS',label: 'Strainers (Y / Basket)' },
+      { value: 'GAUGES_COMPS',   label: 'Gauges (Pressure / Temperature)' },
+      { value: 'SENSORS_COMPS',  label: 'Sensors & Meters (Flow / Conductivity / BAS)' },
+      { value: 'CONTROLS_COMPS', label: 'Controls (VFD / Starters / Terminals)' },
+      { value: 'VESSELS_COMPS',  label: 'Vessels (Expansion Tank / Air Sep / PHX)' },
+      { value: 'EQUIP_OTHER',    label: 'Other Equipment Components' },
+    ],
+  },
 ];
 
 const ALL_CATEGORY_OPTIONS = CATEGORY_GROUPS.flatMap(g =>
@@ -123,6 +141,7 @@ const getCategoryGroup = (value: string) =>
 interface InventoryPart {
   partId: string;
   category: string;
+  subcategory?: string;
   name: string;
   partNumber: string;
   quantity: number;
@@ -145,6 +164,13 @@ interface InventoryPart {
   tempMax?: number;
   requiresRefrigeration?: boolean;
   allergens?: string[];
+  // Equipment component fields (populated from photo detection)
+  source?: 'manual' | 'photo_detection' | 'import';
+  linkedEquipmentId?: string;
+  linkedEquipmentName?: string;
+  photoDetectedAt?: string;
+  fromPhotoIndex?: number;
+  createdAt?: string;
 }
 
 type GovCategory = 'apparatus' | 'weapon' | 'uniform' | 'supply';
@@ -797,7 +823,15 @@ export default function InventoryLibrary() {
                         const GroupIcon = group?.icon || Package;
                         return (
                           <TableRow key={item.partId} className="hover:bg-muted/20">
-                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell className="font-medium">
+                              <div>
+                                <p>{item.name}</p>
+                                {item.subcategory && <p className="text-[10px] text-muted-foreground">{item.subcategory}</p>}
+                                {item.linkedEquipmentName && (
+                                  <p className="text-[10px] text-cyan-400 mt-0.5">↳ {item.linkedEquipmentName}</p>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell><div className="flex items-center gap-1.5"><GroupIcon className={cn('w-3.5 h-3.5', group?.color || 'text-muted-foreground')} /><span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span></div></TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">{item.partNumber}</TableCell>
                             <TableCell><div className="flex items-center gap-2"><span className={cn('font-bold', item.quantity === 0 ? 'text-destructive' : item.quantity <= item.minQuantity ? 'text-yellow-400' : '')}>{item.quantity}</span><span className="text-xs text-muted-foreground">/ {item.minQuantity} min</span></div></TableCell>
@@ -810,6 +844,11 @@ export default function InventoryLibrary() {
                             <TableCell>
                               <div className="flex items-center gap-1 flex-wrap">
                                 <Badge variant="outline" className={cn('text-xs', stock.class)}>{stock.label}</Badge>
+                                {item.source === 'photo_detection' && (
+                                  <Badge variant="outline" className="text-[10px] bg-cyan-500/10 text-cyan-400 border-cyan-500/30" title="Auto-detected from equipment photo">
+                                    <Camera className="w-2.5 h-2.5 mr-0.5" />Photo
+                                  </Badge>
+                                )}
                                 {(item as any).source === 'odoo' && <Badge variant="outline" className="text-[10px] bg-teal-500/10 text-teal-400 border-teal-500/30" title="Synced from Odoo">Odoo</Badge>}
                               </div>
                             </TableCell>
