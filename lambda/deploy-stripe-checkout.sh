@@ -3,12 +3,12 @@
 # Run from lambda/ folder:  bash deploy-stripe-checkout.sh
 #
 # ⚠️  Update FUNCTION_NAME below if your Lambda has a different name.
-#     Common names: nexum-stripe-checkout  /  stripe-checkout  /  nexum-fi-stripe-checkout
+#     Common names: stripe-checkout  /  stripe-checkout  /  nexum-fi-stripe-checkout
 #     Find it: aws lambda list-functions --region us-east-2 --query 'Functions[*].FunctionName'
 
 set -e
 
-FUNCTION_NAME="nexum-stripe-checkout"    # ← update if needed
+FUNCTION_NAME="stripe-checkout"    # ← update if needed
 REGION="us-east-2"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
