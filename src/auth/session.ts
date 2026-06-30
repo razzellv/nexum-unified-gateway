@@ -104,6 +104,8 @@ export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
   }
 
   try {
+    const abortCtrl = new AbortController();
+    const refreshTimeout = setTimeout(() => abortCtrl.abort(), 8000);
     const response = await fetch(`${config.domain}/oauth2/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -112,7 +114,9 @@ export const refreshAccessToken = async (): Promise<AuthTokens | null> => {
         client_id: config.clientId,
         refresh_token: tokens.refresh_token,
       }),
+      signal: abortCtrl.signal,
     });
+    clearTimeout(refreshTimeout);
 
     if (!response.ok) {
       const errorText = await response.text();
