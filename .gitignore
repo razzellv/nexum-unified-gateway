@@ -25,3 +25,5 @@ dist-ssr
 
 # Claude Code internal files
 .claude/
+.netlify/functions/
+lambda/*.zip
