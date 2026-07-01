@@ -71,6 +71,7 @@ const allNavItems: NavItem[] = [
   { type: 'separator', name: 'Command Hub', access: 'leadership' },
   { name: 'Command Hub',    href: '/command-hub',    icon: Command,       access: 'leadership' },
   { name: 'Work Orders',    href: '/work-orders',    icon: ClipboardList, access: 'leadership', tier: 'work_orders' },
+  { name: 'Preventive Maintenance', href: '/preventive-maintenance', icon: Wrench, access: 'leadership', tier: 'work_orders' },
   { name: 'Project Controls', href: '/project-controls', icon: Target,   access: 'leadership', tier: 'project_controls' },
   { name: 'Violations',     href: '/violations',     icon: AlertTriangle, access: 'leadership', tier: 'violations_tracking' },
   { name: 'Messages',       href: '/messages',       icon: MessageSquare, access: 'leadership', tier: 'messages' },

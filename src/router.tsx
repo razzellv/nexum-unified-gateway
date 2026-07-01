@@ -113,6 +113,7 @@ import OperationalTrust from "./pages/government/OperationalTrust";
 import StaffScheduling from "./pages/StaffScheduling";
 import FieldLogging from "./pages/FieldLogging";
 import IntelligenceCenters from "./pages/IntelligenceCenters";
+import PreventiveMaintenance from "./pages/PreventiveMaintenance";
 
 // Placeholder component for modules in progress
 const ComingSoon = ({ title }: { title: string }) => (
@@ -516,6 +517,7 @@ export const router = createBrowserRouter([
           },
           { path: "field-logging", element: <FieldLogging /> },
           { path: "intelligence-centers", element: <IntelligenceCenters /> },
+          { path: "preventive-maintenance", element: <PreventiveMaintenance /> },
         ],
       },
       {
