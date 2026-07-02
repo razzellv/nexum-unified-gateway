@@ -11,6 +11,7 @@ import { AssignWorkOrderDialog } from '@/components/command-hub/violations/Assig
 import { EmployeeAccountabilityTable } from '@/components/command-hub/violations/EmployeeAccountabilityTable';
 import { Violation } from '@/types/facility';
 import { useToast } from '@/hooks/use-toast';
+import { ObservationEngine } from '@/services/ObservationEngine';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const currentUserRole = 'manager';
@@ -170,6 +171,22 @@ export default function Violations() {
       });
       localStorage.setItem('nexum_violation_events', JSON.stringify(prev.slice(0, 200)));
       window.dispatchEvent(new CustomEvent('facility-log-submitted', { detail: { type: 'violation' } }));
+
+      // Mirror to Observation Journal so violations appear in the audit chain
+      const severityScore = newViolation.severityScore ?? newViolation.severity ?? 0;
+      ObservationEngine.record({
+        id:             `viol-obs-${newViolation.id}`,
+        type:           'VIOLATION_LOGGED',
+        flag:           severityScore >= 80 ? 'critical' : severityScore >= 50 ? 'warning' : 'note',
+        equipmentId:    'personnel',
+        equipmentLabel: newViolation.employeeName,
+        interpretation: `Violation issued to ${newViolation.employeeName}: ${newViolation.violationType}. ${newViolation.description || ''}`.trim(),
+        context:        `Severity score: ${severityScore}. Category: ${newViolation.category || 'General'}.`,
+        recommendation: 'Review violation history, assign corrective action, and follow up within policy window.',
+        source:         'manual_log',
+        timestamp:      newViolation.issuedAt.toISOString(),
+        detectedAt:     new Date().toISOString(),
+      });
     } catch {}
   };
 

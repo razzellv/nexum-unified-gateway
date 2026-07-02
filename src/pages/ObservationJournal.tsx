@@ -1119,6 +1119,7 @@ export default function ObservationJournal() {
           const TYPE_LABELS: Record<string, string> = {
             BASELINE_DEVIATION: 'Baseline Deviation', TIMING_GAP: 'Timing Gap',
             ENVIRONMENTAL_OUTCOME: 'Environmental Outcome', TREND_DRIFT: 'Trend Drift', RECOVERY_ANOMALY: 'Recovery Anomaly',
+            VIOLATION_LOGGED: 'Violation Logged',
           };
           const FLAG_COLORS: Record<string, string> = {
             critical: 'border-red-500/30 bg-red-500/5',
