@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +14,17 @@ import {
   Wrench, AlertTriangle, CheckCircle, Clock, DollarSign, MapPin,
   Gauge, Flame, FolderOpen, FileText, TrendingUp, Users, Home,
   ShoppingCart, Edit2, Trash2, BarChart3, Shield,
+  Activity, ShieldCheck, CheckCircle2, TrendingDown, Target,
 } from 'lucide-react';
+import {
+  buildFinancialIntelligence, buildTenantIntelligence,
+  buildMaintenanceIntelligence, buildCapexIntelligence,
+  buildPropertyCTS, buildPropertyExecutiveSummary,
+  buildPropertyTimeline, loadCapex, loadPropertyCompliance,
+  loadRentRolls, loadMaintenance as loadEngineMaintenance,
+} from '@/lib/property-engine';
+import type { RentRoll, MaintenanceRecord, CapexItem, PropertyCompliance } from '@/types/property';
+import { PropertyCTSPanel } from '@/components/property/PropertyCTSPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -282,7 +293,7 @@ export default function PropertyDashboard() {
   const [fleet,       setFleet]        = useState<FleetVehicle[]>(() => load(STORAGE_KEYS.fleet, []));
   const [maintenance, setMaintenance]  = useState<MaintenanceLog[]>(() => load(STORAGE_KEYS.maintenance, []));
 
-  const [activeTab, setActiveTab]      = useState<'overview' | 'properties' | 'fleet' | 'maintenance' | 'financials' | 'tenants'>('overview');
+  const [activeTab, setActiveTab]      = useState<'overview' | 'properties' | 'fleet' | 'maintenance' | 'financials' | 'tenants' | 'intelligence' | 'capital-plan'>('overview');
   const [expandedProp, setExpandedProp]= useState<string | null>(null);
 
   // Modals / forms
@@ -482,13 +493,76 @@ export default function PropertyDashboard() {
     e.target.value = '';
   };
 
+  // ── Property Intelligence — adapt existing data + load engine-specific data ──
+  const allPropertyIds = properties.map(p => p.id);
+
+  // Adapt existing tenants → RentRoll[] for the engine
+  const adaptedRentRolls: RentRoll[] = useMemo(() => tenants.map(t => ({
+    rollId:               t.id,
+    propertyId:           t.propertyId,
+    unitId:               t.unitRef,
+    tenantName:           t.name,
+    leaseStart:           t.leaseStart,
+    leaseEnd:             t.leaseEnd || '',
+    monthlyRent:          t.rent,
+    securityDeposit:      t.deposit || 0,
+    actualPaidLastMonth:  t.status === 'overdue' ? 0 : t.rent,
+    daysLate:             t.status === 'overdue' ? 30 : 0,
+    paymentHistory:       [],
+    updatedAt:            t.addedAt,
+  })), [tenants]);
+
+  // Adapt existing maintenance logs → MaintenanceRecord[] for the engine
+  const adaptedMaintenance: MaintenanceRecord[] = useMemo(() => maintenance.map(m => ({
+    recordId:       m.id,
+    propertyId:     m.propertyId,
+    reportedDate:   m.date,
+    completedDate:  m.status === 'completed' ? m.date : undefined,
+    priority:       m.type === 'emergency' ? 'emergency' : 'routine' as any,
+    system:         (m.type || 'other') as any,
+    description:    m.description,
+    vendor:         m.performedBy,
+    partsCost:      0,
+    laborCost:      m.cost || 0,
+    totalCost:      m.cost || 0,
+    preventable:    false,
+    createdAt:      m.date,
+  })), [maintenance]);
+
+  // Load engine-native capex and compliance per property
+  const engineCapex: CapexItem[] = useMemo(
+    () => allPropertyIds.flatMap(pid => loadCapex(pid)),
+    [allPropertyIds.join(',')]
+  );
+  const engineCompliance: PropertyCompliance[] = useMemo(
+    () => allPropertyIds.flatMap(pid => loadPropertyCompliance(pid)),
+    [allPropertyIds.join(',')]
+  );
+
+  const unitCount = totalUnits || properties.length;
+
+  const propFinancial  = useMemo(() => buildFinancialIntelligence(adaptedRentRolls, [], portfolioValue, unitCount), [adaptedRentRolls, portfolioValue, unitCount]);
+  const propTenants    = useMemo(() => buildTenantIntelligence(adaptedRentRolls), [adaptedRentRolls]);
+  const propMaint      = useMemo(() => buildMaintenanceIntelligence(adaptedMaintenance, unitCount), [adaptedMaintenance, unitCount]);
+  const propCapex      = useMemo(() => buildCapexIntelligence(engineCapex), [engineCapex]);
+  const propCTS        = useMemo(() => buildPropertyCTS(adaptedRentRolls, [], adaptedMaintenance, engineCapex, engineCompliance, portfolioValue, unitCount), [adaptedRentRolls, adaptedMaintenance, engineCapex, engineCompliance, portfolioValue, unitCount]);
+  const propExec       = useMemo(() => buildPropertyExecutiveSummary(allPropertyIds, portfolioValue, unitCount), [allPropertyIds.join(','), portfolioValue, unitCount]);
+  const propTimeline   = useMemo(() => buildPropertyTimeline(adaptedRentRolls, adaptedMaintenance, engineCompliance, engineCapex), [adaptedRentRolls, adaptedMaintenance, engineCompliance, engineCapex]);
+
+  const avgCTS = propCTS.reduce((s,c) => s + c.score, 0) / Math.max(propCTS.length, 1);
+  const portfolioHealthScore = Math.round(avgCTS);
+
+  const fmtUSD = (v: number) => v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` : `$${v.toFixed(0)}`;
+
   const TABS = [
-    { id: 'overview'    as const, label: 'Overview',     icon: BarChart3 },
-    { id: 'properties'  as const, label: 'Properties',   icon: Building2 },
-    { id: 'tenants'     as const, label: 'Tenants',      icon: Users },
-    { id: 'fleet'       as const, label: 'Fleet',        icon: Car },
-    { id: 'maintenance' as const, label: 'Maintenance',  icon: Wrench },
-    { id: 'financials'  as const, label: 'Financials',   icon: DollarSign },
+    { id: 'overview'      as const, label: 'Overview',      icon: BarChart3   },
+    { id: 'intelligence'  as const, label: 'Intelligence',  icon: Activity    },
+    { id: 'capital-plan'  as const, label: 'Capital Plan',  icon: TrendingUp  },
+    { id: 'properties'    as const, label: 'Properties',    icon: Building2   },
+    { id: 'tenants'       as const, label: 'Tenants',       icon: Users       },
+    { id: 'fleet'         as const, label: 'Fleet',         icon: Car         },
+    { id: 'maintenance'   as const, label: 'Maintenance',   icon: Wrench      },
+    { id: 'financials'    as const, label: 'Financials',    icon: DollarSign  },
   ];
 
   return (
@@ -983,6 +1057,274 @@ export default function PropertyDashboard() {
                   <p className="text-xs text-muted-foreground">{forSaleFleet} vehicles listed for sale</p>
                 </div>
                 <p className="text-2xl font-bold text-amber-300">${lotInventoryValue.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ── INTELLIGENCE TAB ── */}
+        {activeTab === 'intelligence' && (
+          <div className="space-y-6">
+            {/* Portfolio Health KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Portfolio Health Score', value: `${portfolioHealthScore}/100`, sub: 'CTS™ composite', color: portfolioHealthScore >= 80 ? 'text-green-400' : portfolioHealthScore >= 65 ? 'text-yellow-400' : 'text-red-400', icon: Target },
+                { label: 'Cap Rate', value: `${propFinancial.capRate.toFixed(2)}%`, sub: 'Annualized NOI/value', color: propFinancial.capRate >= 6 ? 'text-green-400' : propFinancial.capRate >= 4 ? 'text-yellow-400' : 'text-red-400', icon: TrendingUp },
+                { label: 'Rent Collection Rate', value: `${propFinancial.rentCollectionRate.toFixed(1)}%`, sub: `$${propFinancial.delinquencyValue.toFixed(0)} delinquent`, color: propFinancial.rentCollectionRate >= 97 ? 'text-green-400' : propFinancial.rentCollectionRate >= 90 ? 'text-yellow-400' : 'text-red-400', icon: DollarSign },
+                { label: 'Deferred Maintenance', value: fmtUSD(propMaint.deferredMaintenanceLiability), sub: 'Unresolved liability', color: propMaint.deferredMaintenanceLiability > 10000 ? 'text-red-400' : propMaint.deferredMaintenanceLiability > 0 ? 'text-yellow-400' : 'text-green-400', icon: Wrench },
+              ].map(k => (
+                <Card key={k.label} className="border-white/10 bg-white/2">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <k.icon className={cn('w-3.5 h-3.5', k.color)} />
+                      <span className="text-[10px] text-muted-foreground">{k.label}</span>
+                    </div>
+                    <div className={cn('text-xl font-bold', k.color)}>{k.value}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Financial Intelligence */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="w-3.5 h-3.5 text-green-400" />Financial Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Monthly NOI', value: fmtUSD(propFinancial.noi), color: propFinancial.noi >= 0 ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Annual NOI', value: fmtUSD(propFinancial.noiForecast12Mo), color: 'text-teal-400' },
+                    { label: 'Expense Ratio', value: `${propFinancial.expenseRatio.toFixed(0)}%`, color: propFinancial.expenseRatio > 50 ? 'text-red-400' : propFinancial.expenseRatio > 40 ? 'text-yellow-400' : 'text-green-400' },
+                    { label: 'Cost Per Unit', value: fmtUSD(propFinancial.costPerUnit), color: 'text-muted-foreground' },
+                    { label: 'Top Expense', value: propFinancial.topExpenseCategory || 'N/A', color: 'text-orange-400' },
+                    { label: 'NOI Trend', value: propFinancial.noiForecastTrend, color: propFinancial.noiForecastTrend === 'improving' ? 'text-green-400' : propFinancial.noiForecastTrend === 'declining' ? 'text-red-400' : 'text-yellow-400' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold capitalize', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Tenant Intelligence */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-blue-400" />Tenant Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Occupancy Rate', value: `${propTenants.occupancyRate.toFixed(1)}%`, color: propTenants.occupancyRate >= 93 ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'Expiring ≤30d', value: `${propTenants.expiringLease30Days}`, color: propTenants.expiringLease30Days > 0 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Expiring ≤90d', value: `${propTenants.expiringLease90Days}`, color: propTenants.expiringLease90Days > 0 ? 'text-yellow-400' : 'text-green-400' },
+                    { label: 'Delinquent', value: `${propTenants.delinquentTenants}`, color: propTenants.delinquentTenants > 0 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Avg Tenancy', value: `${propTenants.avgTenancyMonths.toFixed(0)} months`, color: propTenants.avgTenancyMonths >= 12 ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'Turnover Cost (avg)', value: fmtUSD(propTenants.tenantTurnoverCostAvg), color: 'text-muted-foreground' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                  {propTenants.highRiskTenants.length > 0 && (
+                    <div className="pt-1 space-y-1">
+                      {propTenants.highRiskTenants.slice(0,2).map((t,i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-red-400">
+                          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                          {t.tenantName}: {t.riskFactors.join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Maintenance Intelligence */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Wrench className="w-3.5 h-3.5 text-orange-400" />Maintenance Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Cost YTD', value: fmtUSD(propMaint.totalMaintenanceCostYTD), color: 'text-foreground' },
+                    { label: 'Cost Per Unit', value: fmtUSD(propMaint.costPerUnit), color: 'text-muted-foreground' },
+                    { label: 'Preventable Failures', value: `${propMaint.preventableFailurePct.toFixed(0)}%`, color: propMaint.preventableFailurePct > 30 ? 'text-red-400' : 'text-yellow-400' },
+                    { label: 'Avg Days to Complete', value: `${propMaint.avgDaysToComplete.toFixed(1)}d`, color: propMaint.avgDaysToComplete > 7 ? 'text-yellow-400' : 'text-green-400' },
+                    { label: 'Emergency Rate', value: `${propMaint.emergencyCallRate.toFixed(0)}%`, color: propMaint.emergencyCallRate > 15 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Top System', value: propMaint.topSystem.replace(/_/g,' '), color: 'text-orange-400' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold capitalize', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                  {propMaint.recurringIssues.slice(0,1).map((issue,i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[10px] text-yellow-400 mt-1">
+                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />{issue}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Quick Wins & Risks */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />Quick Wins & Risk Areas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-semibold text-green-400 uppercase tracking-wider">Quick Wins</div>
+                    {propExec.quickWins.length === 0
+                      ? <p className="text-xs text-muted-foreground">Add properties and tenants to generate recommendations.</p>
+                      : propExec.quickWins.map((w,i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          <CheckCircle2 className="w-3 h-3 text-green-400 mt-0.5 shrink-0" />
+                          <span className="text-muted-foreground">{w}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  <div className="space-y-1.5 border-t border-white/5 pt-2">
+                    <div className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">Risk Areas</div>
+                    {propExec.topRisks.map((r,i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
+                        <span className="text-muted-foreground">{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* CTS™ Panel */}
+            <PropertyCTSPanel insights={propCTS} compact={false} />
+
+            {/* Intelligence Timeline */}
+            {propTimeline.length > 0 && (
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-[#00FFE1]" />Portfolio Intelligence Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {propTimeline.slice(0, 10).map(e => (
+                    <div key={e.id} className="flex items-start gap-2 text-xs border-b border-white/5 pb-2 last:border-0">
+                      <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 shrink-0', e.severity === 'critical' ? 'bg-red-400' : e.severity === 'warning' ? 'bg-yellow-400' : 'bg-[#00FFE1]')} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground">{e.title}</div>
+                        <div className="text-muted-foreground truncate">{e.description}</div>
+                      </div>
+                      {e.value && <span className={cn('text-[10px] font-semibold shrink-0', e.severity === 'critical' ? 'text-red-400' : 'text-muted-foreground')}>{e.value}</span>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* ── CAPITAL PLAN TAB ── */}
+        {activeTab === 'capital-plan' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: '5-Year Capex Forecast', value: fmtUSD(propCapex.totalForecast5Year), sub: 'Estimated requirement', color: 'text-purple-400' },
+                { label: 'Critical Items', value: `${propCapex.criticalItems}`, sub: 'Must address', color: propCapex.criticalItems > 0 ? 'text-red-400' : 'text-green-400' },
+                { label: 'Funded %', value: `${propCapex.fundedPct.toFixed(0)}%`, sub: 'Of 5-year plan', color: propCapex.fundedPct >= 60 ? 'text-green-400' : 'text-yellow-400' },
+                { label: 'Avg Expected ROI', value: propCapex.avgROI > 0 ? `${propCapex.avgROI.toFixed(0)}%` : 'N/A', sub: 'Per capital project', color: 'text-[#00FFE1]' },
+              ].map(k => (
+                <Card key={k.label} className="border-white/10 bg-white/2">
+                  <CardContent className="p-3">
+                    <p className="text-[10px] text-muted-foreground mb-1">{k.label}</p>
+                    <p className={cn('text-xl font-bold', k.color)}>{k.value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Year-by-year breakdown */}
+            <Card className="border-white/10">
+              <CardHeader className="p-3 pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="w-3.5 h-3.5 text-[#00FFE1]" />Year-by-Year Capital Plan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 space-y-3">
+                {propCapex.yearByYear.map(yr => (
+                  <div key={yr.year} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold">{yr.year}</span>
+                      <span className={cn('font-bold', yr.amount > 20000 ? 'text-red-400' : yr.amount > 5000 ? 'text-yellow-400' : 'text-green-400')}>
+                        {yr.amount > 0 ? fmtUSD(yr.amount) : '—'}
+                      </span>
+                    </div>
+                    {yr.amount > 0 && <Progress value={Math.min((yr.amount / Math.max(propCapex.totalForecast5Year, 1)) * 100, 100)} className="h-1" />}
+                    {yr.items.length > 0 && (
+                      <div className="text-[10px] text-muted-foreground pl-2">
+                        {yr.items.slice(0,3).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {propCapex.totalForecast5Year === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No capital items logged yet. Add capex items via the Property Intelligence engine to build your 5-year plan.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Biggest item callout */}
+            {propCapex.biggestCost > 0 && (
+              <Card className="border-purple-400/20 bg-purple-400/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Largest Capital Item</p>
+                      <p className="text-sm font-semibold text-purple-400 mt-0.5">{propCapex.biggestItem}</p>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-400">{fmtUSD(propCapex.biggestCost)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 5-year NOI vs Capex outlook */}
+            <Card className="border-[#00FFE1]/20 bg-[#00FFE1]/2">
+              <CardHeader className="p-3 pb-2">
+                <CardTitle className="text-sm text-[#00FFE1] flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5" />5-Year Portfolio Outlook
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 space-y-3">
+                {[
+                  { label: '5-Year NOI Projection', value: fmtUSD(propExec.fiveYearNOIProjection), color: 'text-green-400' },
+                  { label: '5-Year Capex Required', value: fmtUSD(propExec.fiveYearCapexRequired), color: 'text-red-400' },
+                  { label: 'Net 5-Year Position', value: fmtUSD(propExec.fiveYearNOIProjection - propExec.fiveYearCapexRequired), color: (propExec.fiveYearNOIProjection - propExec.fiveYearCapexRequired) >= 0 ? 'text-[#00FFE1]' : 'text-orange-400' },
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0">
+                    <span className="text-muted-foreground">{r.label}</span>
+                    <span className={cn('font-bold', r.color)}>{r.value}</span>
+                  </div>
+                ))}
+                <p className="text-[10px] text-muted-foreground pt-1">
+                  NOI trend: <span className={propFinancial.noiForecastTrend === 'improving' ? 'text-green-400' : propFinancial.noiForecastTrend === 'declining' ? 'text-red-400' : 'text-yellow-400'}>{propFinancial.noiForecastTrend}</span>
+                  {' '}· Cap rate: <span className="text-[#00FFE1]">{propFinancial.capRate.toFixed(2)}%</span>
+                  {' '}· Health score: <span className={portfolioHealthScore >= 80 ? 'text-green-400' : 'text-yellow-400'}>{portfolioHealthScore}/100</span>
+                </p>
               </CardContent>
             </Card>
           </div>

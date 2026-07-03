@@ -14,8 +14,19 @@ import {
   Wrench, AlertTriangle, CheckCircle, TrendingUp, ArrowRight,
   Clock, BarChart2, Users, ChevronDown, ChevronUp, Plus, X,
   Phone, Mail, Building2, Repeat, Timer, AlertOctagon,
+  ShoppingCart, Package, Shield, Leaf, Target, BarChart3,
+  Activity, AlertOctagon as AlertOct, CheckCircle2, DollarSign,
+  ShieldCheck, Truck, ClipboardList, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  loadInventory, loadShrink, loadFoodSafety, loadCompliance,
+  loadVendorLogs, loadTasks, loadEnergy, loadStoreProfile,
+  buildInventoryHealth, buildShrinkSummary, buildFoodSafetyScore,
+  buildVendorIntelligence, buildOperationalEfficiency,
+  buildRetailCTS, buildRetailExecutiveSummary, buildRetailTimeline,
+} from '@/lib/retail-engine';
+import { RetailCTSPanel } from '@/components/retail/RetailCTSPanel';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1049,6 +1060,35 @@ export default function RetailDashboard() {
     localStorage.setItem('service_tech_kpis', JSON.stringify(kpis));
   }, [kpis]);
 
+  // ── Retail Intelligence data ───────────────────────────────────────────────
+  const storeId = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
+  const [retailTick, setRetailTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setRetailTick(t => t + 1);
+    window.addEventListener('nexum_retail_update', handler);
+    return () => window.removeEventListener('nexum_retail_update', handler);
+  }, []);
+
+  const retailProfile  = useMemo(() => loadStoreProfile(storeId),    [storeId, retailTick]);
+  const retailInv      = useMemo(() => loadInventory(storeId),        [storeId, retailTick]);
+  const retailShrink   = useMemo(() => loadShrink(storeId),           [storeId, retailTick]);
+  const retailFS       = useMemo(() => loadFoodSafety(storeId),       [storeId, retailTick]);
+  const retailComp     = useMemo(() => loadCompliance(storeId),       [storeId, retailTick]);
+  const retailVendors  = useMemo(() => loadVendorLogs(storeId),       [storeId, retailTick]);
+  const retailTasks    = useMemo(() => loadTasks(storeId),            [storeId, retailTick]);
+  const retailEnergy   = useMemo(() => loadEnergy(storeId),           [storeId, retailTick]);
+
+  const invHealth  = useMemo(() => buildInventoryHealth(retailInv),                                 [retailInv]);
+  const shrinkSum  = useMemo(() => buildShrinkSummary(retailShrink, retailInv),                    [retailShrink, retailInv]);
+  const fsScore    = useMemo(() => buildFoodSafetyScore(retailFS, retailComp),                     [retailFS, retailComp]);
+  const vendorInt  = useMemo(() => buildVendorIntelligence(retailVendors),                         [retailVendors]);
+  const opsEff     = useMemo(() => buildOperationalEfficiency(retailTasks),                        [retailTasks]);
+  const retailCTS  = useMemo(() => buildRetailCTS(retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks), [retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks]);
+  const retailExec = useMemo(() => buildRetailExecutiveSummary(retailProfile, retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks, retailEnergy), [retailProfile, retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks, retailEnergy]);
+  const retailTimeline = useMemo(() => buildRetailTimeline(retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks), [retailInv, retailShrink, retailFS, retailComp, retailVendors, retailTasks]);
+
+  const fmtUSD = (v: number) => v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` : `$${v.toFixed(0)}`;
+
   const completionRate = Math.round((kpis.completed / kpis.total) * 100);
 
   // Prefer fin.openWorkOrderCount (reads nexum_work_orders) over stale kpis.open
@@ -1107,8 +1147,14 @@ export default function RetailDashboard() {
         </div>
 
         {/* ── Tabs ── */}
-        <Tabs defaultValue="work-done" className="space-y-4">
+        <Tabs defaultValue="intelligence" className="space-y-4">
           <TabsList className="bg-muted/30 border border-border/50 flex-wrap h-auto">
+            <TabsTrigger value="intelligence" className="text-xs data-[state=active]:bg-[#00FFE1]/20 data-[state=active]:text-[#00FFE1]">
+              <Activity className="w-3 h-3 mr-1" />Intelligence
+            </TabsTrigger>
+            <TabsTrigger value="cts" className="text-xs data-[state=active]:bg-[#00FFE1]/20 data-[state=active]:text-[#00FFE1]">
+              <ShieldCheck className="w-3 h-3 mr-1" />CTS™
+            </TabsTrigger>
             <TabsTrigger value="work-done" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Work Done
             </TabsTrigger>
@@ -1122,6 +1168,237 @@ export default function RetailDashboard() {
               Performance
             </TabsTrigger>
           </TabsList>
+
+          {/* ── Intelligence Tab ── */}
+          <TabsContent value="intelligence" className="space-y-6">
+            {/* SPI Banner */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Store Performance Index', value: `${retailExec.storePerformanceIndex}/100`, sub: 'CTS™ composite score', color: retailExec.storePerformanceIndex >= 80 ? 'text-green-400' : retailExec.storePerformanceIndex >= 65 ? 'text-yellow-400' : 'text-red-400', icon: Target },
+                { label: 'Shrink Rate', value: `${shrinkSum.shrinkPct.toFixed(2)}%`, sub: `vs. ${retailProfile.targetShrinkPct}% target`, color: shrinkSum.shrinkPct <= retailProfile.targetShrinkPct ? 'text-green-400' : 'text-red-400', icon: Shield },
+                { label: 'Food Safety Score', value: `${fsScore.overallScore}/100`, sub: `${fsScore.passRate.toFixed(0)}% checks passed`, color: fsScore.overallScore >= 90 ? 'text-green-400' : fsScore.overallScore >= 80 ? 'text-yellow-400' : 'text-red-400', icon: CheckCircle2 },
+                { label: 'Vendor Fill Rate', value: `${vendorInt.avgFillRate.toFixed(1)}%`, sub: `${vendorInt.totalVendors} vendors tracked`, color: vendorInt.avgFillRate >= 95 ? 'text-green-400' : vendorInt.avgFillRate >= 85 ? 'text-yellow-400' : 'text-red-400', icon: Truck },
+              ].map(k => (
+                <Card key={k.label} className="border-white/10 bg-white/2">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <k.icon className={cn('w-3.5 h-3.5', k.color)} />
+                      <span className="text-[10px] text-muted-foreground">{k.label}</span>
+                    </div>
+                    <div className={cn('text-xl font-bold', k.color)}>{k.value}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Inventory Health */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-purple-400" />Inventory Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Total SKUs', value: invHealth.totalSkus.toLocaleString(), color: 'text-foreground' },
+                    { label: 'Out-of-Stock Rate', value: `${invHealth.outOfStockRate.toFixed(1)}%`, color: invHealth.outOfStockRate > 5 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Inventory Turn', value: `${invHealth.turnDays.toFixed(0)} days`, color: invHealth.turnDays > retailProfile.targetInventoryTurnDays ? 'text-yellow-400' : 'text-green-400' },
+                    { label: 'Dead Stock Value', value: fmtUSD(invHealth.deadStockValue), color: invHealth.deadStockValue > 0 ? 'text-orange-400' : 'text-green-400' },
+                    { label: 'Expiry Risk', value: fmtUSD(invHealth.expiryRisk), color: invHealth.expiryRisk > 0 ? 'text-red-400' : 'text-green-400' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                  {invHealth.reorderAlerts.length > 0 && (
+                    <div className="pt-1 space-y-1">
+                      {invHealth.reorderAlerts.slice(0,2).map((a,i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-[10px] text-yellow-400">
+                          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />{a}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Shrink Intelligence */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Shield className="w-3.5 h-3.5 text-red-400" />Loss Prevention Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Shrink Value (30d)', value: fmtUSD(shrinkSum.totalShrinkValue), color: shrinkSum.totalShrinkValue > 0 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'WoW Change', value: `${shrinkSum.weekOverWeekChange > 0 ? '+' : ''}${shrinkSum.weekOverWeekChange.toFixed(0)}%`, color: shrinkSum.weekOverWeekChange > 10 ? 'text-red-400' : shrinkSum.weekOverWeekChange > 0 ? 'text-yellow-400' : 'text-green-400' },
+                    { label: 'Top Category', value: shrinkSum.topCategory.replace(/_/g,' '), color: 'text-orange-400' },
+                    { label: 'Top Department', value: shrinkSum.topDepartment, color: 'text-foreground' },
+                    { label: 'Open Cases', value: `${shrinkSum.openCases}`, color: shrinkSum.openCases > 3 ? 'text-red-400' : 'text-foreground' },
+                    { label: 'Recovered Value', value: fmtUSD(shrinkSum.recoveredValue), color: 'text-green-400' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                  {shrinkSum.preventionActions.slice(0,1).map((a,i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[10px] text-[#00FFE1] mt-1">
+                      <CheckCircle2 className="w-3 h-3 mt-0.5 shrink-0" />{a}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Food Safety */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />Food Safety & Compliance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={cn('text-3xl font-bold', fsScore.overallScore >= 90 ? 'text-green-400' : fsScore.overallScore >= 80 ? 'text-yellow-400' : 'text-red-400')}>
+                      {fsScore.overallScore}
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Health Inspection Score</div>
+                      <Progress value={fsScore.overallScore} className="h-1.5 w-24 mt-1" />
+                    </div>
+                  </div>
+                  {[
+                    { label: 'Temperature Compliance', value: `${fsScore.temperatureCompliance.toFixed(0)}%`, color: fsScore.temperatureCompliance >= 95 ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Sanitation Compliance', value: `${fsScore.sanitationCompliance.toFixed(0)}%`, color: fsScore.sanitationCompliance >= 90 ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'Critical Violations', value: `${fsScore.criticalViolations}`, color: fsScore.criticalViolations > 0 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Expiring Permits', value: `${fsScore.expiringPermits.length}`, color: fsScore.expiringPermits.length > 0 ? 'text-orange-400' : 'text-green-400' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold', r.color)}>{r.value}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Operational Efficiency */}
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <ClipboardList className="w-3.5 h-3.5 text-blue-400" />Operational Efficiency
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {[
+                    { label: 'Task Completion Rate', value: `${opsEff.taskCompletionRate.toFixed(0)}%`, color: opsEff.taskCompletionRate >= 85 ? 'text-green-400' : 'text-yellow-400' },
+                    { label: 'On-Time Rate', value: `${opsEff.onTimeCompletionRate.toFixed(0)}%`, color: opsEff.onTimeCompletionRate >= 80 ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Critical Missed', value: `${opsEff.criticalTasksMissed}`, color: opsEff.criticalTasksMissed > 0 ? 'text-red-400' : 'text-green-400' },
+                    { label: 'Best Shift', value: opsEff.bestShift, color: 'text-green-400' },
+                    { label: 'Worst Shift', value: opsEff.worstShift, color: 'text-orange-400' },
+                    { label: 'Top Missed Dept', value: opsEff.topMissedCategory, color: 'text-muted-foreground' },
+                  ].map(r => (
+                    <div key={r.label} className="flex justify-between text-xs border-b border-white/5 pb-1 last:border-0">
+                      <span className="text-muted-foreground">{r.label}</span>
+                      <span className={cn('font-semibold capitalize', r.color)}>{r.value || 'N/A'}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Wins & Risks */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />Quick Wins
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {retailExec.quickWins.length === 0
+                    ? <p className="text-xs text-muted-foreground">Log store activity to generate recommendations.</p>
+                    : retailExec.quickWins.map((w,i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <CheckCircle2 className="w-3 h-3 text-green-400 mt-0.5 shrink-0" />
+                        <span className="text-muted-foreground">{w}</span>
+                      </div>
+                    ))
+                  }
+                </CardContent>
+              </Card>
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400" />Risk Areas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {retailExec.topRisks.length === 0
+                    ? <p className="text-xs text-muted-foreground">No active risk flags.</p>
+                    : retailExec.topRisks.map((r,i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
+                        <span className="text-muted-foreground">{r}</span>
+                      </div>
+                    ))
+                  }
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Intelligence Timeline */}
+            {retailTimeline.length > 0 && (
+              <Card className="border-white/10">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-[#00FFE1]" />Intelligence Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-2">
+                  {retailTimeline.slice(0, 8).map(e => (
+                    <div key={e.id} className="flex items-start gap-2 text-xs border-b border-white/5 pb-2 last:border-0">
+                      <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 shrink-0', e.severity === 'critical' ? 'bg-red-400' : e.severity === 'warning' ? 'bg-yellow-400' : 'bg-[#00FFE1]')} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground">{e.title}</div>
+                        <div className="text-muted-foreground truncate">{e.description}</div>
+                      </div>
+                      {e.value && <span className={cn('text-[10px] font-semibold shrink-0', e.severity === 'critical' ? 'text-red-400' : 'text-muted-foreground')}>{e.value}</span>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* ── CTS™ Tab ── */}
+          <TabsContent value="cts" className="space-y-4">
+            <RetailCTSPanel insights={retailCTS} compact={false} />
+            {/* 5-year projection */}
+            <Card className="border-white/10">
+              <CardHeader className="p-3 pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <TrendingUp className="w-3.5 h-3.5 text-purple-400" />Capital Projects & 5-Year Outlook
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 space-y-3">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {retailExec.capitalProjects.map((p,i) => (
+                    <Badge key={i} variant="outline" className="text-xs text-purple-400 border-purple-400/30">{p}</Badge>
+                  ))}
+                </div>
+                {retailExec.fiveYearProjection && (
+                  <div className="p-3 rounded-lg border border-[#00FFE1]/20 bg-[#00FFE1]/5 text-xs text-muted-foreground">
+                    <span className="text-[#00FFE1] font-semibold">5-Year Projection: </span>
+                    {retailExec.fiveYearProjection}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="work-done">
             <WorkDoneTab />
