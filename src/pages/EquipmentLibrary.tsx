@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectGroup, SelectItem,
   SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio, Zap, Camera } from 'lucide-react';
+import { Plus, Search, Edit, Settings, Loader2, Send, Minus, BarChart3, Upload, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, FileText, CalendarClock, Calculator, DollarSign, Radio, Zap, Camera, Activity } from 'lucide-react';
 import EquipmentPhotoPanel from '@/components/equipment/EquipmentPhotoPanel';
 import { getEquipmentPhotos } from '@/lib/equipmentPhotoAnalysis';
 import { apiRequest } from '@/lib/api';
@@ -23,6 +23,9 @@ import { deriveBaseline } from '@/lib/engineeringCalcs';
 import { runHvacAutoDerive, useInlineHvacDerived } from '@/lib/hvacAutoDerive';
 import { LimitBanner, parseLimitError } from '@/components/global/UsageMeter';
 import { ConnectionWizard, ProbeSession } from '@/components/equipment/ConnectionWizard';
+import { ReadingDialog } from '@/components/energy/ReadingDialog';
+import { loadMeters, loadCostConfig } from '@/lib/energy-engine';
+import type { EnergyMeter } from '@/types/energy';
 
 interface Equipment {
   equipmentId: string;
@@ -608,6 +611,8 @@ export default function EquipmentLibrary() {
   const [probeSessions, setProbeSessions] = useState<ProbeSession[]>(() => {
     try { return JSON.parse(localStorage.getItem('nexum_probe_sessions') || '[]'); } catch { return []; }
   });
+  const [quickLogMeter, setQuickLogMeter] = useState<EnergyMeter | null>(null);
+  const [quickLogReadings, setQuickLogReadings] = useState<any[]>([]);
 
   const [activeTab, setActiveTab] = useState<'equipment' | 'analytics' | 'systems' | 'supplies'>('equipment');
   // Analytics tab state
@@ -1829,6 +1834,28 @@ export default function EquipmentLibrary() {
                                   ) : null;
                                 })()}
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-[#00FFE1]/30 text-[#00FFE1] hover:bg-[#00FFE1]/10"
+                                onClick={() => {
+                                  const fid = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
+                                  const energyMeters = loadMeters(fid);
+                                  const eqName = (eq.equipmentName || eq.equipmentType || '').toLowerCase();
+                                  const eqType = (eq.equipmentType || '').toLowerCase();
+                                  const matched = energyMeters.find(m =>
+                                    (m.equipmentServed || '').toLowerCase().includes(eqName) ||
+                                    (m.label || '').toLowerCase().includes(eqType) ||
+                                    (m.equipmentServed || '').toLowerCase().includes(eqType)
+                                  ) || energyMeters[0] || null;
+                                  const fid2 = user?.facilityId || user?.['custom:facilityId'] || 'facility-001';
+                                  const readings = (() => { try { return JSON.parse(localStorage.getItem(`nexum_energy_readings_${fid2}`) || '[]'); } catch { return []; } })();
+                                  setQuickLogReadings(readings);
+                                  setQuickLogMeter(matched);
+                                }}
+                              >
+                                <Activity className="w-4 h-4 mr-2" />Quick Log
+                              </Button>
                             </>
                           )}
                         </div>
@@ -2768,6 +2795,18 @@ export default function EquipmentLibrary() {
           onClose={() => setBaselineModal(null)}
           equipmentId={baselineModal.equipmentId}
           equipmentName={baselineModal.equipmentName}
+        />
+      )}
+      {quickLogMeter && (
+        <ReadingDialog
+          open={!!quickLogMeter}
+          onClose={() => setQuickLogMeter(null)}
+          meter={quickLogMeter}
+          history={quickLogReadings}
+          config={loadCostConfig(user?.facilityId || user?.['custom:facilityId'] || 'facility-001')}
+          facilityId={user?.facilityId || user?.['custom:facilityId'] || 'facility-001'}
+          operator={user?.name || user?.email || 'operator'}
+          onSaved={() => setQuickLogMeter(null)}
         />
       )}
     </MainLayout>
