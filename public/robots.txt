@@ -1,5 +1,14 @@
 User-agent: Googlebot
 Allow: /
+Allow: /pricing
+Allow: /login
+Allow: /welcome
+Disallow: /dashboard
+Disallow: /command-hub
+Disallow: /work-orders
+Disallow: /observations
+Disallow: /equipment-intelligence
+Disallow: /admin
 
 User-agent: Bingbot
 Allow: /
@@ -7,8 +16,13 @@ Allow: /
 User-agent: Twitterbot
 Allow: /
 
+User-agent: LinkedInBot
+Allow: /
+
 User-agent: facebookexternalhit
 Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://portal.nexumsuum-facilityintelligence.com/sitemap.xml

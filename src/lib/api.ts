@@ -114,7 +114,10 @@ export async function apiRequest<T = any>(
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+    const apiAbort = new AbortController();
+    const apiTimeout = setTimeout(() => apiAbort.abort(), 15000);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers, signal: apiAbort.signal });
+    clearTimeout(apiTimeout);
 
     console.log('📡 API Response:', { endpoint, status: response.status, ok: response.ok });
 

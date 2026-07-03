@@ -22,7 +22,8 @@ export type SystemObservationType =
   | 'TIMING_GAP'
   | 'ENVIRONMENTAL_OUTCOME'
   | 'TREND_DRIFT'
-  | 'RECOVERY_ANOMALY';
+  | 'RECOVERY_ANOMALY'
+  | 'VIOLATION_LOGGED';
 
 export type SystemObservationFlag = 'critical' | 'warning' | 'note' | 'pattern' | 'learning';
 
@@ -360,6 +361,11 @@ class ObservationEngineClass {
         this.append([obs]);
       }
     } catch { /* ignore */ }
+  }
+
+  record(obs: SystemObservation): void {
+    this.append([obs]);
+    this.dispatch();
   }
 
   getAll(): SystemObservation[] {
