@@ -27,6 +27,7 @@ import {
   buildRetailCTS, buildRetailExecutiveSummary, buildRetailTimeline,
 } from '@/lib/retail-engine';
 import { RetailCTSPanel } from '@/components/retail/RetailCTSPanel';
+import { TierGate } from '@/components/global/TierGate';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1171,6 +1172,7 @@ export default function RetailDashboard() {
 
           {/* ── Intelligence Tab ── */}
           <TabsContent value="intelligence" className="space-y-6">
+            <TierGate feature="retail_intelligence">
             {/* SPI Banner */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
@@ -1372,10 +1374,12 @@ export default function RetailDashboard() {
                 </CardContent>
               </Card>
             )}
+            </TierGate>
           </TabsContent>
 
           {/* ── CTS™ Tab ── */}
           <TabsContent value="cts" className="space-y-4">
+            <TierGate feature="retail_cts">
             <RetailCTSPanel insights={retailCTS} compact={false} />
             {/* 5-year projection */}
             <Card className="border-white/10">
@@ -1398,6 +1402,7 @@ export default function RetailDashboard() {
                 )}
               </CardContent>
             </Card>
+            </TierGate>
           </TabsContent>
 
           <TabsContent value="work-done">

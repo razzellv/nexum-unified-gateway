@@ -88,6 +88,12 @@ export type TierFeature =
   | 'decision_outcomes'
   // Continuity Intelligence™
   | 'continuity_intelligence'
+  // Retail Intelligence™
+  | 'retail_intelligence'
+  | 'retail_cts'
+  // Property Intelligence™
+  | 'property_intelligence'
+  | 'property_capital_plan'
 ;
 
 export const TIERS: Record<SubscriptionTier, TierConfig> = {
@@ -135,6 +141,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'inventory_library', 'inventory_logger', 'retail_inventory',
       'manager_dashboard', 'supervisor_dashboard', 'messages',
       'energy_dashboard', 'kanban', 'compliance_documents', 'calendar',
+      'property_intelligence',
     ],
   },
   business: {
@@ -157,6 +164,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'advanced_compliance', 'mpcc',
       'facility_memory', 'event_integrity', 'drift_intelligence',
       'system_violations',
+      'property_intelligence', 'property_capital_plan',
     ],
   },
   premium: {
@@ -181,6 +189,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'api_access', 'priority_support', 'audit_report', 'occae',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
       'system_violations', 'dc_vault', 'decision_outcomes', 'continuity_intelligence',
+      'property_intelligence', 'property_capital_plan',
     ],
   },
   enterprise: {
@@ -205,6 +214,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
       'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
+      'property_intelligence', 'property_capital_plan',
     ],
   },
   admin: {
@@ -229,10 +239,12 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'white_label', 'custom_integrations', 'dedicated_manager', 'custom_sla', 'occae',
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
       'waste_tracking', 'supplier_management',
+      'retail_intelligence', 'retail_cts',
       'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
       'response_metrics', 'weapons_inventory', 'compliance_reporting',
       'facility_memory', 'operational_dna', 'event_integrity', 'drift_intelligence',
       'system_violations', 'dc_vault', 'project_controls', 'decision_outcomes', 'continuity_intelligence',
+      'property_intelligence', 'property_capital_plan',
     ],
   },
 
@@ -249,6 +261,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
     features: [
       'inventory_library', 'compliance_logging', 'email_alerts',
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
+      'retail_intelligence',
     ],
   },
   retail_pro: {
@@ -265,6 +278,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
       'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
       'waste_tracking', 'supplier_management', 'compliance_documents', 'manager_dashboard',
       'calendar', 'messages', 'kanban',
+      'retail_intelligence', 'retail_cts',
     ],
   },
 
@@ -328,6 +342,7 @@ export const TIERS: Record<SubscriptionTier, TierConfig> = {
 const RETAIL_ORG_FEATURES: TierFeature[] = [
   'shelf_life_alerts', 'health_inspection_score', 'daily_checklists',
   'waste_tracking', 'supplier_management',
+  'retail_intelligence',
 ];
 const GOVT_ORG_FEATURES: TierFeature[] = [
   'apparatus_tracking', 'personnel_certs', 'chain_of_custody',
@@ -479,4 +494,10 @@ export const FEATURE_TIER: Record<TierFeature, SubscriptionTier> = {
   decision_outcomes:       'premium',
   // Continuity Intelligence™
   continuity_intelligence: 'premium',
+  // Retail Intelligence™
+  retail_intelligence:   'retail_starter',
+  retail_cts:            'retail_pro',
+  // Property Intelligence™
+  property_intelligence: 'standard',
+  property_capital_plan: 'business',
 };

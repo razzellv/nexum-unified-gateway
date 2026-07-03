@@ -25,6 +25,7 @@ import {
 } from '@/lib/property-engine';
 import type { RentRoll, MaintenanceRecord, CapexItem, PropertyCompliance } from '@/types/property';
 import { PropertyCTSPanel } from '@/components/property/PropertyCTSPanel';
+import { TierGate } from '@/components/global/TierGate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -1064,6 +1065,7 @@ export default function PropertyDashboard() {
 
         {/* ── INTELLIGENCE TAB ── */}
         {activeTab === 'intelligence' && (
+          <TierGate feature="property_intelligence">
           <div className="space-y-6">
             {/* Portfolio Health KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1233,10 +1235,12 @@ export default function PropertyDashboard() {
               </Card>
             )}
           </div>
+          </TierGate>
         )}
 
         {/* ── CAPITAL PLAN TAB ── */}
         {activeTab === 'capital-plan' && (
+          <TierGate feature="property_capital_plan">
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
@@ -1328,6 +1332,7 @@ export default function PropertyDashboard() {
               </CardContent>
             </Card>
           </div>
+          </TierGate>
         )}
 
         {/* ── TENANTS TAB ── */}

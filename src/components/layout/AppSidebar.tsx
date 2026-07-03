@@ -146,11 +146,10 @@ const allNavItems: NavItem[] = [
   { name: 'OSHA 300 Log',          href: '/osha-300',             icon: ClipboardList,access: 'leadership',tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Environmental',         href: '/environmental',        icon: Leaf,       access: 'leadership', tier: 'compliance_logging', orgTypes: ['facility', 'government'] },
   { name: 'Consulting Services',   href: '/consulting',           icon: Briefcase,  access: 'leadership' },
-  { name: 'Property Intelligence', href: '/property-dashboard',   icon: Building2,   access: 'leadership', orgTypes: ['facility'] },
+  { name: 'Property Intelligence', href: '/property-dashboard',   icon: Building2,   access: 'leadership', tier: 'property_intelligence', orgTypes: ['facility'] },
   { type: 'separator', name: 'Retail Intelligence™', access: 'all', orgTypes: ['retail'] },
-  { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart, access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
-  { name: 'Field Operations',      href: '/retail-intelligence',  icon: Activity,     access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
-  { name: 'Property Intelligence', href: '/property-dashboard',   icon: Building2,    access: 'all',       tier: 'retail_inventory',   orgTypes: ['retail'] },
+  { name: 'Retail Dashboard',      href: '/retail-dashboard',     icon: ShoppingCart, access: 'all',       tier: 'retail_intelligence', orgTypes: ['retail'] },
+  { name: 'Field Operations',      href: '/retail-intelligence',  icon: Activity,     access: 'all',       tier: 'retail_intelligence', orgTypes: ['retail'] },
 
   // ── Government Intelligence™ ─────────────────────────────────────────────────
   { type: 'separator', name: 'Government Intelligence™', access: 'all', orgTypes: ['government'] },
