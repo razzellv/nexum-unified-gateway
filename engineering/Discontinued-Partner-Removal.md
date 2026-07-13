@@ -20,8 +20,18 @@ The relationships are inactive, the programs are discontinued, and any former-pa
 | Branch | `codex-pag-voltwise-removal` |
 | Production files changed | `src/pages/Pricing.tsx` |
 | Documentation files changed | `engineering/Discontinued-Partner-Removal.md` |
-| Default branch modified | No |
-| Deployed or merged | No |
+| Default branch modified | Yes, through approved PR merge |
+| Pull request | `https://github.com/razzellv/nexum-unified-gateway/pull/9` |
+| Approved source commit | `e2a95d381b854ee4d674a395f5c3aa01a6a45471` |
+| Production merge commit | `00c4ccb930cb5e4c8d76bd88990f85916bb75b77` |
+| Merged timestamp | `2026-07-13T12:16:04Z` |
+| Netlify production deploy ID | `6a54d7069e874000084d32aa` |
+| Netlify production context | `production` |
+| Netlify production state | `ready` |
+| Netlify created timestamp | `2026-07-13T12:16:06.042Z` |
+| Netlify published timestamp | `2026-07-13T12:16:35.051Z` |
+| Production URL | `https://portal.nexumsuum-facilityintelligence.com` |
+| Deployed or merged | Yes |
 
 ## Confirmed Scope
 
@@ -174,11 +184,15 @@ Static verification performed:
 Validation performed:
 
 - `npm run build`: passed.
-- `npm run lint`: failed on existing repository-wide lint debt, including a parse error in `lambda/pilot-admin.mjs` and broad pre-existing `@typescript-eslint/no-explicit-any`, hook dependency, empty-block, and related lint findings outside this removal scope.
+- `npm run lint`: failed on existing repository-wide lint debt during pre-release validation, including a parse error in `lambda/pilot-admin.mjs` and broad pre-existing `@typescript-eslint/no-explicit-any`, hook dependency, empty-block, and related lint findings outside this removal scope.
 - TypeScript type check: no standalone `package.json` script exists; `npx tsc --noEmit` passed.
 - Formatting: no standalone formatting script exists in `package.json`.
 - Local preview route check: `npx vite preview --host 127.0.0.1 --port 4173` served `/pricing` with HTTP 200.
-- Desktop/mobile browser automation: attempted with Playwright, but Chromium launch was blocked by local macOS sandbox permissions (`MachPortRendezvousServer` permission denied). Build, typecheck, source search, and local HTTP route serving still passed.
+- PR deploy preview check: Netlify deploy preview passed for `https://deploy-preview-9--nexum-facility-intelligence.netlify.app`.
+- Production deploy check: Netlify production deploy `6a54d7069e874000084d32aa` reached `ready` for merge commit `00c4ccb930cb5e4c8d76bd88990f85916bb75b77`.
+- Desktop live browser verification passed against `/pricing` on production.
+- Mobile live browser verification passed against `/pricing` on production.
+- Browser console errors during live desktop/mobile verification: none observed.
 
 No unit, integration, component, route, entitlement, or checkout test script is currently defined in `package.json`.
 
@@ -187,6 +201,39 @@ Post-change search results:
 - Production source search (`src`, `lambda`, `public`, `netlify.toml`, `package.json`, `index.html`): no former-partner or discontinued-program matches.
 - Repository-wide search: remaining matches are in this historical engineering document only.
 
+## Production Verification
+
+Production verification was completed on `2026-07-13` after Netlify published deploy `6a54d7069e874000084d32aa`.
+
+Confirmed absent from the rendered production Pricing page on desktop and mobile:
+
+- `Institutional-Scale Programs`
+- `IFRA`
+- `DIGP`
+- `OC3`
+- `CIIP`
+- `Integrated Facility Risk Assessment`
+- `PAG`
+- `VaultMind`
+- `Voltwise`
+- `NodeWatt`
+- `Request Engagement`
+
+Confirmed still present on the rendered production Pricing page on desktop and mobile:
+
+- `Basic`
+- `Standard`
+- `Business`
+- `Prestige`
+- `Retail`
+- `Government`
+- `Property`
+- `Enterprise`
+
+Live production HTTP verification returned `HTTP/2 200` from Netlify for `/pricing` with cache-busted requests. The rendered page loaded without observed browser console errors.
+
 ## Rollback Procedure
 
 Rollback is isolated to reverting the Pricing page edit and this engineering note. No database migration, Cognito change, API Gateway change, IAM change, AWS resource recreation, Stripe record restoration, or production deployment rollback is required by this repository change.
+
+If rollback is required, revert merge commit `00c4ccb930cb5e4c8d76bd88990f85916bb75b77` or restore `src/pages/Pricing.tsx` to the pre-removal version from `main` before PR #9, then redeploy through the standard Netlify production path. Confirm that supported Nexum Suum pricing tiers, checkout paths, and entitlement behavior remain intact after rollback.
